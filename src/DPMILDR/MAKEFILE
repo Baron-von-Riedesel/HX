@@ -1,0 +1,14 @@
+
+!include <..\dirs>
+
+!ifndef DEBUG
+DEBUG = 0
+!endif
+
+ALL:
+    @$(MAKE) -f DPMILD32.MAK DEBUG=$(DEBUG) 
+    @$(MAKE) -f DPMILD16.MAK DEBUG=$(DEBUG) 
+
+clean:
+    @$(MAKE) -f DPMILD32.MAK DEBUG=$(DEBUG) clean
+    @$(MAKE) -f DPMILD16.MAK DEBUG=$(DEBUG) clean

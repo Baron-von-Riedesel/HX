@@ -1,0 +1,467 @@
+///////////////////////////////////////////////////////////////////////////////
+/                                                                             /
+/               DPMILD16 - loader for 16-bit NE binaries                      /
+/                                                                             /
+///////////////////////////////////////////////////////////////////////////////
+
+ 1.  Introduction
+
+     DPMILD16 is HX's loader for 16-bit NE binaries. It supports loading
+     applications and dlls. Usually it is used to run HX DOS-extended
+     applications, but there is also built-in support for loading 16-bit
+     OS/2 binaries in DOS [for this task additional emulation dlls are 
+     required, the essential ones can be found in the HXDEV16 package].
+     
+     DPMILD16 also exports some Win16 KERNEL functions which may simplify
+     using a "standard" 16-bit Windows development tool to create
+     DOS protected-mode applications. GUI functions are not supported. A
+     library called KERNEL16.LIB is supplied with HXDEV16, containing
+     references to all functions exported by DPMILD16.
+     
+     DPMILD16.EXE contains 16-bit code only and therefore should be able
+     to run on a 80286.
+
+
+ 2.  Usage
+ 
+     For HX DOS extended applications DPMILD16 will be launched automatically
+     by a stub added to the binary during the link step. But it is also
+     possible to run DPMILD16 manually:
+     
+     C:\>DPMILD16 <name of binary>
+     
+     File extension ".EXE" may be omitted. If the binary to run is not a
+     valid NE file or is a Win16 GUI application, DPMILD16 will simply call
+     DOS to run it. 
+     
+ 
+ 3.  Environment variable DPMILDR
+
+     By setting the environment variable DPMILDR you can control some aspects
+     of the loader's behaviour. The variable is a number whose individual bits
+     are interpreted as follows:
+
+     - bit 0 (DPMILDR=1): tell the debugger to stop at program entry point.
+       The debugger is notified by an int 41h with AX=0040h and CX:BX=CS:IP.
+       If no debugger is present, this switch has no effect.
+
+     - bit 1 (DPMILDR=2): prevents the loader from moving itself into extended
+       memory. It remains in conventional DOS memory after switching to
+       protected mode.
+
+     - bit 3 (DPMILDR=8): instructs DPMILD16 to load not more than one
+       application. This ensures that the application will use its dlls   
+       exclusively and that it runs in its very own DPMI client. If HDPMI
+       is used as DPMI host and environment variable HDPMI=32 is set as well,
+       the application will indeed run in its very own address space.
+
+     - bit 6 (DPMILDR=64): ignore SEM_NOOPENFILEERRORBOX flag. With this
+       setting the loader will display errors during module loads in any
+       case.
+
+     - bit 8 (DPMILDR=256): try to load NE debug dll DEBUGOUT.DLL
+       at startup. This is mainly for compatibility with older versions,
+       where the loader has tried to load this dll unconditionally.
+
+
+ 4.  Memory Model
+
+     The memory model of DPMILD16.EXE is essentially the same as for
+     16-bit NE binaries in Windows. All segments get a selector and will
+     either be loaded immediately or just when they are used. Physical
+     segments are limited to a maximum size of 64 KB, but there is support
+     for huge segments, which might cover several contiguous 64 kB segments.
+
+     Segment attributes handled by DPMILD16:
+
+     - PRELOAD     segments are loaded before the application starts.
+                   Huge segments will always be preloaded.
+     - LOADONCALL  segments are loaded when the application touches them
+     - MOVEABLE    not used by DPMILD16. Segments might only change their
+                   linear address if they were discarded and then reloaded.
+     - FIXED       segments are always "fixed" with DPMILD16. If both
+                   FIXED and PRELOAD attributes are set, segment will be
+                   loaded in conventional DOS memory (unless OS type is OS/2)
+     - DISCARDABLE segments are removed from memory if DPMILD16 detects an
+                   "out of memory" condition.
+     - MIXED1632   segment will have the 'D' bit set in its descriptor.
+     - ITERATED    segments marked as 'iterated' are somewhat "compressed".
+                   They contain a list of items of the following structure:
+                   WORD: Number of iterations
+                   WORD: size of data to iterate in bytes
+                   <nn>: data
+
+     To allocate DOS memory either DPMI function 0x0101 or DPMILD16's
+     GlobalDosAlloc() emulation might be used.
+
+     If a dll is referenced the first time, its entry point will be called.
+     If this call returns with AX=0, DPMILD16 assumes that the initialization
+     failed and will unload the dll immediately. Otherwise, as in Windows
+     a variable to count the module references is maintained. If the value
+     of this variable becomes 0, the dlls WEP procedure is called - if one
+     exists - and then the dll is unloaded.
+
+
+ 5.  DPMILD16 API
+
+   a)  Int 21h API
+
+     þ Int 21h, AX=4B00h (LoadModule/LoadLibrary): Loads a NE module
+       dynamically.
+       Input:
+         DS:DX - must hold a far16 pointer to the name of the module to
+                 load
+         ES:BX - if an application is to be loaded, these must hold a
+                 far16 pointer to a execute parameter block.
+       Output:
+         AX - if a dll has been loaded returns the module handle
+              (or 0 if an error occured)
+         C - error
+
+       Applications will execute synchronously, like in standard DOS,
+       and the calling application will regain control when the called
+       application has finished. For dlls, the module handle is returned
+       in AX, which is simply the NE module header.
+       The loader will not  try to load applications having OS type 1
+       (16-bit Windows) or 6 (DPMI32) and route such calls to DOS.
+
+       Applications with application type 5 (DPMI16) will be entered
+       with the following register contents:
+
+       - SS,DS = DGROUP
+       - ES = PSP
+       - CX = stack size
+       - BX = heap size
+       - DI = hInstance
+       - BP = 0
+       
+       The application is expected to call DPMILD16's InitTask() export
+       as one of its first tasks.
+       If the application has been patched by tool patchNE with option
+       -r,  DS will contain the selector of the PSP to match the RTM.EXE
+       behaviour. Furthermore, on return of InitTask(), DI will hold the
+       module handle, not the hInstance anymore.
+       
+       Applications marked as OS/2 binaries will find the registers
+       loaded as follows on entry:
+
+       - SS,DS = DGROUP
+       - ES = 0
+       - AX = environment selector
+       - BX = offset of cmdline in environment segment
+       - CX = initial size of DGROUP
+       - DX = stack size
+       - SI = heap size
+       - DI = module handle
+       - BP = 0
+
+     þ Int 21h, AX=4B80h (FreeLibrary): Free a NE module.
+       Input:
+         DX - the handle of the module to free
+       Output:
+         AX - 0 indicates a failure
+
+     þ Int 21h, AX=4B85h (GetProcAddress): Get address of a procedure
+       in a module.
+       Input:
+         BX - holds the module handle
+         CL - determines the type of the export and how DX is interpreted.
+              If CL=1, DX is interpreted as a number. If CL=0, DX is
+              interpreted as offset to a name.
+         DS:DX - points to name of procedure if CL=0.
+       Output:
+         DX:AX - Address of procedure
+
+     þ Int 21h, AX=4B86h (GetModuleFileName): Get a pointer to a
+       module's full path and file name.
+       Input:
+         DX - holds module handle.
+       Output:
+         DX:AX - returns a far address to the module's path.
+         C - error
+
+     þ Int 21h, AX=4B88h (GetModuleHandle16): Get the handle of a
+       NE module.
+       Input:
+         CL - determines the type of the module reference. If CL=0,
+              DX is interpreted as an offset. If CL=1, DX is
+              interpreted as a selector.
+         DS:DX - must point to the name of the module if CL=0.
+       Output:
+         AX - the module handle. AX=0 indicates a failure.
+         DX - holds the module handle of kernel
+
+     þ Int 21h, AX=4B91h: enable/disable loader. This feature may be
+       useful if another 16 bit DPMI clients is to be launched, but
+       requires its own loader (Borland RTM.EXE).
+       Input:
+         BL - contains new state (1=enable, 0=disable).
+
+     þ Int 21h, AX=4B93h (SetErrorMode): Set error mode flag
+       SEM_NOOPENFILEERRORBOX. As default the loader displays
+       error messages if it cannot load a module for some reason.
+       Setting this flag will hide those messages.
+       Input:
+         EDX - new flags.
+
+     þ Int 21h, AX=4B94h: Set new value of variable DPMILDR.
+       Input:
+         CX - mask for the bits to change
+         DX - new values for these bits
+       Output:
+         AX - returns old value of the bits.
+
+
+   b)  Win16 API
+
+       The following Win16 KERNEL functions are exported by DPMILD16:
+
+       AllocCStoDSAlias
+       AllocDStoCSAlias
+       AllocSelector
+       AllocSelectorArray
+       DebugBreak
+       DOS3Call
+       FatalAppExit
+       FatalExit
+       FreeLibrary
+       FreeSelector
+       GetCurrentPDB
+       GetCurrentTask
+       GetDOSEnvironment
+       GetExePtr
+       GetFreeSpace
+       GetModuleFileName
+       GetModuleHandle
+       GetModuleUsage
+       GetPrivateProfileString
+       GetProcAddress
+       GetSelectorBase
+       GetSelectorLimit
+       GetVersion
+       GetWinFlags 
+       GlobalAlloc
+       GlobalCompact
+       GlobalDOSAlloc
+       GlobalDOSFree
+       GlobalFix
+       GlobalFree
+       GlobalHandle
+       GlobalLock
+       GlobalRealloc
+       GlobalSize
+       GlobalUnfix
+       GlobalUnlock
+       InitTask
+       IsTaskLocked
+       LoadLibrary
+       LoadModule
+       LocalAlloc
+       LocalCompact
+       LocalFree
+       LocalInit
+       LocalLock
+       LocalRealloc
+       LocalSize
+       LocalUnlock
+       LockSegment
+       lstrcat
+       lstrcpy
+       lstrlen
+       OutputDebugString
+       PrestoChangoSelector
+       SetErrorMode
+       SetSelectorBase
+       SetSelectorLimit
+       UndefDynLink
+       UnlockSegment
+       WaitEvent
+       WritePrivateProfileString
+       _lclose
+       _lcreat
+       _llseek
+       _lopen
+       _lread
+       _lwrite
+       __0000H
+       __0040H
+       __A000H
+       __AHINCR
+       __AHSHIFT
+       __B000H
+       __B800H
+       __C000H
+       __F000H
+       __WINFLAGS
+
+
+ 6.  Returncodes
+
+     Normally DPMILD16 returns the returncode of the (last) program it
+     has executed. But there are several internal error conditions, which
+     are reported to the caller through the following return codes:
+
+     rc   comment                  possible reasons
+     -----------------------------------------------------------------
+     FB   loader init error        cannot switch CPU in protected mode
+                                   DOS translation services not available
+                                   memory shrink error (in real mode)
+                                   no selectors available
+                                   no extended memory available
+                                   no conventional memory available
+     FC   client init error        no filename supplied
+                                   file not found
+                                   no selectors available
+                                   no extended memory available
+                                   no conventional memory available
+     FD   error in exception 0Bh   no more memory
+                                   error in NE exe file
+     FE   application init error   imports couldn't be resolved
+                                   dll init returns with ax/eax=0
+     FF   fatalexit                application has called FatalExit or
+                                   FatalAppExit
+
+     DPMILD16 always displays an error text to STDERR in these cases.
+
+
+ 7.  Debugging Support
+
+     DPMILD16 supports Int 41h in protected mode. That is, events such as
+     loading a dll, starting a task, loading a segment a.s.o are all
+     reported through calls to Int 41h with AX set appropriately.
+
+
+ 8.  History
+
+ Since DPMILD16 and DPMILD32 share the same code base and many changes
+ affect DPMILD32 only, there exist versions of DPMILD16 without any
+ functional difference compared to the previous version.
+
+ 01.03.2008: version 3.5
+
+ þ bugfix: SI was destroyed if a 16bit dll was loaded.
+ 
+ 15.03.2007: version 3.2.0
+
+ þ bugfix: loading iterated segments may have caused a GPF.
+ þ bugfix: GlobalFree didn't return 0 on success.
+ þ GlobalAlloc no longer limited to sizes < 1 MB if cpu is 80386+. New limit
+   is 512 MB, which comes from the 8192 LDT descriptor limit (64 kB * 8192).
+ þ loader initialization simplified.
+ þ loader available as MZ stub.
+ þ export GlobalDOSFree added.
+ þ GlobalCompact(-1) will remove all discardable segments from memory.
+
+ 14.12.2006: version 3.1.8
+
+ þ bugfix: exports _AHINCR and _AHSHIFT did have wrong ordinals (_AHINCR
+   had the intended _AHSHIFT value and vice versa).
+ þ bugfix: int 21h, ax=4b93h was not handled by DPMILD16 and routed to
+   real-mode (caused problems in DosBox).
+ þ NE dlls reference counter wasn't always updated correctly under some
+   circumstances.
+ þ if a binary to load is linked as OS/2 NE application the loader will call
+   it with a register set expected by OS/2 applications (thanks to ChowGuy
+   who supplied the patch!).
+ þ export GlobalCompact added.
+ þ support for compatibility with Borland's RTM added ("PATCHNE -r").
+ þ implemented support for loading "iterated" segments.
+
+ 15.10.2006: version 3.1.7
+
+ þ exports GetFreeSpace, __C000H, __F000H added.
+
+ 05.09.2006: version 3.1.6
+
+ þ GetMuduleFileName may have caused a GPF if an invalid hModule parameter
+   was given.
+ þ bugfix: GlobalFree modified ES. This should only happen if ES contains
+   the selector of the block which was released (then ES should be set to 0)
+ þ in GlobalRealloc interrupts were disabled by "pushf cli" and restored
+   by testing the pushed flags. Now DPMI functions 0900h and 0901h are used.
+
+ 15.07.2006: version 3.1.5
+
+ þ switch DPMILDR=8 no longer tries to "hide" the DPMI host.
+ þ if DPMILDR=8 is set, the loader will no longer create a child PSP
+   for the application to launch (since there will be just one application).
+ þ int 2F, ax=168Eh (to set the console title in win9x) is now only called
+   if system *is* win9x.
+
+ 14.06.2006: version 3.1.4
+ 15.05.2006: version 3.1.3
+ 02.05.2006: version 3.1.2
+ 30.03.2006: version 3.1.1
+ 27.02.2006: version 3.1.0
+ 05.02.2006: version 3.0.9
+
+ þ error "invalid module handle" no longer displayed if flag
+   SEM_NOOPENFILEBOX is set.
+
+ 20.12.2005: version 3.0.8
+ 06.12.2005: version 3.0.7
+
+ þ DPMILD16 displays to stderr now.
+
+ 24.11.2005: version 3.0.6
+ 18.11.2005: version 3.0.5
+ 01.11.2005: version 3.0.4
+ 21.10.2005: version 3.0.3
+ 28.09.2005: version 3.0.2
+ 19.09.2005: version 3.0.1
+ 05.09.2005: version 3.0.0
+
+ þ bugfix: launching a real-mode app may have failed just because
+   MZ-Hdr contained a "big" value at offset 3Ch.
+ þ bugfix: if an image contained no preloaded segments, it
+   may have caused a crash if it wasn't loaded as the first
+   app.
+
+ 28.08.2005: version 2.9.9
+
+ þ int 21h, ax=4B86h and ax=4B88h implemented
+ þ bugfix: GetModuleFilename didn't work with a HINSTANCE
+ þ check for SS == codesegment extended to DPMILD16. This
+   allows the tiny model (code and data in one group) with
+   DPMILD16 as well.
+
+ 14.08.2005: version 2.9.8
+ 06.08.2005: version 2.9.7
+ 01.08.2005: version 2.9.6
+ 20.07.2005: version 2.9.5
+ 15.07.2005: version 2.9.4
+ 13.07.2005: version 2.9.3
+
+ þ if OS type = OS/2, hold env selector in AX on startup.
+
+ 06.07.2005: version 2.9.2
+
+ þ bugfix: DPMILD16 will now refuse to load a NE app marked as
+   Windows app. This check was implemented long ago, but somehow
+   had disappeared. Now implemented again.
+ þ bugfix: DPMILD16 will now refuse to load a NE app marked as
+   32bit. These are special HX modules loadable by DPMILD32 only.
+ þ module count now updated earlier, so on task entry it should
+   have the correct value already
+ þ if binary type is OS/2, InitTask is called internally before
+   control will be given to the application. This allows OS/2
+   16bit apps to be run with DPMILD16 (if emulation dlls
+   DOSCALLS/VIOCALLS/KBDCALLS exist).
+
+ 27.06.2005: version 2.9.1
+
+ þ bugfix: load error in segment not present exception caused a
+   fatal loader error (loader terminates)
+ þ directory of .EXE added to dll search order (1. place)
+
+ 23.06.2005: version 2.9
+
+ þ bugfix: export LoadModule crashed on return
+ þ bugfix: _AHINRC/_AHSHIFT weren't exported with DM linker
+
+
+ 9.  Copyright
+
+  DPMILD16.EXE is part of HX DOS extender. This extender is freeware.
+  View HXRT.TXT for licence details.
+
