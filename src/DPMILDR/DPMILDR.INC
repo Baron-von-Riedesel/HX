@@ -22,14 +22,13 @@ endif
 ?INT23RES		= 1	;1, restore int 23
 ?INT41SUPPORT	= 1	;1, support Int 41h debugging messages
 ?SUPAPPTITLE	= 1	;1, support for "application title" (win9x only, in rm!)
-?DISABLESERVER	= 0	;0, 1=disable DPMI server for next task (DPMILDR=8)
-					;   since HDPMI=32 exists, this is not needed anymore
+?DISABLESERVER	= 0	;0, 1=disable DPMI server for next task if DPMILDR=8;
+					;   since HDPMI=32 exists, this is now obsolete
 ?SETDTA			= 1	;1, 1=for ?MULTPSP: init DTA to PSP:80 on start
 ?ZEROHIWORDEBP  = 1	;1, 1=if ?32BIT clear hiword(ebp) before 16-bit proc is called.
 					;   this is essentially for ENTER/LEAVE instructions!
 ?32RTMBUG		= 0	;0, 1=repair 32RTM.exe bugs (doesn't work since
-					;   32RTM doesn't know int 21h, ah=00, and I won't
-					;   implement this function by hand)
+					;   32RTM doesn't know int 21h, ah=00
 ?MEMFORKERNEL   = 0	;0, 1=alloc extra memory for KERNEL
 
 if ?32BIT                        
@@ -53,12 +52,11 @@ else
 endif
 
 if ?DEBUG
-_TRACE_ 	equ 1
-;?TRAPINT41	equ 1
+_TRACE_		equ 1
 else
 _TRACE_		equ 0
-;?TRAPINT41	equ 0
 endif
+
 
 HBSEM_NOOPENFILEBOX	equ 80h	;high byte of wErrMode (=SEM_NOOPENFILEBOX)
 
@@ -76,7 +74,7 @@ ENVFL2_LOADDBGOUT	equ 01h	;256  try to load debugout.dll /debugo32.dll
 ;ENVFL2_IGN214B92	equ 02h	;512  ignore int 21h, ax=4b92h requests (module list)
 ENVFL2_USEPREFADDR  equ 04h	;1024 load PE dlls at their prefered load address
 ENVFL2_EXPANDDOWN   equ 08h	;2048 alloc flat DS as expand down
-ENVFL2_128KBSTACK	equ 10h	;4096 restrict stack to 128 kB
+ENVFL2_128KBSTACK	equ 10h	;4096 restrict stack of PE add to 128 kB
 ENVFL2_ALLOWGUI  	equ 20h	;8192 allow GUI apps to be loaded in win dos boxes
 ENVFL2_EARLYGUIHLP  equ 40h	;16384 load hxguihlp before dll initialisation
 
@@ -111,8 +109,6 @@ RC_EXC0B   equ 0FDh	;error in exc 0b handler (usually 16bit only)
 RC_INITAPP equ 0FEh	;error in init application
 RC_FATAL   equ 0FFh	;FatalExit/FatalAppExit called (16bit only)
 
-
-
 ;********** publics/externals **********
 
 _DATA segment
@@ -130,9 +126,10 @@ externdef	szPath:byte
 externdef	segtable:byte
 externdef	fMode:byte
 externdef	wLdrPSP:word
-externdef	wCurPSP:word
+;externdef	wCurPSP:word
 externdef	fLoadMod:byte
 externdef	wEquip:word
+externdef	printproc:word
 if ?32BIT
 externdef	dStktop:dword
 else
@@ -141,7 +138,7 @@ endif
 _DATA ends
 
 _TEXT segment
-SearchNEExport	proto near
+;SearchNEExport	proto near
 checkne			proto near
 strlen			proto near
 Segment2Module	proto near
@@ -151,18 +148,13 @@ GetModuleHandle16 proto near
 SetAppTitle		proto near
 _SetErrorMode	proto near
 SetCmdLine		proto near
-_mycrout		proto near
+cr_out			proto near
 CreatePsp		proto near
 openfile        proto near
 saveint2x		proto near
-printchar		proto near
-stroutstk		proto near
+string_out		proto near stdcall :ptr
+string_out_prefix proto near stdcall :ptr
 doscall			proto near
-_dwordout		proto near		;used if trace on
-_wordout		proto near		;used if trace on
-if ?32BIT
-externdef DWORDOUT:near
-endif
 externdef Segment2ModuleFirst:near
 externdef GetProcAddress16:near
 CallAllLibEntries proto near
@@ -171,7 +163,11 @@ CreateAlias     proto near
 CopyDescriptor  proto near
 stroutBX        proto near
 InitDlls        proto near
-externdef stroutstk_err:near
+if ?32BIT
+externdef dw_2_str:near
+endif
+externdef w_2_str:near
+
 _TEXT ends
 
 ;********** constants and structures ***********
@@ -351,56 +347,18 @@ endif
 
 TASK ends
 
-_TRACEUSED_ = 0   ;internal variable
-
 ;********** Macros **********
 
-;-- define string if not already done
-;-- then push string address onto stack
+;-- define a string
 
-@pushString macro String, bIsDefined
+CStr macro string:vararg
 local NewStr
-  ifnb <bIsDefined>
-    push offset String
-  else
 CCONST   segment
-NewStr  db String
+NewStr  db string
         db 00
 CCONST   ends
-    push offset NewStr
-  endif
-	endm
-
-;-- display a string (define it if not already done)
-
-@strout macro String,bIsDefined
-	@pushString <String>, bIsDefined
-	call stroutstk
-	endm
-
-;--- display string in BX
-
-@stroutbx macro
-	call stroutBX
-	endm
-
-;--- display an error (string as constant or in BX)
-
-@strout_err macro String,bIsDefined
-	ifnb <String>
-		@pushString <String>,bIsDefined
-		call stroutstk_err
-	else
-		call strout_err
-	endif
-	endm
-
-;--- display a new line
-
-@cr_out macro
-	call _mycrout		;;std routine doesnt work with 32bit stack
-	endm
-
+	exitm <offset NewStr>
+endm
 
 @swap macro x,y
 	push x
@@ -472,4 +430,25 @@ else
 endif
 	endm
 
+@condbrk macro what
+ifndef what
+what equ 0
+endif
+endm
+
+	@condbrk _INT01PGMENTRY_	;1=int 01 on program entry (obsolete)
+	@condbrk _INT03PGMEXIT_		;0 1=int 03 on program termination
+	@condbrk _INT03RETEXEC_		;0 1=int 03 after int 21h, ax=4B00h
+	@condbrk _INT03NAMEIMP_		;0 1=int 03 on a "reference by name"
+	@condbrk _INT03JMPPM_		;0 1=int 03 after initial switch to protected mode
+	@condbrk _INT03REALLOC_		;0 1=int 03 on realloc memory block
+	@condbrk _TESTIMPORT_		;0 1=display debug msg on relocation fixups
+
+@int3 macro x	;conditional break
+if x
+	int 3
+endif
+endm
+
+;-------------------------
 

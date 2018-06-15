@@ -56,12 +56,14 @@
 	option proc:private
 	option casemap:none
 
-_TEXT segment word use16 public 'CODE'
+_TEXT segment dword use16 public 'CODE'
 _TEXT ends
 CCONST segment word use16 public 'CODE'
 CCONST ends
 _DATA segment word use16 public 'DATA'
 _DATA ends
+_ITEXT segment word use16 public 'DATA'
+_ITEXT ends
 _BSS segment word use16 public 'BSS'
 _BSS ends
 STACK segment para use16 stack  'STACK'
@@ -70,7 +72,7 @@ STACK ends
 ;TIBSEG segment para use16
 ;TIBSEG ends
 
-DGROUP group _TEXT,CCONST,_DATA,_BSS,STACK
+DGROUP group _TEXT,CCONST,_DATA,_ITEXT,_BSS,STACK
 
 	assume CS:DGROUP
 	assume DS:DGROUP
@@ -83,11 +85,11 @@ DGROUP group _TEXT,CCONST,_DATA,_BSS,STACK
 ;--- see mzhdr32.inc for details
 
 	include ascii.inc
-	include function.inc
+;	include function.inc
 	include dpmildr.inc
-	include debug.inc
+	include trace.inc
 	include winnt.inc
-	include winerror.inc
+;	include winerror.inc
 	include mzhdr32.inc
 	include peload.inc
 	include debugsys.inc
@@ -263,11 +265,7 @@ endif
 	jc error
 	mov eax,esi
 exit:
-	@trace_s <"LoadModule32 exit, eax=">
-	@trace_d eax
-	@trace_s <" fs=">
-	@trace_w fs
-	@trace_s <lf>
+	@printf <"LoadModule32 exit, eax=%lX fs=%X",lf>, eax, fs
 	mov esp,ebp
 	pop ebp
 	ret
@@ -278,6 +276,8 @@ LoadModule32 endp
 
 ;--- display error message in AX
 
+dpmildrout proto
+
 error_ax_out:
 	movzx esi, ax
 	and ax, ax				;error message?
@@ -285,10 +285,10 @@ error_ax_out:
 	test byte ptr cs:[wErrMode+1], HBSEM_NOOPENFILEBOX
 	jnz @F
 	push ax
-	@strout <"dpmild32: ">
+	call dpmildrout
 	call printname
-	@strout <": ">
-	call stroutstk			;print string in [esp] (WORD)
+	invoke string_out, CStr(<": ">)
+	call string_out			;print string in [esp] (WORD)
 @@:
 	mov ax,000Bh			;"invalid format"
 nomsg:
@@ -418,9 +418,7 @@ if ?CHECKCROSSREFS
 	and [esi].MZHDR.bFlags,not FPE_CROSSREF
 endif
 @@:
-	@trace_s <"SearchPEModule: module found, handle=">
-	@trace_d esi
-	@trace_s <lf>
+	@printf <"SearchPEModule: module found, handle=%lX",lf>, esi
 	add esi,[esi].MZHDR.ofsPEhdr
 if ?LFN
 	pop esp
@@ -436,9 +434,9 @@ SearchMod32_2:
 	jmp SearchMod32_1		;---->
 SearchMod32_er:
 if 0
-	@strout <"dpmild32: module not found ">
+	invoke string_out_prefix, CStr(<"module not found ">)
 	call printname
-	@cr_out
+	call cr_out
 endif
 if ?LFN
 	pop esp
@@ -456,7 +454,7 @@ printname proc uses ds esi
 	lods byte ptr [esi]
 	and al,al
 	jz done
-	call printchar
+	call cs:printproc
 	jmp @B
 done:
 	ret
@@ -631,15 +629,9 @@ endif
 	jc error41
 	sub eax,ecx
 	jnz error51
-if 1
-	@trace_s <"MZ addr=">
-	@trace_d edx
-	@trace_s <" magic bytes=">
-	@trace_d dword ptr [edx]
-	@trace_s <" ptr PE=">
-	@trace_d dword ptr [edx+3Ch]
-	@trace_s <lf>
-endif
+
+	@printf <"LoadPEModule: MZ addr=%lX magic bytes=%lX ptr PE=%lX",lf>,edx,dword ptr [edx],dword ptr [edx+3Ch]
+
 	mov dword ptr [edx].MZHDR.wCnt, eax	;count + flags init
 	mov [edx].MZHDR.dwStack,eax
 	push edx
@@ -679,11 +671,9 @@ if ?USESTACK
 	jnz error52
 	mov edx, esp
 endif
-if 1
-	@trace_s "PE magic bytes="
-	@trace_d dword ptr [edx]
-	@trace_s <lf>
-endif
+
+	@printf <"LoadPEModule: PE magic bytes=%lX",lf>, dword ptr [edx]
+
 if ?NOGUIAPPS
 	test [edx].IMAGE_NT_HEADERS.FileHeader.Characteristics,IMAGE_FILE_DLL
 	jnz isdll1
@@ -718,11 +708,7 @@ if ?NOGUIAPPS
 	jnc @F
 	mov [edx].IMAGE_NT_HEADERS.OptionalHeader.SizeOfStackReserve, eax
 @@:
-	@trace_s "pTaskStk="
-	@trace_w cs:[wTDStk]
-	@trace_s " wEnvFlags="
-	@trace_w cs:wEnvFlgs
-	@trace_s <lf>
+	@printf <"LoadPEModule: pTaskStk=%X DPMILDR=%X",lf>, cs:[wTDStk], cs:wEnvFlgs
 	cmp cs:[wTDStk],offset starttaskstk
 	jz @F
 	test cs:bEnvFlgs, ENVFL_LOAD1APPONLY
@@ -767,11 +753,9 @@ if ?USESTACK
 	jmp allocok
 UseStdAlloc:
   endif
-  if 1
-	@trace_s <"image size=">
-	@trace_d eax
-	@trace_s <lf>
-  endif
+
+	@printf <"LoadPEModule: image size=%lX",lf>,eax
+
 	push eax
 	pop cx
 	pop bx
@@ -784,11 +768,9 @@ UseStdAlloc:
 	push cx
 	pop edi
 allocok:
-  if 1
-	@trace_s <"image memory base=">
-	@trace_d edi
-	@trace_s <lf>
-  endif
+
+	@printf <"LoadPEModule: image memory base=%lX",lf>, edi
+
 ;	mov es,cs:[wFlatDS]
 	lea esi, [esp+sizeof IMAGE_NT_HEADERS]
 	mov ecx, 40h/4			;copy MZ header
@@ -811,8 +793,8 @@ allocok:
 	mov bx,hFile
 endif	;?USESTACK
 
-	@trace_s <"reading object table",lf>
 ;--------------------------------- now read object table
+	@printf <"LoadPEModule: reading object table, # of sections=%X",lf>, [edx].IMAGE_NT_HEADERS.FileHeader.NumberOfSections
 	push edx
 	movzx eax, [edx].IMAGE_NT_HEADERS.FileHeader.NumberOfSections
 	mov ecx, sizeof IMAGE_SECTION_HEADER
@@ -826,7 +808,7 @@ endif	;?USESTACK
 	cmp eax,ecx
 	jnz error53
 
-	@trace_s <"reading object table done",lf>
+	@printf <"LoadPEModule: reading object table done, size=%lX",lf>, eax
 	lea eax, [eax+edi+sizeof MZHDR]
 	sub eax, edx
 	mov [edx - sizeof MZHDR].MZHDR.pExeNam, eax 	;is a RVA
@@ -862,11 +844,9 @@ else
 endif
 ;----------------------------- save module name
 
-if 1
-	@trace_s <"header in edx=">
-	@trace_d edx
-	@trace_s <lf>
-endif
+
+	@printf <"LoadPEModule: header in edx=%lX",lf>,edx
+
 	mov edi, eax
 
 	add edi, [edx - sizeof MZHDR].MZHDR.pExeNam
@@ -894,11 +874,8 @@ if ?LDRHEAP
 endif
 
 	mov esi, edx
-if 1
-	@trace_s <"header in esi=">
-	@trace_d esi
-	@trace_s <lf>
-endif
+
+	@printf <"LoadPEModule: header in esi=%lX",lf>, esi
 
 ;----------------------------- read rest of image
 
@@ -989,9 +966,7 @@ endif
 	push ds
 	pushad
 	lea eax,[esi-sizeof MZHDR]		;hModule
-	@trace_s <"load PE app, handle=">
-	@trace_d eax
-	@trace_s lf
+	@printf <"LoadPEModule: load PE app, handle=%lX",lf>, eax
 	mov ds,cs:[wLdrDS]
 	mov si,[wTDStk]
 	mov [si].TASK.dwModul,eax
@@ -1014,15 +989,11 @@ endif
 	mov ebx,rEBX
 	call SetCmdLine
 	pop es
-	@trace_s <"task is ">
-	@trace_w si
-	@trace_s <" modul=">
-	@trace_d [si].TASK.dwModul
 if ?MULTPSP
-	@trace_s <" psp=">
-	@trace_w [si].TASK.wPSP
+	@printf <"LoadPEModule: task=%X modul=%lX psp=%X",lf>, si, [si].TASK.dwModul, [si].TASK.wPSP
+else
+	@printf <"LoadPEModule: task=%X modul=%lX",lf>, si, [si].TASK.dwModul
 endif
-	@trace_s lf
 	add si,size TASK
 	mov [wTDStk],si
 	popad
@@ -1071,7 +1042,7 @@ if ?PEX64ERROR
 	jmp error
 endif
 error61:
-	@trace_s <"dpmild32: will skip binary loading (no 80386, GUI or DPMILDR=8)",lf>
+	@trace_s <"LoadPEModule: error, will skip binary loading (no 80386, GUI or DPMILDR=8)",lf>
 	xor ax, ax
 	jmp error
 error51:
@@ -1173,9 +1144,7 @@ AddModuleToAppModList endp
 DeleteModuleFromAppModList proc uses esi
 
 if ?LDRHEAP
-	@trace_s <"dpmild32, DeleteModuleFromAppModList enter ">
-	@trace_d esi
-	@trace_s <lf>
+	@printf <"dpmild32, DeleteModuleFromAppModList enter, esi=%lX",lf>, esi
 	call SearchModuleInAppModList
 	jc notfound
 	mov ax,[edx].MZHDR.wCnt		;get current count (already decremented!)
@@ -1190,11 +1159,11 @@ if ?LDRHEAP
 	and eax,eax
 	jnz @B
 found:
-	@trace_s <"dpmild32, DeleteModuleFromAppModList exit with C",lf>
+	@trace_s <"DeleteModuleFromAppModList: exit with C",lf>
 	stc
 	ret
 notfound:
-	@trace_s <"dpmild32, DeleteModuleFromAppModList exit with NC",lf>
+	@trace_s <"DeleteModuleFromAppModList: exit with NC",lf>
 	clc
 else
 	stc
@@ -1285,8 +1254,7 @@ if ?CHECKCROSSREFS
 	jnz exit
 endif
 	inc [esi-sizeof MZHDR].MZHDR.wCnt	;increment counter 
-	@trace_s <"InitPEModule, handle=">
-	@trace_d esi
+	@printf <"InitPEModule, handle=%lX">, esi
 if _TRACE_
 	@trace_s <" ">
 	lea ebx,[esi-sizeof MZHDR]
@@ -1330,9 +1298,7 @@ endif
 	mov eax,[esi].IMAGE_NT_HEADERS.OptionalHeader.AddressOfEntryPoint
 	and eax,eax
 	jz exit
-	@trace_s <"calling dll entry, module=">
-	@trace_d esi
-	@trace_s <lf>
+	@printf <"InitPEModule: calling dll entry, module=%lX, entry=%lX",lf>, esi, eax
 
 if ?FLATES
 	push es
@@ -1397,11 +1363,7 @@ if ?FLATES
 endif
 	movzx edx,dx
 	movzx ecx,cx
-	@trace_s <"returned from dll entry, eax=">
-	@trace_d eax
-	@trace_s <" fs=">
-	@trace_w fs
-	@trace_s lf
+	@printf <"InitPEModule: returned from dll entry, eax=%lX fs=%X",lf>, eax, fs
 	cmp eax,1
 ;	jnz error_dll_initfailed
 	jc error_dll_initfailed
@@ -1432,13 +1394,13 @@ endif
 	push ds
 	pop ss
 	mov esp, eax
-	@trace_s <"stack switched to 32bit",lf>
+	@printf <"InitPEModule: stack switched to %lX",lf>, eax
 	xor edx, edx
 	push edx			;make room for 2 dwords!
 	push edx
 
 if 1
-	mov ax,0901h
+	mov ax,0901h		;enable interrupts
 	int 31h
 ;	sti
 endif
@@ -1474,31 +1436,15 @@ if 0
 	mov byte ptr [esi+0012h],0
 endif
 
-if ?DEBUG
-	@trace_s <"PE/PX app starting, handle=">
-	@trace_d esi
-	@trace_s <", ds/ss/es=">
-	@trace_w ds
-	@trace_s <":">
+if _TRACE_
 	mov ax, ds
 	lar eax, eax
 	shr eax,8
-	@trace_w ax
-	@trace_s <",cs=">
-	@trace_w cx
-	@trace_s <":">
+	@printf <"InitPEModule: app starting, handle=%lX, ds/es/ss=%X(%X)">, esi, ds, ax
 	mov ax, cx
 	lar eax, eax
 	shr eax,8
-	@trace_w ax
-	@trace_s <" fs=">
-	@trace_w fs
-	@trace_s <lf,"esp=">
-	@trace_d esp
-	@trace_s <",eip=">
-	@trace_d ebx
-	@trace_s <lf>
-	@trace_s <lf>
+	@printf <",cs=%X(%X) fs=%X eip=%lX esp=%lX",lf,lf>, cx, ax, fs, ebx, esp
 endif
 
 	mov edi,cs:[dwBase]
@@ -1576,7 +1522,8 @@ LoadImage proc uses edi ebp es
 
 if ?INT41SUPPORT
 	sub esp, sizeof D386_Device_Params
-	@loadesp ebp
+	;@loadesp ebp
+	mov ebp,esp
 	mov [ebp].D386_Device_Params.DD_logical_seg,0
 	mov dword ptr [ebp].D386_Device_Params.DD_name,0
 	mov word ptr [ebp].D386_Device_Params.DD_name+4,0
@@ -1586,9 +1533,7 @@ if ?INT41SUPPORT
 	mov dword ptr [ebp].D386_Device_Params.DD_sym_name,edi
 	mov word ptr [ebp].D386_Device_Params.DD_sym_name+4,ds
 endif
-	@trace_s <"LoadImage start, header=">
-	@trace_d esi
-	@trace_s <lf>
+	@printf <"LoadImage start, header=%lX",lf>, esi
 
 	movzx edi, [esi].IMAGE_NT_HEADERS.FileHeader.SizeOfOptionalHeader
 	lea edi,[esi + edi + sizeof IMAGE_FILE_HEADER + 4]
@@ -1599,15 +1544,11 @@ nextsection:
 	push cx
 	push edx
 
-	@trace_s <"LoadImage base=">
-	@trace_d [edi.IMAGE_SECTION_HEADER.VirtualAddress]
-	@trace_s <" length=">
-	@trace_d [edi].IMAGE_SECTION_HEADER.Misc.VirtualSize
-	@trace_s <" rawdata=">
-	@trace_d [edi.IMAGE_SECTION_HEADER.PointerToRawData]
-	@trace_s <" size=">
-	@trace_d [edi.IMAGE_SECTION_HEADER.SizeOfRawData]
-	@trace_s <lf>
+	@printf <"LoadImage base=%lX length=%lX rawdata=%lX size=%lX",lf>,\
+		[edi].IMAGE_SECTION_HEADER.VirtualAddress,\
+		[edi].IMAGE_SECTION_HEADER.Misc.VirtualSize,\
+		[edi].IMAGE_SECTION_HEADER.PointerToRawData,\
+		[edi].IMAGE_SECTION_HEADER.SizeOfRawData
 
 if ?SKIPCOMMENTS
 	test byte ptr [edi].IMAGE_SECTION_HEADER.Characteristics+3, 0E0h ;is is read/write/exec?
@@ -1727,15 +1668,7 @@ endif
 			jz @F
 			inc ecx
 @@:
-			@trace_s <"SetSecAttr ">
-			@trace_d esi
-			@trace_s <", ">
-			@trace_d ebx
-			@trace_s <", pgs=">
-			@trace_d ecx
-			@trace_s <", es=">
-			@trace_w es
-			@trace_s lf
+			@printf <"SetSecAttr mod=%lX, VA=%lX, pgs=%lX read-only",lf>, esi, ebx, ecx
 			push es
 ;----------------------------- we cannot assume that SS is flat here
 			push ss
@@ -1832,14 +1765,12 @@ se_01:
 	pop ebp
 	ret
 notfound:
-	@trace_s <"*** SearchExportByName '">
-if ?DEBUG
+if _TRACE_
 	push ebx
 	mov ebx,[ebp-4]
-	call _trace_s_bx
+	@printf <"*** SearchExportByName '%lS' failed",lf>, ebx
 	pop ebx
 endif
-	@trace_s <"' failed",lf>
 	stc
 	mov eax,[ebp-4]
 	mov esp,ebp
@@ -1894,7 +1825,7 @@ error:							;convert EAX to a string
 	push ds
 	mov ds,cs:[wLdrDS]
 	mov di, offset segtable		;use segtable for the string
-	call DWORDOUT
+	call dw_2_str
 	mov byte ptr [di],0
 	mov eax, [dwBase]			;now let EAX point to that string
 	pop ds
@@ -1910,7 +1841,7 @@ stringout32 proc uses esi
 	lods byte ptr [esi]
 	and al,al
 	jz @F
-	call printchar
+	call cs:printproc
 	jmp @B
 @@:
 	ret
@@ -1949,9 +1880,9 @@ nextitem:
 	jnz @F
 	test byte ptr cs:[wErrMode+1],HBSEM_NOOPENFILEBOX
 	jnz @F
-	@strout <"dpmild32: import not found: ">
+	invoke string_out_prefix, CStr(<"import not found: ">)
 	call stringout32			;eax -> string
-	@cr_out
+	call cr_out
 @@:
 	mov eax,cs:dwBase
 	add eax,offset UnresolvedImp
@@ -1967,10 +1898,8 @@ exit:
 	jz @F
 	test cs:bEnvFlgs, ENVFL_IGNUNRESIMP
 	jnz @F
-	@trace_s <"*** ResolveImports ">
-	@trace_d ebx
-	@trace_s <" failed ***",10>
-	mov ax,offset szErrPE6		;'cannot resolve imports'
+	@printf <"*** ResolveImports %lX failed ***",lf>, ebx
+	mov ax, offset szErrPE6		;'cannot resolve imports'
 	stc
 @@:
 	ret
@@ -1985,7 +1914,7 @@ UnresolvedImp:
 urCS dw 0
 
 Unres16 proc
-	@strout_err <"unresolved import called",13,10>
+	invoke string_out_prefix, CStr(<"unresolved import called",cr,lf>)
 	int 3
 	mov ax,4C00h + RC_INITAPP
 	int 21h
@@ -2004,9 +1933,7 @@ DoImports proc uses edi ebx
 
 	mov ecx,[esi].IMAGE_NT_HEADERS.OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_IMPORT*sizeof IMAGE_DATA_DIRECTORY].Size_
 
-	@trace_s <"DoImports esi=">
-	@trace_d esi
-	@trace_s <lf>
+	@printf <"DoImports esi=%lX",lf>,esi
 
 if ?DEBUG
 	and ecx, ecx
@@ -2017,17 +1944,11 @@ endif
 	mov edi,[esi].IMAGE_NT_HEADERS.OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_IMPORT*sizeof IMAGE_DATA_DIRECTORY].VirtualAddress
 	lea ebx,[esi-sizeof MZHDR]
 	add edi,ebx
-	@trace_s <"DoImports ebx=">
-	@trace_d ebx
-	@trace_s <lf>
+	@printf <"DoImports ebx=%lX",lf>, ebx
 	.while (1)
 		mov edx,[edi].IMAGE_IMPORT_DESCRIPTOR.Name_
 		.break .if (!edx)
-		@trace_s <"DoImports, hModule=">
-		@trace_d ebx
-		@trace_s <" name=">
-		@trace_d edx
-		@trace_s <lf>
+		@printf <"DoImports, hModule=%lX name=%lX",lf>, ebx, edx
 		add edx,ebx
 ;;		mov eax,[edi.IMAGE_IMPORT_DESCRIPTOR.OriginalFirstThunk]	;import lookup table rva
 if ?SEARCHMODINIMP
@@ -2045,14 +1966,10 @@ endif
 		call LoadModule32
 		jmp s1
 @@:
-		@trace_s <"DoImports, int 21h, ax=4b00, edx=">
-		@trace_d edx
-		@trace_s <lf>
+		@printf <"DoImports, int 21h, ax=4b00, edx=%lX",lf>, edx
 		mov ax,4B00h					;load module, search in PATH
 		int 21h
-		@trace_s <"DoImports, int 21h returned, fs=">
-		@trace_w fs
-		@trace_s <lf>
+		@printf <"DoImports, int 21h returned, fs=%X",lf>, fs
 s1:
 		pop ebx
 		pop esi
@@ -2075,34 +1992,31 @@ error1:
 	mov ax,offset szErrPE8
 @@:
 ;	call fileout		;display file in ds:edx
-	@trace_s <"*** DoImports failed, esi=">
-	@trace_d esi
-	@trace_s <" ***",10>
+	@printf <"*** DoImports failed, esi=%lX ***",lf>, esi
 	stc
 	ret
 DoImports endp
 
 ;*** print "dpmild32: file xxxx.xxx<CR><LF>"
 ;--- file in ds:edx
+;--- modifies edx
 
 fileout proc uses ax
 	test byte ptr cs:[wErrMode+1],HBSEM_NOOPENFILEBOX
 	jnz done
 	push ds
 	mov ds,cs:[wLdrDS]
-	@strout <"dpmild32: file ">
+	invoke string_out_prefix, CStr(<"file ">)
 	pop ds
 @@:
 	mov al,[edx]
 	and al,al
 	jz @F
-	push edx
-	call printchar
-	pop edx
+	call cs:printproc
 	inc edx
 	jmp @B
 @@:
-	@cr_out
+	call cr_out
 done:
 	ret
 fileout endp
@@ -2134,11 +2048,8 @@ DoFixups proc uses edi esi ebx ebp
 	mov esi, [esi].IMAGE_NT_HEADERS.OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_BASERELOC*sizeof IMAGE_DATA_DIRECTORY].VirtualAddress
 	add esi,edx
 nextblock:						;<---
-	@trace_s <"DoFixups block=">
-	@trace_d [esi].IMAGE_BASE_RELOCATION.VirtualAddress
-	@trace_s <" size=">
-	@trace_d [esi].IMAGE_BASE_RELOCATION.SizeOfBlock
-	@trace_s <lf>
+	@printf <"DoFixups block=%lX size=%lX",lf>, [esi].IMAGE_BASE_RELOCATION.VirtualAddress,\
+		[esi].IMAGE_BASE_RELOCATION.SizeOfBlock
 
 	mov edi, [esi].IMAGE_BASE_RELOCATION.VirtualAddress
 	cmp edi, ebp
@@ -2526,7 +2437,7 @@ done:
 SetModuleStart endp
 
 FreeLibrary32 proc
-	@trace_s <"dpmildr, entry FreeLibrary32",lf>
+	@trace_s <"FreeLibrary32: enter",lf>
 	mov eax,edx
 	call FreeModule32
 	ret
@@ -2586,13 +2497,7 @@ nextitem:
 	and eax,eax
 	jz done
 	push ebx
-	@trace_s <"entry: ">
-	@trace_d eax
-	@trace_s <" ">
-	@trace_w [esi].MODLISTITEM.wCnt
-	@trace_s <"/">
-	@trace_w [eax].MZHDR.wCnt
-	@trace_s <" ">
+	@printf <"entry: %lX %X/%X ">, eax, [esi].MODLISTITEM.wCnt,[eax].MZHDR.wCnt
 	mov ebx, eax
 	call modulenameout
 	pop ebx
@@ -2640,7 +2545,7 @@ IsReferenced endp
 FreeDynLoadedModules proc
 
 if ?LDRHEAP
-	@trace_s <"dpmild32, entry FreeDynLoadedModules",lf>
+	@trace_s <"FreeDynLoadedModules: entry",lf>
 	pushad
 if _TRACE_
 	call DispDynLoadedTab
@@ -2684,7 +2589,7 @@ endif
 	jnz newscan
 done:
 	popad
-	@trace_s <"dpmild32, exit FreeDynLoadedModules",lf>
+	@trace_s <"FreeDynLoadedModules: exit",lf>
 endif
 	ret
 FreeDynLoadedModules endp
@@ -2729,21 +2634,19 @@ FreeModule32 proc stdcall public uses esi edi ebx
 	mov ds,cs:[wFlatDS]
 	push ds
 	pop es
-	@trace_s <"dpmild32, entry FreeModule32 ">
-	@trace_d eax
-	@trace_s <lf>
+	@printf <"FreeModule32: entry FreeModule32 hdl=%lX",lf>, eax
 	mov edx,eax
 	call SearchModuleInList
 if _TRACE_
 	.if (CARRY?)
-		@trace_s <"dpmild32, module NOT found in module list",lf>
+		@trace_s <"FreeModule32: module NOT found in module list",lf>
 		jmp exit
 	.endif
 else
 	jc exit
 endif
 	mov ebx,eax
-	@trace_s <"dpmild32, module found in module list",lf>
+	@trace_s <"FreeModule32: module found in module list",lf>
 if _TRACE_
 	call modulenameout
 endif
@@ -2753,11 +2656,11 @@ endif
 ife ?EARLYMODLISTUPDATE
 	call UnlinkPEModule			;remove module EBX from list
 endif
-	@trace_s <"dpmild32, calling FreeReferencedModules",lf>
+	@trace_s <"FreeModule32: calling FreeReferencedModules",lf>
 	mov ax,1
 	call SetTaskFlags
 	call FreeReferencedModules	;input ESI, modifies EDI
-	@trace_s <"dpmild32, calling FreeDynLoadedModules",lf>
+	@trace_s <"FreeModule32: calling FreeDynLoadedModules",lf>
 	call FreeDynLoadedModules	;preserves all registers
 if ?EARLYMODLISTUPDATE		  
 	call UnlinkPEModule			;remove ebx=handle from list
@@ -2774,11 +2677,7 @@ endif
 
 FreeDll32:
 
-if _TRACE_
-	@trace_s <"dpmild32: dec count ">
-	@trace_w [ebx].MZHDR.wCnt
-	@trace_s <lf>
-endif
+	@printf <"FreeModule32: dec count %X",lf>, [ebx].MZHDR.wCnt
 if ?CHECKCROSSREFS
 	test [ebx].MZHDR.bFlags,FPE_CROSSREF
 	jnz exit
@@ -2800,7 +2699,7 @@ endif
 	and eax,eax
 	jz fl_3
 if _TRACE_
-	@strout <"dpmild32: call dll detach for ">
+	invoke string_out_prefix, CStr(<"call dll detach for ">)
 	call modulenameout
 endif
 if ?FLATES
@@ -2881,7 +2780,7 @@ endif
 ;----------------------------------- code common for apps + dlls
 fl_exx:
 if 0
-	@strout <"dpmild32: free module ">
+	invoke string_out_prefix, CStr(<"free module ">)
 	call modulenameout
 endif
 if ?INT41SUPPORT
@@ -2902,9 +2801,7 @@ endif
 	loop @B
 	pop bx
 endif
-	@trace_s <"dpmild32, FreeModule32, about to free module memory=">
-	@trace_d [ebx].MZHDR.hImage
-	@trace_s <lf>
+	@printf <"FreeModule32: about to free module memory=%lX",lf>, [ebx].MZHDR.hImage
 	push [ebx].MZHDR.hImage
 if 0
 	test cs:fMode, FMODE_DOSEMU
@@ -2951,15 +2848,12 @@ exit:
 FreeModule32 endp
 
 if _TRACE_
-_trace_s_bx proto near
 modulenameout proc
-	push ebx
-	add ebx,[ebx].MZHDR.pExeNam
-	call _trace_s_bx
-	pop ebx
-	@trace_s <" ">
-	@trace_w [ebx.MZHDR.wCnt]
-	@trace_s <lf>
+	push eax
+	mov eax, ebx
+	add eax,[ebx].MZHDR.pExeNam
+	@printf <"module %lS cnt=%X",lf>, eax, [ebx.MZHDR.wCnt]
+	pop eax
 	ret
 modulenameout endp
 endif
@@ -3153,6 +3047,10 @@ exit:
 Init4G endp
 endif
 
+_TEXT ends
+
+_ITEXT segment
+
 ;--- this is called on initialization
 
 InitPELoader proc stdcall public
@@ -3230,6 +3128,9 @@ exit:
 	ret
 InitPELoader endp
 
+_ITEXT ends
+_TEXT segment
+
 DeinitPELoader proc stdcall public
 	mov ax,1
 if ?DOS4GMEM
@@ -3278,9 +3179,9 @@ DeinitPELoader endp
 savepathPE proc uses es esi
 
 	mov es, cs:[wLdrDS]
-	mov di,offset szPath
-	mov edx,[esi.MZHDR.pExeNam - sizeof MZHDR]
-	lea esi,[esi+edx - sizeof MZHDR]
+	mov di, offset szPath
+	mov edx, [esi.MZHDR.pExeNam - sizeof MZHDR]
+	lea esi, [esi+edx - sizeof MZHDR]
 savepath0:
 	mov dx,di
 savepath1:
@@ -3294,11 +3195,7 @@ savepath1:
 	jnz savepath1
 	mov di,dx
 	stosb
-if _TRACE_
-	@trace_s <"savepathPE: szPath=">
-	@strout <offset szPath>, 1
-	@trace_s <lf>
-endif
+	@printf <"savepathPE: szPath=%S",lf>, offset szPath
 	ret
 savepathPE endp
 

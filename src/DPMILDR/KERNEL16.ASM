@@ -29,28 +29,6 @@ WF_CPU486	equ 8
 WF_STANDARD equ 10h
 WF_ENHANCED	equ 20h
 
-
-_TEXT segment word public 'CODE'
-_TEXT ends
-CCONST segment word public 'CODE'
-CCONST ends
-_DATA segment word public 'DATA'
-_DATA ends
-
-	include ascii.inc
-	include dpmi.inc
-	include fixups.inc
-	include dpmildr.inc
-	include kernel16.inc
-	include debug.inc
-	include debugsys.inc
-	include version.inc
-
-_ITEXT segment word public 'DATA'	;use 'DATA' (OPTLINK bug)
-_ITEXT ends
-
-DGROUP group _TEXT,CCONST,_DATA,_ITEXT
-
 @entercriticalsection macro
 if 1
 	mov ax,0900h
@@ -87,6 +65,24 @@ else
 	pop ax
 endif
 	endm
+
+
+_TEXT segment dword public 'CODE'
+_TEXT ends
+CCONST segment word public 'CODE'
+CCONST ends
+_DATA segment word public 'DATA'
+_DATA ends
+
+	include ascii.inc
+	include dpmildr.inc
+	include kernel16.inc
+	include trace.inc
+
+_ITEXT segment word public 'DATA'	;use 'DATA' (OPTLINK bug)
+_ITEXT ends
+
+DGROUP group _TEXT,CCONST,_DATA,_ITEXT
 
 	assume CS:DGROUP
 	assume DS:DGROUP
@@ -149,7 +145,7 @@ IsTaskLocked proc far pascal
 IsTaskLocked endp
 
 UndefDynlink proc far pascal
-	@strout_err <"Unresolved import called",lf>
+	invoke string_out_prefix, CStr(<"Unresolved import called",lf>)
 	jmp FatalExit
 UndefDynlink endp
 
@@ -157,12 +153,12 @@ FatalAppExit proc far pascal
 	@loadbx
 	@loadparm 2,ds
 	@loadparm 0,bx
-	@stroutbx
+	call stroutBX
 FatalAppExit endp
 
 FatalExit proc far pascal
 	mov ds,cs:[wLdrDS]
-	@strout_err <lf,"Fatal exit from application",lf>
+	invoke string_out_prefix, CStr(<lf,"Fatal exit from application",lf>)
 	mov ax,4C00h + RC_FATAL
 	int 21h
 FatalExit endp
@@ -1101,7 +1097,6 @@ nextdesc:
 	cmp si,1
 	jnz @F
 	mov cx,es
-
 	lsl dx,cx
 @@:
 	mov cx,0
@@ -1607,12 +1602,12 @@ _lcreat endp
 
 endif
 
-;*** InitTask - this should be called by DPMI16 apps only.
+;*** InitTask - this may be called by DPMI16 apps only.
 ;*** DPMI16 may be splitted to RTM and Win16 compatibles.
 ;*** this makes the initialization a bit confusing
 ;*** register values on entry:
-;*** BX: Stacksize (16 bit version only)
-;*** CX: Heapsize (16 bit version only)
+;*** BX: Stacksize
+;*** CX: Heapsize
 ;*** DI: might be Instance handle (== DGROUP)
 ;*** SI: 
 ;*** ES: PSP
@@ -1663,7 +1658,7 @@ endif
 	xor si,si	;previous instance
 error:
 exit:
-	@trace_s <"InitTask exit",lf>
+	@printf <"InitTask exit, ax=%X",lf>,ax
 	ret
 
 InitTask endp
@@ -1752,7 +1747,7 @@ endif
 
 if ?MEMFORKERNEL
 	xor bx,bx
-	mov cx,1000h
+	mov cx,1000h	;alloc 4 kB
 	mov ax,501h
 	int 31h
 	jc exit
@@ -1761,7 +1756,7 @@ if ?MEMFORKERNEL
 	push bx
 	push cx
 	mov cx,1
-	xor ax,ax
+	xor ax,ax		;alloc 1 descriptor
 	int 31h
 	pop dx
 	pop cx
@@ -1774,21 +1769,22 @@ else
 	jc exit
 	push ax
 	mov bx,cs
-	mov ax,0006h
+	mov ax,6		;get base of CS
 	int 31h
 	pop bx
 	add dx,offset KernelNE
 	adc cx,0
 endif
-	mov ax,7
+	mov ax,7		;set base
 	int 31h
 	mov dx,(EndKernelNE - KernelNE) - 1
 	or dl,0Fh
 	xor cx,cx
-	mov ax,8
+	mov ax,8		;set limit
 	int 31h
 	mov es,bx
 	mov [wMDSta],bx
+	@printf <"InitKernel: Module=%X, limit=%X",lf>, bx, dx
 if ?MEMFORKERNEL
 	xor di,di
 	mov si,offset KernelNE

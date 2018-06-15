@@ -12,11 +12,15 @@ DEBUG = 0
 !endif
 
 !if $(DEBUG)
-OUTDIR = DEBUG32
-ODIRST = STUB32D
+ODIR1 = DEBUG32
+ODIR2 = STUB32D
+ODIR3 = NOLFN32D
+ODIR4 = STUBX32D
 !else
-OUTDIR = REL32
-ODIRST = STUB32
+ODIR1 = REL32
+ODIR2 = STUB32
+ODIR3 = NOLFN32
+ODIR4 = STUBX32
 !endif
 
 !ifdef SINGLEMAKE
@@ -39,34 +43,38 @@ ASM   = @ml.exe $(AOPT)
 ASM   = @jwasm.exe $(AOPT)
 !endif
 
-DEPS      = $(OUTDIR)\dpmildr.obj $(OUTDIR)\kernel16.obj  $(OUTDIR)\peload.obj
-#DEPSSTUB = $(ODIRST)\dpmildr.obj $(ODIRST)\kernel16.obj  $(ODIRST)\peload.obj
-DEPSSTUB  = $(ODIRST)\dpmildr.obj                         $(ODIRST)\peload.obj
-DEPSNOLFN = NOLFN32\dpmildr.obj   NOLFN32\kernel16.obj    NOLFN32\peload.obj
-DEPSSTUBX = STUBX32\dpmildr.obj
+MODS1 = $(ODIR1)\dpmildr.obj $(ODIR1)\kernel16.obj  $(ODIR1)\peload.obj
+MODS2 = $(ODIR2)\dpmildr.obj                        $(ODIR2)\peload.obj
+MODS3 = $(ODIR3)\dpmildr.obj $(ODIR3)\kernel16.obj  $(ODIR3)\peload.obj
+MODS4 = $(ODIR4)\dpmildr.obj                        $(ODIR4)\peload.obj
+INCTR =
 
-!if $(DEBUG)
-ALL: $(OUTDIR) $(ODIRST) $(OUTDIR)\$(NAME).EXE $(ODIRST)\$(NAME).BIN 
-!else
-ALL: $(OUTDIR) $(ODIRST) NOLFN32 STUBX32 $(OUTDIR)\$(NAME).EXE $(ODIRST)\$(NAME).BIN NOLFN32\$(NAME).EXE STUBX32\HDLD32.BIN
-!endif
+!IF $(DEBUG)
+MODS1 = $(MODS1) $(ODIR1)\trace.obj
+MODS2 = $(MODS2) $(ODIR2)\trace.obj
+MODS3 = $(MODS3) $(ODIR3)\trace.obj
+MODS4 = $(MODS4) $(ODIR4)\trace.obj
+INCTR = trace.inc
+!ENDIF
 
-$(OUTDIR):
-	@mkdir $(OUTDIR)
+ALL: $(ODIR1) $(ODIR2) $(ODIR3) $(ODIR4) $(ODIR1)\$(NAME).EXE $(ODIR2)\$(NAME).BIN $(ODIR3)\$(NAME).EXE $(ODIR4)\HDLD32.BIN
 
-$(ODIRST):
-	@mkdir $(ODIRST)
+$(ODIR1):
+	@mkdir $(ODIR1)
 
-NOLFN32:
-	@mkdir NOLFN32
+$(ODIR2):
+	@mkdir $(ODIR2)
 
-STUBX32:
-	@mkdir STUBX32
+$(ODIR3):
+	@mkdir $(ODIR3)
 
-# create $(OUTDIR)\DPMILD32.EXE
+$(ODIR4):
+	@mkdir $(ODIR4)
 
-$(OUTDIR)\$(NAME).EXE: $(DEPS) $(NAME).mak
-	@$(LINK16BIN) format dos file {$(DEPS)} name $*.EXE op q, map=$*.MAP
+# create $(ODIR1)\DPMILD32.EXE
+
+$(ODIR1)\$(NAME).EXE: $(MODS1) $(NAME).mak
+	@$(LINK16BIN) format dos file {$(MODS1)} name $*.EXE op q, map=$*.MAP
 !if $(DEBUG)==0
 	@copy $*.EXE ..\..\Bin\*.* >NUL
 !ifdef TOOLSDIR
@@ -74,36 +82,62 @@ $(OUTDIR)\$(NAME).EXE: $(DEPS) $(NAME).mak
 !endif
 !endif
 
-$(OUTDIR)\dpmildr.OBJ: dpmildr.asm dpmildr.inc peload.inc kernel16.inc version.inc trace.inc
-	$(ASM) dpmildr.asm
+$(ODIR1)\dpmildr.OBJ: dpmildr.asm dpmildr.inc peload.inc kernel16.inc version.inc $(INCTR)
+	$(ASM) -D?STDERR=1 dpmildr.asm
 
-$(OUTDIR)\kernel16.OBJ: kernel16.asm dpmildr.inc peload.inc kernel16.inc version.inc trace.inc
+$(ODIR1)\kernel16.OBJ: kernel16.asm dpmildr.inc peload.inc kernel16.inc version.inc $(INCTR)
 	$(ASM) kernel16.asm
 
-$(OUTDIR)\peload.OBJ: peload.asm dpmildr.inc peload.inc mzhdr32.inc
+$(ODIR1)\peload.OBJ: peload.asm dpmildr.inc peload.inc mzhdr32.inc $(INCTR)
 	$(ASM) peload.asm
 
-# create NOLFN32\DPMILD32.EXE
+$(ODIR1)\trace.OBJ: trace.asm dpmildr.inc trace.inc
+	$(ASM) trace.asm
 
-NOLFN32\$(NAME).EXE: $(DEPSNOLFN) $(NAME).mak
-	@$(LINK16BIN) format dos file {$(DEPSNOLFN)} name $*.EXE op q, map=$*.MAP
+# create $(ODIR2)\DPMILD32.BIN
+
+$(ODIR2)\$(NAME).BIN: $(MODS2) $(NAME).mak
+	@$(LINK16BIN) format dos file {$(MODS2)} name $*.BIN op q, knoweas, map=$*.MAP
+!if $(DEBUG)==0
+	@copy $*.BIN ..\..\Bin\*.* >NUL
+!ifdef TOOLSDIR
+	@copy $*.BIN $(TOOLSDIR)\*.* >NUL
+!endif
+!endif
+
+$(ODIR2)\dpmildr.obj: dpmildr.asm dpmildr.inc peload.inc version.inc $(INCTR)
+	$(ASM) -D?STUB=1 -D?KERNEL16=0 -D?LOADDBGDLL=0 dpmildr.asm
+
+$(ODIR2)\peload.obj: peload.asm dpmildr.inc peload.inc mzhdr32.inc $(INCTR)
+	$(ASM) -D?STUB=1 -D?KERNEL16=0 peload.asm
+
+$(ODIR2)\trace.OBJ: trace.asm dpmildr.inc trace.inc
+	$(ASM) trace.asm
+
+# create $(ODIR3)\DPMILD32.EXE
+
+$(ODIR3)\$(NAME).EXE: $(MODS3) $(NAME).mak
+	@$(LINK16BIN) format dos file {$(MODS3)} name $*.EXE op q, map=$*.MAP
 !if $(DEBUG)==0
 	@copy $*.EXE ..\..\Unsupp\*.* >NUL
 !endif
 
-NOLFN32\dpmildr.obj: dpmildr.asm dpmildr.inc peload.inc kernel16.inc version.inc trace.inc
+$(ODIR3)\dpmildr.obj: dpmildr.asm dpmildr.inc peload.inc kernel16.inc version.inc $(INCTR)
 	$(ASM) -D?LFN=0 dpmildr.asm
 
-NOLFN32\kernel16.OBJ: kernel16.asm dpmildr.inc peload.inc kernel16.inc version.inc trace.inc
+$(ODIR3)\kernel16.OBJ: kernel16.asm dpmildr.inc peload.inc kernel16.inc version.inc $(INCTR)
 	$(ASM) -D?LFN=0 kernel16.asm
 
-NOLFN32\peload.obj: peload.asm dpmildr.inc peload.inc mzhdr32.inc
+$(ODIR3)\peload.obj: peload.asm dpmildr.inc peload.inc mzhdr32.inc $(INCTR)
 	$(ASM) -D?LFN=0 peload.asm
 
-# create $(ODIRST)\DPMILD32.BIN
+$(ODIR3)\trace.OBJ: trace.asm dpmildr.inc trace.inc
+	$(ASM) trace.asm
 
-$(ODIRST)\$(NAME).BIN: $(DEPSSTUB) $(NAME).mak
-	@$(LINK16BIN) format dos file { $(DEPSSTUB) } name $*.BIN op q, knoweas, map=$*.MAP
+# create $(ODIR4)\HDLD32.BIN
+
+$(ODIR4)\HDLD32.BIN: $(MODS4) $(NAME).mak
+	@$(LINK16BIN) format dos file {$(MODS4)} name $*.BIN op q, map=$*.MAP, knoweas 
 !if $(DEBUG)==0
 	@copy $*.BIN ..\..\Bin\*.* >NUL
 !ifdef TOOLSDIR
@@ -111,44 +145,30 @@ $(ODIRST)\$(NAME).BIN: $(DEPSSTUB) $(NAME).mak
 !endif
 !endif
 
-$(ODIRST)\dpmildr.obj: dpmildr.asm dpmildr.inc peload.inc version.inc trace.inc dpmild32.mak
-	$(ASM) -D?STUB=1 -D?KERNEL16=0 -D?LOADDBGDLL=0 dpmildr.asm
-
-#$(ODIRST)\kernel16.OBJ: kernel16.asm dpmildr.inc peload.inc kernel16.inc version.inc trace.inc
-#	$(ASM) -D?STUB=1 kernel16.asm
-
-$(ODIRST)\peload.obj: peload.asm dpmildr.inc peload.inc mzhdr32.inc dpmild32.mak
-	$(ASM) -D?STUB=1 -D?KERNEL16=0 peload.asm
-
-# create STUBX32\HDLD32.BIN
-
-STUBX32\HDLD32.BIN: $(DEPSSTUBX) STUB32\peload.obj $(NAME).mak
-	@$(LINK16BIN) format dos file $(DEPSSTUBX), STUB32\peload.obj name $*.BIN op q, map=$*.MAP, knoweas 
-!if $(DEBUG)==0
-	@copy $*.BIN ..\..\Bin\*.* >NUL
-!ifdef TOOLSDIR
-	@copy $*.BIN $(TOOLSDIR)\*.* >NUL
-!endif
-!endif
-
-STUBX32\dpmildr.obj: dpmildr.asm dpmildr.inc peload.inc version.inc trace.inc ..\HDPMI\STUB32\HDPMI32.INC dpmild32.mak
+$(ODIR4)\dpmildr.obj: dpmildr.asm dpmildr.inc peload.inc version.inc ..\HDPMI\STUB32\HDPMI32.INC $(INCTR)
 	$(ASM) -D?STUB=1 -D?KERNEL16=0 -D?LOADDBGDLL=0 -D?SERVER=0 -D?HDPMI=1 -D?NEAPPS=0 dpmildr.asm
 
+$(ODIR4)\peload.obj: peload.asm dpmildr.inc peload.inc mzhdr32.inc $(INCTR)
+	$(ASM) -D?STUB=1 -D?KERNEL16=0 peload.asm
+
+$(ODIR4)\trace.OBJ: trace.asm dpmildr.inc trace.inc
+	$(ASM) trace.asm
+
 clean:
-	@del $(OUTDIR)\*.exe
-	@del $(OUTDIR)\*.obj
-	@del $(OUTDIR)\*.lst
-	@del $(OUTDIR)\*.map
-	@del $(ODIRST)\*.bin
-	@del $(ODIRST)\*.obj
-	@del $(ODIRST)\*.lst
-	@del $(ODIRST)\*.map
-	@del NOLFN32\*.exe
-	@del NOLFN32\*.obj
-	@del NOLFN32\*.lst
-	@del NOLFN32\*.map
-	@del STUBX32\*.bin
-	@del STUBX32\*.obj
-	@del STUBX32\*.lst
-	@del STUBX32\*.map
+	@del $(ODIR1)\*.exe
+	@del $(ODIR1)\*.obj
+	@del $(ODIR1)\*.lst
+	@del $(ODIR1)\*.map
+	@del $(ODIR2)\*.bin
+	@del $(ODIR2)\*.obj
+	@del $(ODIR2)\*.lst
+	@del $(ODIR2)\*.map
+	@del $(ODIR3)\*.exe
+	@del $(ODIR3)\*.obj
+	@del $(ODIR3)\*.lst
+	@del $(ODIR3)\*.map
+	@del $(ODIR4)\*.bin
+	@del $(ODIR4)\*.obj
+	@del $(ODIR4)\*.lst
+	@del $(ODIR4)\*.map
 
