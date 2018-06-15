@@ -1,0 +1,21 @@
+
+# creates DPMI.EXE
+# tools used:
+# - JWasm
+
+name=DPMI
+
+OUTDIR=RELEASE
+
+ASM=@jwasm.exe -mz -nologo -Sg -Fl$* -Fo$* -I..\..\Include
+
+ALL: $(OUTDIR) $(OUTDIR)\$(name).EXE
+
+$(OUTDIR):
+	@mkdir $(OUTDIR)
+
+$(OUTDIR)\$(name).exe: $(name).asm printf.inc makefile
+	$(ASM) $(name).asm
+
+clean:
+	erase $(OUTDIR)\*.exe
