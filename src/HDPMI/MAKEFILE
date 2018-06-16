@@ -1,0 +1,14 @@
+
+!include <..\dirs>
+
+!ifndef DEBUG
+DEBUG = 0
+!endif
+
+ALL:
+    @$(MAKE) -s -f HDPMI32.MAK DEBUG=$(DEBUG) 
+    @$(MAKE) -s -f HDPMI16.MAK DEBUG=$(DEBUG) 
+
+clean:
+    @$(MAKE) -s -f HDPMI32.MAK clean DEBUG=$(DEBUG) 
+    @$(MAKE) -s -f HDPMI16.MAK clean DEBUG=$(DEBUG) 

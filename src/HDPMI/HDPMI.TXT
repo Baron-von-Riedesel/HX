@@ -1,0 +1,852 @@
+//////////////////////////////////////////////////////////////////////////////
+/                                                                            /
+/               HDPMI - DPMI Server (Version 3.17)                           /
+/                                                                            /
+//////////////////////////////////////////////////////////////////////////////
+
+ 0. Contents
+
+   1.    About HDPMI
+   2.    Requirements
+   3.    Commandline Options
+   4.    Environment Settings
+   5.    Returncodes and Messages
+   6.    Implementation Details
+    6.1  Memory Management
+    6.2  Interrupts
+    6.3  Exceptions
+    6.4  Stacks
+    6.5  Client Initialization/Termination
+    6.6  DPMI API
+    6.7  VDS API
+    6.8  DOS API Translation
+    6.9  Other API Translation Support
+    6.10 Debug Support
+    6.11 Nested Execution of DPMI Clients
+    6.12 Other Features of HDPMI
+   7.    Restrictions of current Version
+   8.    Known Problems/Hints
+   9.    Compatibility List
+  10.    License
+
+
+ 1. About HDPMI
+
+   HDPMI is a DPMI server which conforms to DPMI specification v0.9, but
+   supports a large subset of DPMI v1.0 as well. Although it is part of
+   the HX runtime, it doesn't depend on any other runtime modules and can
+   be used as a standalone host.
+
+   HDPMI exists in two versions called HDPMI16.EXE and HDPMI32.EXE. The
+   first will run 16-bit DPMI clients, the latter executes 32-Bit DPMI
+   clients. The HX PE binary loader DPMILD32 is aware of HDPMI and will
+   try to load it silently in the background if no DPMI server is found
+   in memory yet.
+
+   A DPMI server's purpose is to run applications in protected-mode. This
+   gives the following benefits compared to real-mode DOS:
+
+   þ breaks the DOS 640 kB (conventional) memory limitation. The 80386 
+     supports 4 GB memory.
+   þ extends the 16-bit segment limit to 32-bit, which allows to forget
+     about segmented memory models and use the simple "flat" model.
+   þ several privilege levels which allows "user" and "system" code.
+   þ paging.
+   þ memory and I/O protection.
+   þ additional exceptions.
+
+   The DPMI server will have to manage all resources specific to protected
+   mode (GDT, IDT, LDT, TSS, page tables, extended memory, ...). To make
+   DOS and BIOS accessible it also has to provide the ability to switch
+   between modes. That's why a DPMI server has to run at a high privilege
+   level and cannot be launched in a "DOS box".
+
+   Extended features of a DPMI server are:
+
+   þ real-mode interrupt translation services, thus allowing the client
+     to use DOS Int 21h calls which use pointers, for example. HDPMI
+     has such services implemented, see below.
+   þ Swapfile to increase available memory by hard disk space (virtual
+     memory). HDPMI does not implement a swapfile on its own, but since
+     version 3.03 it is possible for the client to do this.
+   þ "virtual machines". This is not supported, but optionally HDPMI allows
+     to run clients in their own address contexts. Conventional memory
+     (address space 0-10FFFFh) always is shared, though.
+
+
+ 2. Requirements
+
+   HDPMI requires the following resources to run:
+
+   þ a 80386 or better cpu. If environment switch HDPMI=1 is used, at least
+     a 80486 is required (see below).
+
+   þ a minimum of 72 kB of extended memory for host initialization.
+     By (optionally) adding conventional DOS memory to the page pool,
+     HDPMI may run without any extended memory at all.
+
+   þ MS-DOS (version >= 3.3). FreeDOS or DR-DOS (version >= 5.0) should work
+     as well.
+   
+   þ a XMS host if HDPMI cannot run in "raw" mode due to an unknown
+     A20 gate switch mechanism.
+
+
+ 3. Commandline Options
+
+   HDPMI accepts the following commandline options:
+
+     -a: run clients in separate address contexts. This is similar to
+         environment switch HDPMI=32.
+     -b: keep the TLB only when at least 1 client is running. This
+         option is useful only in conjunction with -r and will result
+         in conventional memory usage of just 5 kB when HDPMI is idle. But
+         be aware that this constellation may not work with all clients!
+     -d: disable the last installed instance of HDPMI
+     -e: reenable a disabled instance of HDPMI
+     -h: display HDPMI help screen. It will not install as TSR.
+     -i: watch direct access to the IVT to ensure hardware interrupts are
+         always routed to protected mode. This is similar to environment
+         switch HDPMI=1.
+     -k: if a register dump is to be displayed, make sure that the screen
+         is in text mode. Versions prior to 3.13 did this in any case.
+     -l: TLB will be allocated in low DOS memory. Useful if DOS UMBs
+         are slow or not accessible by DMA.
+     -m: disables support for DPMI 1.0 memory functions (AX >= 0504h).
+     -n: report clients a smaller amount of free physical pages. This is
+         necessary for clients which assume this amount is safe to use.
+     -r: this will cause HDPMI to install permanently as a TSR. In this
+         mode HDPMI will run until it is deinstalled using option -u.
+         If option -r is *not* entered, HDPMI will install as a TSR as 
+         well, but will terminate when the next client has terminated (*).
+     -s: 'safe' mode. Prevents client from modifying system tables. This
+         is similar to environment switch HDPMI=4096.
+     -t: don't touch NE bit in CR0. Without this option HDPMI will set
+         the NE bit so floating point errors will cause an exception 0x10.
+         Similar to environment switch HDPMI=32768.
+     -u: this switch will uninstall a running instance of HDPMI.
+     -v: if both XMS and VCPI hosts were detected, use VCPI memory allocation
+         and ignore XMS host. 
+     -x: limit reported free memory to 256 MB. The application may still
+         allocate more than 256 MB, it's just DPMI function 0x500h that will
+         be affected. Some old dos-extended applications simply don't expect
+         GBs of free memory.
+     -y: use extended memory not managed by XMS host. Usually a "modern"
+         XMS host can handle all extended memory, but old ones may handle
+         63 or 255 MB only. Then setting this option may be useful. For
+         XMS V3 hosts the implementation of function AH=89h must return
+         in ECX the true highest physical address managed by the host. 
+         This value is sometimes wrong, in which case this option shouldn't
+         be set (some security checks are implemented, but it isn't
+         fool-proved). If in doubt run tool DPMI.EXE to see if the value
+         is reasonable.
+   
+   (*) Please note: Since HDPMI modifies some real mode interrupt vectors,
+       it cannot terminate if any other application (it needn't be a
+       protected mode app, a simple DOS TSR may suffice) has modified these
+       vectors while HDPMI is running. In this case HDPMI has to remain
+       resident in any case, regardless if a client is running or not.
+       
+   (*) It is possible to install both HDPMI16 and HDPMI32 permanently, but 
+       for this to work it is required that HDPMI16 is installed first.
+       Installing HDPMI16 permanently is the only way to run 16bit clients
+       while HDPMI32 is loaded. The hosts will share one TLB, so both hosts
+       will consume just about 20 kB conventional DOS memory.
+
+
+ 4. Environment Settings
+
+   On startup HDPMI will search for environment variable "HDPMI". By setting
+   this variable one may modify HDPMI's behavior. It is interpreted as bit
+   values, so one may set any combination of the following values:
+
+   HDPMI=1:  this option makes the host aware of direct IVT access
+             (read/writes to linear address range 0-3FFh) in protected mode.
+             Thus it can ensure that IRQs are always handled in protected mode 
+             first. If the option is set, opcode INVLPG is used, which is
+             implemented on 80486 or better cpus only. Same effect as
+             command line option -i.
+   HDPMI=2:  DOS memory is included in standard memory page pool.
+             This option should be set only on machines with very
+             little physical ram.
+   HDPMI=4:  return 1.00 as DPMI server version. Some clients will
+             refuse to work if server identifies itself as V0.90 only.
+             Since HDPMI implements many DPMI V1.0 functions, such apps may
+             work with this switch set.
+   HDPMI=8:  allocate TLB in low DOS memory. Same effect as command line
+             option -l.
+   HDPMI=16: prevents HDPMI from trying to allocate a temporary 64 kB TLB
+             for DOS read/write functions which exceed the static TLB size.
+   HDPMI=32: run clients in separate address contexts. This option may be
+             needed to allow nested execution of clients which cannot share
+             an address space. The conventional memory region 0-10FFFFh
+             is still shared, though. Furthermore, setting this switch will
+             increase the client's DOS memory consumtion, since most parts
+             of the host's DOS memory usage must then be client specific.
+             Same effect as command line option -a.
+   HDPMI=64: don't use XMS v3+ functions. This should make HDPMI compatible
+             with XMS hookers which aren't aware of XMS v3 (WSWAP.EXE). It
+             will also restrict the amount of free memory the host reports.
+   HDPMI=128: disable DOS API translation for LFN functions.
+   HDPMI=256: when running as VCPI client, ensure that PTEs for HMA region
+             (address space 100000h-10FFFFh) are set so that physical
+             addresses match linear addresses. This may not work with all
+             VCPI hosts.
+   HDPMI=512: alloc IDT and LDT in client address space. Usually these 
+             tables are allocated in HDPMI's reserved space above linear
+             address FF800000h, but some programs seem to not expect them
+             at such high addresses. Furthermore, GDT is not moved to
+             extended memory if this switch is on.
+   HDPMI=1024: disables support for DPMI 1.0 memory functions (AX >= 0504h).
+             Same effect as command line option -m.
+   HDPMI=2048: clear HiWord of ESI and EDI on initial switch to protected
+             mode. This doesn't conform to the DPMI specs, but is required
+             to make HDPMI compatible with Borlands's 32RTM.EXE when running
+             on some versions of DOS.
+   HDPMI=4096: 'safe' mode. Don't allow client to write to GDT, IDT and LDT.
+   HDPMI=8192: stop in debugger after client's initial switch to protected
+             mode.
+   HDPMI=16384: causes HDPMI to not respond to int 2Fh, ax=160Ah. This allows
+             to start Windows 3.1 WIN.COM while HDPMI is loaded resident.
+   HDPMI=32768: prevents HDPMI from modifying CR0 NE bit. Same effect as
+             command line option -t.
+
+
+ 5. Returncodes and Messages
+
+   If HDPMI is launched by a program, it will return with the following codes:
+
+   rc   meaning
+   ------------------------------------------------
+   00   HDPMI is resident now in Int15 mode
+   01   HDPMI is resident now in XMS mode
+   02   HDPMI is resident now in VCPI mode
+   03   DPMI server detected without VCPI support, HDPMI has terminated
+        without taking over control. This state should be no error for
+        the application since the DPMI API is available
+   04   error: not enough memory for host initialization
+   05   error: A20 cannot be enabled
+   06   error: VCPI host has remapped IRQs
+   07   error: CPU in V86 mode, but no VCPI or DPMI host found
+   08   error: DOS version isn't 3.3 or higher
+   09   error: CPU not 80386 or better
+   0A   error: invalid command line given
+
+   If HDPMI is started with a nonempty command line, it may display 
+   messages. These are:
+
+   - "HDPMI already installed": may occur when starting HDPMI with 
+     option "-r".
+   - "HDPMI not installed or disabled": may occur when starting HDPMI with 
+     option "-u". 
+   - "HDPMI is busy": may occur when starting HDPMI with option "-u". 
+     Reason: The server has at least 1 client running.
+   - "HDPMI *not* uninstalled because real-mode interrupts were modified"
+     may occur when starting HDPMI with option "-u". Reason: Another TSR
+     has modified an interrupt which HDPMI is using as well, so it cannot
+     restore the old value. Most likely this is interrupt 2Fh.
+   - "no disabled instance of HDPMI found": may occur when starting HDPMI
+     with option "-e". 
+
+
+ 6. Implementation Details
+
+
+ 6.1 Memory Management
+
+   a) Overview
+
+     The memory usage of HDMI depends on the configuration found
+     at startup. Possible configurations are:
+
+     þ Int15 or "Raw" mode: CPU is in real-mode and no XMS host
+       (HIMEM.SYS) has been found.
+
+     þ XMS-Mode: CPU is in real-mode and a XMS host is running.
+
+     þ VCPI-Mode: CPU is in v86-mode and a VCPI host has been detected.
+
+     þ CPU is in v86-mode and no VCPI host has been found. HDPMI cannot
+       enter ring 0 protected-mode and terminates without further message.
+
+
+   b) Physical Memory Allocation
+
+   Int15-Mode:  HDPMI allocates all of extended Memory by calling
+                Int15, AX=E801h or, if this fails, by calling Int15, AH=88h. 
+                When a real mode app is launched, half of currently unused
+                extended memory is released. This is to allow
+                nested execution of protected mode apps in this mode.
+                When the launched app terminates, HDPMI grabs this memory
+                again.
+
+   XMS-Mode:    Memory is allocated dynamically from the XMS host. HDPMI 
+                will detect and use XMS v3 hosts, which may allow to alloc
+                up to 4 GB of physical memory. The memory blocks allocated 
+                are released when HDPMI terminates. If HDPMI has been
+                installed permanently with option -r, the blocks (except
+                the first one) are released when the server enters idle state,
+                that is, no client is running.
+
+   VCPI-Mode:   If a XMS-Host is available in this mode, HDPMI prefers to 
+                allocate memory through this host, because some VCPI host's
+                memory allocation API is pretty slow. So this API will be 
+                used only if no XMS host is found (which should be a very
+                rare constellation) or cmdline option -v has been entered.
+
+   If all extended memory has been allocated, HDPMI will try to use
+   conventional memory if environment variable HDPMI=2 is set. So in tight
+   memory conditions DOS memory may be a full part of HDPMI's memory pool.
+   This is optional because there is a chance that this behavior may cause
+   problems (some clients simply allocate the largest available memory block
+   as reported by the host, which will then make HDPMI to alloc all free DOS
+   memory).
+
+   c) Address Space Management
+
+   Paging will always be enabled with HDPMI. It reserves the last 8 MB of
+   the address space for its usage (GDT, IDT, LDT, page tables, host code).
+   The rest is left for the client, so 4088 MB address space is available 
+   in the range 0 - FF7FFFFFh. Optionally HDPMI can be instructed to locate
+   IDT and LDT in the client address space (see environment variable HDPMI).
+
+   d) Virtual Memory
+
+   HDPMI itself doesn't create a swap file. But support for "exception
+   restartability" has been implemented in version 3.03. This allows a
+   client to catch page faults occuring inside the host, which makes it
+   possible to support swapfiles (or memory-mapped files) on the client
+   level.
+
+   e) Conventional Memory
+
+   Conventional memory (address space 0-10FFFFh) is under control of DOS.
+   In XMS and raw mode HDPMI will initialize the page table for this region
+   so that physical memory addresses and linear memory addresses are identical.
+   For its API translation HDPMI will use a DOS memory block of 8 kB.
+   Additionally some host code has to be run in real/v86-mode, and a 2 kB
+   host stack also is located in conventional memory to make it accessible
+   for both modes. All in all HDPMI will use about 13 kB of DOS memory.
+
+
+ 6.2 Interrupts
+
+   According to DPMI specs a host must ensure that hardware interrupts (IRQs)
+   are routed to protected mode if they have occured in real/v86-mode.
+   HDPMI fullfills this requirement; for this it intercepts the real-mode
+   IVT vectors of all IRQs. Routing the IRQs to protected mode, however,
+   is done only if a client has changed the protected-mode interrupt vector.
+
+   There exist some DPMI clients which get in the way, however. Most 
+   likely this is because some hosts had difficulties with the IRQ
+   routing to protected-mode. So these clients try to do this routing
+   on their own - which may cause problems with HDPMI. For this reason,
+   HDPMI has an option to catch all direct accesses to the IVT in protected
+   mode (this feature is activated by setting environment variable HDPMI=1
+   or command line option -i). This will slow down any access to page 0,
+   however, so it should be set only if it becomes obvious that the client
+   will need it to run.
+
+   Besides the hardware interrupts there are 3 software interrupts which
+   will be routed to protected-mode as well: Int 1Ch, Int 23h and Int 24h.
+
+
+ 6.3 Exceptions
+
+   If an exception occurs and the client hasn't installed an exception
+   handler (or if it decides to not handle the exception), HDPMI's default
+   exception handler will get the exception and will do:
+
+   Exc    Action
+   ----------------------------------------------------------------
+   00-05  exception is routed to protected-mode INT 00-05.
+   06     client is terminated.
+   07     exception is routed to protected-mode INT 07.
+   08-0E  client is terminated.
+   10-11  client is terminated.
+
+   The default handler for protected-mode interrupts 00-07 will do:
+
+   Int    Action
+   ----------------------------------------------------------------
+   00     client is terminated.
+   01-04  interrupt is routed to real-mode.
+   05     interrupt is routed to real-mode if it is a programmed INT, else
+          client is terminated.
+   06     interrupt is routed to real-mode.
+   07     client is terminated.
+
+   In other words, exceptions 00 and 05-07 will not arrive in real-mode.
+   This is not what DPMI docs are telling, but it wouldn't make sense,
+   since these exceptions are faults and the exception cause must be cured
+   to continue execution. This can't be done by a real-mode interrupt handler.
+
+   If a client is terminated, a register dump is displayed. If HDPMI is
+   installed residently, it will first try to terminate the client with
+   an int 21h, ax=4CFFh in ring 3 protected mode. If another exception
+   occurs, HDPMI will terminate itself, which may leave the system in an
+   unstable state.
+
+
+ 6.4 Stacks
+
+   When a client is running the host will switch among 4 stacks:
+
+   þ the protected mode stack (PMS), which is the stack the DPMI
+     client uses. It can switch these stacks as it likes and there
+     are no special requirements about it.
+
+   þ the locked protected mode stack (LPMS). The DPMI host switches
+     the client application to this stack when
+     - a hardware interrupt (IRQ) has occured
+     - an interrupt is reflected from real mode (mostly IRQs, but
+       also software interrupts 1Ch, 23h and 24h.
+     - the DPMI client executes a real mode callback
+     - the server notifies the client about an exception
+     There exists 1 LPMS only and its size must be at least 4 KB.
+     Once it is "in use" the host will no longer switch stacks until
+     the LPMS is free again.
+
+   þ the real mode stack (RMS). Usually this stack is located in the
+     memory block that the DPMI client has to deliver to the server on its
+     initial switch to protected mode. This stack's size will be at
+     least 200h bytes. It is used when there is a reflection from protected
+     mode interrupts to real mode. If protected-mode is reentered (by a
+     real-mode callback, a raw jump or a hardware IRQ), the RMS is in use
+     and HDPMI will then use the real mode SS:SP of the last entry to
+     protected mode as current real-mode stack.
+
+   þ the ring 0 stack. This stack is invisible to the client, it is
+     used by the dpmi host. For HDPMI this stack is 2 kB in size, and
+     it is located in conventional memory. The host uses this stack
+     for it's normal processing and to save the client's segment register
+     values.
+
+
+ 6.5 Client Initialization/Termination
+
+   Usually clients running on the same instance of HDPMI will share address
+   space, IDT and LDT. On client initialization HDPMI will do:
+
+   - save the current IDT
+   - save the current LDT
+   - save other client resources, among which are
+     + real-mode callbacks
+     + ring 3 interrupt vectors
+     + ring 3 exception vectors
+
+   These resources are saved, but not initialized, that is, a new client
+   will inherit the state of the previous client.
+
+   On client termination, HDPMI will do:
+
+   - free memory handles the client has allocated
+   - restore the IDT to the previous state
+   - restore the LDT to the previous state
+   - restore other resources to the previous state
+
+   So there is no need for a client to free memory or LDT selectors before
+   terminating. Conventional DOS memory blocks and file handles will be 
+   released by DOS, but any real-mode interrupt vectors that were modified
+   must be restored by the client.
+
+   If HDPMI has been told to give each client its own address context, things
+   are different of course. Address space, IDT and LDT are no longer shared,
+   and the client will get "clean" copies of IDT and LDT. On termination, the
+   client's resources are just "thrown away".
+
+
+ 6.6 DPMI API
+
+   HDPMI fully supports DPMI version 0.9.
+
+   Additionally, the following DPMI v1.0 features are supported:
+
+   Int AX    comment
+   -----------------------------------------------------------------
+   2F  168A  get vendor-specific API entry point
+   31  000E  get multiple descriptors
+   31  000F  set multiple descriptors
+   31  0210  get protected-mode extended exception handler
+   31  0212  set protected-mode extended exception handler
+   31  0401  get DPMI capabilities, Vendor is "HDPMI". This is the
+             recommended way to detect that HDPMI is present.
+  *31  0504  allocate linear memory block
+  *31  0505  resize linear memory block
+  *31  0506  get page attributes
+  *31  0507  modify page attributes
+  *31  0508  map device in memory block
+  *31  0509  map conventional memory in memory block
+  *31  050A  get memory block size and base
+  *31  050B  get memory information
+   31  0801  unmap physical region
+   31  0E00  get coprocessor status
+   31  0E01  set coprocessor emulation
+
+  * support for these functions can be disabled by commandline parameter
+    or setting environment variable HDPMI.
+
+   So most DPMI V1.0 features are implemented, what's missing are:
+
+   - 0211h + 0213h, get/set handler for real-mode exceptions
+   - 0C00h + 0C01h, DPMI TSRs
+   - 0D00h - 0D03h, shared memory
+
+   Additionally, some privileged opcodes are emulated:
+
+   - HLT (F4) 
+   - MOV reg,CRx (0F 20 xx) - using ESP for <reg> will not work!
+   - MOV CRx,reg (0F 22 xx) - using ESP for <reg> will not work!
+
+
+ 6.7 VDS API
+
+   The following VDS functions (Int 4Bh, AH=81h) are supported in
+   protected-mode:
+
+   AL  Function               Comment
+   -----------------------------------------------------------------------
+   03  lock region            routed to v86-mode with translation of ES:E/DI
+   04  unlock region          routed to v86-mode with translation of ES:E/DI
+   05  scatter/gather lock    handled by HDPMI. ES:E/DI must point to a EDDS.
+   06  scatter/gather unlock  handled by HDPMI. Indeed it is mostly a No-Op,
+                              just the parameters are checked for validity.
+   07  request DMA buffer     routed to v86-mode with translation of ES:E/DI
+   08  release DMA buffer     routed to v86-mode with translation of ES:E/DI
+   09  copy into DMA buffer   routed to v86-mode with translation of ES:E/DI
+   0A  copy out of DMA buffer routed to v86-mode with translation of ES:E/DI
+
+   VDS functions 02 and 0Bh-0Ch are routed to real/v86-mode without 
+   translation.
+   Implementation of function 05 will allow linear-to-physical address
+   translation for any valid linear address. If an address space contains
+   uncommitted pages, bit 6 of DX must be set to return PTEs, else the call
+   will fail. 
+   Functions which are routed to v86-mode with ES:E/DI translation will not
+   be able to handle linear addresses managed by HDPMI, that is, they might
+   work for address space 0-110000h only.
+   
+   Please be aware that if DOS is running in real-mode (no EMM is loaded),
+   then calling functions other than 05-06 most likely will fail. Therefore
+   bit 5 at 40h:007Bh should be checked if VDS is available.
+
+
+ 6.8 DOS API Translation
+
+   HDPMI supports DOS-API translation, both in 16-bit mode and in
+   32-bit mode. For translation purposes, HDPMI allocates a static
+   translation buffer of 8 KB. For the important read/write functions
+   HDPMI will try to allocate a temporary 64k buffer, if the size of
+   the i/o-operation exceeds the size of the static translation buffer.
+
+   Supported DOS extended INT 21h functions in detail:
+
+    AH  Comment  
+    -----------------------------------------------------------
+    00  close current PSP without terminating client
+    09  Write String DS:E/DX to Standard Output
+    0A  Buffered Input into DS:E/DX
+    0C  AL=0A, Flush Buffer and read Standard Input into DS:E/DX
+    11  Find First File using FCB in DS:E/DX
+    12  Find Next File using FCB in DS:E/DX
+    13  Delete File using FCB in DS:E/DX
+    1A  Set Disk Transfer Area to DS:E/DX
+    1B  Get Allocation Information for Default Drive in DS:E/BX
+    1C  Get Allocation Information for Specific Drive in DS:E/BX
+    1F  Get Drive Parameter Block for Default Drive in DS:E/BX
+    25  Set Interrupt Vector in DS:E/DX
+    29  Parse Filename in DS:E/SI into FCB in ES:E/DI
+    2F  Get Disk Transfer Area in ES:E/BX
+    32  Get Drive Parameter Block for Specific Drive in DS:E/BX
+    34  Get Address of InDOS Flag in ES:E/BX
+    35  Get Interrupt Vector in ES:E/BX
+    38  DX!=FFFF, Get Country-Specific Information in DS:E/DX
+    39  Create Subdirectory DS:E/DX
+    3A  Remove Subdirectory DS:E/DX
+    3B  Set Directory DS:E/DX
+    3C  Create File DS:E/DX 
+    3D  Open File DS:E/DX
+    3F  Read E/CX bytes from File to DS:E/DX
+    40  Write E/CX bytes from DS:E/DX to File 
+    41  Delete File DS:E/DX
+    43  Get/Set File DS:E/DX Attributes
+    44  AL=02 Read from Char Device Control Channel into buffer DS:E/DX
+    44  AL=03 Write to Char Device Control Channel from buffer DS:E/DX
+    44  AL=04 Read from Block Device Control Channel into buffer DS:E/DX
+    44  AL=05 Write to Block Device Control Channel from buffer DS:E/DX
+    44  AL=0D Generic Block Device Request, parameter block in DS:E/DX
+    47  Get Directory Path into DS:E/SI
+    48  Allocate Memory Block E/BX paragraphs
+    49  Free Memory Block in ES
+    4A  Resize Memory Block ES, new size in E/BX
+    4B  AL=00 - Load and Execute Program DS:E/DX, exec parm ES:E/BX
+    4C  terminate client
+    4E  Search for First Filename Match, DS:E/DX=file spec
+    50  Set current PSP to BX (selector)
+    51  Get current PSP in BX (selector)
+    52  Get List of Lists in ES:E/BX
+    53  Translate BPB in DS:E/SI to DPB in ES:E/BP
+    55  Create Child PSP from DX (selector)
+    56  Rename File DS:E/DX to ES:E/DI
+    5A  Create temporary File DS:E/DX 
+    5B  Create new File DS:E/DX 
+    5D  AL=06 Get Address of DOS Swappable Data Area in DS:E/SI
+    5D  AL=0A Set extended error information from DS:E/DX
+    5E  AL=00 Get Machine Name into DS:E/DX
+    60  Canonicalize Filename or Path in DS:E/SI to ES:E/DI
+    62  Get current PSP in BX (selector)
+    63  AL=00 Get DBCS table in DS:E/SI
+    65  AL=00 Set extended Country Information from ES:E/DI
+    65  AL=01-07 Get extended Country Information into ES:E/DI
+    65  AL=21|22|A1|A2 capitalize string in DS:E/DX
+    69  Get/Set disk serial number in DS:E/DX 
+    6C  Extended Open/Create, file name in DS:E/SI 
+   *71  AL=39|3A|3B LFN subdirectory functions DS:E/DX
+   *71  AL=41 LFN delete file DS:E/DX
+   *71  AL=43 LFN get/set file attributes DS:E/DX
+   *71  AL=47 LFN get current directory DS:E/SI
+   *71  AL=4E LFN get first file DS:E/DX into ES:E/DI
+   *71  AL=4F LFN get next file into ES:E/DI
+   *71  AL=56 LFN rename file DS:E/DX to ES:E/DI
+   *71  AL=60 LFN get canonical/short/long path DS:E/SI to ES:E/DI
+   *71  AL=6C LFN open file DS:E/SI
+   *71  AL=A0 LFN get volume info DS:E/DX, return file sys into ES:E/DI
+   *71  AL=A6 LFN get file info by handle into DS:E/DX
+   *71  AL=A7 LFN filetime DS:E/SI to dostime - dostime to filetime ES:E/DI
+   *71  AL=A8 LFN generate short filename from DS:E/SI to ES:E/DI 
+   *71  AL=AA LFN create SUBST DS:E/DX, query SUBST DS:E/DX
+    73  AL=02 Get extended DPB into ES:E/DI
+    73  AL=03 Get extended free space into ES:E/DI
+    73  AL=04 Set DPB for formatting in ES:E/DI
+    73  AL=05 Extended absolute disk read/write with params in DS:E/BX
+
+   * LFN (AH=71h) API translation only works if LFN is installed in 
+     real-mode DOS. Usually this requires a driver to be installed (DOSLFN).
+
+
+ 6.9 Other API Translation Support
+
+   Int Function Comment
+   ---------------------------------------------------------------------
+   10  ax=1002h set all palette registers ES:E/DX
+   10  ax=1009h get all palette registers ES:E/DX
+   10  ax=1012h set DAC registers ES:E/DX
+   10  ax=1017h get DAC registers ES:E/DX
+   13  ah=02h   disk read into buffer ES:E/BX
+   13  ah=03h   disk write from buffer ES:E/BX
+   13  ah=08h   for FD return drive parameter table in ES:E/DI
+   15  ah=C0h   read configuration into ES:E/BX
+   15  ax=C207h set pointing device event proc ES:E/BX
+   25           absolute disk read buffer in DS:E/BX
+   26           absolute disk write buffer in DS:E/BX
+   2F  ax=168Ah supports vendor "MS-DOS" and "VIRTUAL SUPPORT" 
+                callback for "MS-DOS" supports function 100h (LDT sel)
+   33  ax=0009h define graphics cursor ES:E/DX
+   33  ax=000Ch define interrupt subroutine ES:E/DX
+   33  ax=0012h define large graphics cursor ES:E/DX
+   33  ax=0014h exchange interrupt subroutine ES:E/DX
+   33  ax=0016h save driver state ES:E/DX
+   33  ax=0017h restore driver state ES:E/DX
+   33  ax=0018h set alternate mouse user handler ES:E/DX
+
+
+ 6.10 Debug Support
+
+   a) Support in Protected Mode
+
+   HDPMI supports Int 41h processing in protected mode. HDPMI provides
+   that ring 0 Int 41h calls are not reflected in ring 3. It's also
+   ensured that no Int 41h call will be reflected to real mode.
+
+   HDPMI itself issues three Int 41h calls, all in ring 0 (and therefore
+   only of use for kernel debuggers):
+
+     - on initialization of the server
+     - a breakpoint if a new DPMI clients starts
+     - on termination of the server
+
+   Environment switch HDPMI=8192 will cause HDPMI to set the client's
+   trace flag on its initial switch to protected-mode. This should work
+   with any DPMI-aware debugger.
+   
+   Furthermore, there are enough free entries left in the GDT to allow
+   HDPMI itself being debugged by Qualitas' debugger 386SWAT. Requires
+   GDT in extended memory, so switch HDPMI=512 must not be set for this
+   to work.
+
+   b) Support in Real Mode
+
+   Kernel debuggers such as WDEB386.EXE start in real mode and before any
+   DPMI server is active. That's why they need some support from the
+   DPMI server to get a chance to do their protected mode initialization,
+   (to modify IDT vectors they want to hook or set GDT descriptors).
+   For this reason HDPMI supports WDEB386's real-mode Int 68h API.
+
+   c) Other Debug Support
+
+   - the value of the trace flag is preserved if a mode switch occurs.
+     The switch from real mode to protected mode has been made "debug
+     aware", so that there is no risk a debugger traces into nontracable
+     code, thereby crashing the system.
+
+   - if HDPMI detects a kernel debugger, its output is send to the debugger.
+     If an exception occurs, the debugger will be notified as well,
+     giving it a chance to stop execution.
+
+
+ 6.11 Nested Execution of several DPMI Clients
+
+   As already mentioned, usually if two or more clients share one instance
+   of HDPMI, they also have to share address space, IDT and LDT. For most
+   clients this is no problem at all. But on certain conditions it may be
+   necessary to not share these resources. Therefore HDPMI optionally allows
+   to run each client in its own address context. Thus the clients will only 
+   share DOS specific resources (address space 0-10FFFFh, files, IVT vectors)
+   and (physical) extended memory. 
+
+
+ 6.12 Other Features of HDPMI
+
+  þ  clients run with CPL 3, and IOPL is 3. This means, instructions like
+     STI, CLI, IN or OUT are executed in real time.
+  þ  during ring 0 processing NMIs are ignored.
+  þ  HDPMI's ring 0 ESP will always have its hiword cleared. This is because
+     of a design weakness in Intel CPUs, which don't touch the Hiword of ESP
+     on a switch to a lower privilege level if the D bit of the destination
+     ring SS descriptor is not set (16-bit stack). Some 32-bit DPMI clients 
+     which (temporarily) use a 16-bit stack aren't aware of this potential
+     problem, among these are apps written with the DOS4G extender.
+  þ  A client can allocate up to 16 real-mode callbacks. 
+
+
+ 7. Restrictions of current Version
+
+  þ If no XMS host is found, HDPMI must switch the A20 gate on its own. Only
+    standard AT (keyboard controller) and PS/2 (bit 1 of port 92h) methods
+    are supported. The gate is enabled once on server initialization.
+  þ Int 25h/26h (and Int 21h, ax=7305h for FAT32) translation services:
+    the amount of bytes to read/write per call is limited to the size of
+    the static translation buffer, which is 8 kB.
+  þ Exceptions >= 12h aren't supported/detected.
+
+
+ 8. Known Problems / Hints
+
+  þ Some versions of DOS4G/W require environment variable HDPMI=1 to be
+    set. Generally, setting this option should be the first thing to do
+    if a client doesn't run with HDPMI.
+
+  þ Some DOS extenders will prefer to use a VCPI host over DPMI and thus
+    ignore an installed copy of HDPMI. Usually there is a way to make them
+    change their mind:
+
+    - CauseWay: set environment variable "CAUSEWAY=DPMI"
+    - PMODE/W: use tool PMWSETUP to set switch "prefer DPMI over VCPI"
+    - DOS/32A: set environment variable "DOS32A=/DPMITST:1" or run SS.EXE
+
+  þ Some programs don't expect system tables (GDT, IDT, LDT) being located
+    at very high linear addresses, as it is the case with HDPMI by default.
+    To make HDPMI compatible with such programs, environment variable
+    HDPMI=512 has to be set before HDPMI is loaded. The SoundBlaster 16
+    emulation for SB-PCI or SB-Live sound cards (SBINIT.COM/SBEINIT.COM)
+    may belong to these kind of programs. 
+
+  þ Some clients may require to disable HDPMI's support for DPMI V1.0
+    memory functions (examples: 1. apps built with DJGPP v2 because of
+    the NULL pointer protection problem. 2. the game "Inner Worlds"). 
+    This can be achieved by starting HDPMI with parameter -m or by setting 
+    environment switch HDPMI=1024.
+
+  þ Some combinations of DOS, HDPMI32 and Borland's 32RTM.EXE will only
+    work with environment switch HDPMI=2048. This is due to a bug in
+    32RTM.EXE.
+
+  þ Some clients are incompatible with HDPMI if it hasn't been installed
+    with option -r. Usually this is because they try to restore real-mode
+    interrupt vector 2Fh too late (after HDPMI has done its cleanup).
+    PMODE/W and DOS/32A applications may belong to these type of programs.
+
+  þ If HDPMI is loaded and a client refuses to run and tells that it doesn't
+    like to run in a Win9x DOS box, try to set HDPMI=16384 before HDPMI is
+    loaded.
+
+  þ To run a 16-bit client while HDPMI32 is installed requires to install
+    HDPMI16 before HDPMI32. The best thing to do if both types of clients
+    are to be executed is to run first HDPMI16, then HDPMI32, both with
+    option -r.
+
+  þ if HDPMI is loaded residently and the Watcom debugger WD is launched
+    to debug a protected mode application it may display a message that
+    it cannot do that on a DPMI 0.9 host. Then set environment variable
+    HDPMI=36. This will report a DPMI 1.0 host to WD and separate the
+    debugger's and debuggee's address space.
+
+  þ Some clients refuse to run if the amount of free memory is too *large*
+    (for example the game 'System Shock'). Simplest workaround is to use
+    cmdline switch -x ( restricts reported free memory ). If this doesn't
+    help: the HX runtime contains a DPMI test program called DPMI.EXE, which
+    can be used to grab some extended memory and then start a DOS shell;
+    it should work with any host. Start DPMI.EXE with option -? to see more
+    details.
+
+  þ Some clients regard the amount of free physical pages as safe to
+    allocate. This may work ok for hosts which use a swapfile, but HDPMI
+    doesn't and therefore the request is likely to fail. Option -n might 
+    make such clients work (example: "Blood" game).
+
+  þ If the machine reboots on certain actions it's not unlikely that this
+    is due to a real-mode stack overflow. What sometimes may help then is:
+    - set STACKS=9,512 in CONFIG.SYS (may introduce new problems though)
+    - try to load another mouse/network/sound driver
+
+
+ 9. Compatibility List
+
+   the following applications/DOS extenders are verified to run with HDPMI:
+
+   - DOS4/GW Rational/Tenberry DOS extender
+   - PMODE/W DOS extender
+   - CauseWay DOS extender
+   - DOS/32 Advanced DOS extender
+   - Borland Powerpack (16 + 32-bit)
+   - WDOSX extender
+   - RSX DOS extender
+   - RAW32 DOS extender
+   - X-32 DOS extender (Digital Mars)
+   - Pharlab TNT DOS extender (i.e. MS VC 1.52)
+   - DJGPP applications.
+   - MS Windows 3.1 (standard mode)
+   - MS Windows for Workgroups 3.11 (standard mode)
+   - MS DOSX16/DOSX32 applications (Codeview for DOS, MS C++ 7.0)
+   - MicroFocus COBOL applications (16 + 32-bit)
+   - kernel debugger WDEB386.EXE/WDEB98.EXE/DEBUGGER.EXE
+   - 386SWAT, Qualitas' ring 0 debugger 
+
+   HDPMI itself has been tested to run under the following emulators:
+
+   - Bochs
+   - Qemu
+   - VMWare
+   - VirtualBox
+   - DosBox (version must be >= 0.70)
+
+   Wth Virtual PC 2007 the standard HDPMI binary will not work. However,
+   there is a modified HDPMI32.EXE available which might work and can be
+   found at http://www.japheth.de/hx.html.
+
+   HDPMI has also been tested to run with the following VCPI hosts:
+
+   - MS-DOS Emm386 (V7.x, V6.x, V5.0)
+   - Jemm
+   - FreeDOS Emm386 (V2.x)
+   - Quarterdeck Qemm386 (V6, V8, V9)
+   - Qualitas 386Max (V6.02, V7.02)
+
+
+ 10. License
+
+   HDPMI is part of the HX DOS extender runtime, which is freeware. It may
+   be used for any purpose. Copyright Japheth 1993-2009.
+
+   Japheth ( http://www.japheth.de )
+
