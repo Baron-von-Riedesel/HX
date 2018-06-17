@@ -6,6 +6,8 @@
 
 	.386
 
+lf	equ 10
+
 _TEXT segment dword use16 public 'CODE'
 _TEXT ends
 CONST segment dword use16 public 'CODE'
@@ -37,13 +39,11 @@ endm
 
 _DATA segment
 
-rmcs		RMCS <>	;real mode call structure used for mode switch benchmark
-	align 4
 xmsaddr		PF16 0	;far16 address of XMS host
 dwXMSHighest dd 0	;highest address managed by XMS
 wXMSVer		dw 0
 bXMS		db 0	;XMS host found
-b16Bit		db -1	;start as 16bit client
+b16Bit		db 0	;1=start as 16bit client
 	align 4
 dwAlloc		dd 0	;amount of memory to alloc before starting shell
 dwI15		dd 0	;free memory returned by Int 15h ax=e801
@@ -76,7 +76,6 @@ OP_IN		equ 128	;IN benchmark
 bOpt1		db 0
 bFill		db 0	;fill allocated memory
 bWaitKey	db 0	;wait for a key press in pm
-bNoRmcbBm   db 0	;skip realmode callback benchmark (cwsdpmi bug)
 
 _DATA ends
 
@@ -86,21 +85,20 @@ szCOMSP	db "COMSPEC="
 fcb		db 0, "           ", 0, 0, 0, 0
 cmdl	db 0,13
 szHelp label byte
-	db "DPMI (c) japheth 2006-2018",13,10
-	db "displays infos about installed DPMI host",13,10
-	db "usage: DPMI [ -options ]",13,10
-	db "  -16: use entry for 16-bit client in any case",13,10
-	db "  -b: allocate real-mode callbacks until error",13,10
-	db "  -c: measure enable/disable interrupt execution time in protected mode",13,10
-	db "  -d: skip real-mode callback mode switch benchmark (-r)",13,10
-	db "  -f: fill allocated memory block (-m) with value 'DPMI'",13,10
-	db "  -i<port>: measure execution time of IN opcode in protected-mode",13,10
-	db "  -l: alloc 1000h bytes at 400000h with AX=0504",13,10
-	db "  -m: alloc largest free block with AX=0501",13,10
-	db "  -n: realloc a memory block until an error occurs",13,10
-	db "  -r: measure mode switch execution time",13,10
-	db "  -s<n>: alloc <n> kB of extended memory, then launch a shell",13,10
-	db "  -w: wait in protected-mode for a keypress before terminating",13,10
+	db "DPMI (c) japheth 2006-2018",lf
+	db "displays infos about installed DPMI host",lf
+	db "usage: DPMI [ -options ]",lf
+	db "  -16: use entry for 16-bit client in any case",lf
+	db "  -b: allocate real-mode callbacks until error",lf
+	db "  -c: measure enable/disable interrupt execution time in protected mode",lf
+	db "  -f: fill allocated memory block (-m) with value 'DPMI'",lf
+	db "  -i<port>: measure execution time of IN opcode in protected-mode",lf
+	db "  -l: alloc 1000h bytes at 400000h with AX=0504",lf
+	db "  -m: alloc largest free block with AX=0501",lf
+	db "  -n: realloc a memory block until an error occurs",lf
+	db "  -r: measure mode switch execution time",lf
+	db "  -s<n>: alloc <n> kB of extended memory, then launch a shell",lf
+	db "  -w: wait in protected-mode for a keypress before terminating",lf
 	db 0
 
 CONST ends
@@ -119,13 +117,11 @@ dwSaveStatePM	dd ?		;far16 address to call to save task state in pm
 				dw ?
 dwSaveStateRM	dd ?		;far16 address to call to save task state in rm
 wSaveStateSize	dw ?		;size in bytes for save state
-dfRawSwitchPM	df ?
-dwRawSwitchRM	dd ?
+dfRawSwitch2RM	df ?		;raw mode switch to rm
+dwRawSwitch2PM	dd ?		;raw mode switch to pm
 
-;--- real-mode segment register values 
-wCSSeg		dw ?
-wSSSeg		dw ?
-wDSSeg		dw ?
+;--- real-mode DGROUP value ( CS, DS, ES, SS )
+wDgrp		dw ?
 ;--- segment register values after initial switch to pm
 wCSSel		dw ?
 wSSSel		dw ?
@@ -139,8 +135,9 @@ wParent		dw ?	;PSP's parent segment
 wDPMIFlgs	dw ?	;flags returned by DPMI function 0x400
 wPICs		dw ?	;master/slave PICs
 dwRMCB		dd ?	;realmode callback used for mode switch bench
-
-meminf MEMINFO <>
+	align dword
+rmcs	RMCS <>	;real mode call structure used for mode switch benchmark
+meminf	MEMINFO <>
 
 buff2 db 80h dup (?);used to save task state, and DPMI values
 
@@ -148,7 +145,7 @@ _BSS ends
 
 _TEXT segment
 
-	assume CS:DGROUP, DS:DGROUP, SS:DGROUP
+	assume CS:DGROUP, DS:DGROUP, SS:DGROUP, ES:DGROUP
 
 ;--- in: bl=base (10 or 16)
 
@@ -251,13 +248,13 @@ found:
 	mov ax, wEnv
 	mov es:[002Ch], ax
 
-	@stroutc <"DPMI: back from shell",13,10>
+	@stroutc <"DPMI: back from shell",lf>
 	ret
 exit1:
-	@stroutc <"unable to alloc memory",13,10>
+	@stroutc <"unable to alloc memory",lf>
 	ret
 exit2:
-	@stroutc <"COMSPEC not found",13,10>
+	@stroutc <"COMSPEC not found",lf>
 	ret
 startshell endp        
 
@@ -298,10 +295,10 @@ i15_e820 proc
 			.if ecx == 0 && es:[di].E820ENTRY.dwAddrLow < 100000h
 				;no conventional memory
 			.elseif dx
-				@printf <"Int 15h, ax=e820h, available memory at %x%lx, size %x%lxh kB",13,10>,\
+				@printf <"Int 15h, ax=e820h, available memory at %x%lx, size %x%lxh kB",lf>,\
 					cx, es:[di].E820ENTRY.dwAddrLow, dx, eax
 			.else
-				@printf <"int 15h, ax=e820h, available memory at %x%lx, size %lu kB",13,10>,\
+				@printf <"int 15h, ax=e820h, available memory at %x%lx, size %lu kB",lf>,\
 					cx, es:[di].E820ENTRY.dwAddrLow, eax
 			.endif
 		.endif
@@ -344,7 +341,7 @@ int15mem proc
 	movzx eax, ax
 	add ebx, eax
 	mov dwI15, ebx
-	@printf <"Int 15h, ax=e801h, extended memory: %lu kB",13,10>, ebx
+	@printf <"Int 15h, ax=e801h, extended memory: %lu kB",lf>, ebx
 noe801:
 	call i15_e820
 	ret
@@ -392,12 +389,12 @@ xms proc
 	jnz @F
 	mov dwXMSHighest, ecx
 @@:
-	@printf <", largest free block: %lu kB",13,10>, eax
+	@printf <", largest free block: %lu kB",lf>, eax
 ;	mov [si + 18],eax		;largest block
 ;	mov [si + 26],edx		;total extended mem
 	jmp xmsdone
 noxms:
-	@stroutc <"No XMS host found",13,10>
+	@stroutc <"No XMS host found",lf>
 	mov dwXMSHighest, 0
 xmsdone:
 
@@ -414,7 +411,7 @@ noxms2:
 	shr eax, 10
 	sub ecx, eax
 	jbe @F
-	@printf <"extended memory not managed by XMS: %lu kB",13,10>, eax
+	@printf <"extended memory not managed by XMS: %lu kB",lf>, eax
 @@:
 	ret
 xms endp
@@ -430,7 +427,7 @@ vcpi proc
 	cmp ah,00
 	jz @F
 novcpi:
-	@stroutc <"No VCPI host found",13,10>
+	@stroutc <"No VCPI host found",lf>
 	jmp vcpidone
 @@:
 	push bx
@@ -441,12 +438,16 @@ novcpi:
 	movzx cx,bl
 	mov ebx, edx
 	shl ebx, 2
-	@printf <"VCPI v%u.%u host found, free pages: %lu (%lu kB)",13,10>, ax, cx, edx, ebx
+	@printf <"VCPI v%u.%u host found, free pages: %lu (%lu kB)",lf>, ax, cx, edx, ebx
 vcpidone:
 	ret
 vcpi endp
 
+;--- main: cs,ds,ss = dgroup, es = psp
+
 main proc c
+
+	mov wDgrp, ds
 
 	mov si,80h
 	mov cl,es:[si]
@@ -490,20 +491,15 @@ main proc c
 				inc si
 			.elseif (al == 'w')
 				mov bWaitKey, 1
-			.elseif (al == 'd')
-				mov bNoRmcbBm, 1
 			.else
-				@printf "%s", offset szHelp
+				push offset szHelp
+				call _strout
 				jmp pmexit
 			.endif
 		.endif
 		mov ah,al
 		dec cl
 	.endw
-
-	mov wCSSeg, cs
-	mov wSSSeg, ss
-	mov wDSSeg, ds
 
 	test bOpt1, OP_ALLOC or OP_REALLOC or OP_LINALLOC or OP_RMCB or OP_MODESW or OP_CLISTI or OP_IN or OP_SHELL
 	jnz main0
@@ -514,7 +510,7 @@ main proc c
 	jz @F
 	mov bx,CStr(<"V86">)
 @@:
-	@printf <"Cpu is in %s-mode",13,10>, bx
+	@printf <"Cpu is in %s-mode",lf>, bx
 
 	call int15mem
 	call xms
@@ -536,9 +532,9 @@ main0:
 	movzx ax,byte ptr wVersion+1
 	movzx bx,byte ptr wVersion+0
 	movzx cx,byte ptr wCPU
-	@printf <"DPMI v%u.%u host found, cpu: %b, support of 32-bit clients: %x",13,10>,ax,bx,cx,wFlags
-	@printf <"entry initial switch to protected-mode: %x:%x",13,10>, word ptr dwPMEntry+2, word ptr dwPMEntry+0
-	@printf <"size task-specific memory: %u paragraphs",13,10>, wTaskMem
+	@printf <"DPMI v%u.%u host found, cpu: %b, support of 32-bit clients: %x",lf>,ax,bx,cx,wFlags
+	@printf <"entry initial switch to protected-mode: %x:%x",lf>, word ptr dwPMEntry+2, word ptr dwPMEntry+0
+	@printf <"size task-specific memory: %u paragraphs",lf>, wTaskMem
 @@:
 	mov bx,[wTaskMem]
 	and bx,bx
@@ -549,7 +545,7 @@ main0:
 	mov es,ax
 	test bOpt1, OP_ALLOC or OP_REALLOC or OP_LINALLOC or OP_RMCB or OP_MODESW or OP_CLISTI or OP_IN or OP_SHELL
 	jnz main_1
-	@printf <"segment task-specific memory: %x",13,10>,ax
+	@printf <"segment task-specific memory: %x",lf>,ax
 main_1:
 	movzx eax,ax	;clear register hiwords, just to be safe
 	movzx edx,dx
@@ -587,19 +583,23 @@ displ:
 	mov [wGSSel],gs
 	mov ax,es:[002Ch]
 	mov [wEnv],ax
+	mov ax,es:[0016h]
+	mov [wParent],ax
+	push ds
+	pop es
 
 	call do_protmode
 pmexit:
 	mov ax,4c00h
 	int 21h
 error1:
-	@stroutc <"No DPMI host found",13,10>
+	@stroutc <"No DPMI host found",lf>
 	jmp exit
 error2:
-	@stroutc <"No more DOS memory for DPMI initial switch",13,10>
+	@stroutc <"No more DOS memory for DPMI initial switch",lf>
 	jmp exit
 error3:
-	@stroutc <"Initial switch to protected mode failed",13,10>
+	@stroutc <"Initial switch to protected mode failed",lf>
 exit:
 	ret
 main endp
@@ -629,20 +629,20 @@ mycb32 proc
 	cld
 	db 67h
 	lodsd
-	mov es:[edi.RMCS.rIP],ax
+	mov es:[edi].RMCS.rIP,ax
 	shr eax,16
-	mov es:[edi.RMCS.rCS],ax
-	mov es:[edi.RMCS.rSP],si
+	mov es:[edi].RMCS.rCS,ax
+	add es:[edi].RMCS.rSP,sizeof dword
 	iretd
 mycb32 endp
 
 mycb16 proc
 	cld
 	lodsd
-	mov es:[di.RMCS.rIP],ax
+	mov es:[di].RMCS.rIP,ax
 	shr eax,16
-	mov es:[di.RMCS.rCS],ax
-	mov es:[di.RMCS.rSP],si
+	mov es:[di].RMCS.rCS,ax
+	add es:[di].RMCS.rSP,sizeof dword
 	iret
 mycb16 endp
 
@@ -754,7 +754,7 @@ enableints proc
 	jnz @F
 	mov ax,0901h
 	int 31h
-	@printf <"Interrupts enabled for benchmark",13,10>
+	@printf <"Interrupts enabled for benchmark",lf>
 @@:
 	ret
 enableints endp
@@ -762,7 +762,7 @@ enableints endp
 isreliable proc
 	test di,200h
 	jnz @F
-	@printf <"results are unreliable since host has disabled interrupts!",13,10>
+	@printf <"results are unreliable since host has disabled interrupts!",lf>
 @@:
 	ret
 isreliable endp
@@ -784,7 +784,7 @@ modeswtest proc
 	push cx
 	push dx
 
-	mov cx, wCSSeg
+	mov cx, wDgrp
 	mov dx, offset myint69
 	mov ax,0201h
 	int 31h
@@ -802,7 +802,7 @@ modeswtest proc
 	jnz @B
 	call gettimer
 	sub eax,esi
-	@printf <"time executing 100.000 * INT 69h: %lu ms",13,10>, eax
+	@printf <"time executing 100.000 * INT 69h: %lu ms",lf>, eax
 
 ;--- benchmark calling int 69h real-mode via int 31h, ax=0300h
 
@@ -810,7 +810,8 @@ modeswtest proc
 	mov esi, eax
 	mov edi, offset rmcs
 	mov rmcs.rSSSP,0
-	mov rmcs.rFlags,03202h
+	pushf
+	pop rmcs.rFlags
 	push ds
 	pop es
 	mov ecx,100000
@@ -825,14 +826,11 @@ modeswtest proc
 	jnz @B
 	call gettimer
 	sub eax,esi
-	@printf <"time executing 100.000 * INT 31h, AX=0300h (Sim INT 69h): %lu ms",13,10>, eax
+	@printf <"time executing 100.000 * INT 31h, AX=0300h (Sim INT 69h): %lu ms",lf>, eax
 
 ;--- benchmark realmode callback
 
-	cmp bNoRmcbBm, 0	;cwsdpmi will crash running this bm
-	jnz rmcb_done
-
-	mov cx, wCSSeg
+	mov cx, wDgrp
 	mov dx, offset myint69ex
 	mov bl,69h
 	mov ax,0201h
@@ -859,7 +857,7 @@ modeswtest proc
 	int 69h
 	call gettimer
 	sub eax,esi
-	@printf <"time executing 100.000 * real-mode callback: %lu ms",13,10>, eax
+	@printf <"time executing 100.000 * real-mode callback: %lu ms",lf>, eax
 
 	mov dx, word ptr dwRMCB+0
 	mov cx, word ptr dwRMCB+2
@@ -867,7 +865,7 @@ modeswtest proc
 	int 31h
 	jmp rmcb_done
 normcb:
-	@printf <"no realmode callback could be allocated",13,10>
+	@printf <"no realmode callback could be allocated",lf>
 rmcb_done:
 ;--- restore int 69h real-mode vector
 	pop dx
@@ -880,29 +878,27 @@ rmcb_done:
 
 	call gettimer
 	push eax
-	mov ebp, 100000
 	push ds
 	pop es
 	mov al,00
 	call savereststate
+	mov ebp, 100000		;register EBP is guaranteed to be preserved 
 nexttrip:
-	mov dx,wSSSeg
-	mov si,wCSSeg
-	mov ax,wDSSeg
-	mov cx,ax		;ES
-	mov di,offset raw_rm
-	movzx ebx,sp
-	sub bx,100h			;required by Win9x?
-	jmp dfRawSwitchPM
+	mov ax,wDgrp		;rm DS
+	mov dx,ax			;rm SS
+	mov si,ax			;rm CS
+	mov cx,ax			;rm ES
+	mov di,offset raw_rm;rm IP
+	mov bx,sp			;rm SP
+	jmp dfRawSwitch2RM
 raw_rm:					;in real mode now
-	mov dx,wSSSel
-	mov si,wCSSel
-	mov edi,offset raw_pm
-	mov ax,wDSSel
-	mov cx,ax
-	movzx ebx,sp
-	add bx,100h			;required by Win9x?
-	jmp dwRawSwitchRM
+	mov dx,wSSSel		;pm SS
+	mov si,wCSSel		;pm CS
+	mov edi,offset raw_pm;pm E/IP
+	mov ax,wDSSel		;pm DS
+	mov cx,ax			;pm ES
+	movzx ebx,sp		;pm E/SP
+	jmp dwRawSwitch2PM
 raw_pm:					;back in protected mode
 	dec ebp
 	jnz nexttrip
@@ -913,7 +909,7 @@ raw_pm:					;back in protected mode
 	call gettimer
 	pop esi
 	sub eax,esi
-	@printf <"time executing 100.000 * raw mode switches PM-",3Eh,"RM-",3Eh,"PM: %lu ms",13,10>, eax
+	@printf <"time executing 100.000 * raw mode switches PM-",3Eh,"RM-",3Eh,"PM: %lu ms",lf>, eax
 	call isreliable
 	ret
 
@@ -927,7 +923,7 @@ clitest proc
 	mov cx,ax
 	shr cx,12
 	and cl,3
-	@printf <"EFlags: %lx (IOPL=%u)",13,10>, eax, cx
+	@printf <"EFlags: %lx (IOPL=%u)",lf>, eax, cx
 
 ;--- measure CLI/STI execution time
 
@@ -942,7 +938,7 @@ clitest proc
 	jnz @B
 	call gettimer
 	sub eax,esi
-	@printf <"time executing 500.000 * CLI/STI: %lu ms",13,10>, eax
+	@printf <"time executing 500.000 * CLI/STI: %lu ms",lf>, eax
 
 ;--- measure int 31h, ax=090xh execution time
 
@@ -958,7 +954,7 @@ clitest proc
 	jnz @B
 	call gettimer
 	sub eax,esi
-	@printf <"time executing 500.000 * disable/enable interrupts via DPMI: %lu ms",13,10>, eax
+	@printf <"time executing 500.000 * disable/enable interrupts via DPMI: %lu ms",lf>, eax
 
 	ret
 clitest endp
@@ -971,7 +967,7 @@ inptest proc
 	mov cx,ax
 	shr cx,12
 	and cl,3
-	@printf <"EFlags: %lx (IOPL=%u)",13,10>, eax,cx
+	@printf <"EFlags: %lx (IOPL=%u)",lf>, eax,cx
 
 	call enableints
 
@@ -986,7 +982,7 @@ inptest proc
 	call gettimer
 	sub eax,esi
 	mov edx, dwPort
-	@printf <"time executing 200.000 * IN %x: %lu ms",13,10>, dx, eax
+	@printf <"time executing 200.000 * IN %x: %lu ms",lf>, dx, eax
 	ret
 inptest endp
 
@@ -994,55 +990,47 @@ inptest endp
 
 rmcbtest proc uses bp
 	xor bp,bp
-	push ds
-	pop es
-	push cs
-	pop ds
 	.while bp < 256
+		push cs
+		pop ds
 		mov esi,offset mycb32 ;DS:E/SI -> CS:E/IP of protected mode routine
 		mov edi,offset rmcs	;ES:E/DI -> rmcs to be used
 		mov ax,0303h
 		int 31h
+		push es
+		pop ds
 		jc done
 		push cx
 		push dx
 		inc bp
+		@printf <"callback %u (%x:%x) allocated",lf>, bp, cx, dx
 	.endw
 done:
-	push es
-	pop ds
-	@printf <"no of realmode callbacks that could be allocated: %u",13,10>, bp
-	
 	.while bp > 0
 		dec bp
 		pop dx
 		pop cx
-		@printf <"callback #%x: %x:%x",13,10>,bp, cx, dx
 		mov ax,0304h
 		int 31h
 		jnc @F
-		@stroutc <"free rmcb returned error",13,10>
+		@printf <"free rmcb %x:%x returned error",lf>, cx, dx
 @@:
 	.endw
-	ret	
+	ret
 rmcbtest endp
 
 ;*** this runs in DPMI pmode
-;--- ES=PSP
 
 do_protmode proc
-
-	mov ax,es:[0016h]
-	mov [wParent],ax
 
 	test bOpt1, OP_ALLOC or OP_REALLOC or OP_LINALLOC or OP_RMCB or OP_MODESW or OP_CLISTI or OP_IN or OP_SHELL
 	jnz @F
 
-	@printf <"now in protected mode, client CS/SS/DS/FS/GS: %x/%x/%x/%x/%x",13,10>,\
+	@printf <"now in protected mode, client CS/SS/DS/FS/GS: %x/%x/%x/%x/%x",lf>,\
 		wCSSel, wSSSel, wDSSel, wFSSel, wGSSel
 	pushfd
 	pop eax
-	@printf <"Eflags=%lx, ES (=PSP): %x (environment: %x, parent PSP segm: %x)",13,10>,\
+	@printf <"Eflags=%lx, ES (=PSP): %x (environment: %x, parent PSP segm: %x)",lf>,\
 		eax, wESSel, wEnv, wParent
 	sub sp,6
 	mov bp,sp
@@ -1053,7 +1041,7 @@ do_protmode proc
 	sldt ax
 	@printf <" LDTR: %x">,ax
 	str ax
-	@printf <" TR: %x",13,10>, ax
+	@printf <" TR: %x",lf>, ax
 	add sp,6
 
 	mov ax,0400h
@@ -1061,14 +1049,13 @@ do_protmode proc
 	xchg dh,dl
 	mov [wDPMIFlgs],bx
 	mov [wPICs],dx
-	@printf <"DPMI version flags: %x",13,10>, wDPMIFlgs
+	@printf <"DPMI version flags: %x",lf>, wDPMIFlgs
 	movzx ax, byte ptr wPICs+0
 	movzx cx, byte ptr wPICs+1
-	@printf <"master/slave PICs base: %b/%b",13,10>, ax, cx
+	@printf <"master/slave PICs base: %b/%b",lf>, ax, cx
 @@:
-	push ds
-	pop es
-	movzx edi,di
+;--- get save/restore state addresses, BX:CX for rm, SI:E/DI for pm
+;--- size of buffer in AX
 	mov ax,305h
 	int 31h
 	mov [wSaveStateSize],ax
@@ -1088,16 +1075,17 @@ do_protmode proc
 	.else
 		@printf <"state save protected-mode: %x:%lx">, si, edi
 	.endif
-	@printf <", real-mode: %x:%x",13,10>, word ptr [dwSaveStateRM+2], word ptr [dwSaveStateRM+0]
-	@printf <"size state save buffer: %u bytes",13,10>, wSaveStateSize
+	@printf <", real-mode: %x:%x",lf>, word ptr [dwSaveStateRM+2], word ptr [dwSaveStateRM+0]
+	@printf <"size state save buffer: %u bytes",lf>, wSaveStateSize
 @@:
+;--- get raw mode switch addresses, BX:CX for switch to pm, SI:E/DI for switch to rm
 	movzx edi,di
 	mov ax,0306h
 	int 31h
-	mov word ptr [dwRawSwitchRM+0],cx	;offs real (CX)
-	mov word ptr [dwRawSwitchRM+2],bx	;seg  real (BX)
-	mov dword ptr [dfRawSwitchPM+0],edi	;offs prot (EDI)
-	mov word ptr [dfRawSwitchPM+4],si	;seg  prot (SI)
+	mov word ptr [dwRawSwitch2PM+0],cx	;offs real (CX)
+	mov word ptr [dwRawSwitch2PM+2],bx	;seg  real (BX)
+	mov dword ptr [dfRawSwitch2RM+0],edi;offs prot (EDI)
+	mov word ptr [dfRawSwitch2RM+4],si	;seg  prot (SI)
 	test bOpt1, OP_ALLOC or OP_REALLOC or OP_LINALLOC or OP_RMCB or OP_MODESW or OP_CLISTI or OP_IN or OP_SHELL
 	jnz @F
 	.if b16Bit == 1
@@ -1105,13 +1093,11 @@ do_protmode proc
 	.else
 		@printf <"raw jump to real-mode: %x:%lx">, si, edi
 	.endif
-	@printf <", protected-mode: %x:%x",13,10>, word ptr [dwRawSwitchRM+2], word ptr [dwRawSwitchRM+0]
+	@printf <", protected-mode: %x:%x",lf>, word ptr [dwRawSwitch2PM+2], word ptr [dwRawSwitch2PM+0]
 @@:
-
-	push ds
-	pop es
-	movzx edi,di
+;--- get memory info into es:e/di
 	mov di, offset meminf
+	movzx edi,di
 	mov ax,0500h
 	int 31h
 
@@ -1122,12 +1108,12 @@ do_protmode proc
 	shr eax, 10 						; bytes -> kBytes
 	mov ecx, [di.MEMINFO.maxLockable]
 	shl ecx, 2							; pages -> kBytes
-	@printf <"largest free/lockable memory block (kB): %lu/%lu",13,10>, eax, ecx
+	@printf <"largest free/lockable memory block (kB): %lu/%lu",lf>, eax, ecx
 	mov eax, [di.MEMINFO.freeUnlocked]
 	.if (eax != -1)
 		shl eax,2
 	.endif
-	@printf <"free unlocked (=virtual) memory (kB): %lu",13,10>, eax
+	@printf <"free unlocked (=virtual) memory (kB): %lu",lf>, eax
 	mov eax, [di.MEMINFO.totalAdrSpace]
 	.if (eax != -1)
 		shl eax,2
@@ -1136,7 +1122,7 @@ do_protmode proc
 	.if (ecx != -1)
 		shl ecx,2
 	.endif
-	@printf <"total/free address space (kB): %lu/%lu",13,10>, eax, ecx
+	@printf <"total/free address space (kB): %lu/%lu",lf>, eax, ecx
 	mov eax, [di.MEMINFO.totalPhys]
 	.if (eax != -1)
 		shl eax,2
@@ -1145,7 +1131,7 @@ do_protmode proc
 	.if (ecx != -1)
 		shl ecx,2
 	.endif
-	@printf <"total/free physical memory (kB): %lu/%lu",13,10>, eax, ecx
+	@printf <"total/free physical memory (kB): %lu/%lu",lf>, eax, ecx
 
 	@stroutc 'Coprocessor status: '
 	mov ax,0E00h
@@ -1157,12 +1143,16 @@ do_protmode proc
 @@:
 	call _wordout	;display AX
 fpudone:
-	invoke _crout
+	@stroutc <lf>
 
-	movzx edi,di
+;--- get dpmi 1.0 infos into es:e/di
+;--- make sure the first 3 bytes are cleared, since
+;--- WinXP may return with Carry cleared!
+
 	mov di,offset buff2
-	mov word ptr [di],0	;WinXP returns with Carry cleared!
-	mov byte ptr [di+2],0;WinXP returns with Carry cleared!
+	movzx edi,di
+	mov word ptr [di],0
+	mov byte ptr [di+2],0
 	mov ax,401h
 	int 31h
 	jc no401
@@ -1170,9 +1160,9 @@ fpudone:
 	movzx ax, buff2+0
 	movzx cx, buff2+1
 	lea si, buff2+2
-	@printf <"vendor: %s, version: %u.%u",13,10>, si, ax, cx
+	@printf <"vendor: %s, version: %u.%u",lf>, si, ax, cx
 	pop ax
-	@printf <"capabilities: %x",13,10>, ax
+	@printf <"capabilities: %x",lf>, ax
 no401:
 	push 0
 	pop es
@@ -1182,10 +1172,10 @@ no401:
 	int 2Fh
 	cmp al,0
 	jnz i2f168a_failed
-	@printf <"vendor 'MS-DOS' API entry: %x:%lx",13,10>,es,edi
+	@printf <"vendor 'MS-DOS' API entry: %x:%lx",lf>,es,edi
 	jmp i2f168a_done
 i2f168a_failed:
-	@stroutc <"no API entry for vendor 'MS-DOS' found",13,10>
+	@stroutc <"no API entry for vendor 'MS-DOS' found",lf>
 i2f168a_done:
 
 status_displayed:
@@ -1226,7 +1216,7 @@ status_displayed:
 	@stroutc <"press a key to exit protected-mode...">
 	mov ah,10h
 	int 16h
-	@stroutc <13,10>
+	@stroutc <10>
 @@:
 	ret
 do_protmode endp
@@ -1269,7 +1259,7 @@ fillblock proc uses es
 	cld
 	db 67h
 	rep stosd
-	@stroutc <"memory block filled with value 'DPMI'",13,10>
+	@stroutc <"memory block filled with value 'DPMI'",lf>
 	push ds
 	pop es
 	mov ax,1
@@ -1286,7 +1276,7 @@ stdalloc proc
 	jc memalloc_failed
 	mov eax, meminf.maxBlock
 	shr eax, 10
-	@printf <"alloc largest mem block (size=%lu kB) returned handle %x%x, base %x%x",13,10>,\
+	@printf <"alloc largest mem block (size=%lu kB) returned handle %x%x, base %x%x",lf>,\
 		eax, si, di, bx, cx
 	cmp bFill, 1
 	jnz @F
@@ -1300,7 +1290,7 @@ stdalloc proc
 	int 31h
 	ret
 memalloc_failed:
-	@printf <"alloc largest block failed, AX=%x",13,10>,ax
+	@printf <"alloc largest block failed, AX=%x",lf>,ax
 	ret
 stdalloc endp
 
@@ -1317,7 +1307,7 @@ nexttry:
 ;--- handle in SI:DI now
 	mov eax, ebp
 	shr eax, 10
-	@printf <"(re)alloc memory block ok, linear address=%x%x, size=%lu kB",13,10>,bx,cx,eax
+	@printf <"(re)alloc memory block ok, linear address=%x%x, size=%lu kB",lf>,bx,cx,eax
 	add ebp, 100000h	;resize in 1 MB chunks
 	jc done	;overflow, shouldn't happen
 	mov bp,0
@@ -1327,9 +1317,9 @@ memalloc_failed:
 	.if (ebp > 1000h)
 		mov eax, ebp
 		shr eax,10
-		@printf <"realloc memory block (handle=%x%x) failed, req. size=%lu kB",13,10>,si,di,eax
+		@printf <"realloc memory block (handle=%x%x) failed, req. size=%lu kB",lf>,si,di,eax
 	.else
-		@stroutc <"alloc memory block failed, size= 4 kB",13,10>
+		@stroutc <"alloc memory block failed, size= 4 kB",lf>
 	.endif
 done:
 	ret
@@ -1342,50 +1332,60 @@ linalloc proc
 	mov ax,0504h
 	int 31h
 	jc linalloc_failed
-	@printf <"alloc linear memory at 400000h returned handle %lx, base %lx",13,10>, esi, ebx
+	@printf <"alloc linear memory at 400000h returned handle %lx, base %lx",lf>, esi, ebx
 	ret
 linalloc_failed:
-	@printf <"alloc linear memory failed, AX=%x",13,10>,ax
+	@printf <"alloc linear memory failed, AX=%x",lf>,ax
 	ret
 linalloc endp
 
-IS386 PROC NEAR
-	PUSHF
-	mov AH,70h
-	PUSH AX
-	POPF				; on a 80386 in real-mode, bits 15..12
-	PUSHF				; should be 7, on a 8086 they are F,
-	POP AX				; on a 80286 they are 0
-	POPF
+	.8086
+
+Is386 proc
+	pushf
+	mov ah,70h
+	push ax
+	popf				; on a 80386 in real-mode, bits 15..12
+	pushf				; should be 7, on a 8086 they are F,
+	pop ax				; on a 80286 they are 0
+	popf
 	and ah,0F0h
-	JS NO_386
-	JZ NO_386
-	RET
-NO_386:
-	mov dx,offset dNo386
-	push cs
-	pop ds
-	mov ah,9
-	int 21h
-	mov ax,4C01h
+	js No_386
+	jz No_386
+	ret
+No_386:
+	mov ax, CStr(<"80386 or better required",lf>)
+	push ax
+	call _strout
+	mov ax,4c01h
 	int 21h
 
-IS386 ENDP
+Is386 endp
 
-dNo386	db "a 80386 is needed",13,10,'$'
+;--- start program, cs = dgroup, ds,es = psp, ss = stack
 
 start:
-	call IS386
+	push cs
+	pop ds
+	call Is386
+
+	.386
+
+;--- release memory, set ss to dgroup
+
 	mov cx,es
 	mov ax,ss
 	sub ax,cx
 	mov bx,sp
 	shr bx,4
-	add bx,ax
+	add bx,ax	;bx now contains new block size in paras
+	sub ax,10h	;subtract 10h paragraphs for psp
+	shl ax,4	;convert to bytes (=size of dgroup without stack)
+	push ds
+	pop ss
+	add sp,ax
 	mov ah,4Ah
 	int 21h
-	mov ax,DGROUP
-	mov ds,ax
 	call main
 	mov ax,4C00h
 	int 21h
