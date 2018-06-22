@@ -1,1 +1,5 @@
-here binaries will be placed.
+binaries will be placed here.
+
+HDPMI.EXE: a stand-alone DPMI host, the core of the HX DOS extender.
+DPMILD32.EXE: the 32-bit version of HX's PE file loader.
+DPMI.EXE: a simple DPMI information and test program.
