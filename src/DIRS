@@ -1,0 +1,45 @@
+# adjust all paths to your enviroment before trying to run nmake
+#
+# meaning is:
+# LIBCOFF: directory where COFF libraries will be read from/copied to
+# LIBOMF:  directory where OMF libraries will be read from/copied to
+# INC32DIR: directory where JWasm/Masm will search its include files
+# INC16DIR: not used currently
+
+# please note: the names of LIBCOFF and LIBOMF should be different
+# in any case, because files may have equal names
+
+# OWDIR:  Open Watcom installation directory. Required for WSOCK32
+
+# MAKE:      MS NMake compatible make utility (default NMake)
+# ASM:       Masm-compatible assembler (default JWasm)
+# LINKBIN:   32-bit COFF linker (default JWlink)
+# LIBBIN:    32-bit COFF librarian (default OW WLib)
+# RCBIN:     32-bit COFF resource compiler (default OW WRC)
+# LINK16BIN: OMF linker (default JWlink)
+# LIB16BIN:  OMF librarian (default OW WLib)
+
+# optional:
+# DLL32DIR: additional dir where created dlls will be copied to
+# TOOLSDIR: additional dir where created exes will be copied to
+
+LIBCOFF=..\..\Lib
+LIBOMF=..\..\LibOMF
+INC32DIR=..\..\Include
+INC16DIR=.
+
+# OW directory
+OWDIR=\Watcom
+OWBIN=$(OWDIR)\binnt
+
+#MAKE=wmake.exe -h -ms
+MAKE=nmake.exe /nologo
+ASM=jwasm.exe
+LINKBIN=jwlink.exe
+LINK16BIN=jwlink.exe
+LIBBIN=$(OWBIN)\wlib.exe -q -fa -n
+LIB16BIN=$(OWBIN)\wlib.exe -q -n
+RCBIN=$(OWBIN)\wrc.exe
+
+#DLL32DIR=
+#TOOLSDIR=
