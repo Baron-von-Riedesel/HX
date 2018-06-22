@@ -1,12 +1,12 @@
 
 ;*** implements API translation for Int 2Fh
 
-		.386
+	.386
 
-		include hdpmi.inc
-		include external.inc
+	include hdpmi.inc
+	include external.inc
 
-		option proc:private
+	option proc:private
 
 
 ?IDLEFILTER    = 0	;std=0, 1=dont route all int 2Fh, ax=1689 to real-mode 

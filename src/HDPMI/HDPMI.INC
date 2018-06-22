@@ -13,11 +13,13 @@ else
 _TGATE_ = _TGATE16_
 endif
 
-		include version.inc
-		include dpmi.inc
+	include version.inc
+	include dpmi.inc
 
-?WDEB386		equ 1	;std=1, 1=support WDEB386
+ifndef ?386SWAT
 ?386SWAT		equ 0	;std=0, 1=support 386SWAT
+endif
+?WDEB386		equ 1 - ?386SWAT;support either swat or wdeb
 ?KDSUPP			equ ?WDEB386+?386SWAT
 ?WINDBG			equ 0	;std=0, 1=support Win386 pm int 22h debug API
 ifndef ?ENHANCED
@@ -88,7 +90,7 @@ endif
                         ;       dyn. TLB (avoids memory leaks when in 
                         ;       int 21h, ah=3Fh Ctrl-C is pressed)
 ?CR0COPY		equ 1   ;std 1: 1=copy cr0 to/from real-mode                        
-?RMSCNT			equ 1	;std ?: 1=cnt RMS usage. has the benefit that on raw
+?RMSCNT			equ 0	;std 0: 1=cnt RMS usage. has the benefit that on raw
 						;       jmps to protected mode the current RMS can be
                         ;       left unchanged if not in use. testcase is to 
                         ;       debug Borlands RTM.EXE. The win9x dpmi host
@@ -97,7 +99,6 @@ endif
 ?MOVEHIGH		equ 1	;std 1: 1=move _TEXT32 in extended memory
 ?FASTINT21		equ 0	;std 0: 1=direct int 21h, 0=call by int 30h dispatcher
 ?I41SUPPORT		equ 0	;std 0: 1=support some Int 41h codes
-?SAVERMSPONHS  	equ 0	;std 0: 1=save real-mode SS:SP on host stack
 ?DTAINHOSTPSP	equ 0	;std 0: 1=global DTA located in host PSP:80h
 ?RMCBSTATICSS	equ 1	;std 1: 1=alloc a selector for SS in real-mode callb.
 ?INT21API		equ 1	;std 1: 0=no int 21h api translation
@@ -175,7 +176,7 @@ endif
 ?IGNEXC01INR0 = 0		;std 1: ignore exc 01 in ring0
 ?FASTJUMPS	 = 1		;std 1: fast handling of intr30 jumps (gains 10%)
 ?I2FINITEXIT = 0		;std 0; int 2F, ax=1605/1606 broadcast
-?USEUMBS	 = 1		;std 1: use umbs for TLB
+?TLBINUMB	 = 1		;std 1: TLB allocated in UMB if possible
 ?CHECKSSIS32 = 0		;std 0: 1=check if client SS is 32bit
 ?SINGLESETCR3 = 0		;std 0; 1 only for test purposes!
 ?RING0FLATCS  = 1		;std 1; supply a ring 0 flat CS in GDT (for wdeb386)	 
@@ -231,9 +232,11 @@ endif
 ?CR0_EM 	  = 0		;std 0: support -w ( clear EM bit on host init )
 ?CSIPFROMTOP  = 1		;std 1: get CS:E/IP from top of LPMS
 ?CLEARHWESPRM = 1		;std 1: clear highword(esp) in real mode
-?SAVERMSEGSONRMS = 0	;std 0: 1=on internal rmcbs save/restore real-mode
-						;       segment registers on the RMS.
-						;       1 required by INT 24h?
+
+?SAVERMSPONHS  	equ 0	;std 0: 1=save real-mode SS:SP on host stack
+?SAVERMSEGSONHS	equ 1	;std 1: 1=save/restore real-mode segment registers on HS
+								;0 required by INT 24h?
+
 ?VCPIPICTEST  = 1       ;std 1: test if vcpi host did not remap PICs
 ?QEMMSUPPORT  = 1       ;std 1: make HDPMI compatible with QEMM vcpi host
 ?CALLPREVHOST = 1		;std 1: route to a previously installed 16bit host
@@ -264,7 +267,7 @@ else
 ?CHECKIFINRMIDT = 1
 endif
 
-?FIXTSSESP    = 0		;change SS:ESP in TSS for R0
+?FIXTSSESP    = 0		;std 0: change SS:ESP in TSS for R0
 
 if ?HSINEXTMEM
 ;?CHECKSSIS32 = 1		;test if client SS is 32bit
@@ -286,23 +289,28 @@ endif
 ;----------------------------------------------------------------
 
 if ?32BIT
-  ?RSIZE    equ 4
-  @iret macro
-		iretd
-		endm
 
-  @retf macro x
-		retf  x
-		endm
+?RSIZE equ 4
+@iret macro
+	iretd
+endm
+
+@retf macro x
+	retf  x
+endm
+
 else
-  ?RSIZE    equ 2
-  @iret macro
-		iret
-		endm
-  @retf macro x
-  		db 66h
-		retf  x
-		endm
+
+?RSIZE equ 2
+@iret macro
+	iret
+endm
+
+@retf macro x
+	db 66h
+	retf x
+endm
+
 endif
 
 ;--- paging flags
@@ -379,8 +387,8 @@ if ?TRAPINT06RM
 _EAERR8_  equ 0008H 		; exception 06 in real mode
 endif
 
-ifndef _TRACE_
-_TRACE_ = 0
+ifndef _SCRNTRACE_	;if screen output is direct, use special
+_SCRNTRACE_ = 1		;attribute to see what comes from hdpmi
 endif
 
 ifndef _LTRACE_
@@ -487,68 +495,68 @@ EXIT_CMDLINE_INVALID	equ 10
 
 PUSHADS struct
 union
-rEDI    dd ?            ;0
-rDI     dw ?            ;0
+rEDI	dd ?		;0
+rDI 	dw ?		;0
 ends
 union
-rESI    dd ?            ;4
-rSI     dw ?            ;4
+rESI	dd ?		;4
+rSI 	dw ?		;4
 ends
 union
-rEBP    dd ?            ;8
-rBP     dw ?            ;8
+rEBP	dd ?		;8
+rBP 	dw ?		;8
 ends
-RESERVE dd ?            ;12
+RESERVE dd ?		;12
 union
-rEBX    dd ?            ;16
-rBX     dw ?            ;16
-_BL     db ?            ;16
-ends
-union
-rEDX    dd ?            ;20
-rDX     dw ?            ;20
-_DL     db ?            ;20
+rEBX	dd ?		;16
+rBX 	dw ?		;16
+_BL 	db ?		;16
 ends
 union
-rECX    dd ?            ;24
-rCX     dw ?            ;24
-_CL     db ?            ;24
+rEDX	dd ?		;20
+rDX 	dw ?		;20
+_DL 	db ?		;20
 ends
 union
-rEAX    dd ?            ;28
-rAX     dw ?			;28
-_AL     db ?			;28
+rECX	dd ?		;24
+rCX 	dw ?		;24
+_CL 	db ?		;24
+ends
+union
+rEAX	dd ?		;28
+rAX 	dw ?		;28
+_AL 	db ?		;28
 ends
 PUSHADS ends
 
 PUSHAS struct
-rDI     dw ?            ;0
-rSI     dw ?            ;2
-rBP     dw ?            ;4
-RESERVE dw ?            ;6
-rBX     dw ?            ;8
-rDX     dw ?            ;10
-rCX     dw ?            ;12
-rAX     dw ?			;14
+rDI 	dw ?		;0
+rSI 	dw ?		;2
+rBP 	dw ?		;4
+RESERVE dw ?		;6
+rBX 	dw ?		;8
+rDX 	dw ?		;10
+rCX 	dw ?		;12
+rAX 	dw ?		;14
 PUSHAS ends
 
 ;--- descriptor (GDT/LDT)
 
-DESCRPTR struct         ;8 byte segment descriptor
-limit   dw ?            ;+0 limit[0..15]
-A0015   dw ?            ;+2 base addr[0..15]
-A1623   db ?            ;+4 base addr[16..23]
-attrib  db ?            ;+5 attribut
-                        ;bits 0-3: type
-                        ;bit    4: 1=memory segments,0=gates
-                        ;bit  5-6: descriptor privilege level
-                        ;bit    7: present bit (1=present)
-lim_gr  db ?            ;+6 bits 0-3:limit[16..19] (80386)
-                        ;bit    4:AVL = available to software
-                        ;bit    5:0
-                        ;bit    6:default size (0=16 Bit,1=32 Bit)
-                        ;bit    7:granularity (80386)
-A2431   db ?            ;+7 base addr[24..31] (80386)
+DESCRPTR struct 	;8 byte segment descriptor
+limit	dw ?		;+0 limit[0..15]
+A0015	dw ?		;+2 base addr[0..15]
+A1623	db ?		;+4 base addr[16..23]
+attrib	db ?		;+5 attribut
+					;bits 0-3: type
+					;bit	4: 1=memory segments,0=gates
+					;bit  5-6: descriptor privilege level
+					;bit	7: present bit (1=present)
+lim_gr	db ?		;+6 bits 0-3:limit[16..19] (80386)
+					;bit	4:AVL = available to software
+					;bit	5:0
+					;bit	6:default size (0=16 Bit,1=32 Bit)
+					;bit	7:granularity (80386)
+A2431	db ?		;+7 base addr[24..31] (80386)
 DESCRPTR ends
 
 ;--- pseudo descriptor (for LGDT/SGDT/LIDT/SIDT)
@@ -586,7 +594,7 @@ attrib  dw ?
 ofs32   dw ?
 GATE    ends
 
-TSSSEG	struct
+TSSSEG struct
 dwLink	dd ?	;+00 selector
 _Esp0	dd ?	;+04
 _SS0    dd ?
@@ -612,7 +620,7 @@ _GS		dd ?	;+5C
 _LDT	dd ?	;+60
 wFlags  dw ?	;+64
 wOffs   dw 68h	;+66
-TSSSEG	ends
+TSSSEG ends
 
 ;------------------------ client memory item structure
 
@@ -662,7 +670,7 @@ RMVFL_SETALWAYS equ 08h		;init RM vector for each client (int 23/24)
 
 ;--- ring 3 far proc address structure
 
-R3PROC	struct
+R3PROC struct
 if ?32BIT
 _Eip	dd ?
 _Cs		dd ?
@@ -670,29 +678,29 @@ else
 _Eip	dw ?
 _Cs		dw ?
 endif
-R3PROC	ends
+R3PROC ends
 
 ;--- real-mode callback item
 ;--- size is fix 16
 
-RMCB	struct
+RMCB struct
 		R3PROC <>
 ife ?32BIT
-        dd ?
+		dd ?
 endif
 rmcs	df ?			;address of real mode call structure
 if ?RMCBSTATICSS
 wSS		dw ?
 else
-   		dw ?
+		dw ?
 endif 
-RMCB	ends
+RMCB ends
 
 ;*** structure of protected mode segment save
 
-PMSTATE	struct
+PMSTATE struct
 wPrevStack	dw ?	;previous value of host stack
-PMSTATE	ends
+PMSTATE ends
 
 TASKSTATE struct
 
@@ -710,7 +718,8 @@ rFS		dw ?		;+4
 rGS		dw ?		;+6
 ends
 ends
-ssesp	df ?		;+8 protected mode ss:esp
+rESP	dd ?		;+8  client protected mode esp
+rSS		dw ?		;+12 client protected mode ss
 		dw ?		;+14
 union
 struct
@@ -738,7 +747,7 @@ VCPIRM2PM ends
 ;--- structure for VCPI function DE0C (switch to V86 mode)
 ;--- switch is done by a IRETD with VM bit set in EFlags
 
-V86IRET  struct
+V86IRET struct
 rEIP 	  dd ?		;1
 rCS 	  dw ?		;2 cs v86 mode
 		  dw ?		;3
@@ -754,7 +763,7 @@ rFS 	  dw ?		;fs v86 mode
 		  dw ?
 rGS 	  dw ?		;gs v86 mode
 		  dw ?
-V86IRET  ends
+V86IRET ends
 
 ;--- item of linked list of "real-mode" selectors (int 31h, ax=0002)
 
@@ -1065,42 +1074,42 @@ IVTHOOK ends
 
 @useext macro
 	db 67h
-	endm
+endm
 
 @movsd macro
 ife ?32BIT
 	@useext
 endif
 	movsd
-	endm
+endm
 
 @stosw macro
 ife ?32BIT
 	@useext
 endif
 	stosw
-	endm
+endm
 
 @stosb macro
 ife ?32BIT
 	@useext
 endif
 	stosb
-	endm
+endm
 
 @lodsw macro
 ife ?32BIT
 	@useext
 endif
 	lodsw
-	endm
+endm
 
 @lodsb macro
 ife ?32BIT
 	@useext
 endif
 	lodsb
-	endm
+endm
 
 @inctrace equ <_LTRACE_ = _LTRACE_ + 1>
 @dectrace equ <_LTRACE_ = _LTRACE_ - 1>
@@ -1109,11 +1118,11 @@ endif
 ifndef _DEBUG
 _LTRACE_ = 0
 endif
-	endm
+endm
         
 @SetTrace macro
 _LTRACE_ = 1
-	endm
+endm
 
 @defseg macro name_, align_, use_, group_
 name_ segment align_ use_ public 'CODE'
@@ -1121,7 +1130,7 @@ name_ ends
 ifnb <group_>
 group_ group name_
 endif
-	endm
+endm
 
 @seg macro segname
 	ifidn <segname>,<_TEXT32>
@@ -1149,7 +1158,7 @@ endif
 	else
 	  @defseg segname, <byte>, <use16>, <GROUP16>
 	endif
-	endm
+endm
 
 @checkssattr macro x,y
 local xxxx
@@ -1163,13 +1172,7 @@ if ?32BIT
 		movzx e&y,y
 endif
 xxxx:
-	endm
-
-@pushifdefnd macro x
-	ifnb <x>
-	  push x
-	endif
-	endm
+endm
 
 CStr macro xx:VARARG
 local xxxx
@@ -1179,33 +1182,55 @@ xxxx db xx
 CONST32 ends
 GROUP32 GROUP CONST32
 	exitm <LOWWORD(offset xxxx)>
-	endm
+endm
 
 @printf macro xx,a1,a2,a3,a4,a5,a6,a7,a8,a9,a10,a11,a12
-	ifnb <a12>
-	  echo too many parameters for @strout
-	  .err1
-	endif
-	@pushifdefnd <a11>
-	@pushifdefnd <a10>
-	@pushifdefnd <a9>
-	@pushifdefnd <a8>
-	@pushifdefnd <a7>
-	@pushifdefnd <a6>
-	@pushifdefnd <a5>
-	@pushifdefnd <a4>
-	@pushifdefnd <a3>
-	@pushifdefnd <a2>
-	@pushifdefnd <a1>
+  ifnb <a12>
+	echo too many parameters for @printf
+	.err1
+  endif
+  ifnb <a11>
+	push a11
+  endif
+  ifnb <a10>
+	push a10
+  endif
+  ifnb <a9>
+	push a9
+  endif
+  ifnb <a8>
+	push a8
+  endif
+  ifnb <a7>
+	push a7
+  endif
+  ifnb <a6>
+	push a6
+  endif
+  ifnb <a5>
+	push a5
+  endif
+  ifnb <a4>
+	push a4
+  endif
+  ifnb <a3>
+	push a3
+  endif
+  ifnb <a2>
+	push a2
+  endif
+  ifnb <a1>
+	push a1
+  endif
 	call _stroutx
 	dw CStr(<xx>)
-	endm
+endm
 
 @strout macro strg:REQ, xx:VARARG
 if _LTRACE_
 	@printf <strg>,xx
 endif
-	endm
+endm
 
 ;--- formatted output in real-mode
 
@@ -1213,29 +1238,50 @@ endif
 local xxxx
 if _LTRACE_
 CONST16 segment byte use16 public 'CODE'
-   xxxx   db xx
-	db 0
+xxxx   db xx,0
 CONST16 ends
 GROUP16 group CONST16
-	ifnb <a12>
-	  echo too many parameters for @stroutrm
-	  .err1
-	endif
-	@pushifdefnd <a11>
-	@pushifdefnd <a10>
-	@pushifdefnd <a9>
-	@pushifdefnd <a8>
-	@pushifdefnd <a7>
-	@pushifdefnd <a6>
-	@pushifdefnd <a5>
-	@pushifdefnd <a4>
-	@pushifdefnd <a3>
-	@pushifdefnd <a2>
-	@pushifdefnd <a1>
+  ifnb <a12>
+	echo too many parameters for @stroutrm
+	.err1
+  endif
+  ifnb <a11>
+	push a11
+  endif
+  ifnb <a10>
+	push a10
+  endif
+  ifnb <a9>
+	push a9
+  endif
+  ifnb <a8>
+	push a8
+  endif
+  ifnb <a7>
+	push a7
+  endif
+  ifnb <a6>
+	push a6
+  endif
+  ifnb <a5>
+	push a5
+  endif
+  ifnb <a4>
+	push a4
+  endif
+  ifnb <a3>
+	push a3
+  endif
+  ifnb <a2>
+	push a2
+  endif
+  ifnb <a1>
+	push a1
+  endif
 	call _$stroutx
 	dw offset xxxx
 endif
-	endm
+endm
 
 ;--- call real-mode software int xx 
 ;--- esp -> IRET32
@@ -1245,7 +1291,7 @@ endif
 	push xx
 	jmp  dormsint
 	align 4
-	endm
+endm
 
 ;--- call real-mode int xx 
 ;--- used internally
@@ -1253,7 +1299,7 @@ endif
 @simrmint macro xx
 	push xx
 	call dormintintern
-	endm
+endm
 
 ;--- call ring 3 protected-mode int xx
 ;--- usually this is done by the Int 30h dispatcher
@@ -1265,7 +1311,7 @@ endif
 	dd offset GROUP32:r3vect&xx
 	jmp pms_call_int
 	align 4
-	endm
+endm
 
 ;--- switch to LPMS, then call ring 3 protected mode int xx
 
@@ -1274,61 +1320,49 @@ endif
 	dd offset GROUP32:r3vect&xx
 	jmp lpms_call_int
 	align 4
-	endm
+endm
 
 ;--- set SS:SP to current real-mode stack
 
 @setrmstk macro
 	lss sp,cs:[tskstate.rmSSSP]
-	endm
+endm
 
 ;--- save current real-mode state
 ;--- this is just the real-mode SS:SP
 ;--- this is used by standard and client real-mode callbacks
 
-@pushrmstate macro wSegPrefix
-local @SegPrefix
-ifnb <wSegPrefix>
-@SegPrefix equ wSegPrefix
-else
-@SegPrefix equ <CS>
-endif
+@pushrmstate macro
 if ?SAVERMSPONHS
 ?RMPUSHSIZE = 0
-	mov @SegPrefix:[wCurSP],sp
-	mov @SegPrefix:[wCurSS],ss
+	mov cs:[wCurSP],sp
+	mov cs:[wCurSS],ss
 else
 ?RMPUSHSIZE = 4
-	push @SegPrefix:[tskstate.rmSSSP]
-	mov @SegPrefix:[tskstate.rmSP],sp
-	mov @SegPrefix:[tskstate.rmSS],ss
+	push cs:[tskstate.rmSSSP]
+	mov cs:[tskstate.rmSP],sp
+	mov cs:[tskstate.rmSS],ss
 endif
-	endm
+endm
 
 ;--- restore value of real-mode stack
 ;--- this is used by standard and client real-mode callbacks
 
-@poprmstate macro wSegPrefix
-local @SegPrefix
-ifnb <wSegPrefix>
-@SegPrefix equ wSegPrefix
-else
-@SegPrefix equ <CS>
-endif
+@poprmstate macro
 if ?SAVERMSPONHS
-	lss sp, @SegPrefix:[dwCurSSSP]
+	lss sp, cs:[dwCurSSSP]
 else
-	lss sp, @SegPrefix:[tskstate.rmSSSP]
-	pop @SegPrefix:[tskstate.rmSSSP]
+	lss sp, cs:[tskstate.rmSSSP]
+	pop cs:[tskstate.rmSSSP]
 endif
-	endm
+endm
 
 ;--- save protected-mode state
 ;--- this is used by standard and client real-mode callbacks
 
 @pushpmstate macro bRMSegs
 ifnb <bRMSegs>
-  ife ?SAVERMSEGSONRMS
+  if ?SAVERMSEGSONHS
 	push ss:[v86iret].rES
 	push ss:[v86iret].rDS
 	push ss:[v86iret].rFS
@@ -1344,8 +1378,8 @@ if ?SAVERMSPONHS
 	push ss:[dwCurSSSP]
 	pop ss:[tskstate.rmSSSP]
 endif
-	push dword ptr ss:tskstate.ssesp+4
-	push dword ptr ss:tskstate.ssesp+0
+	push dword ptr ss:tskstate.rSS
+	push dword ptr ss:tskstate.rESP
 	push ss:tskstate.rFSGS
 	push ss:tskstate.rDSES
 if ?FIXTSSESP
@@ -1356,7 +1390,7 @@ else
 	mov ss:[dwHostStackExc], esp
 	lea esp, [esp + sizeof R3FAULT32]
 endif
-	endm
+endm
 
 ;--- restore protected-mode state
 ;--- this is used by standard and client real-mode callbacks
@@ -1364,9 +1398,9 @@ endif
 @poppmstate macro bRMSegs
 	pop ss:tskstate.rDSES
 	pop ss:tskstate.rFSGS
-	pop dword ptr ss:tskstate.ssesp+0
-	pop dword ptr ss:tskstate.ssesp+4
-if ?SAVERMSPONHS	
+	pop dword ptr ss:tskstate.rESP
+	pop dword ptr ss:tskstate.rSS
+if ?SAVERMSPONHS
 	push ss:[tskstate.rmSSSP]
 	pop  ss:[dwCurSSSP]
 	pop ss:tskstate.rmSSSP
@@ -1375,11 +1409,11 @@ if ?RMSCNT
 	pop dword ptr ss:[bRMScnt]
 endif
 ifnb <bRMSegs>
-  ife ?SAVERMSEGSONRMS
-	pop	ss:[v86iret].rGS
-	pop	ss:[v86iret].rFS
-	pop	ss:[v86iret].rDS
-	pop	ss:[v86iret].rES
+  if ?SAVERMSEGSONHS
+	pop ss:[v86iret].rGS
+	pop ss:[v86iret].rFS
+	pop ss:[v86iret].rDS
+	pop ss:[v86iret].rES
   endif
 endif
 if ?FIXTSSESP
@@ -1390,25 +1424,29 @@ else
 	mov ss:[dwHostStackExc], esp
 	lea esp, [esp + sizeof R3FAULT32]
 endif
-	endm
+endm
 
-;--- set protected-mode state
+;--- save protected-mode state in tskstate.
 ;--- this macro is used before a jump to real-mode
-;--- save current protected-mode segment registers and ring 3 ss:esp
+;--- 1. in raw mode switch to real-mode
+;--- 2. in function _gotorm
+;--- saves current protected-mode segment registers and ring 3 ss:esp
+;--- assumes value in taskseg._Esp0 points BEHIND an IRET32 struct
 
-@setpmstate macro
+@savepmstate macro
 	mov ss:tskstate.rDS,ds
 	mov ss:tskstate.rES,es
 	mov ss:tskstate.rFS,fs
 	mov ss:tskstate.rGS,gs
+;--- get ring3 ESP & SS
 	push ebp
 	mov ebp, ss:taskseg._Esp0
 	push [ebp - sizeof IRET32].IRET32.rSP
 	mov ebp, dword ptr [ebp - sizeof IRET32].IRET32.rSS
-	pop dword ptr ss:[tskstate.ssesp+0]
-	mov dword ptr ss:[tskstate.ssesp+4], ebp
+	pop dword ptr ss:[tskstate.rESP]
+	mov dword ptr ss:[tskstate.rSS], ebp
 	pop ebp
-	endm
+endm
 
 ;--- real-mode to protected-mode break
 ;--- this prevents debuggers from stepping in untraceable code
@@ -1420,7 +1458,7 @@ if ?INTRM2PM
 else
 	cli
 endif
-	endm
+endm
 
 
 @DebugBreak macro x
@@ -1431,7 +1469,7 @@ if x
 	int 3
 sm:
 endif
-	endm
+endm
 
 @waitesckey macro
 local sm1
@@ -1448,7 +1486,7 @@ sm1:
 	pop eax
 	popfd
 endif
-	endm
+endm
 
 ;--- the lgdt,sgdt,lidt and sidt opcodes
 ;--- are CS Default bit dependant!
@@ -1458,34 +1496,34 @@ endif
 @lgdt macro x
 	db 66h
 	lgdt x
-	endm
+endm
 @sgdt macro x
 	db 66h
 	sgdt x
-	endm
+endm
 @lidt macro x
 	db 66h
 	lidt x
-	endm
+endm
 @sidt macro x
 	db 66h
 	sidt x
-	endm
+endm
 
 @mov_eax_cr4 macro
 ;	mov eax, cr4
 	db 0Fh,20h,0E0h
-	endm
+endm
 
 @mov_cr4_eax macro
 ;	mov cr4, eax
 	db 0Fh,22h,0E0h
-	endm
+endm
 
 @cpuid macro
 ;	cpuid
 	db 0Fh,0A2h
-	endm
+endm
 
 @int_31 macro
 if ?FASTINT31
@@ -1493,7 +1531,7 @@ if ?FASTINT31
 else
 	call intr31_
 endif
-	endm
+endm
 
 @int_21 macro
 if ?FASTINT21
@@ -1501,14 +1539,14 @@ if ?FASTINT21
 else
 	call intr21_
 endif
-	endm
+endm
 
-;-- switches read-mode
+;-- switches real-mode
 
 @jmp_rm macro xx
 	mov ss:[wRetAdrRm], xx
 	jmp _gotorm
-	endm
+endm
 
 @rawjmp_rm macro xx
 ;	push offset xx
@@ -1516,35 +1554,35 @@ endif
 ;	dd offset xx
 	mov ss:[wRetAdrRm2], offset xx
 	jmp _rawjmp_rm
-	endm
+endm
 
 @exitserver_pm macro xx
 ;	push offset xx
 	db 68h
 	dd offset xx
 	jmp _exitserver_pm
-	endm
+endm
 
 ;-- switches to protected-mode
 
 @jmp_pm macro xx
 	push word ptr LOWWORD(offset xx)
 	jmp _gotopm
-	endm
+endm
 
 @jmp_pmX macro xx
 	push word ptr LOWWORD(offset xx)
 	jmp _gotopmEx
-	endm
+endm
 
 @rawjmp_pm macro xx, bMode
 	push word ptr LOWWORD(offset xx)
 ifb <bMode>        
 	jmp _rawjmp_pm
 else
-	jmp _rawjmp_pm_setsegm
+	jmp _rawjmp_pm_savesegm	;save segment regs in v86iret before switch
 endif
-	endm
+endm
 
 ;--- push offset of a real-mode proc (inside hdpmi) as dword
 
@@ -1552,7 +1590,7 @@ endif
 ;; masm doesn't like "push dword ptr seg procaddr shl 16 + offset procaddr"
 	db 68h
 	dd offset procaddr
-	endm
+endm
 
 @proto macro name, type
   ifb <type>
@@ -1560,5 +1598,5 @@ name proto near
   else
 name proto type
   endif
-	endm
+endm
 

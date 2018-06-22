@@ -2,14 +2,14 @@
 ;*** moves some structures in extended memory if ?DYNBREAKTAB==1
 ;*** IDT, PM breaks
 
-		.386P
+	.386P
 
-		page,132
+	page,132
 
-		include hdpmi.inc
-		include external.inc
+	include hdpmi.inc
+	include external.inc
 
-		option proc:private
+	option proc:private
 
 @seg _ITEXT32
 

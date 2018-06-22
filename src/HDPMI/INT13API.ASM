@@ -1,21 +1,21 @@
 
 ;--- implements API translation for Int 13h
 
-		.386
+	.386
 
-		include hdpmi.inc
-		include external.inc
+	include hdpmi.inc
+	include external.inc
 
-		option proc:private
+	option proc:private
 
 @seg _TEXT32
 
 @getdrvparms macro
-		mov ah,08h
-		call intr13_ok
-		mov [ebp-2],cx	 ;cylinder + sectors
-		mov [ebp-4],dx	 ;heads,
-		endm
+	mov ah,08h
+	call intr13_ok
+	mov [ebp-2],cx	 ;cylinder + sectors
+	mov [ebp-4],dx	 ;heads,
+endm
 
 _TEXT32  segment
 

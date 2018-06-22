@@ -41,6 +41,20 @@
    - INTXXAPI.ASM  int 10h, int 15h, int 4Bh 
    - HELPERS.ASM   API translation helper functions
    - VXD.ASM       (16bit only)
+
+ þ internal include files
+
+   - HDPMI.INC     global constants, macros
+   - EXTERNAL.INC  externals, prototypes
+   - PAGEMGR.INC   prototypes of pagemgr.asm
+   - INT31API.INC  prototypes of I31xxx.asm
+   - DEBUGSYS.INC  constants for kernel debugger interface
+   - VERSION.INC   defines hdpmi version
+
+ þ external include files ( from ..\..\Include )
+
+   - DPMI.INC      dpmi structures
+   - KEYBOARD.INC  keyboard scan codes
    
  The source is not always easy to understand. It is old and was originally
  written with MASM 5.1. It's about 25.000 lines of code.
@@ -81,13 +95,6 @@
  
  3. Wish List
 
-  þ bugs open:
-    a. if DOS is not loaded in HMA, nested execution of
-       DPMI clients may cause a reboot (A20 disabled?)
-       test case: 
-        1. HDPMI32 -r -a
-        2. NMAKE which calls ML
-  
   þ implement the missing functions to make HDPMI a full V1.0 host:
     - DPMI TSRs (int 31h, ah=0Ch)
     - shared memory (int 31h, ah=0Dh)

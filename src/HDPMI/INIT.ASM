@@ -43,15 +43,18 @@ wHostSeg32 dw 0		;GROUP32 segment on startup
 	@ResetTrace
 
 ;--- set some real-mode IVT vectors
+;--- DS: GROUP16
 
-hookIVTvecs proc
+hookIVTvecs proc uses es
+	assume ds:GROUP16
 ife ?WATCHDOG
-	test cs:fHost, FH_XMS or FH_VCPI	;are we in raw mode?
+ife ?CATCHREBOOT
+	test fHost, FH_XMS or FH_VCPI	;are we in raw mode?
 	jnz @F
-	mov cs:int15hk.bInt,15h
+	mov int15hk.bInt,15h
 @@:
 endif
-	push es
+endif
 	push 0
 	pop es
 	mov si,offset ivthooktab
@@ -76,7 +79,6 @@ nextitem:
 	mov es:[bx+0],eax	;set vector in one move
 	jmp nextitem
 done:
-	pop es
 	ret
 hookIVTvecs endp
 
@@ -122,12 +124,15 @@ handleenvflags endp
 ;*** alloc TLB
 ;--- called by _initsvr_rm
 ;--- DS=GROUP16
+;--- out: if C, then error (fatal)
+;--- modifies si,di
 
 	@ResetTrace
 
 settlb_rm proc
 
-	@stroutrm <"settlb_rm enter",lf>
+	@stroutrm <"-settlb_rm enter",lf>
+
 if ?GLOBALTLBUSAGE				;get TLB of a previously installed instance
 	mov ax,word ptr [dwHost16+2]
 	test [fHost],FH_HDPMI
@@ -138,7 +143,7 @@ if ?GLOBALTLBUSAGE				;get TLB of a previously installed instance
 	push ds
 	mov ds, ax
 	mov ax,[wSegTLB]
-	@stroutrm <"TLB %X in previous HDPMI host %X ",lf>, ax, ds
+	@stroutrm <"-TLB %X in previous HDPMI host %X ",lf>, ax, ds
 	pop ds
   if ?TLBLATE
 	and ax,ax
@@ -149,47 +154,70 @@ if ?GLOBALTLBUSAGE				;get TLB of a previously installed instance
 nohdpmi:
 endif
 if ?TLBLATE
-	test [fMode2],FM2_TLBLATE
+	test [fMode2],FM2_TLBLATE	;hdpmi started with option -b?
 	jnz exit
 endif
-	call getendpara
-	mov ax,cs
-	add ax,dx
 	test bEnvFlags, ENVF_TLBLOW	;must TLB be in low memory?
-	jz settlb_0
-	cmp ax,0A000h			;is HDPMI loaded high?
-	jc settlb_0
-	mov ax,5801h			;then set fit best strategie
-	mov bx,0000h			;low memory, first fit
+	setz al		;al==1 if tlb can be high
+	mov cx,cs
+	cmp cx,0A000h
+	setnc ah	;ah==1 if hdpmi is loaded high
+	cmp al,ah
+	jz nonewtlb
+if ?TLBINUMB
+	push ax
+;--- set memory alloc strategy alloc high first
+	mov ax,5800h		;get alloc strat
 	int 21h
-allocnewmcb:					;get memory for translation buffer
+	movzx si,al
+	mov ax,5802h		;get umb link status
+	int 21h
+	movzx di,al
+	mov bx,0001h		;link umbs
+	mov ax,5803h		;set umb link status
+	int 21h
+	pop bx
+	mov bh,0
+	ror bl,1			;80h or 00
+	or  bl,1			;81h or 01 (best fit)
+	mov ax,5801h		;select allocation strategy
+	int 21h
+	push offset restorememstrat
+endif
+allocnewtlb:				;alloc memory for TLB
 	mov bx,?TLBSIZE/10h
 	mov ah,48h
 	int 21h
 	jc exit
-	@stroutrm <"TLB memory block allocated: %X",lf>,ax
-	or fMode, FM_TLBMCB
+	@stroutrm <"-TLB memory block allocated at %X",lf>,ax
+	or fMode, FM_TLBMCB		;set: tlb has its own mcb
 	jmp settlb_1
-settlb_0:
+nonewtlb:
+	call getendpara			;get end paragraph of hdpmi group16 in dx
+	mov ax,cs
+	add ax,dx
 if ?DELAYLOAD
+;--- increase blocksize of hdpmi group16 (without init code!)
+;--- so it includes the tlb.
+;--- the current stackpointer is inside it!
 	push ax
 	add ax,?TLBSIZE/10h
-	add ax,10h
+	add ax,10h		;add 10h for PSP
 	mov cx,wHostPSP
 	sub ax,cx
-	@stroutrm <"realloc memory block %X to size %X",lf>,cx,ax
+	@stroutrm <"-realloc memory block %X to size %X",lf>,cx,ax
 	mov bx,ax
 	mov es,cx
 	mov ah,4Ah
 	int 21h
 	pop ax
-	jc allocnewmcb
+	jc allocnewtlb
 endif
 settlb_1:
 	mov [wSegTLB],ax
 	movzx eax,ax
 	shl eax,4
-	@stroutrm <"TLB is %lX",lf>,eax
+	@stroutrm <"-TLB will be at linear address %lX, size %X",lf>,eax,?TLBSIZE
 ;	mov [atlb],eax			;not used currently
 	mov bx,_TLBSEL_
 	and bx,not 7
@@ -200,6 +228,19 @@ settlb_1:
 	clc
 exit:
 	ret
+
+if ?TLBINUMB
+restorememstrat:
+	pushf
+	mov bx,di			;restore umb link status
+	mov ax,5803h
+	int 21h
+	mov bx,si			;restore alloc strategy
+	mov ax,5801h
+	int 21h
+	popf
+	ret
+endif
 settlb_rm endp
 
 	@ResetTrace
@@ -389,7 +430,7 @@ getcpu endp
 
 if ?386SWAT
 
-initdebugger1_rm proc
+initkd386swat1_rm proc
 	push ds
 	xor eax, eax
 	mov ds, ax
@@ -400,17 +441,18 @@ initdebugger1_rm proc
 	int 67h
 	cmp ah,00
 	jnz nokerneldebugger
+	@stroutrm <"-initkd386swat1: 386swat detected",lf>
 	or fDebug,FDEBUG_KDPRESENT
 if ?INTRM2PM
 	mov word ptr _gotopmEx,90FAh	;deactivate RM2PM int
 endif
 nokerneldebugger:
 	ret
-initdebugger1_rm endp
+initkd386swat1_rm endp
 
 ;--- modifies AX, BX, EDX, DI, ES
 
-initdebugger2_rm proc
+initkd386swat2_rm proc
 	test fDebug,FDEBUG_KDPRESENT
 	jz done
 	push cs
@@ -436,13 +478,15 @@ initdebugger2_rm proc
 	inc bx
 	cmp bx,20h
 	jb @B
+	@stroutrm <"-initkd386swat2: 386swat present",lf>
 	pop es
 done:
 	ret
 err:
+	@stroutrm <"-initkd386swat2: 386swat refused init call, kd supp deactive",lf>
 	and fDebug, not FDEBUG_KDPRESENT
 	ret
-initdebugger2_rm endp
+initkd386swat2_rm endp
 
 endif
 
@@ -462,7 +506,7 @@ initdebugger_rm proc
 	@stroutrm <"int 68 ret, ax=%X",lf>,ax
 	cmp ax,D386_Id			;0F386h?
 	jnz nokerneldebugger
-	@stroutrm <"WDEB386 present",lf>
+	@stroutrm <"WDeb386 present",lf>
 if ?USEDEBUGOUTPUT
 	or fDebug,FDEBUG_KDPRESENT or FDEBUG_OUTPFORKD
 else
@@ -488,6 +532,7 @@ endif
 	@stroutrm <"int 68 ret, es:edi=%X:%lX,ds=%X",lf>,es,edi,ds
 	ret
 nokerneldebugger:
+	@stroutrm <"WDeb386 not active",lf>
 	mov ax,8B66h		;MOV AX,AX or MOV EAX,EAX
 	mov cl,0C0h
 	mov word ptr kdpatch1+0,ax
@@ -539,6 +584,7 @@ _ITEXT32 ends
 ;*** out: al=error/return code
 ;--- C = error?
 ;*** be aware: SS != GROUP16 here
+;--- DS: GROUP16
 ;--- ES and all 32bit general purpose registers will be modified
 
 _ret2:
@@ -550,7 +596,7 @@ _initsvr_rm proc near
 
 	assume ds:GROUP16
 
-	@stroutrm <"initsvr_rm: enter, ds=%X, es=%X, ss:sp=%X:%X",lf>, ds, es, ss, sp
+	@stroutrm <"-initsvr_rm: enter, ds=%X, es=%X, ss:sp=%X:%X",lf>, ds, es, ss, sp
 	mov ah,30h
 	int 21h
 if ?SUPPDOS33
@@ -583,7 +629,7 @@ endif
 	jnz nohdpmi
 	or fHost,FH_HDPMI
 	assume es:GROUP16
-	@stroutrm <"initsvr_rm: instance of HDPMI found, inst=%X, flags=%X",lf>,es, es:[wEnvFlags]
+	@stroutrm <"-initsvr_rm: instance of HDPMI found, inst=%X, flags=%X",lf>,es, es:[wEnvFlags]
 	cmpsb				;is it the same mode (16/32)?
 	jnz @F
 	mov al, EXIT_DPMIHOST_RUNNING
@@ -679,9 +725,6 @@ initdpmi_1:
 else
 initdpmi_1:
 endif
-	call _enablea20
-	and ax,ax
-	jz a20err
 if ?ALLOCRMS
 	@DosFMalloc <?RMSTKSIZE/10h>;alloc real mode stack
 	jc nodosmem
@@ -689,34 +732,10 @@ if ?ALLOCRMS
 endif
 
 ;--- settlb_rm may allocate a permanent TLB. it should be called before
-;--- pm_initserver_rm, which temporarily allocates DOS mem for pagemgr.
+;--- pm_init_rm, which temporarily allocates DOS mem for pagemgr.
 
-	@stroutrm <"initsvr_rm: call settlb_rm",lf>
-if ?USEUMBS
-	mov ax,5800h		;get alloc strat
-	int 21h
-	movzx si,al
-	mov ax,5802h		;get umb link status
-	int 21h
-	movzx di,al
-	mov bx,0001h		;link umbs
-	mov ax,5803h		;set umb link status
-	int 21h
-	mov bx,0081h		;+ search first in UMBs
-	mov ax,5801h		;select fit best strategie
-	int 21h
-endif
+	@stroutrm <"-initsvr_rm: call settlb_rm",lf>
 	call settlb_rm		;set translation buffer
-if ?USEUMBS
-	pushf
-	mov bx,di			;restore umb link status
-	mov ax,5803h
-	int 21h
-	mov bx,si			;restore alloc strategy
-	mov ax,5801h
-	int 21h
-	popf
-endif
 	jc nodosmem
 
 if ?DELAYLOAD
@@ -745,11 +764,11 @@ endif
 	call filldesc			;set descriptors for pagemgr init
 
 if ?386SWAT
-	call initdebugger1_rm
+	call initkd386swat1_rm
 endif
 
-	@stroutrm <"initsvr_rm: call pm_initserver_rm",lf>
-	call pm_initserver_rm	;page manager init rm (before hookIVTvecs)
+	@stroutrm <"-initsvr_rm: call pm_init_rm",lf>
+	call pm_init_rm			;page manager init rm (before hookIVTvecs)
 	jc nodosmem
 
 if ?WATCHDOG
@@ -764,11 +783,14 @@ if ?DTAINHOSTPSP
 	mov dwHostDTA, eax
 endif
 
-	@stroutrm <"initsvr_rm: set rm vectors",lf>
+	call _enablea20		;this hooks xms!
+	and ax,ax
+	jz a20err
+	@stroutrm <"-initsvr_rm: set rm vectors",lf>
 	call hookIVTvecs
 
 if ?386SWAT
-	call initdebugger2_rm
+	call initkd386swat2_rm
 endif
 if ?WDEB386
 	call initdebugger_rm	;modifies ax,bx,cx,dx!
@@ -809,32 +831,32 @@ _initsvr_pm proc
 	xor eax,eax				;make sure all seg regs are valid
 	mov fs,eax
 	mov gs,eax
-	@strout <"initsvr_pm: ...",lf>
+	@strout <"#initsvr_pm: start, current rmStack: %X:%X",lf>, tskstate.rmSS, tskstate.rmSP
 if ?WDEB386
 	call initdebugger_pm
 endif
-	@strout <"initsvr_pm: call pm_initserver",lf>
+	@strout <"#initsvr_pm: call pm_createvm",lf>
 	call pm_createvm			;preserves all registers
 	jc pmfirst_done
 if ?MOVEHIGH
-	@strout <"initsvr_pm: call pm_CloneGroup32",lf>
+	@strout <"#initsvr_pm: call pm_CloneGroup32",lf>
 	xor eax, eax
 	call pm_CloneGroup32
 	mov taskseg._Ebp, eax
 	jc initsvr_pm_failed
 endif
-	@strout <"initsvr_pm: call _movehigh",lf>
+	@strout <"#initsvr_pm: call _movehigh",lf>
 	call _movehigh_pm		;allocates+inits CD30s + IDT
 	jc initsvr_pm_failed
 
 if ?HSINEXTMEM
-	@strout <"initsvr_pm: alloc memory for host stack",lf>
+	@strout <"#initsvr_pm: alloc memory for host stack",lf>
 	mov ecx,1
 	call _AllocSysPages		;alloc ECX pages
 	jc initsvr_pm_failed
 	add eax, 1000h
 	sub eax, [dwHostBase]
-	@strout <"initsvr_pm: new host stack bottom %lX",lf>, eax
+	@strout <"#initsvr_pm: new host stack bottom %lX",lf>, eax
  if ?FIXTSSESP
 	mov [dwHostStack], eax
  else
@@ -845,8 +867,9 @@ if ?HSINEXTMEM
 endif
 
 if ?MOVEHIGH
+;--- move code32 in extended memory.
 	mov eax, taskseg._Ebp
-	@strout <"initsvr_pm: adjust GDT descriptors, new base=%lX",lf>, eax
+	@strout <"#initsvr_pm: adjust GDT descriptors, new base=%lX",lf>, eax
 	mov edx, pdGDT.dwBase
 	push es
 	pop ds
@@ -873,7 +896,7 @@ endif
 	jmp initsvr_pm_done
 initsvr_pm_failed2:
 initsvr_pm_failed:
-	call pm_exitserver_pm
+	call pm_exit_pm
 	stc
 initsvr_pm_done:
 pmfirst_done:
@@ -891,14 +914,14 @@ _initsvr_rm2 proc
 	pop ds
 	sti
 	pushf
-	call pm_initserver2_rm
+	call pm_init2_rm
 	popf
 	jc nodosmem3
 
-	mov tskstate.rmSS, cs		;make sure the old value is not
-	mov tskstate.rmSS, ?RMSTKSIZE	;used on next initial switch to pm
+	mov tskstate.rmSP, ?RMSTKSIZE	;used on next initial switch to pm
+	mov tskstate.rmSS, cs			;make sure the old value is not
 
-	@stroutrm <"initsvr_rm: back in real mode, ss:sp=%X:%X",lf>,ss,sp
+	@stroutrm <"-initsvr_rm2: back in real mode, ss:sp=%X:%X",lf>,ss,sp
 	mov al,EXIT_HDPMI_IN_VCPIMODE
 	test byte ptr [fHost], FH_VCPI
 	jnz initsvr_ex
@@ -907,16 +930,16 @@ _initsvr_rm2 proc
 	jnz initsvr_ex
 	dec al
 initsvr_ex::
-	@stroutrm <"initsvr_rm: exits with ax=%X",lf>,ax
+	@stroutrm <"-initsvr_rm2: exits with ax=%X",lf>,ax
 	ret
 nodosmem3::
-	@stroutrm <"initsvr_rm: calling pm_exitserver_rm ds=%X, ss:sp=%X:%X",lf>, ds, ss, sp
-	call pm_exitserver_rm
-	@stroutrm <"initsvr_rm: calling unhookIVTvecs ds=%X, ss:sp=%X:%X",lf>, ds, ss, sp
+	@stroutrm <"-initsvr_rm2: calling pm_exit_rm ds=%X, ss:sp=%X:%X",lf>, ds, ss, sp
+	call pm_exit_rm
+	@stroutrm <"-initsvr_rm2: calling unhookIVTvecs ds=%X, ss:sp=%X:%X",lf>, ds, ss, sp
 	call unhookIVTvecs
-nodosmem::						;no (DOS) memory
-	@stroutrm <"initsvr_rm: memory error ds=%X, ss:sp=%X:%X",lf>, ds, ss, sp
 	call _disablea20
+nodosmem::						;no (DOS) memory
+	@stroutrm <"-initsvr_rm2: memory error ds=%X, ss:sp=%X:%X",lf>, ds, ss, sp
 	mov dx,[wEMShandle]
 	and dx,dx
 	jz @F
@@ -1234,7 +1257,7 @@ next:
 exit:
 	ret
 found:
-	@stroutrm <"HDPMI='%s' found",lf>,es,di
+	@stroutrm <"'HDPMI=%s' found",lf>,es,di
 	xor ax,ax
 @@:
 	mov cl,es:[di]
@@ -1382,7 +1405,7 @@ mystart proc
 if _LTRACE_
 ;	int 3
 endif
-	@stroutrm <"hdpmi startup code, CS=%X",lf>,cs
+	@stroutrm <"hdpmi startup code, CS=%X, SS:SP=%X:%X",lf>,cs,ss,sp
 	cld
 	push cs
 	pop ds
@@ -1442,7 +1465,7 @@ endif
 	mov ax,cs
 	mov v86iret.rCS, ax	;GROUP16
 	mov v86iret.rSS, ax	;GROUP16
-	mov wHostSeg, ax		;GROUP16
+	mov wHostSeg, ax	;GROUP16
 	mov wPatchDgrp1, ax	;GROUP16
 	mov wPatchDgrp2, ax	;GROUP16
 ife ?DELAYLOAD
@@ -1745,7 +1768,7 @@ else
 	push ds				;just use GROUP16 for RMS here!
 	pop es				;this should still work for all cases
 endif
-	@stroutrm <"RMS=%X",lf>,es
+	@stroutrm <"launching a client to terminate HDPMI, RMS=%X",lf>,es
 	assume es:nothing
 	mov ax,?32BIT
 	call dword ptr [bp]
@@ -1786,23 +1809,23 @@ else
 	call display_string
 @@:
 
-;--- close all files before going resident. this is NOT redundant
-;--- because HDPMI's PSP will not be closed by an int 21, ah=4Ch
+;--- close files above 1 before going resident.
+;--- 1 may be used for displays.
 
 	mov es,wHostPSP
 	assume es:SEG16
-	mov bx,word ptr es:[32h]	;size file handle table
+	mov bx,2
 @@:
-	dec bx
-	js @F
 	mov ah,3Eh
 	int 21h
-	jmp @B
-@@:
+	inc bx
+	cmp bx,word ptr es:[32h]	;size file handle table
+	jc @B
+
 	xor cx, cx
 	xchg cx, es:[2Ch]
 	mov es, cx
-	mov ah,49h
+	mov ah,49h				;release environment
 	int 21h
 
   if ?DELAYLOAD
@@ -1812,26 +1835,15 @@ else
   endif
 
 	call getendpara
-  if 0
-	test fHost, FH_HDPMI	;do we own the TLB?
-	jnz @F
-	test fMode, FM_TLBMCB	;is TLB an extra MCB?
-	jnz @F
-  else
 	mov ax,cs
 	add ax,dx
+;--- remember: the TLB may be located just behind the 16-bit code!
 	cmp ax, wSegTLB
 	jnz @F
-  endif
 	add dx,?TLBSIZE/16
-
-;--- the TLB is just behind the 16-bit code. This worked in any case
-;--- before ?DELAYLOAD, but this is now the default. So just ensure 
-;--- that the memory segment can be enlarged. If no, alloc a new MCB
-;--- as TLB
-
 @@:
-	add dx,10h
+	add dx,10h	;16 paragraphs for the PSP
+	@stroutrm <"start: going resident, memory block size=%X, RMS=%X:%X",lf>, dx, tskstate.rmSS, tskstate.rmSP
 	pop ax				;restore exit code
 	mov ah,31h
 done:

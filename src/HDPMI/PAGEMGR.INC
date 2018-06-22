@@ -1,6 +1,6 @@
 
 @proto pm_createvm				;create a virtual machine
-@proto pm_exitserver_pm			;page mgr server exit protected-mode
+@proto pm_exit_pm				;page mgr server exit protected-mode
 @proto pm_exitclient			;client termination cleanup
 @proto pm_CloneGroup32 			;copy GROUP32 to new address context
 @proto _CommitRegion			;commit region EAX, size ECX
@@ -30,8 +30,8 @@
 @proto _setregionattributes		;set PTE bits for a region
 
 ;@proto seti15pages, near16
-@proto pm_initserver_rm, near16 ;page mgr server init real-mode
-@proto pm_initserver2_rm, near16;page mgr cleanup after prot-mode init
-@proto pm_exitserver_rm, near16	;page mgr server exit real-mode
+@proto pm_init_rm, near16 ;page mgr server init real-mode
+@proto pm_init2_rm, near16;page mgr cleanup after prot-mode init
+@proto pm_exit_rm, near16	;page mgr server exit real-mode
 @proto pm_int15rm, near16
 

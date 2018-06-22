@@ -58,7 +58,7 @@ _heapalloc proc public
 
 	push ecx
 tryagain:
-	@strout <"heap: try to alloc a heap item, size=%lX",lf>, eax
+	@strout <"#heapalloc: try to alloc a heap item, size=%lX",lf>, eax
 	mov ecx,[dwCurOfs]
 	add eax,3
 	and al,0FCh
@@ -68,16 +68,16 @@ tryagain:
 	mov eax,[dwCurOfs]
 	mov [dwCurOfs],ecx
 	add eax,[dwCurPg]
-	@strout <"heap: heap item allocated, eax=%lX",lf>,eax
+	@strout <"#heapalloc: heap item allocated, eax=%lX",lf>,eax
 	pop ecx
 	ret
 heapalloc_1:
-	@strout <"heap: try to alloc a new page for heap",lf>
+	@strout <"#heapalloc: try to alloc a new page for heap",lf>
 	pushad
 	mov ecx,1			  ;alloc 1 page
 	call _AllocSysPagesX	  ;returns linear address in EAX
 	jc @F
-	@strout <"heap: new page for heap allocated: %lX",lf>,eax
+	@strout <"#heapalloc: new page for heap allocated: %lX",lf>,eax
 	sub eax,[dwHostBase]  ;since no FLAT model, normalize address
 	mov [dwCurPg],eax
 	mov [dwCurOfs], 0
@@ -86,7 +86,7 @@ heapalloc_1:
 	popad
 	jnc tryagain
 	pop ecx
-	@strout <"heap: allocating new page failed",lf>
+	@strout <"#heapalloc: allocating new page failed",lf>
 	ret
 	align 4
 
@@ -108,14 +108,14 @@ if _LTRACE_
 	.if (eax)
 		mov eax,[eax].MEMITEM.pNext
 	.endif
-	@strout <"allocmemhandle: pMemItems=%lX,next handle=%lX",lf>, pMemItems, eax
+	@strout <"#allocmemhandle: pMemItems=%lX,next handle=%lX",lf>, pMemItems, eax
 	pop eax
 endif
-	@strout <"allocmemhandle: enter",lf>
+	@strout <"#allocmemhandle: enter",lf>
 	mov ebx, pFreeMemItems
 	and ebx,ebx
 	jnz allocmemhandle1
-	@strout <"allocmemhandle: no free handle, will alloc a new item",lf>
+	@strout <"#allocmemhandle: no free handle, will alloc a new item",lf>
 	push ecx
 	push eax
 	mov eax,sizeof MEMITEM
@@ -123,7 +123,7 @@ endif
 	jc @F
 	mov ebx,eax
 	xor eax,eax
-	@strout <"allocmemhandle: new handle allocated: %lX",lf>,ebx
+	@strout <"#allocmemhandle: new handle allocated: %lX",lf>,ebx
 	mov [ebx].MEMITEM.flags,ax
 @@:
 	pop eax
@@ -135,7 +135,7 @@ allocmemhandle1:
 	mov [ebx].MEMITEM.flags,ax
 	xchg [ebx].MEMITEM.pNext,eax
 	mov pFreeMemItems, eax
-	@strout <"allocmemhandle: could use a free mem handle: %lX",lf>,ebx
+	@strout <"#allocmemhandle: could use a free mem handle: %lX",lf>,ebx
 	pop eax
 	clc
 	ret

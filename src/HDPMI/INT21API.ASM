@@ -1,12 +1,14 @@
 
 ;--- implements API translation for Int 21h
 
-		.386
+	.386
 
-		include hdpmi.inc
-		include external.inc
+	include hdpmi.inc
+	include external.inc
 
-		option proc:private
+_LTRACE_ = 0
+
+	option proc:private
 
 ?OPTIMIZETLBCOPY = 1	;dont copy to TLB if src/dst is in dos memory already
 ifndef ?LFNSUPPORT
@@ -2245,64 +2247,64 @@ i217301:
 ;--- SI=flags (bit 0: 0=read, 1=write)
 
 i217305:
-		call setdsreg2tlb
-		test si,1
-		jnz iswrite
-		call PrepareDiskIoRead
-		jc @F
-		push ebx
-		mov ebx, 0
-		call rmdos
-		pop ebx
-		jc @F
-		call AfterDiskIoRead
-		clc
+	call setdsreg2tlb
+	test si,1
+	jnz iswrite
+	call PrepareDiskIoRead
+	jc @F
+	push ebx
+	mov ebx, 0
+	call rmdos
+	pop ebx
+	jc @F
+	call AfterDiskIoRead
+	clc
 @@:
-		ret
+	ret
 iswrite:
-		call PrepareDiskIoWrite
-		jc @F
-		push ebx
-		mov ebx, 0
-		call rmdos
-		pop ebx
+	call PrepareDiskIoWrite
+	jc @F
+	push ebx
+	mov ebx, 0
+	call rmdos
+	pop ebx
 @@:
-		ret
+	ret
 intr2173 endp
 
 ;--- get current environment as a real mode segment
 ;--- out: real mode environment in AX
 
 getrmenv proc
-		push ebx
-		push ds
-		push byte ptr _FLATSEL_
-		pop ds
-		mov ebx, ss:[dwSDA]
-		movzx ebx, word ptr [ebx+10h]
-		shl ebx, 4
-		mov bx, [ebx+2ch]
-		pop ds
-		call bx_sel2segm
-		mov ax, bx
-		pop ebx
-		ret
+	push ebx
+	push ds
+	push byte ptr _FLATSEL_
+	pop ds
+	mov ebx, ss:[dwSDA]
+	movzx ebx, word ptr [ebx+10h]
+	shl ebx, 4
+	mov bx, [ebx+2ch]
+	pop ds
+	call bx_sel2segm
+	mov ax, bx
+	pop ebx
+	ret
 getrmenv endp
 
 ;---------------------------------------------
 
 if 0
 fataldosexit:
-		mov ebp,esp
+	mov ebp,esp
 if ?32BIT
-		mov si,[ebp+8]
+	mov si,[ebp+8]
 else
-		mov si,[ebp+6]
+	mov si,[ebp+6]
 endif
-		mov di,[ebp+4]
-		@printf <"I21: fatal error (ax=%X bx=%X cx=%X dx=%X cs:ip=%X:%X)",lf>,ax,bx,cx,dx,si,di
-		pop eax			;errorcode
-		jmp __exitappx
+	mov di,[ebp+4]
+	@printf <"I21: fatal error (ax=%X bx=%X cx=%X dx=%X cs:ip=%X:%X)",lf>,ax,bx,cx,dx,si,di
+	pop eax			;errorcode
+	jmp __exitappx
 endif
 
 endif

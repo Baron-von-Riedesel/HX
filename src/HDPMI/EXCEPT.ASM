@@ -22,11 +22,6 @@
 @seg _TEXT32
 @seg _DATA16
 
-@charout macro xx
-	push xx
-	call _charout
-	endm
-
 CONST32 segment byte use32 public 'CODE'
 CONST32 ends
 
@@ -53,6 +48,12 @@ endif
 CONST32 ends
 
 _TEXT32 segment
+
+_charout proto stdcall :dword
+_byteout proto stdcall :dword
+_wordout proto stdcall :dword
+_dwordout proto stdcall :dword
+_stroutesi proto
 
 _LTRACE_ = 0
 
@@ -122,8 +123,7 @@ endif
 PTEout:
 	call _Linear2PT		;returns address of PTE in EDI
 	jc @F				;address not allocated
-	push dword ptr es:[edi]
-	call _dwordout
+	invoke _dwordout, dword ptr es:[edi]
 	ret
 @@:
 	@printf <"???">
@@ -298,8 +298,7 @@ endif
 	jnz @F
 	fninit					;clear FSW, FCW and FTW of FPU
 @@:
-	push eax
-	call _byteout
+	invoke _byteout, eax
 	lar eax,[ebp].de.rSSd
 	and ah,60h
 	jz @F
@@ -362,7 +361,7 @@ except_cont:
 	mov esi,offset regtexts
 	mov cl,9
 nextsegm:
-	call _stroutsi
+	call _stroutesi
 	pop di
 	lar eax,edi
 	jnz novalidsel
@@ -375,7 +374,7 @@ nextsegm:
 	@printf <"%X (%lX,%lX,%X)">, di, ebx, eax, dx
 	jmp @F
 novalidsel:
-	@printf	<"%X (********,********,****)">, di
+	@printf <"%X (********,********,****)">, di
 @@:
 	dec cl
 	jnz nextsegm
@@ -388,7 +387,7 @@ novalidsel:
 	@printf <" PTE 1. Page LDT=">
 	call PTEout
 @@:
-	@charout lf
+	invoke _charout, lf
 
 ;--- dump special registers (GDTR, IDTR, CRx, ...)
 
@@ -402,7 +401,7 @@ novalidsel:
 if 0
 	@printf <" Stat=%X",lf>,<word ptr cApps>
 else
-	@charout lf
+	invoke _charout, lf
 endif
 
 	mov eax,cr3
@@ -465,16 +464,15 @@ endif
 	mov cl, 12
 nextbyte_eip:
 	lodsb
-	push eax
-	call _byteout
-	@charout ' '
+	invoke _byteout, eax
+	invoke _charout, ' '
 	dec cl
 	jnz nextbyte_eip
 	jmp eip_done
 noeip::
 	@printf "??"
 eip_done:
-	@charout lf
+	invoke _charout, lf
 	push ss
 	pop ds
 
@@ -494,17 +492,15 @@ eip_done:
 	mov ch,06
 	jmp start_stackdump
 nextline_stack:
-	@charout lf
-	push esi
-	call _dwordout
-	@charout  '='
+	invoke _charout, lf
+	invoke _dwordout, esi
+	invoke _charout,  '='
 start_stackdump:
 	mov cl,08
 nextword:
 	lodsw
-	push eax
-	call _wordout
-	@charout ' '
+	invoke _wordout, eax
+	invoke _charout, ' '
 	dec cl
 	jnz nextword
 	dec ch
@@ -513,7 +509,7 @@ nextword:
 noesp::
 	@printf "????"
 esp_done:
-	@charout lf
+	invoke _charout, lf
 	push ss
 	pop ds
 	mov [bExcMode], 0
@@ -540,13 +536,13 @@ if ?DOSOUTPUT
 @@:
 else
 	mov esi, offset szTerm1
-	call _stroutsi
+	call _stroutesi
 	cmp [cApps],0
 	jz @F
-	call _stroutsi
+	call _stroutesi
 @@:
 	mov esi, offset szTerm3
-	call _stroutsi
+	call _stroutesi
 tryagain:
 	inc bExcEntry
 	@pushproc getakey
@@ -570,7 +566,7 @@ else
 	jnz tryagain
  endif
 endif
-	@charout lf
+	invoke _charout, lf
 if ?SETCLIENTPSP        
 	cmp cApps,0			;is there a client?
 	jz @F
@@ -596,7 +592,7 @@ _except endp
 ;*** client fatal exit ***
 
 fatappexit proc
-	@charout lf
+	invoke _charout, lf
 fatappexit endp	;fall throu
 
 _fatappexit2 proc

@@ -1,13 +1,20 @@
  
  History HDPMI 
 
-  16.06.2018, version 3.18
+  22.06.2018, version 3.18
 
-  þ the host will now use DOS for its output if an exception occurs.
+  þ bugfix: nested real-mode stack handling did not work reliably
+    if nesting level was > 1.
+  þ bugfix: TLB was not allocated in an UMB if HDPMI itself was loaded
+    low.
+  þ HDPMI will now use DOS for its output if an exception occurs.
     There is no longer any query if the client or the server is to
     be terminated; also, video mode is never altered by the host, making
     cmdline switch -k obsolete.
-  
+  þ HDPMI does no longer intercept int 09h to detect if ctrl-alt-del
+    is pressed. Instead it intercepts int 15h, ah=4Fh. This avoids reading
+    the keyboard controller data port 60h, which should be done by the
+    keyboard driver only.
 
   09.10.2013, version 3.17
 

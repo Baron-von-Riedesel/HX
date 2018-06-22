@@ -6,12 +6,12 @@
 ;*** INT 25
 ;*** INT 26
 
-		.386
+	.386
 
-		include hdpmi.inc
-		include external.inc
+	include hdpmi.inc
+	include external.inc
 
-		option proc:private
+	option proc:private
 
 ?EXITONCTRLC  = 0	;terminate client on Ctrl-C (INT 23h)
 ?EXITWITH4C   = 1	;when terminating on int 23h, terminate with an int 21, 4Ch

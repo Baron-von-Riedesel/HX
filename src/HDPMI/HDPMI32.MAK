@@ -4,6 +4,11 @@
 #  - JWasm | Masm
 #  - JWLib | WLib (Open Watcom) | MS OMF LIB (lib16.exe)
 #  - JWLink v1.8x
+#  - extrsect.exe, converts stub binary to assembly include file 
+#  - setmzhdr.exe, modifies exe so:
+#                  - dos will load the 16-bit part only
+#                  - stack size will be 200h
+#  - shrmzhdr.exe, shrinks MZ header, used only if MS link is used.
 
 # The current version of the HDPMI binary is a challenge for
 # all linkers, because it requires full control over segment ordering
@@ -23,16 +28,19 @@ MASM=0
 !if $(DEBUG)
 AOPTD=-Zi -D_DEBUG
 LOPTD=/LI
+!ifdef 386SWAT
+AOPTD=$(AOPTD) -D?386SWAT=1
+!endif
 !endif
 
 SRCMODS = \
 !include modules.inc
 OBJNAMES = $(SRCMODS:.ASM=.OBJ)
 !if $(DEBUG)
-CP = 0
+#CP = 0	;what's that?
 OBJMODS = $(OBJNAMES:.\=STD32D\)
 !else
-CP = 1
+#CP = 1
 OBJMODS = $(OBJNAMES:.\=STD32\)
 !endif
 
@@ -68,7 +76,7 @@ LOPT  = format DOS
 
 HSMODS=$(OUTHSEXT)\$(SRC).obj $(OUTHSEXT)\init.obj $(OUTHSEXT)\switch.obj $(OUTHSEXT)\i31swt.obj
 
-# OW WLink has a very strange cmdline syntax
+# JWLink has a somewhat strange cmdline syntax
 !if $(LINKER)==1
 LCMDS1=$(LOPT) file $(OUTSTD)\$(SRC).obj name $*.EXE op q, map=$*.MAP, stack=0 lib $(OUTSTD)\$(NAME).lib
 LCMDS2=$(LOPT) file {$(OUTSTD)\$(SRC).obj $(OUTNOLFN)\INT21API.obj} name $*.EXE op q, map=$*.MAP, stack=0 lib $(OUTSTD)\$(NAME).lib
@@ -155,11 +163,11 @@ $(OUTSTD)\$(NAME).EXE: $(OUTSTD)\$(SRC).obj $(OUTSTD)\$(NAME).lib $(NAME).mak
 	@$(LINK) @<<
 $(LCMDS1)
 <<
-!if $(CP)
 !if $(LINKER)==2
 	@..\..\BIN\SHRMZHDR.EXE -d $*.EXE
 !endif
 	@..\..\BIN\SETMZHDR.EXE -q $*.EXE
+!if $(DEBUG)==0
 	@copy $*.EXE ..\..\BIN\*.* >NUL
 !ifdef TOOLSDIR
 	@copy $*.EXE $(TOOLSDIR)\*.* >NUL

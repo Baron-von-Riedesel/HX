@@ -45,8 +45,7 @@ endif
 intr31 endp
 
 intr31_ proc public
-	@strout <"i31 a-d=%X %X %X %X di=%lX,">,\
-		ax,bx,cx,dx,edi
+	@strout <"i31 enter a-d=%X %lX %lX %lX esi=%lX edi=%lX",lf>,ax,ebx,ecx,edx,esi,edi
 ;	@waitesckey
 
 if ?LOGINT31
@@ -57,12 +56,12 @@ endif
 	pop ds
 if _LTRACE_
 	jc @F
-	@strout <"NC ">
+	@strout <"i31 exit NC ">
 	jmp intr31ex_1
 @@:
-	@strout <" C ">
+	@strout <"i31 exit C  ">
 intr31ex_1:
-	@strout <"a-d=%X %X %X %X",lf>,ax,bx,cx,dx
+	@strout <"a-d=%X %lX %lX %lX si=%lX edi=%lX",lf>,ax,ebx,ecx,edx,esi,edi
 endif
 if ?FASTINT31
 	jmp iret_with_CF_mod

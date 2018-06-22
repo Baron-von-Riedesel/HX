@@ -128,11 +128,11 @@ $(OUTSTD)\$(NAME).EXE: $(OUTSTD)\$(SRC).obj $(OUTSTD)\$(NAME).lib $(NAME).mak $(
 	@$(LINK) @<<
 $(LCMDS1)
 <<
-!if $(DEBUG)==0
 !if $(LINKER)==2
 	@..\..\BIN\SHRMZHDR.EXE $*.exe
 !endif     
 	@..\..\BIN\SETMZHDR.EXE -q $*.EXE
+!if $(DEBUG)==0
 	@copy $*.EXE ..\..\Bin\*.* >NUL
 !ifdef TOOLSDIR     
 	@copy $*.EXE $(TOOLSDIR)\$(NAME).EXE >NUL
@@ -164,11 +164,11 @@ $(OUTENH)\$(NAME).exe: $(OUTENH)\hdpmi.obj $(OUTENH)\int2fapi.obj $(OUTENH)\int3
 	@$(LINK) @<<
 $(LCMDS3)
 <<
-!if $(DEBUG)==0    
 !if $(LINKER)==2
 	@..\..\BIN\SHRMZHDR.EXE $*.EXE
 !endif
 	@..\..\BIN\SETMZHDR.EXE -q $*.EXE
+!if $(DEBUG)==0    
 #	@copy $*.EXE ..\..\Unsupp
 !endif     
 

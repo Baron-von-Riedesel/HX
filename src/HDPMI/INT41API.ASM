@@ -1,12 +1,12 @@
 
 ;--- implements support for Int 41h in protected mode (debugging)
 
-		.386
+	.386
 
-		include hdpmi.inc
-		include external.inc
+	include hdpmi.inc
+	include external.inc
 
-		option proc:private
+	option proc:private
 
 @seg _TEXT32
 
@@ -48,7 +48,7 @@ if ?I41SUPPORT
 		call _getchrx
 		iretd
 @@:
-		cmp ax,0012h
+		cmp ax,0012h	;display string in es:esi
 		jnz @F
 		push ds
 		push eax

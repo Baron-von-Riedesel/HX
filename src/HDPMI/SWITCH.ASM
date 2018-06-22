@@ -1,15 +1,15 @@
 
 ;--- low-level mode switches
 
-		page,132
+	page,132
 
-		.486P
+	.486P
 
-		include hdpmi.inc
-		include external.inc
-		include debugsys.inc
+	include hdpmi.inc
+	include external.inc
+	include debugsys.inc
 
-		option proc:private
+	option proc:private
 
 _TEXT16 segment
 
@@ -19,19 +19,19 @@ _TEXT16 segment
 ;--- - adjust TSS:ESP0
 ;--- - restore protected mode segment registers (PMSTATE)
 
-		@ResetTrace
+	@ResetTrace
 
 _gotopmEx proc near public
-		@rm2pmbreak
+	@rm2pmbreak
 _gotopmEx endp		;fall through
 
 _gotopm proc near public
 
-;		@stroutrm <"entry gotopm",lf>
+;	@stroutrm <"entry gotopm",lf>
 
-		pop word ptr cs:[dwRetAdr]
-		@rawjmp_pm _gotopm_pm,1
-		align 4
+	pop word ptr cs:[dwRetAdr]
+	@rawjmp_pm _gotopm_pm,1
+	align 4
 
 _gotopm endp
 
@@ -43,34 +43,34 @@ _gotopm_pm proc
 
 ;------------------------------ pop value for wHostStack + set wHostStackExc		
 if ?FIXTSSESP
-		xchg ebx,[esp]
-		mov ss:[dwHostStack],ebx
-		pop ebx
+	xchg ebx,[esp]
+	mov ss:[dwHostStack],ebx
+	pop ebx
 else
  if ?SETEXCHS
-		xchg ebx,[esp]
-		mov ss:[taskseg._Esp0],ebx		;now a dword is pushed/poped
-		lea ebx,[ebx-sizeof R3FAULT32]
-		mov ss:[dwHostStackExc],ebx
-		pop ebx							;restore ebx
+	xchg ebx,[esp]
+	mov ss:[taskseg._Esp0],ebx		;now a dword is pushed/poped
+	lea ebx,[ebx-sizeof R3FAULT32]
+	mov ss:[dwHostStackExc],ebx
+	pop ebx							;restore ebx
  else
-		pop ss:[taskseg._Esp0]
+	pop ss:[taskseg._Esp0]
  endif
 endif
 
 if ?RMSCNT
-		dec ss:[bRMScnt]		;modifies flags (carry untouched!)
+	dec ss:[bRMScnt]		;modifies flags (carry untouched!)
 endif
-		push ss:[dwRetAdr]
+	push ss:[dwRetAdr]
 _gotopm_pm endp	;fall throu!
 
 load_pmsegs proc public
-		mov ds,ss:tskstate.rDS
-		mov es,ss:tskstate.rES
-		mov fs,ss:tskstate.rFS
-		mov gs,ss:tskstate.rGS
-		ret
-		align 4
+	mov ds,ss:tskstate.rDS
+	mov es,ss:tskstate.rES
+	mov fs,ss:tskstate.rFS
+	mov gs,ss:tskstate.rGS
+	ret
+	align 4
 load_pmsegs endp
 
 _TEXT32 ends
@@ -103,12 +103,12 @@ endif
 ;*** raw jump to pm with rm segs set
 ;--- out: esp=taskseg._Esp0
 
-_rawjmp_pm_setsegm proc public
-	mov cs:[v86iret.rDS],ds
+_rawjmp_pm_savesegm proc public
 	mov cs:[v86iret.rES],es
+	mov cs:[v86iret.rDS],ds
 	mov cs:[v86iret.rFS],fs
 	mov cs:[v86iret.rGS],gs
-_rawjmp_pm_setsegm endp	;fall throu
+_rawjmp_pm_savesegm endp	;fall throu
 
 ;*** raw jump to pm, segment registers undefined
 
@@ -255,28 +255,22 @@ vcpi_pmentry endp
 
 	@ResetTrace
 
-if 0
-
-;*** save protected mode segment registers and ring 3 SS:ESP
-
-setpmstate proc public
-	@setpmstate
-	ret
-	align 4
-setpmstate endp
-endif
-
 ;--- normal jump to real-mode
 ;--- - save protected mode segment registers in tskstate
 ;--- - adjust TSS:ESP0
 ;--- - raw jump to real mode
 ;--- - switch to real mode stack
 ;--- - restore real-mode segment registers
+;--- - jmp to wRetAdrRm
 
 _gotorm proc public
 ;	pop ss:[wRetAdrRm]
-	@setpmstate
-;------------------------------ push wHostStack + set new values
+
+;--- save segments and ring3 stack in tskstate
+	@savepmstate
+
+;--- push wHostStack + set new value for TSS:ESP0
+;--- this is restored where???
 if ?FIXTSSESP
 	push ss:[dwHostStack]
 	mov ss:[dwHostStack],esp
@@ -380,19 +374,19 @@ _diff_rm = offset rawjmp_rm_novcpi - offset rawjmp_rm_patch
 RAWJMP_RM_PATCHVALUE = 0EBh+100h*(_diff_rm - 2)
 endif
 
-		lidt cs:[nullidt]
+	lidt cs:[nullidt]
 
 ;--- continue for xms + raw
 
-		mov ax,_STDSEL_
-		mov ds,eax
-		mov es,eax
-		mov fs,eax
-		mov gs,eax
-		mov ss,eax
+	mov ax,_STDSEL_
+	mov ds,eax
+	mov es,eax
+	mov fs,eax
+	mov gs,eax
+	mov ss,eax
 if ?CLRLDTR
-		xor eax,eax
-		lldt ax
+	xor eax,eax
+	lldt ax
 endif
 
 ;--- when the _TEXT32 segment has been moved in extended memory
@@ -400,21 +394,21 @@ endif
 ;--- to conventional memory, then disable paging and protected mode
 
 if ?MOVEHIGHHLP
-		db 0eah
-		dd offset rawjmp_rm_xms
-		dw _CSGROUP16_
+	db 0eah
+	dd offset rawjmp_rm_xms
+	dw _CSGROUP16_
 else
-		mov eax,cr0
-		and eax,not (CR0_PE or CR0_TS or CR0_PG)
-		mov cr0,eax
-		db 0eah
-		dd offset rawjmp_rm_xms
-		dw seg rawjmp_rm_xms
+	mov eax,cr0
+	and eax,not (CR0_PE or CR0_TS or CR0_PG)
+	mov cr0,eax
+	db 0eah
+	dd offset rawjmp_rm_xms
+	dw seg rawjmp_rm_xms
 endif
 
 size_rawjmp_rm_novcpi equ $ - offset rawjmp_rm_novcpi
 
-		align 4
+	align 4
 
 _rawjmp_rm endp
 
@@ -425,37 +419,37 @@ _TEXT16 segment
 rawjmp_rm_xms proc
 
 if ?MOVEHIGHHLP
-		mov eax,cr0
-		and eax,not (CR0_PE or CR0_TS or CR0_PG)
-		mov cr0,eax
-		db 0eah
-		dw offset rawjmp_rm_xms_1
+	mov eax,cr0
+	and eax,not (CR0_PE or CR0_TS or CR0_PG)
+	mov cr0,eax
+	db 0eah
+	dw offset rawjmp_rm_xms_1
 wPatchDgrp1 dw 0	;seg rawjmp_rm_xms_1	PATCH with GROUP16
-		align 4
+	align 4
 
 rawjmp_rm_xms_1:
 endif
-		mov ax,cs
-		mov ss,ax
+	mov ax,cs
+	mov ss,ax
 if ?HSINEXTMEM
-		mov sp,40h
+	mov sp,40h
 endif
 if ?SAVERMGDTR
-		@lgdt cs:[rmgdt]
+	@lgdt cs:[rmgdt]
 endif
 if ?SAVERMCR3
-		mov eax,cs:[dwOldCR3]
-		mov cr3,eax
+	mov eax,cs:[dwOldCR3]
+	mov cr3,eax
 endif
 if ?WDEB386
 kdpatch2::
-		call kdinit2_rm
+	call kdinit2_rm
 endif
 vcpi_rmentry::	; v86-mode entry if running as VCPI client
-		push word ptr cs:[taskseg._Efl]
-		mov eax, cs:[taskseg._Eax]
-		popf
-		jmp cs:[wRetAdrRm2]
+	push word ptr cs:[taskseg._Efl]
+	mov eax, cs:[taskseg._Eax]
+	popf
+	jmp cs:[wRetAdrRm2]
 rawjmp_rm_xms endp
 
 _TEXT16 ends

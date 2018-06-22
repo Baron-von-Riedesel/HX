@@ -1,6 +1,6 @@
 
-        include pagemgr.inc
-        include int31api.inc
+	include pagemgr.inc
+	include int31api.inc
 
 ;--- int21api
 
@@ -27,16 +27,8 @@ endif
 ;@proto _linkmemhandle
 ;@proto _unlinkmemhandle
 
-;--- putchrx
+;--- output routines
 
-@proto byteout   
-@proto wordout   
-@proto dwordout  
-@proto _charout  
-@proto _byteout  
-@proto _wordout  
-@proto _dwordout 
-@proto _stroutsi 
 @proto _stroutx  
 ife ?DOSOUTPUT
 @proto forcetextmode
@@ -266,7 +258,7 @@ externdef wPatchDgrp1:word
 externdef kdpatch1:near
 externdef kdpatch2:near
 externdef rawjmp_pm_patch:near
-externdef _rawjmp_pm_setsegm:near
+externdef _rawjmp_pm_savesegm:near
 externdef intrrm2pm:far
 externdef kdinit_rm:near
 externdef kdinit2_rm:near

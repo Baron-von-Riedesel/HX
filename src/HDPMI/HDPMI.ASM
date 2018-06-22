@@ -110,23 +110,23 @@ _NT	equ 40h	;NT flag in HIBYTE(flags)
 ;--- but do not modify flags!
 
 @getrmintvec macro xx
-		push ds
-		push byte ptr _FLATSEL_
-		pop ds
-		mov ebx, ds:[ebx*4]
-		mov ss:xx, ebx
-		pop ds
-		endm
+	push ds
+	push byte ptr _FLATSEL_
+	pop ds
+	mov ebx, ds:[ebx*4]
+	mov ss:xx, ebx
+	pop ds
+endm
 
 ;--- jump to default exception handler (exc2int) for exceptions 00-05 + 07
 ;--- these exceptions are then routed to protected-mode INT xx
 
 @mapexc2int macro xx
 defexc&xx&::
-		push xx&h
-		jmp exc2int
-		align 4
-		endm
+	push xx&h
+	jmp exc2int
+	align 4
+endm
 
 ;--- if exception 00-05 + 07 is *not* to be routed to real-mode
 ;--- use this macro:
@@ -140,11 +140,11 @@ yy&xx:
 else
 defint&xx:
 endif
-		push 0		;DWORD error code
-		push xx&h
-		jmp _exceptY
-		align 4
-		endm
+	push 0		;DWORD error code
+	push xx&h
+	jmp _exceptY
+	align 4
+endm
 
 ;--- jump to exception handler lpms_call_exc, which does:
 ;--- + switch to LPMS if not used
@@ -154,18 +154,18 @@ endif
 
 @exception macro excno, bErrorCode, bDisplay
 ifnb <bDisplay>
-		push eax
-		mov eax, excno
-		@strout <"entry exception %X",lf>,ax
-		pop eax
+	push eax
+	mov eax, excno
+	@strout <"entry exception %X",lf>,ax
+	pop eax
 endif
 ifb <bErrorCode>	;correct missing error code
-		push 0		;push a DWORD
+	push 0		;push a DWORD
 endif
-		push excno&h
-		jmp lpms_call_exc
-		align 4
-		endm
+	push excno&h
+	jmp lpms_call_exc
+	align 4
+endm
 
 ;--- @testexception MACRO must be placed BEFORE @simintlpms macro
 ;--- it's used for INT 08, 0A, 0B, 0C, 0D, 0E to determine if it
@@ -173,16 +173,16 @@ endif
 
 @testexception macro x
 ifnb <x>
-		cmp [esp+4*x].IRET32.rCS,_CSSEL_
-		jz @F
+	cmp [esp+4*x].IRET32.rCS,_CSSEL_
+	jz @F
 endif
 if ?FIXTSSESP
-		cmp esp, offset ring0stack - sizeof R3FAULT32
+	cmp esp, offset ring0stack - sizeof R3FAULT32
 else
-		cmp esp, ss:[dwHostStackExc]
-		jbe @F
+	cmp esp, ss:[dwHostStackExc]
+	jbe @F
 endif
-		endm
+endm
 
 ;--- call host's default exception handler
 ;--- esp+0 -> DPMIEXC
@@ -194,16 +194,16 @@ defexc&xx&::
 endif
 if 0
  if ?KDSUPP
-	ifnb <yy>
-		push offset exc&xx&str
-		call calldebugger
-	endif
+  ifnb <yy>
+	push offset exc&xx&str
+	call calldebugger
+  endif
  endif
 endif
-		push xx&h
-		jmp _exceptX
-		align 4
-		endm
+	push xx&h
+	jmp _exceptX
+	align 4
+endm
 
 ;--- testint may be used to determine if
 ;--- a programmed INT opcode or an exception caused
@@ -213,17 +213,17 @@ endif
 @testint macro intno, label1
 local label2, bint
 %bint = intno&h
-		push ds
-		push esi
-		lds esi, [esp+8].IRET32.rCSIP
-		cmp esi,2
-		jb label2
-		cmp word ptr [esi-2], bint * 100h + 0CDh
+	push ds
+	push esi
+	lds esi, [esp+8].IRET32.rCSIP
+	cmp esi,2
+	jb label2
+	cmp word ptr [esi-2], bint * 100h + 0CDh
 label2:
-		pop esi
-		pop ds
-		jnz label1
-		endm
+	pop esi
+	pop ds
+	jnz label1
+endm
 
 ;--- used for ints 00-0F, 70-77 and 1C
 ;--- route int to real-mode
@@ -236,10 +236,10 @@ yy&xx:
 else
 defint&xx:
 endif
-		push xx&h
-		jmp dormint
-		align 4
-		endm
+	push xx&h
+	jmp dormint
+	align 4
+endm
 
 ;--- call a real-mode far proc with IRET frame
 ;--- used to route the std real-mode callback INTs to real-mode
@@ -247,12 +247,12 @@ endif
 @callrmproc macro xx,yy,zz
 defint&xx&:
 ifnb <zz>
-		call zz
+	call zz
 endif
-		push yy
-		jmp dormproc
-		align 4
-		endm
+	push yy
+	jmp dormproc
+	align 4
+endm
 
 ;------------ begin code/data --------------
 
@@ -260,25 +260,25 @@ BEGTEXT16 segment
 
 logo	label byte
 if ?STUB
-		jmp mystart
+	jmp mystart
 else
-		db "HDP"
+	db "HDP"
 endif
-		db "MI", ?VERMAJOR, ?VERMINOR
+	db "MI", ?VERMAJOR, ?VERMINOR
 llogo	equ $ - logo
-		db ?32BIT
+	db ?32BIT
 
 ;--- IDT (vectors 00-7F only)
 ;--- the IDT usually is moved to extended memory
 ;--- then the space here is used for the host stack
 
-		align 8
+	align 8
 
 stacktop label near
 
 if ?MOVEGDT
 if ?HSINEXTMEM
-IDTSEG	segment
+IDTSEG segment
 endif
 endif
 
@@ -441,9 +441,9 @@ endif
 ;--- this shouldn't be moved, since the space for IDT
 ;--- will be reused for the stack
 
-		db ?RING0STACK dup (?)
+	db ?RING0STACK dup (?)
 ring0stack label dword
-;		dd offset ring0stack	;end of stack chain
+;	dd offset ring0stack	;end of stack chain
 
 dwSegTLB label dword			;segment translation buffer
 wSegTLB	dw 0					;defined here so this variable can be
@@ -453,17 +453,17 @@ wSegTLB	dw 0					;defined here so this variable can be
 ;--- hdpmi will not use the x86 task switching
 ;--- but one is needed for switching from ring 3 to ring 0
 
-		align 8
+	align 8
 
 taskseg TSSSEG <0, offset ring0stack, _SSSEL_>
 
 ;*** global descriptor table
 
 if ?MOVEGDT
-GDTSEG	segment
+GDTSEG segment
 endif
 
-		align 8
+	align 8
 
 @defdesc macro content, value, ring
 ifnb <value>
@@ -473,13 +473,13 @@ else
 value	equ $ - offset curGDT
 endif
 endif
-		DESCRPTR {content}
-		endm
+	DESCRPTR {content}
+	endm
 
 ;--- GDT - since version 3.02 the GDT is moved to extended memory
 ;---       which leaves this space unused after initialization.
 
-curGDT	label DESCRPTR
+curGDT label DESCRPTR
 	@defdesc <0,0,0,0,0,0>						;00 null descriptor
 
 ;--- 3 descriptors reserved for VCPI (8,10,18)
@@ -603,7 +603,7 @@ if ?MOVEGDT
 GDTSEG	ends
 endif
 
-CONST32	segment
+CONST32 segment
 
 ;--- int 30h Dispatch table (constant) ---
 ;--- defines INT 30h at offset >= 200h in the PM break segment
@@ -612,145 +612,145 @@ CONST32	segment
 ;--- if no, it will call real-mode INT (IP/2)
 ;--- if yes, if will call the address defined here in spectab
 
-@defx	macro  x,y
+@defx macro  x,y
 ifnb <y>
-y		equ ($ - offset spectab) / 2 + 200h
+y	equ ($ - offset spectab) / 2 + 200h
 endif
-		dd offset x
-		endm
+	dd offset x
+endm
 
-;        align 4	;not required, this table is at segment start
+;	align 4	;not required, this table is at segment start
 
 spectab label dword
-		@defx defexc00, _EXC00_
-		@defx defexc01, _EXC01_
-		@defx defexc02, _EXC02_
-		@defx defexc03, _EXC03_
-		@defx defexc04, _EXC04_
-		@defx defexc05, _EXC05_
-		@defx defexc06, _EXC06_
-		@defx defexc07, _EXC07_
-		@defx defexc08, _EXC08_
-		@defx defexc09, _EXC09_
-		@defx defexc0A, _EXC0A_
-		@defx defexc0B, _EXC0B_
-		@defx defexc0C, _EXC0C_
-		@defx defexc0D, _EXC0D_
-		@defx defexc0E, _EXC0E_
-		@defx defexcxx, _EXC0F_
+	@defx defexc00, _EXC00_
+	@defx defexc01, _EXC01_
+	@defx defexc02, _EXC02_
+	@defx defexc03, _EXC03_
+	@defx defexc04, _EXC04_
+	@defx defexc05, _EXC05_
+	@defx defexc06, _EXC06_
+	@defx defexc07, _EXC07_
+	@defx defexc08, _EXC08_
+	@defx defexc09, _EXC09_
+	@defx defexc0A, _EXC0A_
+	@defx defexc0B, _EXC0B_
+	@defx defexc0C, _EXC0C_
+	@defx defexc0D, _EXC0D_
+	@defx defexc0E, _EXC0E_
+	@defx defexcxx, _EXC0F_
 if ?INT10SUPP
-		@defx defexc10, _EXC10_
+	@defx defexc10, _EXC10_
 else
-		@defx defexcxx, _EXC10_
+	@defx defexcxx, _EXC10_
 endif
 if ?INT11SUPP
-		@defx defexc11, _EXC11_
+	@defx defexc11, _EXC11_
 else
-		@defx defexcxx, _EXC11_
+	@defx defexcxx, _EXC11_
 endif
-		@defx defexcxx, _EXC12_
-		@defx defexcxx, _EXC13_
-		@defx defexcxx, _EXC14_
-		@defx defexcxx, _EXC15_
-		@defx defexcxx, _EXC16_
-		@defx defexcxx, _EXC17_
-		@defx defexcxx, _EXC18_
-		@defx defexcxx, _EXC19_
-		@defx defexcxx, _EXC1A_
-		@defx defexcxx, _EXC1B_
-		@defx defexcxx, _EXC1C_
-		@defx defexcxx, _EXC1D_
-		@defx defexcxx, _EXC1E_
-		@defx defexcxx, _EXC1F_
+	@defx defexcxx, _EXC12_
+	@defx defexcxx, _EXC13_
+	@defx defexcxx, _EXC14_
+	@defx defexcxx, _EXC15_
+	@defx defexcxx, _EXC16_
+	@defx defexcxx, _EXC17_
+	@defx defexcxx, _EXC18_
+	@defx defexcxx, _EXC19_
+	@defx defexcxx, _EXC1A_
+	@defx defexcxx, _EXC1B_
+	@defx defexcxx, _EXC1C_
+	@defx defexcxx, _EXC1D_
+	@defx defexcxx, _EXC1E_
+	@defx defexcxx, _EXC1F_
 
-		@defx defint00, _INT00_
-		@defx defint01, _INT01_
-		@defx defint02, _INT02_
-		@defx defint03, _INT03_
-		@defx defint04, _INT04_
-		@defx defint05, _INT05_
-		@defx defint06, _INT06_
-		@defx defint07, _INT07_
-		@defx defint08, _INT08_
-		@defx defint09, _INT09_
-		@defx defint0A, _INT0A_
-		@defx defint0B, _INT0B_
-		@defx defint0C, _INT0C_
-		@defx defint0D, _INT0D_
-		@defx defint0E, _INT0E_
-		@defx defint0F, _INT0F_
+	@defx defint00, _INT00_
+	@defx defint01, _INT01_
+	@defx defint02, _INT02_
+	@defx defint03, _INT03_
+	@defx defint04, _INT04_
+	@defx defint05, _INT05_
+	@defx defint06, _INT06_
+	@defx defint07, _INT07_
+	@defx defint08, _INT08_
+	@defx defint09, _INT09_
+	@defx defint0A, _INT0A_
+	@defx defint0B, _INT0B_
+	@defx defint0C, _INT0C_
+	@defx defint0D, _INT0D_
+	@defx defint0E, _INT0E_
+	@defx defint0F, _INT0F_
 
-		@defx defint70, _INT70_
-		@defx defint71, _INT71_
-		@defx defint72, _INT72_
-		@defx defint73, _INT73_
-		@defx defint74, _INT74_
-		@defx defint75, _INT75_
-		@defx defint76, _INT76_
-		@defx defint77, _INT77_
+	@defx defint70, _INT70_
+	@defx defint71, _INT71_
+	@defx defint72, _INT72_
+	@defx defint73, _INT73_
+	@defx defint74, _INT74_
+	@defx defint75, _INT75_
+	@defx defint76, _INT76_
+	@defx defint77, _INT77_
 
   if ?FASTINT21
-		@defx intr21_,  _INT21_
+	@defx intr21_,  _INT21_
   else
-		@defx intr21,   _INT21_
+	@defx intr21,   _INT21_
   endif
-		@defx intr23,   _INT23_
-		@defx intr24,   _INT24_
-		@defx intr2F,   _INT2F_
+	@defx intr23,   _INT23_
+	@defx intr24,   _INT24_
+	@defx intr2F,   _INT2F_
 if ?FASTINT31
-		@defx intr31_,  _INT31_
+	@defx intr31_,  _INT31_
 else
-		@defx intr31,   _INT31_
+	@defx intr31,   _INT31_
 endif
-		@defx intr33,   _INT33_
-		@defx intr41_,  _INT41_
-		@defx intr15,   _INT15_
-		@defx intr4B,   _INT4B_
-		@defx intr25,   _INT25_
-		@defx intr26,   _INT26_
-		@defx intr13,   _INT13_
-		@defx defint1C, _INT1C_
+	@defx intr33,   _INT33_
+	@defx intr41_,  _INT41_
+	@defx intr15,   _INT15_
+	@defx intr4B,   _INT4B_
+	@defx intr25,   _INT25_
+	@defx intr26,   _INT26_
+	@defx intr13,   _INT13_
+	@defx defint1C, _INT1C_
 if ?INT10SUPP
-		@defx intr10_,  _INT10_		;int 10h is translated!
+	@defx intr10_,  _INT10_		;int 10h is translated!
 else
-		_INT10_ equ 2 * 10H
+	_INT10_ equ 2 * 10H
 endif
-		@defx intr30,   _INT30_		;intr30 indirect
-		@defx rpmstacke,_RTEXC_		;switch from LPMS to PMS after EXC
-;		@defx _meventp, _MEVENT_		;mouse event proc (ring 0)
+	@defx intr30,   _INT30_		;intr30 indirect
+	@defx rpmstacke,_RTEXC_		;switch from LPMS to PMS after EXC
+;	@defx _meventp, _MEVENT_		;mouse event proc (ring 0)
 ;--- here start PMBREAKs with retf frame
-_RETF_	equ ($ - offset spectab) / 2 + 200h
-		@defx _srtask, _SRTSK_		;save/restore task state (call)
-		@defx _I2f168A, _I2F168A_		;DPMI extensions entry (retf)
+_RETF_ equ ($ - offset spectab) / 2 + 200h
+	@defx _srtask, _SRTSK_		;save/restore task state (call)
+	@defx _I2f168A, _I2F168A_		;DPMI extensions entry (retf)
 if ?SUPI2F16840001
-		@defx _vxd_0001, _I2F1684_0001_
+	@defx _vxd_0001, _I2F1684_0001_
 endif
 if ?SUPI2F16840009
-		@defx _vxd_0009, _I2F1684_0009_
+	@defx _vxd_0009, _I2F1684_0009_
 endif
 if ?SUPI2F16840017
-		@defx _vxd_0017, _I2F1684_0017_
+	@defx _vxd_0017, _I2F1684_0017_
 endif
 if ?SUPI2F16840021
-		@defx _vxd_0021, _I2F1684_0021_
+	@defx _vxd_0021, _I2F1684_0021_
 endif
 if ?SUPI2F1684002A
-		@defx _vxd_002A, _I2F1684_002A_
+	@defx _vxd_002A, _I2F1684_002A_
 endif
 if ?SUPI2F16840442
-		@defx _vxd_0442, _I2F1684_0442_
+	@defx _vxd_0442, _I2F1684_0442_
 endif
 ;--- here start PMBREAKs with no frame
-_JMPF_	equ ($ - offset spectab) / 2 + 200h
-		@defx rpmstacki,_RTINT_		;switch from LPMS to PMS after IRQ
-		@defx rpmstackr,_FRTIN_		;return from standard RMCBs
-		@defx _retcb,  _RETCB_		;return from client RMCBs
-		@defx _pm2rm,  _RMSWT_		;raw mode switch pm -> rm (call)
+_JMPF_ equ ($ - offset spectab) / 2 + 200h
+	@defx rpmstacki,_RTINT_		;switch from LPMS to PMS after IRQ
+	@defx rpmstackr,_FRTIN_		;return from standard RMCBs
+	@defx _retcb,  _RETCB_		;return from client RMCBs
+	@defx _pm2rm,  _RMSWT_		;raw mode switch pm -> rm (call)
 if ?ALLOWR0IRQ
-		@defx _retirqr0,_RTINTR0_	;return from IRQ in ring 0
+	@defx _retirqr0,_RTINTR0_	;return from IRQ in ring 0
 endif
 if ?EXCRESTART
-		@defx retexcr0,_RTEXCR0_	;return from exc in ring 0
+	@defx retexcr0,_RTEXCR0_	;return from exc in ring 0
 endif
 
 _MAXCB_ equ ($ - offset spectab) / 4 + 100h
@@ -772,13 +772,13 @@ _DATA16 segment
 ;--- for this segment CDATA16 is to be used
 
 pdGDT	PDESCR <?GDTLIMIT,0>	;pseudo descriptor GDT
-		align 4
+	align 4
 
 pdIDT	PDESCR <7FFh,0>			;pseudo descriptor IDT protected mode
 selLDT	dw _SELLDT_				;Selector LDT alias (fix)
-		align 4
+	align 4
 ;nullidt PDESCR <3FFh,0>		;pseudo descriptor IDT real mode
-;		align 4
+;	align 4
 
 ife ?PATCHCODE
 rawjmp_rm_vector dd offset rawjmp_rm_novcpi
@@ -788,14 +788,14 @@ endif
 ;--- CR3, address pd GDTR, address pd IDTR, LDTR, TR, EIP, CS
 v86topm	VCPIRM2PM <0,0,0,_LDTSEL_,_TSSSEL_, offset vcpi_pmentry, _CSSEL_>
 wVersion	dw 005ah	;DPMI version 0.90
-		align 4
+	align 4
 
 vcpicall label PF32 	;VCPI far32 address to switch to v86-mode
 vcpiOfs		dd 0		;offset (got from VCPI host)
 vcpiSeg		dw _VCPICS_ ;selector for VCPI code segment
 wHostPSP	dw 0        ;PSP of host
 
-		align 4
+	align 4
 
 dwLDTAddr	dd 0				;linear address LDT
 if ?DYNTLBALLOC
@@ -855,9 +855,9 @@ wEMShandle dw 0
 ;--- table of real-mode IVT vectors to intercept
 
 @jmpoldvec macro intno
-		db 0EAh
+	db 0EAh
 dwOldVec&intno dd 0
-		endm
+endm
 
 ivthooktab label byte
 if ?INTRM2PM
@@ -872,14 +872,14 @@ endif
 int2Fhk	IVTHOOK <2Fh, offset dwOldVec2F, offset int2Frm>
 ;------------------------------- int 15 should be last because it
 ;------------------------------- is used in raw mode only 
-if ?WATCHDOG
-int15hk IVTHOOK <15h, dwOldVec15,offset int15rm>;watch int 15 in any case			
+if ?WATCHDOG or ?CATCHREBOOT
+int15hk IVTHOOK <15h, dwOldVec15,offset int15rm>;watch int 15 in any case
 else
-int15hk IVTHOOK <-1, dwOldVec15,offset int15rm>	;watch int 15 if in raw mode
+int15hk IVTHOOK <-1, dwOldVec15,offset int15rm>	;watch int 15 conditionally in raw mode
 endif
-		db -1
+	db -1
 
-		align 4
+	align 4
 
 VDATA16 segment
 dwTSSdesc	dd offset tssdesc	;normalized address TSS descriptor
@@ -910,7 +910,7 @@ tmpFLReg  dw 0	;temporary storage for FL register
           dw 0
 
 calladdr3 dw 0	;used by dormprocintern
-wRetAdrRm dw 0	;3. store (jump to real-mode)
+wRetAdrRm dw 0	;3. store ( used by @jmp_rm )
 tmpAXReg  dw 0	;temporary storage for AX
 tmpBXReg  dw 0	;temporary storage for BX
 
@@ -919,7 +919,7 @@ wCurSP	  dw 0		;sp real mode on client init
 wCurSS	  dw 0		;ss real mode on client init
 
 
-		align 4
+	align 4
 
 ;--- stardard real-mode callbacks (for IRQ 00-0F, Int 1C, 23, 24, mouse)
 ;--- unlike the client real-mode callbacks
@@ -944,7 +944,7 @@ wCurSS	  dw 0		;ss real mode on client init
 
 @defvec macro xx
 	exitm <LOWWORD(offset GROUP32:r3vect&xx)>
-	endm
+endm
 
 ;--- the "stdrmcbs" table is now in client data again
 ;--- (it was in _DATA16 for v3.02-3.04)
@@ -991,11 +991,11 @@ CDATA16 ends
 endif
 
 
-_DATA16	ends
+_DATA16 ends
 
 ;--- CDATA16: client instance data both modes
 
-CDATA16	segment
+CDATA16 segment
 
 ifdef ?QEMMSUPPORT
 		dq 0			;QEMM requires 8 bytes more
@@ -1027,12 +1027,13 @@ bRMScnt		db 0		;count RMS usage
 			db 3 dup (0);additional bytes to allow direct push/pop
 endif
 
-			align 4
+		align 4
 
-tskstate	TASKSTATE {{0},{0},0,0,{{0,0}}}
+;--- real-mode and protected mode segment register values + esp
+tskstate TASKSTATE <>
 
 ;--- since the ring0stack is in a 16-bit segment, be careful with
-;--- offset calculations done my MASM!
+;--- offset calculations done by MASM!
 
 if ?FIXTSSESP
 dwHostStack dd 0
@@ -1059,13 +1060,13 @@ bEnvFlags	db 0		;flags of environment string "HDPMI="
 bEnvFlags2	db 0		;flags 256-32768 of "HDPMI="
 
 
-CDATA16	ends
+CDATA16 ends
 
 ;--- end of client specific data in GROUP16
 
 ;--- start client specific data in GROUP32
 
-CDATA32	segment
+CDATA32 segment
 
 ;--- ring 3 vectors int 00-10 and 70-77
 ;--- + some special ints. The other vectors can be read directly from IDT.
@@ -1159,7 +1160,7 @@ CDATA32 ends
 
 ;--------------- start code ------------------
 
-_TEXT32	segment
+_TEXT32 segment
 
 ;--- exc2int()
 ;--- default exception handler for exceptions 0,1,2,3,4,5,7
@@ -1180,9 +1181,9 @@ _TEXT32	segment
 
 ;--- [esp] on entry: EXC2INT
 
-		@ResetTrace
+	@ResetTrace
 
-EXC2INT	struct
+EXC2INT struct
 rEdi	dd ?
 rEsi	dd ?
 rEbx	dd ?
@@ -1194,84 +1195,84 @@ o   	IRET32 <>
 EXC2INT ends
 
 exc2int proc
-		sub esp, sizeof IRET32
-		push ds
-		push eax
-		push ebx
-		push esi
-		push edi
+	sub esp, sizeof IRET32
+	push ds
+	push eax
+	push ebx
+	push esi
+	push edi
 
-		mov edi, [esp].EXC2INT.dwExc
+	mov edi, [esp].EXC2INT.dwExc
 if ?32BIT
-		mov ebx, cs:[edi*sizeof R3PROC+offset r3vect00].R3PROC._Eip
-		mov eax, cs:[edi*sizeof R3PROC+offset r3vect00].R3PROC._Cs
+	mov ebx, cs:[edi*sizeof R3PROC+offset r3vect00].R3PROC._Eip
+	mov eax, cs:[edi*sizeof R3PROC+offset r3vect00].R3PROC._Cs
 else
-		movzx ebx, cs:[edi*sizeof R3PROC+offset r3vect00].R3PROC._Eip
-		movzx eax, cs:[edi*sizeof R3PROC+offset r3vect00].R3PROC._Cs
+	movzx ebx, cs:[edi*sizeof R3PROC+offset r3vect00].R3PROC._Eip
+	movzx eax, cs:[edi*sizeof R3PROC+offset r3vect00].R3PROC._Cs
 endif
-		mov [esp].EXC2INT.n.rIP, ebx
-		mov [esp].EXC2INT.n.rCSd, eax
+	mov [esp].EXC2INT.n.rIP, ebx
+	mov [esp].EXC2INT.n.rCSd, eax
 
 if _LTRACE_
-		push ebp
-		mov ebp, esp
-		@strout <"entry exc_to_int: cs:ip=%X:%lX fl=%lX ss:sp=%X:%lX proc=%lX:%lX",lf>,\
-			[ebp+4].EXC2INT.o.rCS, [ebp+4].EXC2INT.o.rIP,\
-			[ebp+4].EXC2INT.o.rFL,\
-			[ebp+4].EXC2INT.o.rSS, [ebp+4].EXC2INT.o.rSP,\
-			[ebp+4].EXC2INT.n.rCS, [ebp+4].EXC2INT.n.rIP 
-		pop ebp
+	push ebp
+	mov ebp, esp
+	@strout <"entry exc_to_int: cs:ip=%X:%lX fl=%lX ss:sp=%X:%lX proc=%lX:%lX",lf>,\
+		[ebp+4].EXC2INT.o.rCS, [ebp+4].EXC2INT.o.rIP,\
+		[ebp+4].EXC2INT.o.rFL,\
+		[ebp+4].EXC2INT.o.rSS, [ebp+4].EXC2INT.o.rSP,\
+		[ebp+4].EXC2INT.n.rCS, [ebp+4].EXC2INT.n.rIP 
+	pop ebp
 endif
 
-		lds esi,[esp].EXC2INT.o.rSSSP
+	lds esi,[esp].EXC2INT.o.rSSSP
 if ?LPMSCNT
-		dec ss:[cLPMSused]
+	dec ss:[cLPMSused]
 else
-		mov eax, ds
-		cmp ax,_LPMSSEL_
-		jnz @F
-		cmp si,?LPMSSIZE - sizeof IRETS
-		jnz @F
-		mov ss:cLPMSused,0
+	mov eax, ds
+	cmp ax,_LPMSSEL_
+	jnz @F
+	cmp si,?LPMSSIZE - sizeof IRETS
+	jnz @F
+	mov ss:cLPMSused,0
 @@:
 endif
 
 if ?32BIT
-		mov edi,[esi].IRET32.rIP 		;original EIP
-		mov ebx,[esi].IRET32.rCSd
-		mov eax,[esi].IRET32.rFL 		;original Flags
-		lds esi,[esi].IRET32.rSSSP		;original SS:ESP
+	mov edi,[esi].IRET32.rIP 		;original EIP
+	mov ebx,[esi].IRET32.rCSd
+	mov eax,[esi].IRET32.rFL 		;original Flags
+	lds esi,[esi].IRET32.rSSSP		;original SS:ESP
 else
-		movzx edi,[esi].IRET16.rIP
-		movzx ebx,[esi].IRET16.rCS
-		movzx eax,[esi].IRET16.rFL
-		lds si,[esi].IRET16.rSSSP
-		movzx esi, si
+	movzx edi,[esi].IRET16.rIP
+	movzx ebx,[esi].IRET16.rCS
+	movzx eax,[esi].IRET16.rFL
+	lds si,[esi].IRET16.rSSSP
+	movzx esi, si
 endif
 
-		sub esi,sizeof IRETSPM			;make room for IRET32/IRET16
-		mov [esp].EXC2INT.n.rSP,esi
-		mov [esp].EXC2INT.n.rSS,ds
+	sub esi,sizeof IRETSPM			;make room for IRET32/IRET16
+	mov [esp].EXC2INT.n.rSP,esi
+	mov [esp].EXC2INT.n.rSS,ds
 if ?32BIT
-		mov [esi].IRET32PM.rIP,edi
-		mov [esi].IRET32PM.rCSd,ebx
-		mov [esi].IRET32PM.rFL,eax
+	mov [esi].IRET32PM.rIP,edi
+	mov [esi].IRET32PM.rCSd,ebx
+	mov [esi].IRET32PM.rFL,eax
 else
-		mov [esi].IRET16PM.rIP,di
-		mov [esi].IRET16PM.rCS,bx
-		mov [esi].IRET16PM.rFL,ax
+	mov [esi].IRET16PM.rIP,di
+	mov [esi].IRET16PM.rCS,bx
+	mov [esi].IRET16PM.rFL,ax
 endif
 
-		and ah,not (_NT or _IF or _TF)		;NT,IF,TF reset
-		mov [esp].EXC2INT.n.rFL,eax
+	and ah,not (_NT or _IF or _TF)		;NT,IF,TF reset
+	mov [esp].EXC2INT.n.rFL,eax
 
-		pop edi
-		pop esi
-		pop ebx
-		pop eax
-		pop ds
-		iretd
-		align 4
+	pop edi
+	pop esi
+	pop ebx
+	pop eax
+	pop ds
+	iretd
+	align 4
 
 exc2int endp
 
@@ -1287,49 +1288,49 @@ pR3Proc dd ?
 		IRET32 <>
 PCIFR	ends
 
-		@ResetTrace
+	@ResetTrace
 
 pms_call_int proc public
-		push ebx
-		push edi
-		push ds
+	push ebx
+	push edi
+	push ds
 
-		mov ebx, [esp].PCIFR.pR3Proc
-		lds edi, [esp].PCIFR.rSSSP
-		mov [esp].PCIFR.pR3Proc, eax	;save content of EAX
+	mov ebx, [esp].PCIFR.pR3Proc
+	lds edi, [esp].PCIFR.rSSSP
+	mov [esp].PCIFR.pR3Proc, eax	;save content of EAX
 if ?HSINEXTMEM
-		@checkssattr ds,di
+	@checkssattr ds,di
 endif
-		sub edi,sizeof IRETSPM
-		mov [esp].PCIFR.rSP,edi
+	sub edi,sizeof IRETSPM
+	mov [esp].PCIFR.rSP,edi
 if ?32BIT
-		mov eax, cs:[ebx].R3PROC._Eip
-		mov ebx, cs:[ebx].R3PROC._Cs
-		xchg eax, [esp].PCIFR.rIP
-		xchg ebx, [esp].PCIFR.rCSd
-		mov [edi].IRETSPM.rIP, eax
-		mov [edi].IRETSPM.rCSd, ebx
+	mov eax, cs:[ebx].R3PROC._Eip
+	mov ebx, cs:[ebx].R3PROC._Cs
+	xchg eax, [esp].PCIFR.rIP
+	xchg ebx, [esp].PCIFR.rCSd
+	mov [edi].IRETSPM.rIP, eax
+	mov [edi].IRETSPM.rCSd, ebx
 
-		mov eax,[esp].PCIFR.rFL
-		mov [edi].IRETSPM.rFL, eax
+	mov eax,[esp].PCIFR.rFL
+	mov [edi].IRETSPM.rFL, eax
 else
-		movzx eax, cs:[ebx].R3PROC._Eip
-		mov bx, cs:[ebx].R3PROC._Cs
-		xchg eax, [esp].PCIFR.rIP
-		xchg ebx, [esp].PCIFR.rCSd
-		mov [edi].IRETSPM.rIP, ax
-		mov [edi].IRETSPM.rCS, bx
+	movzx eax, cs:[ebx].R3PROC._Eip
+	mov bx, cs:[ebx].R3PROC._Cs
+	xchg eax, [esp].PCIFR.rIP
+	xchg ebx, [esp].PCIFR.rCSd
+	mov [edi].IRETSPM.rIP, ax
+	mov [edi].IRETSPM.rCS, bx
 
-		mov eax, [esp].PCIFR.rFL
-		mov [edi].IRETSPM.rFL, ax
+	mov eax, [esp].PCIFR.rFL
+	mov [edi].IRETSPM.rFL, ax
 endif
-		and byte ptr [esp].PCIFR.rFL+1,not _TF	;reset TF
-		pop ds
-		pop edi
-		pop ebx
-		pop eax
-		iretd
-		align 4
+	and byte ptr [esp].PCIFR.rFL+1,not _TF	;reset TF
+	pop ds
+	pop edi
+	pop ebx
+	pop eax
+	iretd
+	align 4
 pms_call_int endp
 
 ;--- lpms_call_int()
@@ -1368,64 +1369,64 @@ pR3Proc	dd ?
 iret32  IRET32 <>
 IRQFRAME ends
 
-		@ResetTrace
+	@ResetTrace
 
 
 lpms_call_int proc public
 
-		cmp [esp+4].IRET32.rCS,_CSSEL_ ;interrupt in ring 0?
-		jz lpms_call_inr0
-		sub esp,sizeof RETF32+4
-		push ds
-		push eax
-		push edx
-		push edi
-		mov edi,[esp].IRQFRAME.pR3Proc
+	cmp [esp+4].IRET32.rCS,_CSSEL_ ;interrupt in ring 0?
+	jz lpms_call_inr0
+	sub esp,sizeof RETF32+4
+	push ds
+	push eax
+	push edx
+	push edi
+	mov edi,[esp].IRQFRAME.pR3Proc
 if ?32BIT
-		mov eax, cs:[edi].R3PROC._Eip
-		mov edx, cs:[edi].R3PROC._Cs
+	mov eax, cs:[edi].R3PROC._Eip
+	mov edx, cs:[edi].R3PROC._Cs
 else
-		movzx eax, cs:[edi].R3PROC._Eip
-		movzx edx, cs:[edi].R3PROC._Cs
+	movzx eax, cs:[edi].R3PROC._Eip
+	movzx edx, cs:[edi].R3PROC._Cs
 endif
-		mov [esp].IRQFRAME.retfs.rIP,eax
-		mov [esp].IRQFRAME.retfs.rCSd,edx
+	mov [esp].IRQFRAME.retfs.rIP,eax
+	mov [esp].IRQFRAME.retfs.rCSd,edx
 
-		cmp ss:[cLPMSused],0			;LPMS free?
-		jz lpms_ci_21
+	cmp ss:[cLPMSused],0			;LPMS free?
+	jz lpms_ci_21
 
-		lds edi, [esp].IRQFRAME.iret32.rSSSP
-		sub edi,sizeof IRETSPM
-		mov [esp].IRQFRAME.retfs.rSP, edi
-		mov [esp].IRQFRAME.retfs.rSS, ds
+	lds edi, [esp].IRQFRAME.iret32.rSSSP
+	sub edi,sizeof IRETSPM
+	mov [esp].IRQFRAME.retfs.rSP, edi
+	mov [esp].IRQFRAME.retfs.rSS, ds
 
-		mov eax, [esp].IRQFRAME.iret32.rIP
-		mov edx, [esp].IRQFRAME.iret32.rCSd
+	mov eax, [esp].IRQFRAME.iret32.rIP
+	mov edx, [esp].IRQFRAME.iret32.rCSd
 if ?32BIT
-		mov [edi].IRETSPM.rIP, eax
-		mov [edi].IRETSPM.rCSd, edx
-		mov eax, [esp].IRQFRAME.iret32.rFL
-		mov [edi].IRETSPM.rFL, eax
+	mov [edi].IRETSPM.rIP, eax
+	mov [edi].IRETSPM.rCSd, edx
+	mov eax, [esp].IRQFRAME.iret32.rFL
+	mov [edi].IRETSPM.rFL, eax
 else
-		mov [edi].IRETSPM.rIP, ax
-		mov [edi].IRETSPM.rCS, dx
-		mov eax, [esp].IRQFRAME.iret32.rFL
-		mov [edi].IRETSPM.rFL, ax
+	mov [edi].IRETSPM.rIP, ax
+	mov [edi].IRETSPM.rCS, dx
+	mov eax, [esp].IRQFRAME.iret32.rFL
+	mov [edi].IRETSPM.rFL, ax
 endif
-		and ah,not 3		;reset TF + IF
-		mov [esp].IRQFRAME.rEfl,eax
+	and ah,not 3		;reset TF + IF
+	mov [esp].IRQFRAME.rEfl,eax
 if _LTRACE_
-		push ebp
-		mov ebp, esp
-		@strout <"irq ent, nosw:ip=%X:%lX fl=%lX new=%X:%lX %X:%lX",lf>,\
-			[ebp+4].IRQFRAME.iret32.rCS,[ebp+4].IRQFRAME.iret32.rIP,[ebp+4].IRQFRAME.iret32.rFL,\
-			[ebp+4].IRQFRAME.retfs.rCS,[ebp+4].IRQFRAME.retfs.rIP,[ebp+4].IRQFRAME.retfs.rSS,[ebp+4].IRQFRAME.retfs.rSP
-		pop ebp
+	push ebp
+	mov ebp, esp
+	@strout <"irq ent, nosw:ip=%X:%lX fl=%lX new=%X:%lX %X:%lX",lf>,\
+		[ebp+4].IRQFRAME.iret32.rCS,[ebp+4].IRQFRAME.iret32.rIP,[ebp+4].IRQFRAME.iret32.rFL,\
+		[ebp+4].IRQFRAME.retfs.rCS,[ebp+4].IRQFRAME.retfs.rIP,[ebp+4].IRQFRAME.retfs.rSS,[ebp+4].IRQFRAME.retfs.rSP
+	pop ebp
 endif
-		jmp done
-		align 4
+	jmp done
+	align 4
 
-		@ResetTrace
+	@ResetTrace
 
 ;*** LPMS is free
 ;--- build a frame:
@@ -1433,67 +1434,67 @@ endif
 ;--- + client EIP, CS
 
 lpms_ci_21:
-		mov eax, [esp].IRQFRAME.iret32.rSP
-		mov edx, [esp].IRQFRAME.iret32.rSSd
-		mov dword ptr ss:spPMS+0,eax
-		mov dword ptr ss:spPMS+4,edx
+	mov eax, [esp].IRQFRAME.iret32.rSP
+	mov edx, [esp].IRQFRAME.iret32.rSSd
+	mov dword ptr ss:spPMS+0,eax
+	mov dword ptr ss:spPMS+4,edx
 
-		mov ss:[cLPMSused],1
+	mov ss:[cLPMSused],1
 
-		mov edi,?LPMSSIZE- (2*4 + sizeof IRETSPM)   ;initialwert LPMS
-		mov eax,_LPMSSEL_
-		mov ds,eax
-		mov [esp].IRQFRAME.retfs.rSP, edi
-		mov [esp].IRQFRAME.retfs.rSSd, eax
+	mov edi,?LPMSSIZE- (2*4 + sizeof IRETSPM)   ;initialwert LPMS
+	mov eax,_LPMSSEL_
+	mov ds,eax
+	mov [esp].IRQFRAME.retfs.rSP, edi
+	mov [esp].IRQFRAME.retfs.rSSd, eax
 
-		mov eax, [esp].IRQFRAME.iret32.rFL
-		mov [edi].IRETSPM.rIP, _RTINT_
-		mov [edi].IRETSPM.rCS, _INTSEL_
+	mov eax, [esp].IRQFRAME.iret32.rFL
+	mov [edi].IRETSPM.rIP, _RTINT_
+	mov [edi].IRETSPM.rCS, _INTSEL_
 if ?32BIT
-		mov [edi].IRETSPM.rFL, eax
+	mov [edi].IRETSPM.rFL, eax
 else
-		mov [edi].IRETSPM.rFL, ax
+	mov [edi].IRETSPM.rFL, ax
 endif
-		and ah,not 3		;reset TF + IF
-		mov [esp].IRQFRAME.rEfl,eax
+	and ah,not 3		;reset TF + IF
+	mov [esp].IRQFRAME.rEfl,eax
 
-		mov eax, [esp].IRQFRAME.iret32.rIP
-		mov edx, [esp].IRQFRAME.iret32.rCSd
-		mov [edi+sizeof IRETSPM+0], eax
-		mov [edi+sizeof IRETSPM+4], edx
+	mov eax, [esp].IRQFRAME.iret32.rIP
+	mov edx, [esp].IRQFRAME.iret32.rCSd
+	mov [edi+sizeof IRETSPM+0], eax
+	mov [edi+sizeof IRETSPM+4], edx
 
 if _LTRACE_
-		push ebp
-		mov ebp,esp
-		@strout <"irq ent:ip,sp=%X:%lX %X:%lX fl=%lX ">,\
-			[ebp+4].IRQFRAME.iret32.rCS, [ebp+4].IRQFRAME.iret32.rIP,\
-			[ebp+4].IRQFRAME.iret32.rSS, [ebp+4].IRQFRAME.iret32.rSP,\
-			[ebp+4].IRQFRAME.iret32.rFL
-		@strout <" nip=%X:%lX nsp=%X:%lX",lf>,\
-			[ebp+4].IRQFRAME.retfs.rCS,[ebp+4].IRQFRAME.retfs.rIP,[ebp+4].IRQFRAME.retfs.rSS,[ebp+4].IRQFRAME.retfs.rSP
-		pop ebp
+	push ebp
+	mov ebp,esp
+	@strout <"irq ent:ip,sp=%X:%lX %X:%lX fl=%lX ">,\
+		[ebp+4].IRQFRAME.iret32.rCS, [ebp+4].IRQFRAME.iret32.rIP,\
+		[ebp+4].IRQFRAME.iret32.rSS, [ebp+4].IRQFRAME.iret32.rSP,\
+		[ebp+4].IRQFRAME.iret32.rFL
+	@strout <" nip=%X:%lX nsp=%X:%lX",lf>,\
+		[ebp+4].IRQFRAME.retfs.rCS,[ebp+4].IRQFRAME.retfs.rIP,[ebp+4].IRQFRAME.retfs.rSS,[ebp+4].IRQFRAME.retfs.rSP
+	pop ebp
 endif   
 
 done:
-		pop edi
-		pop edx
-		pop eax
-		pop ds
-		popfd
-		retf
+	pop edi
+	pop edx
+	pop eax
+	pop ds
+	popfd
+	retf
 
 ;*** IRQ in Ring 0 - this is not possible currently
 ;--- just do a fatal exit
 
 lpms_call_inr0:
 if ?ALLOWR0IRQ
-		@ResetTrace
-		pop ss:[taskseg._Eax]	;pop the client R3PROC ptr
-								;now ESP->IRET32
-		@strout	<"interrupt in ring 0, esp=%lX",lf>,esp
-		push ss:[taskseg._Esp0]
-		mov ss:[taskseg._Esp0],esp
-		sub esp, sizeof IRET32+4
+	@ResetTrace
+	pop ss:[taskseg._Eax]	;pop the client R3PROC ptr
+							;now ESP->IRET32
+	@strout	<"interrupt in ring 0, esp=%lX",lf>,esp
+	push ss:[taskseg._Esp0]
+	mov ss:[taskseg._Esp0],esp
+	sub esp, sizeof IRET32+4
 
 IRQ0FR struct
 pR3Proc dd ?
@@ -1503,36 +1504,36 @@ iro     IRET32 <>
 IRQ0FR ends
 
 if _LTRACE_
-		push ebp
-		mov ebp,esp
-		@strout	<"frame: cs:ip=%X:%lX fl=%lX, ss:sp=%X:%lX",lf>,\
-			[ebp+4].IRQ0FR.iro.rCS, [ebp+4].IRQ0FR.iro.rIP,\
-			[ebp+4].IRQ0FR.iro.rFL,\
-			[ebp+4].IRQ0FR.iro.rSS, [ebp+4].IRQ0FR.iro.rSP
-		pop ebp
+	push ebp
+	mov ebp,esp
+	@strout	<"frame: cs:ip=%X:%lX fl=%lX, ss:sp=%X:%lX",lf>,\
+		[ebp+4].IRQ0FR.iro.rCS, [ebp+4].IRQ0FR.iro.rIP,\
+		[ebp+4].IRQ0FR.iro.rFL,\
+		[ebp+4].IRQ0FR.iro.rSS, [ebp+4].IRQ0FR.iro.rSP
+	pop ebp
 endif
-		push eax
-		mov [esp+4].IRQ0FR.irn.rIP, _RTINTR0_
-		mov [esp+4].IRQ0FR.irn.rCS, _INTSEL_
-		mov eax, [esp].IRQ0FR.iro.rFL
-		mov [esp+4].IRQ0FR.irn.rFL, eax
-		mov eax, [esp].IRQ0FR.iro.rSP
-		mov [esp+4].IRQ0FR.irn.rSP, eax
-		mov eax, [esp].IRQ0FR.iro.rSS
-		mov [esp+4].IRQ0FR.irn.rSS, eax
-		mov eax, ss:[taskseg._Eax]
-		mov [esp+4].IRQ0FR.pR3Proc, eax
-		pop eax
-		jmp lpms_call_int
+	push eax
+	mov [esp+4].IRQ0FR.irn.rIP, _RTINTR0_
+	mov [esp+4].IRQ0FR.irn.rCS, _INTSEL_
+	mov eax, [esp].IRQ0FR.iro.rFL
+	mov [esp+4].IRQ0FR.irn.rFL, eax
+	mov eax, [esp].IRQ0FR.iro.rSP
+	mov [esp+4].IRQ0FR.irn.rSP, eax
+	mov eax, [esp].IRQ0FR.iro.rSS
+	mov [esp+4].IRQ0FR.irn.rSS, eax
+	mov eax, ss:[taskseg._Eax]
+	mov [esp+4].IRQ0FR.pR3Proc, eax
+	pop eax
+	jmp lpms_call_int
 _retirqr0::
-		add esp,sizeof IRET32
-		pop ss:[taskseg._Esp0]
-		iretd
+	add esp,sizeof IRET32
+	pop ss:[taskseg._Esp0]
+	iretd
 else
-		mov ax,_EAERR3_
-		jmp _exitclientEx
+	mov ax,_EAERR3_
+	jmp _exitclientEx
 endif
-		align 4
+	align 4
 
 lpms_call_int endp
 
@@ -1555,33 +1556,33 @@ rDs		dd ?
  	IRET32 <>
 RPMIFR ends
 
-		@ResetTrace
+	@ResetTrace
 
 rpmstacki proc
-		push ds
-		mov ss:[cLPMSused],0
+	push ds
+	mov ss:[cLPMSused],0
 ife ?CSIPFROMTOP
-		push ebx
-		lds ebx,[esp].RPMIFR.rSSSP		;get the LPMS
-		push dword ptr ss:spPMS+4		;SS
-		push dword ptr ss:spPMS+0		;ESP
-		push [esp+8].RPMIFR.rFL			;EFL
-		push dword ptr [ebx+4]			;CS
-		push dword ptr [ebx+0]			;EIP
-		lds ebx,[esp+sizeof IRET32]		;restore DS,EBX
+	push ebx
+	lds ebx,[esp].RPMIFR.rSSSP		;get the LPMS
+	push dword ptr ss:spPMS+4		;SS
+	push dword ptr ss:spPMS+0		;ESP
+	push [esp+8].RPMIFR.rFL			;EFL
+	push dword ptr [ebx+4]			;CS
+	push dword ptr [ebx+0]			;EIP
+	lds ebx,[esp+sizeof IRET32]		;restore DS,EBX
 else
-		push _LPMSSEL_
-		pop ds
-		push dword ptr ss:spPMS+4		;SS
-		push dword ptr ss:spPMS+0		;ESP
-		push [esp+8].RPMIFR.rFL			;EFL
-		assume ds:GROUP16
-		push dword ptr ds:[?LPMSSIZE-4]	;CS
-		push dword ptr ds:[?LPMSSIZE-8]	;EIP
-		mov ds,[esp+sizeof IRET32]
+	push _LPMSSEL_
+	pop ds
+	push dword ptr ss:spPMS+4		;SS
+	push dword ptr ss:spPMS+0		;ESP
+	push [esp+8].RPMIFR.rFL			;EFL
+	assume ds:GROUP16
+	push dword ptr ds:[?LPMSSIZE-4]	;CS
+	push dword ptr ds:[?LPMSSIZE-8]	;EIP
+	mov ds,[esp+sizeof IRET32]
 endif
-		iretd
-		align 4
+	iretd
+	align 4
 rpmstacki endp
 
 ;*** lpms_call_exc()
@@ -1594,312 +1595,312 @@ rpmstacki endp
 ;*** - build a RETF32 frame on host stack
 ;*** - execute RETFD
 
-		@ResetTrace
+	@ResetTrace
 
-LCEFR	struct
+LCEFR struct
 r	 	RETF32 <>
 dwExc	dd ?
 f	  	R3FAULT32 <>	;or R0FAULT32 for an exception in ring 0
-LCEFR	ends
+LCEFR ends
 
 lpms_call_exc proc
-		sub esp,sizeof RETF32
-		push ebp
-		mov ebp,esp
-		push eax
+	sub esp,sizeof RETF32
+	push ebp
+	mov ebp,esp
+	push eax
 
-		lar eax, [ebp+4].LCEFR.f.rCSd
-		and ah,60h			;exception in ring 0?
-		jz lpms_call_host_exc
+	lar eax, [ebp+4].LCEFR.f.rCSd
+	and ah,60h			;exception in ring 0?
+	jz lpms_call_host_exc
 
-		push edx
-		push esi
-		push edi
-		push ds
+	push edx
+	push esi
+	push edi
+	push ds
 
 if ?LPMSCNT
-		cmp ss:[cLPMSused],0	;LPMS free?
+	cmp ss:[cLPMSused],0	;LPMS free?
 else
-		cmp ss:[cLPMSused],0
+	cmp ss:[cLPMSused],0
 endif
-		jnz @F
+	jnz @F
 ife ?LPMSCNT
         mov ss:[cLPMSused],1
 endif
-		mov ax,_LPMSSEL_
-		mov edi,?LPMSSIZE - sizeof DPMIEXC
-		jmp lpms_ce_2
+	mov ax,_LPMSSEL_
+	mov edi,?LPMSSIZE - sizeof DPMIEXC
+	jmp lpms_ce_2
 @@:								;LPMS in use, no stack switch
-		mov edi, [ebp+4].LCEFR.f.rSP
-		mov eax, [ebp+4].LCEFR.f.rSSd
-		lar esi,eax
-		bt esi,22
-		jc @F
-		movzx edi,di
+	mov edi, [ebp+4].LCEFR.f.rSP
+	mov eax, [ebp+4].LCEFR.f.rSSd
+	lar esi,eax
+	bt esi,22
+	jc @F
+	movzx edi,di
 @@:
-		sub edi,sizeof DPMIEXC
+	sub edi,sizeof DPMIEXC
 
 lpms_ce_2:
-		mov ds,eax
+	mov ds,eax
 if ?LPMSCNT
-		inc ss:[cLPMSused]
+	inc ss:[cLPMSused]
 endif
 if _LTRACE_
-		mov esi,[ebp+4].LCEFR.dwExc
-		@strout <"entexc: exc=%X errc=%lX cs:ip=%X:%lX ss:sp=%X:%lX",lf>,si,\
-			[ebp+4].LCEFR.f.rErr, [ebp+4].LCEFR.f.rCS,\
-			[ebp+4].LCEFR.f.rIP, [ebp+4].LCEFR.f.rSS, [ebp+4].LCEFR.f.rSP
+	mov esi,[ebp+4].LCEFR.dwExc
+	@strout <"entexc: exc=%X errc=%lX cs:ip=%X:%lX ss:sp=%X:%lX",lf>,si,\
+		[ebp+4].LCEFR.f.rErr, [ebp+4].LCEFR.f.rCS,\
+		[ebp+4].LCEFR.f.rIP, [ebp+4].LCEFR.f.rSS, [ebp+4].LCEFR.f.rSP
 endif
-		mov [ebp+4].LCEFR.r.rSSd, eax
+	mov [ebp+4].LCEFR.r.rSSd, eax
 
 if ?DPMI10EXX
-		mov esi, [ebp+4].LCEFR.dwExc
-		bt ss:[wExcHdlr],si
-		jnc nodpmi10handler
-		sub edi,sizeof DPMI10EXC - sizeof DPMIEXC
+	mov esi, [ebp+4].LCEFR.dwExc
+	bt ss:[wExcHdlr],si
+	jnc nodpmi10handler
+	sub edi,sizeof DPMI10EXC - sizeof DPMIEXC
 if ?32BIT
-		mov [edi].DPMI10EXC.rDPMIIPx, _RTEXC_
-		mov [edi].DPMI10EXC.rDPMICSx, _INTSEL_
+	mov [edi].DPMI10EXC.rDPMIIPx, _RTEXC_
+	mov [edi].DPMI10EXC.rDPMICSx, _INTSEL_
 else
-		mov [edi].DPMI10EXC.rDPMIIPx, _RTEXC_ + 10000h * _INTSEL_
-		mov [edi].DPMI10EXC.rDPMICSx, 0
+	mov [edi].DPMI10EXC.rDPMIIPx, _RTEXC_ + 10000h * _INTSEL_
+	mov [edi].DPMI10EXC.rDPMICSx, 0
 endif
-		mov eax, [ebp+4].LCEFR.f.rErr
-		cmp esi,1
-		jnz @F
-		mov eax, dr6
+	mov eax, [ebp+4].LCEFR.f.rErr
+	cmp esi,1
+	jnz @F
+	mov eax, dr6
 @@:
-		mov edx, [ebp+4].LCEFR.f.rIP
-		mov esi, [ebp+4].LCEFR.f.rCSd
-		mov [edi].DPMI10EXC.rErrx, eax
-		mov [edi].DPMI10EXC.rEIPx, edx
-		mov [edi].DPMI10EXC.rCSx, si
-		xor eax, eax
+	mov edx, [ebp+4].LCEFR.f.rIP
+	mov esi, [ebp+4].LCEFR.f.rCSd
+	mov [edi].DPMI10EXC.rErrx, eax
+	mov [edi].DPMI10EXC.rEIPx, edx
+	mov [edi].DPMI10EXC.rCSx, si
+	xor eax, eax
 if ?EXCRESTART
-		shl esi,16
-		mov si,dx
-		cmp esi,_INTSEL_ * 10000h + _RTEXCR0_
-		setz al
+	shl esi,16
+	mov si,dx
+	cmp esi,_INTSEL_ * 10000h + _RTEXCR0_
+	setz al
 endif
-		mov [edi].DPMI10EXC.rInfoBits, ax
-		mov eax, [ebp+4].LCEFR.f.rFL
-		mov edx, [ebp+4].LCEFR.f.rSP
-		mov esi, [ebp+4].LCEFR.f.rSSd
-		mov [edi].DPMI10EXC.rEFLx, eax
-		mov [edi].DPMI10EXC.rESPx, edx
-		mov [edi].DPMI10EXC.rSSx, esi
-		mov eax, [esp]
-		mov [edi].DPMI10EXC.rDSx, eax
-		mov [edi].DPMI10EXC.rESx, es
-		mov [edi].DPMI10EXC.rFSx, fs
-		mov [edi].DPMI10EXC.rGSx, gs
-		mov esi, cr2
-		mov [edi].DPMI10EXC.rCR2, esi
-		mov [edi].DPMI10EXC.rPTE, 0
+	mov [edi].DPMI10EXC.rInfoBits, ax
+	mov eax, [ebp+4].LCEFR.f.rFL
+	mov edx, [ebp+4].LCEFR.f.rSP
+	mov esi, [ebp+4].LCEFR.f.rSSd
+	mov [edi].DPMI10EXC.rEFLx, eax
+	mov [edi].DPMI10EXC.rESPx, edx
+	mov [edi].DPMI10EXC.rSSx, esi
+	mov eax, [esp]
+	mov [edi].DPMI10EXC.rDSx, eax
+	mov [edi].DPMI10EXC.rESx, es
+	mov [edi].DPMI10EXC.rFSx, fs
+	mov [edi].DPMI10EXC.rGSx, gs
+	mov esi, cr2
+	mov [edi].DPMI10EXC.rCR2, esi
+	mov [edi].DPMI10EXC.rPTE, 0
 nodpmi10handler:
 endif
-		mov [ebp+4].LCEFR.r.rSP, edi
+	mov [ebp+4].LCEFR.r.rSP, edi
 
-		mov [edi].DPMIEXC.rDPMIIP, _RTEXC_
-		mov [edi].DPMIEXC.rDPMICS, _INTSEL_
-		mov eax, [ebp+4].LCEFR.f.rErr
-		mov edx, [ebp+4].LCEFR.f.rIP
-		mov esi, [ebp+4].LCEFR.f.rCSd
+	mov [edi].DPMIEXC.rDPMIIP, _RTEXC_
+	mov [edi].DPMIEXC.rDPMICS, _INTSEL_
+	mov eax, [ebp+4].LCEFR.f.rErr
+	mov edx, [ebp+4].LCEFR.f.rIP
+	mov esi, [ebp+4].LCEFR.f.rCSd
 if ?32BIT
-		mov [edi].DPMIEXC.rErr, eax
-		mov [edi].DPMIEXC.rIP, edx
-		mov [edi].DPMIEXC.rCSd, esi
+	mov [edi].DPMIEXC.rErr, eax
+	mov [edi].DPMIEXC.rIP, edx
+	mov [edi].DPMIEXC.rCSd, esi
 else
-		mov [edi].DPMIEXC.rErr, ax
-		mov [edi].DPMIEXC.rIP, dx
-		mov [edi].DPMIEXC.rCS, si
+	mov [edi].DPMIEXC.rErr, ax
+	mov [edi].DPMIEXC.rIP, dx
+	mov [edi].DPMIEXC.rCS, si
 endif
-		mov eax, [ebp+4].LCEFR.f.rFL
-		mov edx, [ebp+4].LCEFR.f.rSP
-		mov esi, [ebp+4].LCEFR.f.rSSd
+	mov eax, [ebp+4].LCEFR.f.rFL
+	mov edx, [ebp+4].LCEFR.f.rSP
+	mov esi, [ebp+4].LCEFR.f.rSSd
 if ?32BIT
-		mov [edi].DPMIEXC.rFL, eax
-		mov [edi].DPMIEXC.rSP, edx
-		mov [edi].DPMIEXC.rSSd, esi
+	mov [edi].DPMIEXC.rFL, eax
+	mov [edi].DPMIEXC.rSP, edx
+	mov [edi].DPMIEXC.rSSd, esi
 else
-		mov [edi].DPMIEXC.rFL, ax
-		mov [edi].DPMIEXC.rSP, dx
-		mov [edi].DPMIEXC.rSS, si
+	mov [edi].DPMIEXC.rFL, ax
+	mov [edi].DPMIEXC.rSP, dx
+	mov [edi].DPMIEXC.rSS, si
 endif
-		mov edi, [ebp+4].LCEFR.dwExc
+	mov edi, [ebp+4].LCEFR.dwExc
   if ?32BIT
-		mov eax, cs:[edi*sizeof R3PROC+offset GROUP32:excvec].R3PROC._Eip
-		mov esi, cs:[edi*sizeof R3PROC+offset GROUP32:excvec].R3PROC._Cs
+	mov eax, cs:[edi*sizeof R3PROC+offset GROUP32:excvec].R3PROC._Eip
+	mov esi, cs:[edi*sizeof R3PROC+offset GROUP32:excvec].R3PROC._Cs
   else
-		movzx eax, cs:[edi*sizeof R3PROC+offset GROUP32:excvec].R3PROC._Eip
-		movzx esi, cs:[edi*sizeof R3PROC+offset GROUP32:excvec].R3PROC._Cs
+	movzx eax, cs:[edi*sizeof R3PROC+offset GROUP32:excvec].R3PROC._Eip
+	movzx esi, cs:[edi*sizeof R3PROC+offset GROUP32:excvec].R3PROC._Cs
   endif
-		mov [ebp+4].LCEFR.r.rIP, eax
-		mov [ebp+4].LCEFR.r.rCSd, esi
+	mov [ebp+4].LCEFR.r.rIP, eax
+	mov [ebp+4].LCEFR.r.rCSd, esi
 
-		@strout <"jmp handler: cs:ip=%X:%lX ss:sp=%X:%lX",lf>,\
-			[ebp+4].RETF32.rCS, [ebp+4].RETF32.rIP,\
-			[ebp+4].RETF32.rSS, [ebp+4].RETF32.rSP
-;		@waitesckey
+	@strout <"jmp handler: cs:ip=%X:%lX ss:sp=%X:%lX",lf>,\
+		[ebp+4].RETF32.rCS, [ebp+4].RETF32.rIP,\
+		[ebp+4].RETF32.rSS, [ebp+4].RETF32.rSP
+;	@waitesckey
 
-		pop ds
-		pop edi
-		pop esi
-		pop edx
-		pop eax
-		pop ebp
-		retf
-		align 4
+	pop ds
+	pop edi
+	pop esi
+	pop edx
+	pop eax
+	pop ebp
+	retf
+	align 4
 lpms_call_exc endp
 
-		@ResetTrace
+	@ResetTrace
 
 lpms_call_host_exc proc
 
-LCEFR0	struct
+LCEFR0 struct
 r	 	RETF32 <>
 dwExc	dd ?
 f	  	R0FAULT32 <>
-LCEFR0	ends
+LCEFR0 ends
 
 
 ;--- exception in ring 0, eax+ebp saved on stack
 
-		mov eax, ss
-		cmp ax, _SSSEL_				;exception in ring 0 with unknown SS?
-		jz ss_is_hoststack
-		pushad
-		push ds
+	mov eax, ss
+	cmp ax, _SSSEL_				;exception in ring 0 with unknown SS?
+	jz ss_is_hoststack
+	pushad
+	push ds
 
-		push byte ptr _SSSEL_
-		pop ds
+	push byte ptr _SSSEL_
+	pop ds
 if 1
-		mov esi, ds:taskseg._Esp0
-		sub esi, sizeof R3FAULT32 + sizeof IRET32 + 4
+	mov esi, ds:taskseg._Esp0
+	sub esi, sizeof R3FAULT32 + sizeof IRET32 + 4
 else
-		mov esi, 100h 
+	mov esi, 100h 
 endif
-		mov eax,[ebp+4].LCEFR0.f.rErr
-		mov ecx,[ebp+4].LCEFR0.f.rIP
-		mov edx,[ebp+4].LCEFR0.f.rCSd
-		mov ebx,[ebp+4].LCEFR0.f.rFL
-		lea edi,[ebp+4+sizeof LCEFR0]
-		mov [esi+4].R3FAULT32.rErr,eax
-		mov [esi+4].R3FAULT32.rIP,ecx
-		mov [esi+4].R3FAULT32.rCSd,edx
-		mov [esi+4].R3FAULT32.rFL,ebx
-		mov [esi+4].R3FAULT32.rSP,edi
-		mov [esi+4].R3FAULT32.rSSd,ss
-		mov eax, [ebp+4].LCEFR0.dwExc
-		mov [esi+0], eax
-		mov ds:[taskseg._Esi], esi
-		pop ds
-		popad
-		mov eax,[ebp-4]
-		mov ebp,[ebp+0]
-		push byte ptr _SSSEL_
-		pop ss
-		mov esp, ss:[taskseg._Esi]
-		jmp _exceptZ
+	mov eax,[ebp+4].LCEFR0.f.rErr
+	mov ecx,[ebp+4].LCEFR0.f.rIP
+	mov edx,[ebp+4].LCEFR0.f.rCSd
+	mov ebx,[ebp+4].LCEFR0.f.rFL
+	lea edi,[ebp+4+sizeof LCEFR0]
+	mov [esi+4].R3FAULT32.rErr,eax
+	mov [esi+4].R3FAULT32.rIP,ecx
+	mov [esi+4].R3FAULT32.rCSd,edx
+	mov [esi+4].R3FAULT32.rFL,ebx
+	mov [esi+4].R3FAULT32.rSP,edi
+	mov [esi+4].R3FAULT32.rSSd,ss
+	mov eax, [ebp+4].LCEFR0.dwExc
+	mov [esi+0], eax
+	mov ds:[taskseg._Esi], esi
+	pop ds
+	popad
+	mov eax,[ebp-4]
+	mov ebp,[ebp+0]
+	push byte ptr _SSSEL_
+	pop ss
+	mov esp, ss:[taskseg._Esi]
+	jmp _exceptZ
 ss_is_hoststack:        
-		mov eax,[ebp+4].LCEFR0.dwExc
+	mov eax,[ebp+4].LCEFR0.dwExc
 
-		@strout <"an exception %X occured in ring 0",lf>,ax
+	@strout <"an exception %X occured in ring 0",lf>,ax
 
 if ?IGNEXC01INR0
-		cmp eax,1			  ;single step exc?
-		jz lpms_ce_4
+	cmp eax,1			  ;single step exc?
+	jz lpms_ce_4
 endif
         
 if ?EXCRESTART
 
-LCEFR0X	struct
+LCEFR0X struct
 dwExc	dd ?
 f	  	R3FAULT32 <>	;6 DWORDS
 dwHST	dd ?
 rES		dd ?
 rDS		dd ?
 f0	  	R0FAULT32 <>
-LCEFR0X	ends
+LCEFR0X ends
 
-		bt ss:[wExcHdlr],ax
-		jnc nodpmi10handlerX
-		pop eax
-		pop ebp
-		add esp, sizeof RETF32
-		pop ss:[taskseg._Eax]		;get exception no
-		push ds
-		push es
+	bt ss:[wExcHdlr],ax
+	jnc nodpmi10handlerX
+	pop eax
+	pop ebp
+	add esp, sizeof RETF32
+	pop ss:[taskseg._Eax]		;get exception no
+	push ds
+	push es
 if ?FIXTSSESP
-		push ss:[dwHostStack]
-		mov ss:[dwHostStack],esp
+	push ss:[dwHostStack]
+	mov ss:[dwHostStack],esp
 else
-		push ss:[taskseg._Esp0]
-		mov ss:[taskseg._Esp0],esp
+	push ss:[taskseg._Esp0]
+	mov ss:[taskseg._Esp0],esp
 if ?SETEXCHS
-		sub esp,sizeof R3FAULT32
-		mov ss:[dwHostStackExc], esp
-		add esp,sizeof R3FAULT32
+	sub esp,sizeof R3FAULT32
+	mov ss:[dwHostStackExc], esp
+	add esp,sizeof R3FAULT32
 endif
 endif
-		sub esp,sizeof R3FAULT32
-		push ss:[taskseg._Eax]
-		pushad
-		mov ebp,esp
-		mov eax, [ebp+32].LCEFR0X.f0.rErr
-		mov [ebp+32].LCEFR0X.f.rErr, eax
-		mov [ebp+32].LCEFR0X.f.rIP, _RTEXCR0_
-		mov [ebp+32].LCEFR0X.f.rCS, _INTSEL_
-		mov esi, [ebp+32].LCEFR0X.dwHST
-		mov eax, ss:[esi-sizeof IRET32].IRET32.rFL
-		mov edx, ss:[esi-sizeof IRET32].IRET32.rSP
-		mov esi, ss:[esi-sizeof IRET32].IRET32.rSSd
-		mov [ebp+32].LCEFR0X.f.rFL, eax
-		mov [ebp+32].LCEFR0X.f.rSP, edx
-		mov [ebp+32].LCEFR0X.f.rSSd, esi
-		xor ecx, ecx
-		mov eax, es
-		lar edx, eax
-		and dh,60h			;ring 0 descriptor?
-		jnz @F
-		mov es, ecx
+	sub esp,sizeof R3FAULT32
+	push ss:[taskseg._Eax]
+	pushad
+	mov ebp,esp
+	mov eax, [ebp+32].LCEFR0X.f0.rErr
+	mov [ebp+32].LCEFR0X.f.rErr, eax
+	mov [ebp+32].LCEFR0X.f.rIP, _RTEXCR0_
+	mov [ebp+32].LCEFR0X.f.rCS, _INTSEL_
+	mov esi, [ebp+32].LCEFR0X.dwHST
+	mov eax, ss:[esi-sizeof IRET32].IRET32.rFL
+	mov edx, ss:[esi-sizeof IRET32].IRET32.rSP
+	mov esi, ss:[esi-sizeof IRET32].IRET32.rSSd
+	mov [ebp+32].LCEFR0X.f.rFL, eax
+	mov [ebp+32].LCEFR0X.f.rSP, edx
+	mov [ebp+32].LCEFR0X.f.rSSd, esi
+	xor ecx, ecx
+	mov eax, es
+	lar edx, eax
+	and dh,60h			;ring 0 descriptor?
+	jnz @F
+	mov es, ecx
 @@:
-		mov eax, ds
-		lar edx, eax
-		and dh,60h			;ring 0 descriptor?
-		jnz @F
-		mov ds, ecx
+	mov eax, ds
+	lar edx, eax
+	and dh,60h			;ring 0 descriptor?
+	jnz @F
+	mov ds, ecx
 @@:
-		popad
-		@strout <"frame for exc in ring 0 built, esp=%lX, jmp to lpms_call_exc",lf>,esp
-;		 @waitesckey
-		jmp lpms_call_exc
+	popad
+	@strout <"frame for exc in ring 0 built, esp=%lX, jmp to lpms_call_exc",lf>,esp
+;	@waitesckey
+	jmp lpms_call_exc
 retexcr0::
 if _LTRACE_
-		push ebp
-		mov ebp,esp
-		@strout <"[esp]=%lX %X %lX %lX %X",lf>,[ebp+4].IRET32.rIP,\
-			[ebp+4].IRET32.rCS,[ebp+4].IRET32.rFL,\
-			[ebp+4].IRET32.rSP,[ebp+4].IRET32.rSS
-		pop ebp
+	push ebp
+	mov ebp,esp
+	@strout <"[esp]=%lX %X %lX %lX %X",lf>,[ebp+4].IRET32.rIP,\
+		[ebp+4].IRET32.rCS,[ebp+4].IRET32.rFL,\
+		[ebp+4].IRET32.rSP,[ebp+4].IRET32.rSS
+	pop ebp
 endif
-		add esp, sizeof IRET32
-		@strout <"return from ring 0 exception handler, esp=%lX",lf>,esp
-;		 @waitesckey
-		pop ss:[taskseg._Esp0]
+	add esp, sizeof IRET32
+	@strout <"return from ring 0 exception handler, esp=%lX",lf>,esp
+;	@waitesckey
+	pop ss:[taskseg._Esp0]
 ife ?FIXTSSESP
 if ?SETEXCHS
-		push ebp
-		mov ebp,ss:[taskseg._Esp0]
-		lea ebp, [ebp-sizeof R3FAULT]
-		mov ss:[dwHostStackExc], ebp
-		pop ebp
+	push ebp
+	mov ebp,ss:[taskseg._Esp0]
+	lea ebp, [ebp-sizeof R3FAULT]
+	mov ss:[dwHostStackExc], ebp
+	pop ebp
 endif
 endif
-		pop es
-		pop ds
-		lea esp, [esp+4]	;skip error code
-		iretd
+	pop es
+	pop ds
+	lea esp, [esp+4]	;skip error code
+	iretd
 nodpmi10handlerX:
 endif
 
@@ -1910,60 +1911,60 @@ if ?MAPRING0EXC
 ;--- to know the full client state. Currently this isn't the case,
 ;--- so just a fatal exit is possible
 
-		push ebx
-		mov ebx,ss:[taskseg._Esp0]
-		sub ebx,4 + sizeof R3FAULT	;5 register + errorcode + ?
-		sub word ptr ss:[ebx+4].R3FAULT.rIP,2  ;"int xx"
-		mov ax,[ebp+4+1 * ?RSIZE]	;address in table
-		mov ss:[ebx+0],ax
-		mov ax,[ebp+4+2 * ?RSIZE]	;errcode
-		mov ss:[ebx+2],ax
-		mov eax,ds
-		test al,4
-		jnz @F
-		push 0
-		pop ds
+	push ebx
+	mov ebx,ss:[taskseg._Esp0]
+	sub ebx,4 + sizeof R3FAULT	;5 register + errorcode + ?
+	sub word ptr ss:[ebx+4].R3FAULT.rIP,2  ;"int xx"
+	mov ax,[ebp+4+1 * ?RSIZE]	;address in table
+	mov ss:[ebx+0],ax
+	mov ax,[ebp+4+2 * ?RSIZE]	;errcode
+	mov ss:[ebx+2],ax
+	mov eax,ds
+	test al,4
+	jnz @F
+	push 0
+	pop ds
 @@:
-		mov eax,es
-		test al,4
-		jnz @F
-		push 0
-		pop es
+	mov eax,es
+	test al,4
+	jnz @F
+	push 0
+	pop es
 @@:
-		pop ebx
-		pop eax
-		pop ebp
-		mov esp, ss:[taskseg._Esp0]
-		sub esp, sizeof R3FAULT32 + 4
-		jmp lpms_call_exc
+	pop ebx
+	pop eax
+	pop ebp
+	mov esp, ss:[taskseg._Esp0]
+	sub esp, sizeof R3FAULT32 + 4
+	jmp lpms_call_exc
 else
 
 ;--- don't try to route ring0 exceptions to client
 ;--- eax == excnr
 
-		@strout <"ring 0 exc at %X:%lX",lf>,[ebp+4].LCEFR0.f.rCS,\
-			[ebp+4].LCEFR0.f.rIP
-;		 @waitesckey
+	@strout <"ring 0 exc at %X:%lX",lf>,[ebp+4].LCEFR0.f.rCS,\
+		[ebp+4].LCEFR0.f.rIP
+;	@waitesckey
 
-		sub esp,sizeof R3FAULT32
-		push eax						;wExcNo
-		mov eax,[ebp+4].LCEFR0.f.rErr
-		mov [esp+4].R3FAULT32.rErr,eax
-		mov eax,[ebp+4].LCEFR0.f.rIP
-		mov [esp+4].R3FAULT32.rIP,eax
-		mov eax,[ebp+4].LCEFR0.f.rCSd
-		mov [esp+4].R3FAULT32.rCSd,eax
-		mov eax,[ebp+4].LCEFR0.f.rFL
-		mov [esp+4].R3FAULT32.rFL,eax
-		lea eax,[ebp+4+sizeof LCEFR0]
-		mov [esp+4].R3FAULT32.rSP,eax
-		mov [esp+4].R3FAULT32.rSSd,ss
+	sub esp,sizeof R3FAULT32
+	push eax						;wExcNo
+	mov eax,[ebp+4].LCEFR0.f.rErr
+	mov [esp+4].R3FAULT32.rErr,eax
+	mov eax,[ebp+4].LCEFR0.f.rIP
+	mov [esp+4].R3FAULT32.rIP,eax
+	mov eax,[ebp+4].LCEFR0.f.rCSd
+	mov [esp+4].R3FAULT32.rCSd,eax
+	mov eax,[ebp+4].LCEFR0.f.rFL
+	mov [esp+4].R3FAULT32.rFL,eax
+	lea eax,[ebp+4+sizeof LCEFR0]
+	mov [esp+4].R3FAULT32.rSP,eax
+	mov [esp+4].R3FAULT32.rSSd,ss
         
-		mov eax,[ebp-4]
-		mov ebp,[ebp+0]
-		@strout <"ring 0 exc jmp to _exceptZ",lf>
-;		 @waitesckey
-		jmp _exceptZ
+	mov eax,[ebp-4]
+	mov ebp,[ebp+0]
+	@strout <"ring 0 exc jmp to _exceptZ",lf>
+;	@waitesckey
+	jmp _exceptZ
 endif
 
 if ?IGNEXC01INR0
@@ -1971,19 +1972,19 @@ if ?IGNEXC01INR0
 ;--- might be an exception 01 in VCPI host
 
 lpms_ce_4:
-		@strout <"single step exception in ring 0 occured, ignored",lf>
-		cmp ss:[cApps],0			;is a client active?
-		jz @F
-		mov ebp, ss:[taskseg._Esp0]	;set client Trace flag
-		or byte ptr [ebp-sizeof IRET32].IRET32.rFL+1,1
+	@strout <"single step exception in ring 0 occured, ignored",lf>
+	cmp ss:[cApps],0			;is a client active?
+	jz @F
+	mov ebp, ss:[taskseg._Esp0]	;set client Trace flag
+	or byte ptr [ebp-sizeof IRET32].IRET32.rFL+1,1
 @@:
-		pop eax
-		pop ebp
-		add esp,sizeof RETF32 + 4 + 4	;RETF4 + excno + errcode
-		and byte ptr [esp].IRET32.rFL+1,not 1
-		iretd
+	pop eax
+	pop ebp
+	add esp,sizeof RETF32 + 4 + 4	;RETF4 + excno + errcode
+	and byte ptr [esp].IRET32.rFL+1,not 1
+	iretd
 endif
-		align 4
+	align 4
 
 lpms_call_host_exc endp
 
@@ -1993,62 +1994,62 @@ lpms_call_host_exc endp
 ;--- [esp]=IRET32 
 ;--- if we are on top of the LPMS, new SS:ESP is LPMS:FFF8h or LPMS:FFFCh
 
-RPMEFR	struct
+RPMEFR struct
 rEax	dd ?
 rEsi	dd ?
 rDs		dd ?
 		IRET32 <>
-RPMEFR	ends
+RPMEFR ends
 
-		@ResetTrace
+	@ResetTrace
 
 rpmstacke proc
-		push ds
-		push esi
-		push eax
+	push ds
+	push esi
+	push eax
 if _LTRACE_
-		push ebp
-		mov ebp, esp
-		@strout <"entry rpmstacke: CS:IP=%X:%lX Fl=%lX SS:SP=%X:%lX">,\
-			 [ebp+4].RPMEFR.rCS, [ebp+4].RPMEFR.rIP, [ebp+4].RPMEFR.rFL,\
-			 [ebp+4].RPMEFR.rSS, [ebp+4].RPMEFR.rSP
-		pop ebp
+	push ebp
+	mov ebp, esp
+	@strout <"entry rpmstacke: CS:IP=%X:%lX Fl=%lX SS:SP=%X:%lX">,\
+		 [ebp+4].RPMEFR.rCS, [ebp+4].RPMEFR.rIP, [ebp+4].RPMEFR.rFL,\
+		 [ebp+4].RPMEFR.rSS, [ebp+4].RPMEFR.rSP
+	pop ebp
 endif
-		lds esi,[esp].RPMEFR.rSSSP
+	lds esi,[esp].RPMEFR.rSSSP
 if ?LPMSCNT
-	  	dec ss:[cLPMSused]
+	dec ss:[cLPMSused]
 else
-		mov eax, ds
-		cmp ax,_LPMSSEL_
-		jnz @F
-		cmp si,?LPMSSIZE - 2 * ?RSIZE
-		jnz @F
-		mov byte ptr ss:cLPMSused,0
+	mov eax, ds
+	cmp ax,_LPMSSEL_
+	jnz @F
+	cmp si,?LPMSSIZE - 2 * ?RSIZE
+	jnz @F
+	mov byte ptr ss:cLPMSused,0
 @@:
 endif
 if ?32BIT
   if ?HSINEXTMEM
-		@checkssattr ds,bx
+	@checkssattr ds,bx
   endif
-		mov eax,[esi+ 0 * ?RSIZE]
-		mov esi,[esi+ 1 * ?RSIZE]
+	mov eax,[esi+ 0 * ?RSIZE]
+	mov esi,[esi+ 1 * ?RSIZE]
 else
-		movzx eax,word ptr [esi+ 0 * ?RSIZE]
-		movzx esi,word ptr [esi+ 1 * ?RSIZE]
+	movzx eax,word ptr [esi+ 0 * ?RSIZE]
+	movzx esi,word ptr [esi+ 1 * ?RSIZE]
 endif
-		mov [esp].RPMEFR.rSP,eax
-		mov [esp].RPMEFR.rSSd,esi
+	mov [esp].RPMEFR.rSP,eax
+	mov [esp].RPMEFR.rSSd,esi
 if _LTRACE_
-		push ebp
-		mov ebp, esp
-		@strout <", org SS:SP=%X:%lX",lf>,[ebp+4].RPMEFR.rSS, [ebp+4].RPMEFR.rSP
-		pop ebp
+	push ebp
+	mov ebp, esp
+	@strout <", org SS:SP=%X:%lX",lf>,[ebp+4].RPMEFR.rSS, [ebp+4].RPMEFR.rSP
+	pop ebp
 endif
-		pop eax
-		pop esi
-		pop ds
-		iretd
-		align 4
+	pop eax
+	pop esi
+	pop ds
+	iretd
+	align 4
 
 rpmstacke endp
 
@@ -2056,14 +2057,14 @@ rpmstacke endp
 ;--- no other flags modified
 
 iret_with_CF_mod proc public
-		jc @F
-		and byte ptr [esp].IRET32.rFL,not _CY	;reset carry
-		iretd
-		align 4
+	jc @F
+	and byte ptr [esp].IRET32.rFL,not _CY	;reset carry
+	iretd
+	align 4
 @@:
-		or byte ptr [esp].IRET32.rFL, _CY
-		iretd
-		align 4
+	or byte ptr [esp].IRET32.rFL, _CY
+	iretd
+	align 4
 iret_with_CF_mod endp
 
 ;*** main PM Break dispatcher (INT 30h)
@@ -2081,210 +2082,212 @@ dwRes	dd ?
 		IRET32 <>
 I30FR ends
 
-		@ResetTrace
+	@ResetTrace
+_LTRACE_ = 0
 
-intr30	proc
+intr30 proc
 if ?FASTJUMPS
-		cmp word ptr [esp].IRET32.rIP,_JMPF_+2
-		jnb intr30_jmps
+	cmp word ptr [esp].IRET32.rIP,_JMPF_+2
+	jnb intr30_jmps
 endif
-		sub esp,4
+	sub esp,4
 
-		push ebx
-		push eax
+	push ebx
+	push eax
 
-		mov ebx,[esp].I30FR.rIP
-		sub ebx,2
+	mov ebx,[esp].I30FR.rIP
+	sub ebx,2
 if ?LOGINT30
-		mov ss:[lint30],bx
+	mov ss:[lint30],bx
 endif
-		cmp bh,02h
-		jnb intr30_special
+	cmp bh,02h
+	jnb intr30_special
 
 if _LTRACE_
-		push ebp
-		mov ebp,esp
-		@strout <"int30 simint ip=%X:%lX %lX sp=%X:%lX",lf>,[ebp+8].I30FR.rCS,\
-			 [ebp+8].I30FR.rIP, [ebp+8].I30FR.rFL, [ebp+8].I30FR.rSS, [ebp+8].I30FR.rSP
-;		 @waitesckey
-		pop ebp
+	push ebp
+	mov ebp,esp
+	@strout <"int30 simint ip=%X:%lX %lX sp=%X:%lX",lf>,[ebp+8].I30FR.rCS,\
+		 [ebp+8].I30FR.rIP, [ebp+8].I30FR.rFL, [ebp+8].I30FR.rSS, [ebp+8].I30FR.rSP
+;	@waitesckey
+	pop ebp
 endif
 
-		shr ebx,1
-		push ds
-		mov [esp+4].I30FR.dwRes,ebx	;is an intno now
-		lds ebx, [esp+4].I30FR.rSSSP
+	shr ebx,1
+	push ds
+	mov [esp+4].I30FR.dwRes,ebx	;is an intno now
+	lds ebx, [esp+4].I30FR.rSSSP
 
 if 0;?CHECKSSATTR
-		lar eax, dword ptr [esp+4].I30FR.rSS
-		test eax,400000h
-		jnz @F
-		movzx ebx,bx
+	lar eax, dword ptr [esp+4].I30FR.rSS
+	test eax,400000h
+	jnz @F
+	movzx ebx,bx
 @@:
 endif
 
 if ?32BIT
-		mov eax, [ebx].IRETS.rIP
-		mov [esp+4].I30FR.rIP,eax
-		mov eax, [ebx].IRETS.rCSd
-		mov [esp+4].I30FR.rCSd,eax
-		mov eax, [ebx].IRETS.rFL
-		mov [esp+4].I30FR.rFL,eax
+	mov eax, [ebx].IRETS.rIP
+	mov [esp+4].I30FR.rIP,eax
+	mov eax, [ebx].IRETS.rCSd
+	mov [esp+4].I30FR.rCSd,eax
+	mov eax, [ebx].IRETS.rFL
+	mov [esp+4].I30FR.rFL,eax
 else
-		movzx eax, word ptr [ebx].IRETS.rIP
-		mov [esp+4].I30FR.rIP,eax
-		mov ax, [ebx].IRETS.rCS
-		mov [esp+4].I30FR.rCS,ax
-		mov ax, [ebx].IRETS.rFL
-		mov [esp+4].I30FR.rFL,eax
+	movzx eax, word ptr [ebx].IRETS.rIP
+	mov [esp+4].I30FR.rIP,eax
+	mov ax, [ebx].IRETS.rCS
+	mov [esp+4].I30FR.rCS,ax
+	mov ax, [ebx].IRETS.rFL
+	mov [esp+4].I30FR.rFL,eax
 endif
-		add [esp+4].I30FR.rSP,sizeof IRETSPM	;adjust client stack
-		pop ds
-		pop eax
-		pop ebx
-;   	pop ebp
-		jmp dormsint
-		align 4
+	add [esp+4].I30FR.rSP,sizeof IRETSPM	;adjust client stack
+	pop ds
+	pop eax
+	pop ebx
+;   pop ebp
+	jmp dormsint
+	align 4
 
 if ?FASTJUMPS
 intr30_jmps:
   if _LTRACE_
-		push ebp
-		mov ebp,esp
-		@strout <"int30 jmps ip=%X:%lX %lX sp=%X:%lX",lf>,[ebp+4].IRET32.rCS,\
-			 [ebp+4].IRET32.rIP, [ebp+4].IRET32.rFL, [ebp+4].IRET32.rSS, [ebp+4].IRET32.rSP
-;		 @waitesckey
-		pop ebp
+	push ebp
+	mov ebp,esp
+	@strout <"int30 jmps ip=%X:%lX %lX sp=%X:%lX",lf>,[ebp+4].IRET32.rCS,\
+		 [ebp+4].IRET32.rIP, [ebp+4].IRET32.rFL, [ebp+4].IRET32.rSS, [ebp+4].IRET32.rSP
+;	@waitesckey
+	pop ebp
   endif
-		push ebx
-		mov ebx, [esp+4].IRET32.rIP
-		push dword ptr cs:[ebx*2+offset spectab-404h]
-		mov ebx,[esp+4] 
-		retn 4
+	push ebx
+	mov ebx, [esp+4].IRET32.rIP
+	push dword ptr cs:[ebx*2+offset spectab-404h]
+	mov ebx,[esp+4] 
+	retn 4
 endif
-		align 4
+	align 4
 
-		@ResetTrace
+	@ResetTrace
 
 intr30_special:
 if _LTRACE_
-		push ebp
-		mov ebp,esp
-		@strout <"int30 special ip=%X:%lX %lX sp=%X:%lX",lf>,[ebp+4].I30FR.rCS,\
-			 [ebp+4].I30FR.rIP, [ebp+4].I30FR.rFL, [ebp+4].I30FR.rSS, [ebp+4].I30FR.rSP
-		pop ebp
-;		 @waitesckey
+	push ebp
+	mov ebp,esp
+	@strout <"int30 special ip=%X:%lX %lX sp=%X:%lX",lf>,[ebp+4].I30FR.rCS,\
+		[ebp+4].I30FR.rIP, [ebp+4].I30FR.rFL, [ebp+4].I30FR.rSS, [ebp+4].I30FR.rSP
+	pop ebp
+;	@waitesckey
 endif
-		mov eax,dword ptr cs:[ebx*2+offset spectab-400h]
-		mov [esp].I30FR.dwRes,eax	;function address
+	mov eax,dword ptr cs:[ebx*2+offset spectab-400h]
+	mov [esp].I30FR.dwRes,eax	;function address
 if ?FASTJUMPS eq 0
-		cmp bx,_JMPF_			;no stack parameters
-		jnb intr30_3
+	cmp bx,_JMPF_			;no stack parameters
+	jnb intr30_3
 endif
-		push ds
-		mov eax,ebx
+	push ds
+	mov eax,ebx
 
-		lds ebx,[esp+4].I30FR.rSSSP
+	lds ebx,[esp+4].I30FR.rSSSP
 if ?CHECKSSIS32
-		push eax
-		@checkssattr ds,bx
-		pop eax
+	push eax
+	@checkssattr ds,bx
+	pop eax
 endif
-		cmp ax,_RTEXC_			;return from exceptionhandler?
-		jnz @F
-		add ebx, ?RSIZE			;remove error code from client stack
-		add [esp+4].I30FR.rSP, ?RSIZE
+	cmp ax,_RTEXC_			;return from exceptionhandler?
+	jnz @F
+	add ebx, ?RSIZE			;remove error code from client stack
+	add [esp+4].I30FR.rSP, ?RSIZE
 @@:
-		cmp ax,_RETF_			   ;retf oder iret frame?
+	cmp ax,_RETF_			   ;retf oder iret frame?
 if ?32BIT
-		mov eax, [ebx].IRET32.rIP
-		mov [esp+4].I30FR.rIP,eax
-		mov eax, [ebx].IRET32.rCSd
+	mov eax, [ebx].IRET32.rIP
+	mov [esp+4].I30FR.rIP,eax
+	mov eax, [ebx].IRET32.rCSd
 else
-		mov eax,0
-		mov ax, [ebx].IRET16.rIP
-		mov [esp+4].I30FR.rIP,eax
-		mov ax, [ebx].IRET16.rCS
+	mov eax,0
+	mov ax, [ebx].IRET16.rIP
+	mov [esp+4].I30FR.rIP,eax
+	mov ax, [ebx].IRET16.rCS
 endif
-		mov [esp+4].I30FR.rCSd,eax
-		jnb @F
+	mov [esp+4].I30FR.rCSd,eax
+	jnb @F
 if ?32BIT
-		mov eax, [ebx].IRETS.rFL
+	mov eax, [ebx].IRETS.rFL
 else
-		mov ax, [ebx].IRETS.rFL
+	mov ax, [ebx].IRETS.rFL
 endif
-		mov [esp+4].I30FR.rFL,eax
-		and ah,not _TF			   ;reset TF
-		mov ss:[tmpFLReg],ax
-		add [esp+4].I30FR.rSP, ?RSIZE
+	mov [esp+4].I30FR.rFL,eax
+	and ah,not _TF			   ;reset TF
+	mov ss:[tmpFLReg],ax
+	add [esp+4].I30FR.rSP, ?RSIZE
 @@:
-		add [esp+4].I30FR.rSP, ?RSIZE * 2
+	add [esp+4].I30FR.rSP, ?RSIZE * 2
 intr30_1:
 if _LTRACE_
-		push ebp
-		mov ebp, esp
-		@strout <"int30 special_2 ip=%X:%lX fl=%lX sp=%X:%lX",lf>,[ebp+8].I30FR.rCS,\
-			[ebp+8].I30FR.rIP, [ebp+8].I30FR.rFL,\
-			[ebp+8].I30FR.rSS, [ebp+8].I30FR.rSP
-		pop ebp
+	push ebp
+	mov ebp, esp
+	@strout <"int30 special_2 ip=%X:%lX fl=%lX sp=%X:%lX",lf>,[ebp+8].I30FR.rCS,\
+		[ebp+8].I30FR.rIP, [ebp+8].I30FR.rFL,\
+		[ebp+8].I30FR.rSS, [ebp+8].I30FR.rSP
+	pop ebp
 endif
-		pop ds
+	pop ds
 intr30_3:
-		pop eax
-		pop ebx
-		retn				  ;now jump to the function
-		align 4
-intr30	endp
+	pop eax
+	pop ebx
+	retn				  ;now jump to the function
+	align 4
+intr30 endp
 
+_LTRACE_ = 1
 ;--- adjust all standard flags, then perform IRETD
 
 retf2exit proc public
-		push eax
-		lahf
-		mov byte ptr [esp+4].IRET32.rFL,ah
-		pop eax
+	push eax
+	lahf
+	mov byte ptr [esp+4].IRET32.rFL,ah
+	pop eax
 iretexit::
-		iretd
-		align 4
+	iretd
+	align 4
 retf2exit endp
 
-		@ResetTrace
+	@ResetTrace
 
 intr20  proc
-		push eax
-		lar eax,[esp+4].IRET32.rCSd
-		test ah,60h
-		pop eax
-		jnz @F
-		or byte ptr [esp].IRET32.rFL,1 ;carry flag setzen
+	push eax
+	lar eax,[esp+4].IRET32.rCSd
+	test ah,60h
+	pop eax
+	jnz @F
+	or byte ptr [esp].IRET32.rFL,1 ;carry flag setzen
 if _LTRACE_
-		push ebp
-		mov ebp,esp
-		push ds
-		push esi
-		lds esi,[ebp+4].IRET32.rCSIP
-		@strout <"i20 (r0): sp=%X:%X ip=%X:%lX fl=%lX [ip]=%X %X",lf>,\
-			ss,sp,[ebp+4].IRET32.rCS,[ebp+4].IRET32.rIP,[ebp+4].IRET32.rFL,\
-			[esi+0],[esi+2]
-		pop esi
-		pop ds
-		pop ebp
+	push ebp
+	mov ebp,esp
+	push ds
+	push esi
+	lds esi,[ebp+4].IRET32.rCSIP
+	@strout <"i20 (r0): sp=%X:%X ip=%X:%lX fl=%lX [ip]=%X %X",lf>,\
+		ss,sp,[ebp+4].IRET32.rCS,[ebp+4].IRET32.rIP,[ebp+4].IRET32.rFL,\
+		[esi+0],[esi+2]
+	pop esi
+	pop ds
+	pop ebp
 endif
-		add [esp].IRET32.rIP,4
-		iretd
+	add [esp].IRET32.rIP,4
+	iretd
 @@:
-		@strout <"i20 (r3), jmp to real mode",lf>
-		@callrmsint 20h
+	@strout <"i20 (r3), jmp to real mode",lf>
+	@callrmsint 20h
 intr20  endp
 
 if ?WINDBG
 
-		@ResetTrace
+	@ResetTrace
 
 intr22:
-		@strout <"Win386 debug API (int 22h) called, ax=%X",lf>,ax
-		iretd
-		align 4
+	@strout <"Win386 debug API (int 22h) called, ax=%X",lf>,ax
+	iretd
+	align 4
 endif
 
 
@@ -2292,74 +2295,74 @@ if ?GUARDPAGE0
 
 ;*** run 1 client instruction 
 
-		@ResetTrace
+	@ResetTrace
 
 execclientinstr proc
-		push [esp+1*4].IRET32.rFL
-		pop ss:[dwOrgFL]
-		or byte ptr [esp+1*4].IRET32.rFL+1,1	 ;Set TF
-		and byte ptr [esp+1*4].IRET32.rFL+1,0FDh ;reset IF
-		call xchgint01
-		call checkrmidtread			  ;before client instruction
+	push [esp+1*4].IRET32.rFL
+	pop ss:[dwOrgFL]
+	or byte ptr [esp+1*4].IRET32.rFL+1,1	 ;Set TF
+	and byte ptr [esp+1*4].IRET32.rFL+1,0FDh ;reset IF
+	call xchgint01
+	call checkrmidtread			  ;before client instruction
 if _LTRACE_
-		push eax
-		push ecx
-		mov cx,[esp+3*4].IRET32.rCS
-		mov eax,[esp+3*4].IRET32.rIP
-		@strout <"now executing client code at %X:%lX",lf>,cx,eax
-		pop ecx
-		pop eax
+	push eax
+	push ecx
+	mov cx,[esp+3*4].IRET32.rCS
+	mov eax,[esp+3*4].IRET32.rIP
+	@strout <"now executing client code at %X:%lX",lf>,cx,eax
+	pop ecx
+	pop eax
 endif
-		add esp,4		  ;skip error code
-		iretd
-		align 4
+	add esp,4		  ;skip error code
+	iretd
+	align 4
 execclientinstr endp
 
 backtonormal proc
-		push eax
-		mov eax,ss:[dwOrgFL]
-		and ah,03
-		and byte ptr [esp+4].IRET32.rFL+1,0FCh
-		or byte ptr [esp+4].IRET32.rFL+1,ah ;restore TF + IF
+	push eax
+	mov eax,ss:[dwOrgFL]
+	and ah,03
+	and byte ptr [esp+4].IRET32.rFL+1,0FCh
+	or byte ptr [esp+4].IRET32.rFL+1,ah ;restore TF + IF
 
-		mov eax,ss:[pg0ptr]
-		and byte ptr ss:[eax],not ?GPBIT ;set PTE system reset
+	mov eax,ss:[pg0ptr]
+	and byte ptr ss:[eax],not ?GPBIT ;set PTE system reset
 
-		call xchgint01
-		cmp ss:[dwAddr],0			;address irrelevant, exit
-		jz @F
-		call checkrmidtwrite 		;after client instruction
+	call xchgint01
+	cmp ss:[dwAddr],0			;address irrelevant, exit
+	jz @F
+	call checkrmidtwrite 		;after client instruction
 @@:
-		mov eax,ss:[dwHostBase] 	;base of host CS
-		neg eax
-		invlpg ss:[eax]				;works on 80486+ only!
-		mov eax,ss:[lastcr2]
-		mov cr2,eax
-		pop eax
-		iretd
-		align 4
+	mov eax,ss:[dwHostBase] 	;base of host CS
+	neg eax
+	invlpg ss:[eax]				;works on 80486+ only!
+	mov eax,ss:[lastcr2]
+	mov cr2,eax
+	pop eax
+	iretd
+	align 4
 backtonormal endp
 
 xchgint01 proc near
-		push esi
-		push eax
-		mov esi,ss:[pdIDT.dwBase]
-		sub esi,ss:[dwHostBase]
-		mov eax,dword ptr ss:[myint01+0]
-		xchg eax,ss:[esi+0+8]
-		mov dword ptr ss:[myint01+0],eax
-		mov eax,dword ptr ss:[myint01+4]
-		xchg eax,ss:[esi+4+8]
-		mov dword ptr ss:[myint01+4],eax
-		pop eax
-		pop esi
-		ret
-		align 4
+	push esi
+	push eax
+	mov esi,ss:[pdIDT.dwBase]
+	sub esi,ss:[dwHostBase]
+	mov eax,dword ptr ss:[myint01+0]
+	xchg eax,ss:[esi+0+8]
+	mov dword ptr ss:[myint01+0],eax
+	mov eax,dword ptr ss:[myint01+4]
+	xchg eax,ss:[esi+4+8]
+	mov dword ptr ss:[myint01+4],eax
+	pop eax
+	pop esi
+	ret
+	align 4
 xchgint01 endp
 
 endif
 
-		@ResetTrace
+	@ResetTrace
 
 ;--- default exception handler for exc 02-05 + 07 routes the exceptions
 ;--- to protected mode INTs
@@ -2380,41 +2383,41 @@ intr00 endp
 
 intr01 proc
 if ?TESTEXC01
-		push eax
-		mov eax, dr6
-		test ax, 0C00Fh
-		jz @F
-		mov ah,0
-		mov dr6,eax
-		pop eax
-		jmp isdebugexc
+	push eax
+	mov eax, dr6
+	test ax, 0C00Fh
+	jz @F
+	mov ah,0
+	mov dr6,eax
+	pop eax
+	jmp isdebugexc
 @@:
-		pop eax
-		@simintpms 01
+	pop eax
+	@simintpms 01
 isdebugexc:
 endif
-		@exception 01
-		@mapexc2int 01
+	@exception 01
+	@mapexc2int 01
 
 intr01 endp
 
 intr02 proc
-		cmp word ptr [esp.IRET32.rCS],_CSSEL_ ;skip NMI in ring 0
-		jz iretexit
-		@exception 02
-		@mapexc2int 02
+	cmp word ptr [esp.IRET32.rCS],_CSSEL_ ;skip NMI in ring 0
+	jz iretexit
+	@exception 02
+	@mapexc2int 02
 intr02 endp
 
 intr03 proc
-		cmp word ptr [esp.IRET32.rCS],_CSSEL_ ;skip int3 in ring 0
-		jz iretexit
-		@exception 03
-		@mapexc2int 03
+	cmp word ptr [esp.IRET32.rCS],_CSSEL_ ;skip int3 in ring 0
+	jz iretexit
+	@exception 03
+	@mapexc2int 03
 intr03 endp
 
 intr04 proc
-		@exception 04
-		@mapexc2int 04
+	@exception 04
+	@mapexc2int 04
 intr04 endp
 
 ;--- win9x routes exception 05 to protected mode and as long as hdpmi
@@ -2422,34 +2425,34 @@ intr04 endp
 ;--- bound exception, it should not be routed to real-mode!
 
 intr05 proc
-		@exception 05
-		@mapexc2int 05
+	@exception 05
+	@mapexc2int 05
 intr05 endp
 
 intr06 proc
 if ?TESTEXC06
-		@testint 06, noint06 ;exc 6 is not mapped to int 6, so check for int 6
-		@simintpms 06
+	@testint 06, noint06 ;exc 6 is not mapped to int 6, so check for int 6
+	@simintpms 06
 noint06:
 endif
-		@exception 06
-		@defaultexc 06, 1
+	@exception 06
+	@defaultexc 06, 1
 intr06 endp
 
 intr07 proc
-		@exception 07
-		@mapexc2int 07
+	@exception 07
+	@mapexc2int 07
 intr07 endp
 
 ;--- exceptions 08-0F share the same INTs as IRQ0-7, which
 ;--- requires some additional detection
 
 intr08 proc
-		@testexception
-		@simintlpms 08
+	@testexception
+	@simintlpms 08
 @@:
-		@exception 08, TRUE
-		@defaultexc 08
+	@exception 08, TRUE
+	@defaultexc 08
 intr08 endp
 
 ;--- exc 09 is for 80286/80386 only
@@ -2457,256 +2460,256 @@ intr08 endp
 ;--- this code is not active if a 80486+ has been detected!
 
 intr09 proc public
-		push eax
-		mov al,0Bh		;get ISR of MPIC
-		out 20h,al
-		in al,20h
-		test al,02		;IRQ 1 happened?
-		pop eax
-		jnz simint09
-		@testint 09, noint09	;test for programmed int 09	(would be strange)
+	push eax
+	mov al,0Bh		;get ISR of MPIC
+	out 20h,al
+	in al,20h
+	test al,02		;IRQ 1 happened?
+	pop eax
+	jnz simint09
+	@testint 09, noint09	;test for programmed int 09	(would be strange)
 intr09 endp
 
 simint09 proc
-		@simintlpms 09
+	@simintlpms 09
 noint09::        
-		@exception 09
-		@defaultexc 09
+	@exception 09
+	@defaultexc 09
 simint09 endp
 
 PATCHVALUE2 equ  0EBh + (offset simint09 - (offset intr09 + 2)) * 100h
 
 intr0A proc
-		@testexception 1
-		@simintlpms 0A
+	@testexception 1
+	@simintlpms 0A
 @@:
-		@exception 0A, TRUE
-		@defaultexc 0A
+	@exception 0A, TRUE
+	@defaultexc 0A
 intr0A endp
 
 intr0B proc
-		@testexception 1
-		@simintlpms 0B
+	@testexception 1
+	@simintlpms 0B
 @@:
-		@exception 0B, TRUE
-		@defaultexc 0B,1
+	@exception 0B, TRUE
+	@defaultexc 0B,1
 intr0B endp
 
 intr0C proc
-		@testexception 1
-		@simintlpms 0C
+	@testexception 1
+	@simintlpms 0C
 @@:
-		@exception 0C, TRUE
-		@defaultexc 0C,1
+	@exception 0C, TRUE
+	@defaultexc 0C,1
 intr0C endp
 
-		@ResetTrace
+	@ResetTrace
 
 intr0D proc
 if 0
-		push ebp
-		mov ebp,esp
-		push eax
-		lea eax,[esp+8]
-		@strout <"int 0D: sp=%lX,[sp]=%lX,%lX,%lX,%lX,%lX",lf>,\
-			eax,<dword ptr [ebp+4]>,<dword ptr [ebp+8]>,\
-			<dword ptr [ebp+12]>,<dword ptr [ebp+16]>,\
-			<dword ptr [ebp+20]>
-		pop eax
-		pop ebp
+	push ebp
+	mov ebp,esp
+	push eax
+	lea eax,[esp+8]
+	@strout <"int 0D: sp=%lX,[sp]=%lX,%lX,%lX,%lX,%lX",lf>,\
+		eax,<dword ptr [ebp+4]>,<dword ptr [ebp+8]>,\
+		<dword ptr [ebp+12]>,<dword ptr [ebp+16]>,\
+		<dword ptr [ebp+20]>
+	pop eax
+	pop ebp
 endif
-		@testexception 1
-;		test byte ptr [esp.IRET32.rFL+1],2 ;ints disabled?
-;		jz int0dcalled 		   ;then it is a programmed INT
-		@simintlpms 0D
+	@testexception 1
+;	test byte ptr [esp.IRET32.rFL+1],2 ;ints disabled?
+;	jz int0dcalled 		   ;then it is a programmed INT
+	@simintlpms 0D
 @@:
-		call checksiminstr		;emulate some priviledged opcodes
-		@exception 0D, TRUE
-		@defaultexc 0D,1
+	call checksiminstr		;emulate some priviledged opcodes
+	@exception 0D, TRUE
+	@defaultexc 0D,1
 ;int0dcalled:
-;		@simintpms 0D
+;	@simintpms 0D
 intr0D endp
 
-		@ResetTrace
+	@ResetTrace
 
 intr0E proc
-		@testexception 1
-		@simintlpms 0E
+	@testexception 1
+	@simintlpms 0E
 @@:
 if ?GUARDPAGE0
-		test ss:bEnvFlags,ENVF_GUARDPAGE0
-		jz intr0e_1
-		push eax
-		mov eax,cr2
-		cmp eax,1000h
-		jnb @F
-		mov eax,ss:[pg0ptr]
-		or byte ptr ss:[eax],?GPBIT  ;set user bit
-		pop eax
-		jmp execclientinstr
+	test ss:bEnvFlags,ENVF_GUARDPAGE0
+	jz intr0e_1
+	push eax
+	mov eax,cr2
+	cmp eax,1000h
+	jnb @F
+	mov eax,ss:[pg0ptr]
+	or byte ptr ss:[eax],?GPBIT  ;set user bit
+	pop eax
+	jmp execclientinstr
 @@:
-		mov ss:[lastcr2],eax
-		pop eax
+	mov ss:[lastcr2],eax
+	pop eax
 intr0e_1:
 endif
 if ?CATCHLDTACCESS
-		push edx
-		push eax
-		mov eax,cr2
-		mov edx,ss:[dwLDTAddr]
-		cmp eax,edx
-		jb @F
-		add edx,10000h
-		cmp eax,edx
-		jnb @F
+	push edx
+	push eax
+	mov eax,cr2
+	mov edx,ss:[dwLDTAddr]
+	cmp eax,edx
+	jb @F
+	add edx,10000h
+	cmp eax,edx
+	jnb @F
 ;--- now do something here!
 @@:
-		pop eax
-		pop edx
+	pop eax
+	pop edx
 endif
-		@exception 0E, TRUE
-		@defaultexc 0E,1 
+	@exception 0E, TRUE
+	@defaultexc 0E,1 
 intr0E endp
 
 ;--- exception 0F doesn't exist, just switch to LPMS
 
 intr0F proc
-		@simintlpms 0F
+	@simintlpms 0F
 intr0F endp
 
 if ?INT10SUPP
-		@ResetTrace
+	@ResetTrace
 intr10 proc
 if 0
-		push eax
-		fnstsw ax
-		test al,80h		;unmasked exception occured?
-		pop eax
-		jz int10called
-		push ds
-		push ebx
-		lds ebx,[esp+8].IRET32.rCSIP
-		mov bl,[ebx]
-		cmp bl,9Bh		;WAIT opcode?
-		jz @F
-		and bl,0F8h
-		cmp bl,0D8h		;D8-DF opcode
+	push eax
+	fnstsw ax
+	test al,80h		;unmasked exception occured?
+	pop eax
+	jz int10called
+	push ds
+	push ebx
+	lds ebx,[esp+8].IRET32.rCSIP
+	mov bl,[ebx]
+	cmp bl,9Bh		;WAIT opcode?
+	jz @F
+	and bl,0F8h
+	cmp bl,0D8h		;D8-DF opcode
 @@:
-		pop ebx
-		pop ds
-		jnz int10called
+	pop ebx
+	pop ds
+	jnz int10called
 else
-		@testint 10, noint10	;exc 10h has no error code
-		@simintpms 10
+	@testint 10, noint10	;exc 10h has no error code
+	@simintpms 10
 noint10:
 endif
-		@exception 10			;no error code supplied!
-		@defaultexc 10
+	@exception 10			;no error code supplied!
+	@defaultexc 10
 intr10 endp
 endif
 
 if ?INT11SUPP
-		@ResetTrace
+	@ResetTrace
 intr11 proc
-		@testexception 1
-		@simintpms 11
+	@testexception 1
+	@simintpms 11
 @@:
-		@exception 11, TRUE
-		@defaultexc 11
+	@exception 11, TRUE
+	@defaultexc 11
 intr11 endp        
 endif
 
 ;--- exceptions 11-1F not supported
 
 defexcxx:			;default exceptions 11-1F
-		int 3
-		iretd
-		align 4
+	int 3
+	iretd
+	align 4
 
-		@ResetTrace
+	@ResetTrace
 
 ints70_77 proc
 intr70::
-		@simintlpms 70
+	@simintlpms 70
 intr71::
-		@simintlpms 71
+	@simintlpms 71
 intr72::
-		@simintlpms 72
+	@simintlpms 72
 intr73::
-		@simintlpms 73
+	@simintlpms 73
 intr74::
-		@simintlpms 74
+	@simintlpms 74
 intr75::
-		@simintlpms 75
+	@simintlpms 75
 
-		@ResetTrace
+	@ResetTrace
 
 intr76::
-		@simintlpms 76
+	@simintlpms 76
 
-		@ResetTrace
+	@ResetTrace
 
 intr77::
-		@simintlpms 77
+	@simintlpms 77
 ints70_77 endp
 
 ;--- here are the default interrupt handlers for int 00 - 0F, 70-77
 
-		@ResetTrace
+	@ResetTrace
 
 if ?MAPINT00
-		@callrmint 00	;route int 00 to real-mode
+	@callrmint 00	;route int 00 to real-mode
 else
-		@termint 00		;terminate client
+	@termint 00		;terminate client
 endif
-		@callrmint 01
-		@callrmint 02
-		@callrmint 03
-		@callrmint 04
+	@callrmint 01
+	@callrmint 02
+	@callrmint 03
+	@callrmint 04
 if ?MAPINT05
 defint05:
-		push ds
-		push esi
-		lds esi, [esp+8].IRET32.rCSIP
-		cmp byte ptr [esi],62h		;bound opcode
-		pop esi
-		pop ds
-		jz @F
-		@callrmint 05,int05torm	;05 is a fault, should be terminated?
+	push ds
+	push esi
+	lds esi, [esp+8].IRET32.rCSIP
+	cmp byte ptr [esi],62h		;bound opcode
+	pop esi
+	pop ds
+	jz @F
+	@callrmint 05,int05torm	;05 is a fault, should be terminated?
 @@:
-		@termint 05, int05term
+	@termint 05, int05term
 else
-		@termint 05		;terminate client
+	@termint 05		;terminate client
 endif
-		@callrmint 06	;06 is no problem (is *not* called for exceptions)
+	@callrmint 06	;06 is no problem (is *not* called for exceptions)
 if ?MAPINT07
-		@callrmint 07	;07 route int 07 to real-mode
+	@callrmint 07	;07 route int 07 to real-mode
 else
-		@termint 07		;terminate client
+	@termint 07		;terminate client
 endif
-		@callrmproc 08,<ss:[stdrmcbs+00*size STDRMCB].rm_vec>
-if ?CATCHREBOOT 	   
-		@callrmproc 09,<ss:[stdrmcbs+01*size STDRMCB].rm_vec>,myint09proc
+	@callrmproc 08,<ss:[stdrmcbs+00*size STDRMCB].rm_vec>
+if 0;?CATCHREBOOT
+	@callrmproc 09,<ss:[stdrmcbs+01*size STDRMCB].rm_vec>,myint09proc
 else
-		@callrmproc 09,<ss:[stdrmcbs+01*size STDRMCB].rm_vec>
+	@callrmproc 09,<ss:[stdrmcbs+01*size STDRMCB].rm_vec>
 endif
-		@callrmproc 0A,<ss:[stdrmcbs+02*size STDRMCB].rm_vec>
-		@callrmproc 0B,<ss:[stdrmcbs+03*size STDRMCB].rm_vec>
-		@callrmproc 0C,<ss:[stdrmcbs+04*size STDRMCB].rm_vec>
-		@callrmproc 0D,<ss:[stdrmcbs+05*size STDRMCB].rm_vec>
-		@callrmproc 0E,<ss:[stdrmcbs+06*size STDRMCB].rm_vec>
-		@callrmproc 0F,<ss:[stdrmcbs+07*size STDRMCB].rm_vec>
+	@callrmproc 0A,<ss:[stdrmcbs+02*size STDRMCB].rm_vec>
+	@callrmproc 0B,<ss:[stdrmcbs+03*size STDRMCB].rm_vec>
+	@callrmproc 0C,<ss:[stdrmcbs+04*size STDRMCB].rm_vec>
+	@callrmproc 0D,<ss:[stdrmcbs+05*size STDRMCB].rm_vec>
+	@callrmproc 0E,<ss:[stdrmcbs+06*size STDRMCB].rm_vec>
+	@callrmproc 0F,<ss:[stdrmcbs+07*size STDRMCB].rm_vec>
 
-		@callrmproc 70,<ss:[stdrmcbs+08*size STDRMCB].rm_vec>
-		@callrmproc 71,<ss:[stdrmcbs+09*size STDRMCB].rm_vec>
-		@callrmproc 72,<ss:[stdrmcbs+10*size STDRMCB].rm_vec>
-		@callrmproc 73,<ss:[stdrmcbs+11*size STDRMCB].rm_vec>
-		@callrmproc 74,<ss:[stdrmcbs+12*size STDRMCB].rm_vec>
-		@callrmproc 75,<ss:[stdrmcbs+13*size STDRMCB].rm_vec>
-		@callrmproc 76,<ss:[stdrmcbs+14*size STDRMCB].rm_vec>
-		@callrmproc 77,<ss:[stdrmcbs+15*size STDRMCB].rm_vec>
-		@callrmproc 1C,<ss:[stdrmcbs+16*size STDRMCB].rm_vec>
-;		 @callrmproc 23,<ss:[stdrmcbs+17*size STDRMCB].rm_vec>
+	@callrmproc 70,<ss:[stdrmcbs+08*size STDRMCB].rm_vec>
+	@callrmproc 71,<ss:[stdrmcbs+09*size STDRMCB].rm_vec>
+	@callrmproc 72,<ss:[stdrmcbs+10*size STDRMCB].rm_vec>
+	@callrmproc 73,<ss:[stdrmcbs+11*size STDRMCB].rm_vec>
+	@callrmproc 74,<ss:[stdrmcbs+12*size STDRMCB].rm_vec>
+	@callrmproc 75,<ss:[stdrmcbs+13*size STDRMCB].rm_vec>
+	@callrmproc 76,<ss:[stdrmcbs+14*size STDRMCB].rm_vec>
+	@callrmproc 77,<ss:[stdrmcbs+15*size STDRMCB].rm_vec>
+	@callrmproc 1C,<ss:[stdrmcbs+16*size STDRMCB].rm_vec>
+;	@callrmproc 23,<ss:[stdrmcbs+17*size STDRMCB].rm_vec>
 
 
 _TEXT32 ends
@@ -2717,43 +2720,43 @@ _TEXT16 segment
 ;*** this is used to route IRQs from real-mode
 ;*** to protected-mode
 
-		align 4
+	align 4
 
 ?STDRMCBOFS = 0
 
 @rmcallback macro x,bLast
 x::
-		push ?STDRMCBOFS
-	ifb <bLast>        
-		jmp	@F
-	endif
+	push ?STDRMCBOFS
+  ifb <bLast>        
+	jmp	@F
+  endif
 ?STDRMCBOFS = ?STDRMCBOFS + 1
-		endm
+endm
 
 stdrmcb_rm proc
 
 ;--- these stubs must match order in stdrmcbs table
 
-		@rmcallback intr08r
-		@rmcallback intr09r
-		@rmcallback intr0Ar
-		@rmcallback intr0Br
-		@rmcallback intr0Cr
-		@rmcallback intr0Dr
-		@rmcallback intr0Er
-		@rmcallback intr0Fr
-		@rmcallback intr70r
-		@rmcallback intr71r
-		@rmcallback intr72r
-		@rmcallback intr73r
-		@rmcallback intr74r
-		@rmcallback intr75r
-		@rmcallback intr76r
-		@rmcallback intr77r
-		@rmcallback intr1Cr
-		@rmcallback intr23r
-		@rmcallback intr24r
-		@rmcallback meventr
+	@rmcallback intr08r
+	@rmcallback intr09r
+	@rmcallback intr0Ar
+	@rmcallback intr0Br
+	@rmcallback intr0Cr
+	@rmcallback intr0Dr
+	@rmcallback intr0Er
+	@rmcallback intr0Fr
+	@rmcallback intr70r
+	@rmcallback intr71r
+	@rmcallback intr72r
+	@rmcallback intr73r
+	@rmcallback intr74r
+	@rmcallback intr75r
+	@rmcallback intr76r
+	@rmcallback intr77r
+	@rmcallback intr1Cr
+	@rmcallback intr23r
+	@rmcallback intr24r
+	@rmcallback meventr
 
 ;--- common entry for standard real-mode callbacks
 ;--- used for HW IRQs, SW interrupts 1Ch, 23h, 24h 
@@ -2762,89 +2765,89 @@ stdrmcb_rm proc
 ;--- the mouse event proc is somewhat different because it is no int
 ;--- but it is called with a real-mode IRET frame here!
 
-		@ResetTrace
+	@ResetTrace
 
 @@:
-		push bp
-		mov bp,sp
-		mov bp,[bp+2]
-		bt cs:wStdRmCb,bp
-		jc callbackisactive
+	push bp
+	mov bp,sp
+	mov bp,[bp+2]
+	bt cs:wStdRmCb,bp
+	jc callbackisactive
 irqrm2pm_3:
-		shl bp,4				;sizeof STDRMCB == 16!
+	shl bp,4				;sizeof STDRMCB == 16!
 irqrm2pm_31:
 if _LTRACE_
   ifndef _DEBUG	;dont display too much in debug version
-		cmp bp,00h*sizeof STDRMCB	;int 8?
-		jz @F
-		cmp bp,10h*sizeof STDRMCB	;int 1C?
-		jz @F
-		@stroutrm <"-stdrmcb %X: calling old rm handler %X:%X [bits=%X%X]",lf>, bp,\
-			<word ptr cs:[bp+offset stdrmcbs].STDRMCB.rm_vec+2>,\
-			<word ptr cs:[bp+offset stdrmcbs].STDRMCB.rm_vec+0>,\
-			<word ptr cs:[wStdRmCb+2]>, <word ptr cs:[wStdRmCb+0]>
+	cmp bp,00h*sizeof STDRMCB	;int 8?
+	jz @F
+	cmp bp,10h*sizeof STDRMCB	;int 1C?
+	jz @F
+	@stroutrm <"-stdrmcb %X: calling old rm handler %X:%X [bits=%X%X]",lf>, bp,\
+		<word ptr cs:[bp+offset stdrmcbs].STDRMCB.rm_vec+2>,\
+		<word ptr cs:[bp+offset stdrmcbs].STDRMCB.rm_vec+0>,\
+		<word ptr cs:[wStdRmCb+2]>, <word ptr cs:[wStdRmCb+0]>
 @@:
   endif
 endif
-		push dword ptr cs:[bp+stdrmcbs].STDRMCB.rm_vec
-		mov bp,sp
-		mov bp,[bp+4]
-		retf 4
+	push dword ptr cs:[bp+stdrmcbs].STDRMCB.rm_vec
+	mov bp,sp
+	mov bp,[bp+4]
+	retf 4
 
 callbackisactive:
 
-		@ResetTrace
+	@ResetTrace
 
-		cmp cs:[bExcEntry],-1	;host entry possible?
-		jnz irqrm2pm_3			;jump if no
-		shl bp,4				;sizeof STDRMCB == 16!
+	cmp cs:[bExcEntry],-1	;host entry possible?
+	jnz irqrm2pm_3			;jump if no
+	shl bp,4				;sizeof STDRMCB == 16!
 
 if ?CHECKIFINRMIDT
-		test byte ptr cs:[bp+offset stdrmcbs].STDRMCB.flags, RMVFL_FARPROC
-		jnz @F
-		push bx
-		mov bx,cs:[bp+offset stdrmcbs].STDRMCB.wIvtOfs
-		push ds
-		push 0
-		pop ds
-		cmp word ptr [bx+2],GROUP16
-		@stroutrm <"-stdrmcb: rm-vec %X=%X:%X",lf>,bx,[bx+2],[bx+0]
-		pop ds
-		pop bx
-		jnz irqrm2pm_31
+	test byte ptr cs:[bp+offset stdrmcbs].STDRMCB.flags, RMVFL_FARPROC
+	jnz @F
+	push bx
+	mov bx,cs:[bp+offset stdrmcbs].STDRMCB.wIvtOfs
+	push ds
+	push 0
+	pop ds
+	cmp word ptr [bx+2],GROUP16
+	@stroutrm <"-stdrmcb: rm-vec %X=%X:%X",lf>,bx,[bx+2],[bx+0]
+	pop ds
+	pop bx
+	jnz irqrm2pm_31
 @@:
 endif
-		@rm2pmbreak
-		mov cs:[tmpBXReg],bx
-		mov cs:[tmpAXReg],ax
-		mov bx,bp
-		mov bp,sp
-		add bx, offset stdrmcbs
-		mov ax,[bp+4].IRETSRM.rFL
-		pop bp
-		add sp,2
+	@rm2pmbreak
+	mov cs:[tmpBXReg],bx
+	mov cs:[tmpAXReg],ax
+	mov bx,bp
+	mov bp,sp
+	add bx, offset stdrmcbs
+	mov ax,[bp+4].IRETSRM.rFL
+	pop bp
+	add sp,2
 
 if ?NTCLEAR
-		and ah,08Fh 				 ;reset NT,IOPL
-		or ah,?PMIOPL				 ;iopl=3
+	and ah,08Fh 				 ;reset NT,IOPL
+	or ah,?PMIOPL				 ;iopl=3
 endif
 if ?DISINT@RM2PM
-		and ah,0FDh
+	and ah,0FDh
 endif
-		mov cs:[tmpFLReg],ax
+	mov cs:[tmpFLReg],ax
 
-		push bx
+	push bx
 if 0;_LTRACE_
-		push bp
-		mov bp,sp
-		cmp bx,offset stdrmcbs	 ;int 8?
-		jz @F
-		cmp bx,offset RMCB1C	 ;int 1C?
-		jz @F
-		mov ax,bx
-		sub ax,offset stdrmcbs
-		shr ax,4
-		mov cs:[_irq],ax
+	push bp
+	mov bp,sp
+	cmp bx,offset stdrmcbs	 ;int 8?
+	jz @F
+	cmp bx,offset RMCB1C	 ;int 1C?
+	jz @F
+	mov ax,bx
+	sub ax,offset stdrmcbs
+	shr ax,4
+	mov cs:[_irq],ax
 
 STDRMCBSTACK struct
 rBX		dw ?
@@ -2853,213 +2856,208 @@ rCS		dw ?
 rFL		dw ?
 STDRMCBSTACK ends
 
-		mov al,0Bh
-		out 0A0h,al
-		in al,0A0h
-		mov ah,al
-		mov al,0Bh
-		out 20h,al
-		in al,20h
-		@stroutrm <"-stdrmcb:%X ISR=%X callr=%X:%X fl=%X RMF=%X cLP=%X old=%X:%X",lf>,\
-			cs:[_irq],ax,[bp+2].STDRMCBSTACK.rCS,[bp+2].STDRMCBSTACK.rIP,\
-			cs:tmpFLReg,cs:[bx].STDRMCB.flags,cs:[cLPMSused],\
-			<word ptr cs:[bx].STDRMCB.rm_vec+2>,<word ptr cs:[bx].STDRMCB.rm_vec+0>
-		@stroutrm <"-stdrmcb: ds=%X es=%X fs=%X gs=%X",lf>,ds, es, fs, gs
+	mov al,0Bh
+	out 0A0h,al
+	in al,0A0h
+	mov ah,al
+	mov al,0Bh
+	out 20h,al
+	in al,20h
+	@stroutrm <"-stdrmcb:%X ISR=%X callr=%X:%X fl=%X RMF=%X cLP=%X old=%X:%X",lf>,\
+		cs:[_irq],ax,[bp+2].STDRMCBSTACK.rCS,[bp+2].STDRMCBSTACK.rIP,\
+		cs:tmpFLReg,cs:[bx].STDRMCB.flags,cs:[cLPMSused],\
+		<word ptr cs:[bx].STDRMCB.rm_vec+2>,<word ptr cs:[bx].STDRMCB.rm_vec+0>
+	@stroutrm <"-stdrmcb: ds=%X es=%X fs=%X gs=%X",lf>,ds, es, fs, gs
 @@:
-		pop bp
+	pop bp
 endif
 
-if ?SAVERMSEGSONRMS
-		push ds
-		push es
-		push fs
-		push gs
+ife ?SAVERMSEGSONHS
+	push ds
+	push es
+	push fs
+	push gs
 endif
-		@pushrmstate
+	@pushrmstate
 
 ;--- raw jump in pm, ss:sp=hoststack
 ;--- ds,es,fs,gs undefined 
 
-if ?SAVERMSEGSONRMS
-		@rawjmp_pm stdrmcb_pm
+ife ?SAVERMSEGSONHS
+	@rawjmp_pm stdrmcb_pm
 else
-		@rawjmp_pm stdrmcb_pm,1	;set real-mode segment registers
+	@rawjmp_pm stdrmcb_pm,1	;store real-mode segment registers in v86iret
 endif
 if _LTRACE_
 _irq	dw 0
 endif
-		align 4
+	align 4
 
 stdrmcb_rm endp
 
-_TEXT16	ends
+_TEXT16 ends
 
-		@ResetTrace
+	@ResetTrace
 
-_TEXT32	segment
+_TEXT32 segment
 
 stdrmcb_pm proc
 
-		@pushpmstate 1
+	@pushpmstate 1
 
-		inc ss:[cStdRMCB]
+;--- build an IRET32 frame on the host stack        
+;--- E/IP, CS and E/FLAGS will be copied to the LPMS/PMS
+;--- after this is done, real-mode code can be called again
 
-		mov ax,ss:[bx].STDRMCB.pmvec
-		test byte ptr ss:[bx].STDRMCB.flags,RMVFL_IDT ;is pmvec a IDT offset?
-		jz irqrm2pm_1
-		cmp bx,offset RMCB24		;for Int 24 BP must be translated
-		mov bx,ax
-		jnz @F						;in a selector
-		call load_pmsegs
-		@strout <"stdrmcb: int 24, translation of bp=%X",lf>,bp
-		push ebp
-		call segm2sel
-		pop ebp						;now BP has a selector
+	push dword ptr ss:[tskstate.rSS];SS
+	push dword ptr ss:[tskstate.rESP];ESP
+	push ss:[tmpFLRegD]				;EFL
+	push _INTSEL_					;CS
+	push _FRTIN_					;EIP
+	push 0							;temporary, will be changed below
+
+;--- now displays (via dos or bios) are possible again
+
+	inc ss:[cStdRMCB]
+
+	mov ax,ss:[bx].STDRMCB.pmvec
+	test byte ptr ss:[bx].STDRMCB.flags,RMVFL_IDT ;is pmvec a IDT offset?
+	jz irqrm2pm_1
+	cmp bx,offset RMCB24		;for Int 24 BP must be translated
+	mov bx,ax
+	jnz @F						;in a selector
+	call load_pmsegs
+	@strout <"#stdrmcb: int 24, translation of bp=%X",lf>,bp
+	push ebp
+	call segm2sel
+	pop ebp						;now BP has a selector
 @@:
-		push byte ptr _FLATSEL_
-		pop ds
-		push ebx
-;;		movzx ebx,word ptr ss:[bx+0]	;offset in IDT
-		movzx ebx, bx
-		add ebx,ss:[pdIDT.dwBase]
+	push byte ptr _FLATSEL_
+	pop ds
+
+	push ebx
+;;	movzx ebx,word ptr ss:[bx+0]	;offset in IDT
+	movzx ebx, bx
+	add ebx,ss:[pdIDT.dwBase]
 if ?32BIT
-		mov ax,[ebx+6]
+	mov ax,[ebx+6]
 endif
-		mov ebx, [ebx+0]
-		push byte ptr _CSALIAS_
-		pop ds
-		assume ds:GROUP32
+	mov ebx, [ebx+0]
+	push byte ptr _CSALIAS_
+	pop ds
+	assume ds:GROUP32
 if ?32BIT
-		mov word ptr ds:[r3vectmp+0],bx
-		mov word ptr ds:[r3vectmp+2],ax
-		shr ebx,16
-		mov word ptr ds:[r3vectmp+4],bx
+	mov word ptr ds:[r3vectmp+0],bx
+	mov word ptr ds:[r3vectmp+2],ax
+	shr ebx,16
+	mov word ptr ds:[r3vectmp+4],bx
 else
-		mov dword ptr ds:[r3vectmp+0],ebx
+	mov dword ptr ds:[r3vectmp+0],ebx
 endif
-		pop ebx
-		mov ax,LOWWORD(offset GROUP32:r3vectmp)
+	pop ebx
+	mov ax,LOWWORD(offset GROUP32:r3vectmp)
 irqrm2pm_1:
-		call load_pmsegs		;load ds,es,fs,gs
+	mov [esp], ax			;set lowword of 32-bit offset of R3PROC
+	call load_pmsegs		;load ds,es,fs,gs
 
 if ?CHECKHOSTSTACK
-		cmp esp, 180h
-		jc _exitclientEx5
-endif
-
-;--- now build an IRET32 frame on the host stack        
-;--- E/IP, CS and E/FLAGS will be copied to the LPMS/PMS
-
-		push dword ptr ss:[tskstate.ssesp+4];SS
-		push dword ptr ss:[tskstate.ssesp+0];ESP
-		push ss:[tmpFLRegD]					;EFL
-if 0
-		push _INTSEL_						;CS
-		push _FRTIN_						;EIP
-		push word ptr 0						;HIWORD(near32 ptr R3PROC)
-		push ax								;LOWWORD(near32 ptr R3PROC)
-else
-		sub esp,3*4
-		mov [esp+0],ax
-		mov word ptr [esp+2],0
-		mov dword ptr [esp+4],_FRTIN_
-		mov dword ptr [esp+8],_INTSEL_
+	cmp esp, 180h
+	jc _exitclientEx5
 endif
 
 if _LTRACE_
-		push eax
-		movzx eax,ax
+	push eax
+	movzx eax,ax
 if ?32BIT
-		@strout <"#stdrmcb enter: call=%lX:%lX",lf>, cs:[eax].R3PROC._Cs, cs:[eax].R3PROC._Eip
+	@strout <"#stdrmcb enter: call=%lX:%lX",lf>, cs:[eax].R3PROC._Cs, cs:[eax].R3PROC._Eip
 else
-		@strout <"#stdrmcb enter: call=%X:%X",lf>, cs:[eax].R3PROC._Cs, cs:[eax].R3PROC._Eip
+	@strout <"#stdrmcb enter: call=%X:%X",lf>, cs:[eax].R3PROC._Cs, cs:[eax].R3PROC._Eip
 endif
-		pop eax
-;       @waitesckey
+	pop eax
 endif
 
-		mov bx,ss:[tmpBXReg]
-		mov ax,ss:[tmpAXReg]
+	mov bx,ss:[tmpBXReg]
+	mov ax,ss:[tmpAXReg]
 
-		jmp lpms_call_int		;LPMS switch + jump to ring 3
-		align 4
+	jmp lpms_call_int		;LPMS switch + jump to ring 3
+	align 4
 
 stdrmcb_pm endp
 
-		assume ds:nothing
+	assume ds:nothing
 
 ;--- returning from a std real-mode callback (_FRTIN_)
 ;--- jump back to real-mode
 
-		@ResetTrace
+	@ResetTrace
 
 rpmstackr proc
-								;set tmpFLReg
-		add esp,IRET32.rFL		;skip eip+cs
-		pop ss:[tmpFLReg]		;save flags
-		add esp,sizeof IRET32 - (IRET32.rFL + 2)	;skip the rest of IRET32
-		mov ss:[tmpBXReg],bx
+							;set tmpFLReg
+	add esp,IRET32.rFL		;skip eip+cs
+	pop ss:[tmpFLReg]		;save flags
+	add esp,sizeof IRET32 - (IRET32.rFL + 2)	;skip the rest of IRET32
+	mov ss:[tmpBXReg],bx
 if ?COPYTF        
-		mov ss:[tmpAXReg],ax
+	mov ss:[tmpAXReg],ax
 endif
-		dec ss:[cStdRMCB]
+	dec ss:[cStdRMCB]
 
-		@poppmstate 1
+	@poppmstate 1	;restore pm segs, restore rm segs in v86iret
 
-		@strout <"#stdrmcb exit: SS:ESP=%lX:%lX, FL=%X, HSTK=%lX",lf>,ss,esp,ss:[tmpFLReg],ss:[taskseg._Esp0]
-;		 @waitesckey
-		@rawjmp_rm rpmstackr_rm	;in rm without stack switch
-		align 4
+	@strout <"#stdrmcb exit: SS:ESP=%lX:%lX, FL=%X, HSTK=%lX",lf>,ss,esp,ss:[tmpFLReg],ss:[taskseg._Esp0]
+;	@waitesckey
+	@rawjmp_rm rpmstackr_rm	;in rm without stack switch
+	align 4
 
 rpmstackr endp
 
 _TEXT32 ends
 
-		@ResetTrace
+	@ResetTrace
 
-_TEXT16	segment
+_TEXT16 segment
 
 rpmstackr_rm proc
 
-		@poprmstate
-if ?SAVERMSEGSONRMS
-		pop gs
-		pop fs
-		pop es
-		pop ds
+	@poprmstate
+ife ?SAVERMSEGSONHS
+	pop gs
+	pop fs
+	pop es
+	pop ds
 else
-		call load_rmsegs
+	call load_rmsegs	;load segment regs from v86iret struct
 endif
-		pop bx
+	pop bx
 
 if ?TRANSFL
   if ?COPYTF
-		mov ax,cs:[tmpFLReg]
-		test byte ptr cs:[bx].STDRMCB.flags,RMVFL_IDT  ;INT 1C, 23, 24?
-		mov bx,sp
-		jz @F				   ;bei hw-ints nur TF evtl. uebertragen
-		mov byte ptr ss:[bx].IRETSRM.rFL,al
+	mov ax,cs:[tmpFLReg]
+	test byte ptr cs:[bx].STDRMCB.flags,RMVFL_IDT  ;INT 1C, 23, 24?
+	mov bx,sp
+	jz @F				   ;bei hw-ints nur TF evtl. uebertragen
+	mov byte ptr ss:[bx].IRETSRM.rFL,al
 @@:
-		and ah,01h
-		or byte ptr ss:[bx].IRETSRM.rFL+1,ah
-		mov ax,cs:[tmpAXReg]
+	and ah,01h
+	or byte ptr ss:[bx].IRETSRM.rFL+1,ah
+	mov ax,cs:[tmpAXReg]
   else
-		test byte ptr cs:[bx].STDRMCB.flags,RMVFL_IDT  ;INT 1C, 23, 24?
-		jz @F				   ;bei hw-ints nur TF evtl. uebertragen
-		mov bx,sp
-		push ax
-		mov ax,cs:[tmpFLReg]
-		mov byte ptr ss:[bx].IRETSRM.rFL,al
-		pop ax
+	test byte ptr cs:[bx].STDRMCB.flags,RMVFL_IDT  ;INT 1C, 23, 24?
+	jz @F				   ;bei hw-ints nur TF evtl. uebertragen
+	mov bx,sp
+	push ax
+	mov ax,cs:[tmpFLReg]
+	mov byte ptr ss:[bx].IRETSRM.rFL,al
+	pop ax
 @@:
   endif
 endif
 
-		@stroutrm <"-stdrmcb exit sp=%X:%X ds=%X es=%X fs=%X gs=%X fl=%X cs:ip=%X:%X",lf>,\
-			ss,bx,ds,es,fs,gs,ss:[bx+4],ss:[bx+2],ss:[bx+0]
-		mov bx,cs:[tmpBXReg]
-		iret					   ;real mode iret!
-		align 4
+	@stroutrm <"-stdrmcb exit sp=%X:%X ds=%X es=%X fs=%X gs=%X fl=%X cs:ip=%X:%X",lf>,\
+		ss,bx,ds,es,fs,gs,ss:[bx+4],ss:[bx+2],ss:[bx+0]
+	mov bx,cs:[tmpBXReg]
+	iret					   ;real mode iret!
+	align 4
 rpmstackr_rm endp
 
 _TEXT16 ends
@@ -3193,9 +3191,9 @@ dormsint_pm2 proc
 	align 4
 dormsint_pm2 endp
 
-;--- call a real-mode far proc internally
+;--- call a real-mode near16 proc internally
 ;--- esp+0 -> return address
-;--- esp+4 -> DWORD near proc to call
+;--- esp+4 -> DWORD near16 proc to call
 ;--- DS+ES may contain ring 0 selectors!
 
 dormprocintern proc public
@@ -3204,7 +3202,7 @@ dormprocintern proc public
 ;	mov ss:[calladdr3], eax
 	mov ss:[calladdr3], ax
 	pop eax
-	pop [esp]
+	pop [esp]	;removes parameter from stack
 
 	push ds
 	push es
@@ -3300,7 +3298,7 @@ dormintintern_pm2 endp
 
 	@ResetTrace
 
-if ?CATCHREBOOT
+if 0;?CATCHREBOOT
 myint09proc proc near
 	pushfd
 	push eax
@@ -3349,7 +3347,38 @@ clientexit:
 myint09proc endp
 
 endif
-
+if ?CATCHREBOOT
+catchreboot proc
+	mov al,0Bh		;get ISR of MPIC
+	out 20h,al
+	in al,20h
+	test al,02		;IRQ 1 happened?
+	jz @F
+	mov al,20h		;send EOI to PIC
+	out 20h,al
+@@:
+	XOR ECX,ECX
+@@:
+	IN AL,64h		;wait until kbd buffer is free
+	TEST AL,02
+	LOOPNZ @B
+	MOV AL,0AEh 	;enable keyboard
+	OUT 64h,AL
+	xor eax, eax
+	mov es, eax
+	mov ds, eax
+	@printf <lf,"hdpmi: ctrl-alt-del detected, app terminated",lf>
+	push _LPMSSEL_
+	push 200h
+	push byte ptr _CSR3SEL_
+	push offset clientexit
+	retf
+clientexit:
+	mov ax,4cffh
+	int 21h
+	align 4
+catchreboot endp
+endif
 ;*** emulate HLT and move to/from special registers
 ;*** emulate sti,cli,in,out if ?PMIOPL == 00
 
@@ -3360,128 +3389,128 @@ dwDS	dd ?
 		R3FAULT32 <>
 SIMINFR ends        
 
-		@ResetTrace
+	@ResetTrace
 
 checksiminstr proc
-		push eax
-		lar eax, [esp+8].R0FAULT32.rCSd
-		test ah, 60h
-		pop eax
-		jz doneX			;dont try to emulate anything in ring 0
-		push ds
-		push esi
-		lds esi,[esp].SIMINFR.rCSIP
-		push eax
-		mov eax,ds
-		lsl eax,eax
-		cmp eax,esi		;EIP > limit?		 
-		pop eax
-		jc done
-		cmp byte ptr [esi],0F4h	;HLT?
-		jz simhlt
+	push eax
+	lar eax, [esp+8].R0FAULT32.rCSd
+	test ah, 60h
+	pop eax
+	jz doneX			;dont try to emulate anything in ring 0
+	push ds
+	push esi
+	lds esi,[esp].SIMINFR.rCSIP
+	push eax
+	mov eax,ds
+	lsl eax,eax
+	cmp eax,esi		;EIP > limit?		 
+	pop eax
+	jc done
+	cmp byte ptr [esi],0F4h	;HLT?
+	jz simhlt
 if ?EMUMOVREGCRX or ?EMUMOVCRXREG or ?EMUMOVCR0REG or ?EMUMOVREGDRX or ?EMUMOVDRXREG
-		cmp byte ptr [esi],0Fh
-		jnz donespec
+	cmp byte ptr [esi],0Fh
+	jnz donespec
 if ?EMUMOVREGCRX
-		cmp byte ptr [esi+1],20h	;mov xxx,crx?
-		jz emuspecregmove
+	cmp byte ptr [esi+1],20h	;mov xxx,crx?
+	jz emuspecregmove
 endif
 if ?EMUMOVCRXREG or ?EMUMOVCR0REG       
-		cmp byte ptr [esi+1],22h	;mov crx,xxx?
-		jz emuspecregmove2
+	cmp byte ptr [esi+1],22h	;mov crx,xxx?
+	jz emuspecregmove2
 endif
 if ?EMUMOVREGDRX
-		cmp byte ptr [esi+1],21h	;mov xxx,drx?
-		jz emuspecregmove
+	cmp byte ptr [esi+1],21h	;mov xxx,drx?
+	jz emuspecregmove
 endif
 if ?EMUMOVDRXREG
-		cmp byte ptr [esi+1],23h	;mov drx,xxx?
-		jz emuspecregmove2
+	cmp byte ptr [esi+1],23h	;mov drx,xxx?
+	jz emuspecregmove2
 endif
 donespec:
 if ?PMIOPL ne 30h
-		call simio
+	call simio
 endif
 done:
-;		@strout <"exception 0d, unknown instr %X",lf>,[esi]
-		pop esi
-		pop ds
+;	@strout <"exception 0d, unknown instr %X",lf>,[esi]
+	pop esi
+	pop ds
 doneX:
-		ret
-		align 4
+	ret
+	align 4
 
 emuspecregmove2:
 if ?EMUMOVCR0REG
-		push eax
-		mov al,[esi+2]
-		and al,0F8h
-		cmp al,0C0h
-		pop eax
-		jnz done
+	push eax
+	mov al,[esi+2]
+	and al,0F8h
+	cmp al,0C0h
+	pop eax
+	jnz done
 endif
 emuspecregmove:
-		push eax
-		mov al,[esi+2]
-		mov ah,0CBh		;RETF
-		shl eax, 16
-		mov ax,[esi+0]		;the opcode is 3 bytes long (0F 2x xx)
-		mov ss:[taskseg._Eax], eax
-		mov esi,[esp+4].SIMINFR.dwESI	;restore ESI
-		@strout <"emulate 'mov eax, crx', eax=%lX", lf>, eax
-;		 @waitesckey
-		mov ax, _CSGROUP16_
-		shl eax, 16
-		mov ax, offset taskseg._Eax
-		push eax			;now push a FAR16 address
-		mov eax, [esp+4]	;restore EAX
-		add [esp+8].SIMINFR.rIP,2
-		db 66h				;modify FAR32 to FAR16 (masm needs this)
-		call fword ptr [esp]
-		add esp, 3*4		;dont touch eax+esi now
-		jmp retfromsim2
-		align 4
+	push eax
+	mov al,[esi+2]
+	mov ah,0CBh		;RETF
+	shl eax, 16
+	mov ax,[esi+0]		;the opcode is 3 bytes long (0F 2x xx)
+	mov ss:[taskseg._Eax], eax
+	mov esi,[esp+4].SIMINFR.dwESI	;restore ESI
+	@strout <"emulate 'mov eax, crx', eax=%lX", lf>, eax
+;	@waitesckey
+	mov ax, _CSGROUP16_
+	shl eax, 16
+	mov ax, offset taskseg._Eax
+	push eax			;now push a FAR16 address
+	mov eax, [esp+4]	;restore EAX
+	add [esp+8].SIMINFR.rIP,2
+	db 66h				;modify FAR32 to FAR16 (masm needs this)
+	call fword ptr [esp]
+	add esp, 3*4		;dont touch eax+esi now
+	jmp retfromsim2
+	align 4
 endif
 
 simhlt:
-		@strout <"simulate hlt",lf>
+	@strout <"simulate hlt",lf>
 ife ?SIMHLT
   if ?ALLOWR0IRQ
-		sti
-		hlt
-		cli
+	sti
+	hlt
+	cli
   else
-		@pushproc sim_hlt
-		call dormprocintern
+	@pushproc sim_hlt
+	call dormprocintern
   endif
 else
-		push eax
+	push eax
 @@:
-		in al,21h
-		xor al,0FFh
-		mov ah,al
-		mov al,0Ah
-		out 20h,al
-		in al,20h
-		and al,ah
-		jnz @F
-		in al,0A1h
-		xor al,0FFh
-		mov ah,al
-		mov al,0Ah
-		out 0A0h,al
-		in al,0A0h
-		and al,ah
-		jz @B
+	in al,21h
+	xor al,0FFh
+	mov ah,al
+	mov al,0Ah
+	out 20h,al
+	in al,20h
+	and al,ah
+	jnz @F
+	in al,0A1h
+	xor al,0FFh
+	mov ah,al
+	mov al,0Ah
+	out 0A0h,al
+	in al,0A0h
+	and al,ah
+	jz @B
 @@:
-		pop eax
+	pop eax
 endif
-		pop esi
+	pop esi
 retfromsim2:
-		pop ds
-		lea esp,[esp+4+4]		;skip returnaddr + error code
-		inc [esp].IRET32.rIP
-		iretd					;back to client
-		align 4
+	pop ds
+	lea esp,[esp+4+4]		;skip returnaddr + error code
+	inc [esp].IRET32.rIP
+	iretd					;back to client
+	align 4
 checksiminstr endp
 
 
@@ -3490,11 +3519,11 @@ if ?PMIOPL ne 30h
 ;--- run the IOPL sensitive instructions in ring 0:
 ;--- CLI, STI, IN, OUT, INSx, OUTSx
 
-		@ResetTrace
+	@ResetTrace
 
 SIMIO struct
-        dd ?			;saved EAX
-dwExit  dd ?			;offset isioopc
+		dd ?			;saved EAX
+dwExit	dd ?			;offset isioopc
 		dd ?			;return to checksiminstr
 dwESI	dd ?
 dwDS	dd ?
@@ -3503,199 +3532,199 @@ dwDS	dd ?
 SIMIO ends
 
 simio proc
-		push offset isioopc
-		push eax
-		lar eax,dword ptr [esp].SIMIO.rCS
-		bt eax,16h
-		setc ah
+	push offset isioopc
+	push eax
+	lar eax,dword ptr [esp].SIMIO.rCS
+	bt eax,16h
+	setc ah
 nextopc:
-		mov al,[esi]
-		inc esi
-		cmp al,66h
-		jnz @F
-		xor ah,1
-		jmp nextopc
+	mov al,[esi]
+	inc esi
+	cmp al,66h
+	jnz @F
+	xor ah,1
+	jmp nextopc
 @@:
-		cmp al,0F3h
-		jnz @F
-		or ah,2
-		jmp nextopc
+	cmp al,0F3h
+	jnz @F
+	or ah,2
+	jmp nextopc
 @@:
-		cmp al,0FAh	;CLI?
-		jz simcli
-		cmp al,0FBh	;STI?
-		jz simsti
+	cmp al,0FAh	;CLI?
+	jz simcli
+	cmp al,0FBh	;STI?
+	jz simsti
 
-		cmp al,0E4h	;in al,const?
-		jz siminc
-		cmp al,0E6h	;out const,al?
-		jz simoutc
+	cmp al,0E4h	;in al,const?
+	jz siminc
+	cmp al,0E6h	;out const,al?
+	jz simoutc
 
-		cmp al,6Ch		;INSB?
-		jz siminsb
-		cmp al,6Dh		;INSW/D?
-		jz siminsw
-		cmp al,6Eh		;OUTSB?
-		jz simoutsb
-		cmp al,6Fh		;OUTSW/D?
-		jz simoutsw
-		cmp al,0ECh	;in al,dx?
-		jz siminaldx
-		cmp al,0EDh	;in (e)ax,dx?
-		jz siminaxdx
-		cmp al,0EEh	;out dx,al?
-		jz simoutdxal
-		cmp al,0EFh	;out dx,(e)ax?
-		jz simoutdxax
-		pop eax
-		add esp,4
-		ret
+	cmp al,6Ch		;INSB?
+	jz siminsb
+	cmp al,6Dh		;INSW/D?
+	jz siminsw
+	cmp al,6Eh		;OUTSB?
+	jz simoutsb
+	cmp al,6Fh		;OUTSW/D?
+	jz simoutsw
+	cmp al,0ECh	;in al,dx?
+	jz siminaldx
+	cmp al,0EDh	;in (e)ax,dx?
+	jz siminaxdx
+	cmp al,0EEh	;out dx,al?
+	jz simoutdxal
+	cmp al,0EFh	;out dx,(e)ax?
+	jz simoutdxax
+	pop eax
+	add esp,4
+	ret
 isioopc:
-		mov [esp-8].SIMIO.rIP, esi
-		pop esi 			   ; skip return to checksiminstr
-		pop esi
-		pop ds
-		add esp,4+4			;skip returnaddr + error code
-		iretd					;back to client
+	mov [esp-8].SIMIO.rIP, esi
+	pop esi 			   ; skip return to checksiminstr
+	pop esi
+	pop ds
+	add esp,4+4			;skip returnaddr + error code
+	iretd					;back to client
 simsti:
-;		@strout <"simulate sti",lf>
-		or byte ptr [esp].SIMIO.rFL+1,2
-		pop eax
-		ret
+;	@strout <"simulate sti",lf>
+	or byte ptr [esp].SIMIO.rFL+1,2
+	pop eax
+	ret
 simcli:
-		@strout <"simulate cli",lf>
-		and byte ptr [esp].SIMIO.rFL+1,not 2
-		pop eax
-		ret
+	@strout <"simulate cli",lf>
+	and byte ptr [esp].SIMIO.rFL+1,not 2
+	pop eax
+	ret
 siminc:
-		pop  eax
-		push edx
-		mov dl,[esi]
-		inc esi
-		mov dh,0
-		@strout <"simulate in al,%X",lf>,dx
-		in al,dx
-		pop edx
-		ret
+	pop  eax
+	push edx
+	mov dl,[esi]
+	inc esi
+	mov dh,0
+	@strout <"simulate in al,%X",lf>,dx
+	in al,dx
+	pop edx
+	ret
 simoutc:
-		pop eax
-		push edx
-		mov dl,[esi]
-		inc esi
-		mov dh,0
-		@strout <"simulate out %X,al",lf>,dx
-		out dx,al
-		pop edx
-		ret
+	pop eax
+	push edx
+	mov dl,[esi]
+	inc esi
+	mov dh,0
+	@strout <"simulate out %X,al",lf>,dx
+	out dx,al
+	pop edx
+	ret
 siminaldx:
-		pop eax
-		in al,dx
-		@strout <"simulate in al,dx [dx=%X, ax=%X]",lf>,dx,ax
-        ret
+	pop eax
+	in al,dx
+	@strout <"simulate in al,dx [dx=%X, ax=%X]",lf>,dx,ax
+	ret
 siminaxdx:								;(66) ED
-		test ah,1
-		pop eax
-		jnz @F
-		in ax,dx
-		@strout <"simulate in ax,dx [dx=%X, ax=%X]",lf>,dx,ax
-		ret
+	test ah,1
+	pop eax
+	jnz @F
+	in ax,dx
+	@strout <"simulate in ax,dx [dx=%X, ax=%X]",lf>,dx,ax
+	ret
 @@:
-		in eax,dx
-		@strout <"simulate in eax,dx [dx=%X, eax=%lX]",lf>,dx,eax
-		ret
+	in eax,dx
+	@strout <"simulate in eax,dx [dx=%X, eax=%lX]",lf>,dx,eax
+	ret
 simoutdxal:
-		pop eax
-		@strout <"simulate out dx,al [dx=%X, ax=%X]",lf>,dx,ax
-		out dx,al
-		ret
+	pop eax
+	@strout <"simulate out dx,al [dx=%X, ax=%X]",lf>,dx,ax
+	out dx,al
+	ret
 simoutdxax: 							;(66) EF
-		test ah,1
-		pop eax
-		jnz @F
-		@strout <"simulate out dx,ax [dx=%X,ax=%X]",lf>,dx,ax
-		out dx,ax
-		ret
+	test ah,1
+	pop eax
+	jnz @F
+	@strout <"simulate out dx,ax [dx=%X,ax=%X]",lf>,dx,ax
+	out dx,ax
+	ret
 @@:
-		@strout <"simulate out dx,eax [dx=%X, eax=%lX]",lf>,dx,eax
-		out dx,eax
-		ret
+	@strout <"simulate out dx,eax [dx=%X, eax=%lX]",lf>,dx,eax
+	out dx,eax
+	ret
 siminsb:
-		test ah,2
-		pop eax
-		jnz @F
-		insb
-		@strout <"simulate insb [dx=%X, es:edi=%lX:%lX]",lf>,dx,es,edi
-		ret
+	test ah,2
+	pop eax
+	jnz @F
+	insb
+	@strout <"simulate insb [dx=%X, es:edi=%lX:%lX]",lf>,dx,es,edi
+	ret
 @@:
-		rep insb
-		@strout <"simulate rep insb [dx=%X, es:edi=%lX:%lX]",lf>,dx,es,edi
-		ret
+	rep insb
+	@strout <"simulate rep insb [dx=%X, es:edi=%lX:%lX]",lf>,dx,es,edi
+	ret
 siminsw:
-		test ah,2
-		jnz simrepins
-		test ah,1
-		pop eax
-		jnz @F
-		@strout <"simulate insw [dx=%X, es:edi=%lX:%lX]",lf>,dx,es,edi
-		insw
-        ret
+	test ah,2
+	jnz simrepins
+	test ah,1
+	pop eax
+	jnz @F
+	@strout <"simulate insw [dx=%X, es:edi=%lX:%lX]",lf>,dx,es,edi
+	insw
+	ret
 @@:
-		@strout <"simulate insd [dx=%X, es:edi=%lX:%lX]",lf>,dx,es,edi
-		insd
-		ret
+	@strout <"simulate insd [dx=%X, es:edi=%lX:%lX]",lf>,dx,es,edi
+	insd
+	ret
 simrepins:
-		test ah,1
-		pop eax
-		jnz @F
-		@strout <"simulate rep insw [dx=%X, es:edi=%lX:%lX]",lf>,dx,es,edi
-		rep insw
-		ret
+	test ah,1
+	pop eax
+	jnz @F
+	@strout <"simulate rep insw [dx=%X, es:edi=%lX:%lX]",lf>,dx,es,edi
+	rep insw
+	ret
 @@:
-		@strout <"simulate rep insd [dx=%X, es:edi=%lX:%lX]",lf>,dx,es,edi
-		rep insd
-		ret
+	@strout <"simulate rep insd [dx=%X, es:edi=%lX:%lX]",lf>,dx,es,edi
+	rep insd
+	ret
 
 simoutsb:
-		mov [esp].SIMIO.rIP, esi
-		lds esi, fword ptr [esp].SIMIO.dwESI
-		test ah,2
-		pop eax
-		jnz @F
-		@strout <"simulate outsb [dx=%X, ds:esi=%lX:%lX]",lf>,dx,ds,esi
-		outsb
-		jmp exitouts
+	mov [esp].SIMIO.rIP, esi
+	lds esi, fword ptr [esp].SIMIO.dwESI
+	test ah,2
+	pop eax
+	jnz @F
+	@strout <"simulate outsb [dx=%X, ds:esi=%lX:%lX]",lf>,dx,ds,esi
+	outsb
+	jmp exitouts
 @@:
-		@strout <"simulate rep outsb [dx=%X, ds:esi=%lX:%lX, ecx=%lX]",lf>,dx,ds,esi,ecx
-		rep outsb
-		jmp exitouts
+	@strout <"simulate rep outsb [dx=%X, ds:esi=%lX:%lX, ecx=%lX]",lf>,dx,ds,esi,ecx
+	rep outsb
+	jmp exitouts
 simoutsw:
-		mov [esp].SIMIO.rIP, esi
-		lds esi, fword ptr [esp].SIMIO.dwESI
-		test ah,2
-		jnz simrepouts
-		test ah,1
-		pop eax
-		jnz @F
-		@strout <"simulate outsw [dx=%X, ds:esi=%lX:%lX]",lf>,dx,ds,esi
-		outsw
-		jmp exitouts
+	mov [esp].SIMIO.rIP, esi
+	lds esi, fword ptr [esp].SIMIO.dwESI
+	test ah,2
+	jnz simrepouts
+	test ah,1
+	pop eax
+	jnz @F
+	@strout <"simulate outsw [dx=%X, ds:esi=%lX:%lX]",lf>,dx,ds,esi
+	outsw
+	jmp exitouts
 @@:
-		@strout <"simulate outsd [dx=%X, ds:esi=%lX:%lX]",lf>,dx,ds,esi
-		outsd
-		jmp exitouts
+	@strout <"simulate outsd [dx=%X, ds:esi=%lX:%lX]",lf>,dx,ds,esi
+	outsd
+	jmp exitouts
 simrepouts:
-		test ah,1
-		pop eax
-		jnz @F
-		@strout <"simulate rep outsw [dx=%X, ds:esi=%lX:%lX, ecx=%lX]",lf>,dx,ds,esi,ecx
-		rep outsw
-		jmp exitouts
+	test ah,1
+	pop eax
+	jnz @F
+	@strout <"simulate rep outsw [dx=%X, ds:esi=%lX:%lX, ecx=%lX]",lf>,dx,ds,esi,ecx
+	rep outsw
+	jmp exitouts
 @@:
-		@strout <"simulate rep outsd [dx=%X, ds:esi=%lX:%lX, ecx=%lX]",lf>,dx,ds,esi,ecx
-		rep outsd
+	@strout <"simulate rep outsd [dx=%X, ds:esi=%lX:%lX, ecx=%lX]",lf>,dx,ds,esi,ecx
+	rep outsd
 exitouts:
-		add esp,6*4
-		iretd
+	add esp,6*4
+	iretd
 simio endp
 endif
 
@@ -4139,7 +4168,7 @@ if 0
 	mov ecx, ?RMSTKSIZE/4
 	xor eax, eax
 	rep stosd
-	@strout <"#new real-mode stack cleared",lf>
+	@strout <"#CreateVM: new real-mode stack cleared",lf>
 else
 	lea edi, [eax+?RMSTKSIZE]
 endif
@@ -4148,16 +4177,16 @@ endif
 	mov ecx, offset _StartOfVMData
 	shr ecx, 2
 	rep movsd
-	@strout <"#real-mode code + host data copied",lf>
+	@strout <"#CreateVM: real-mode code + host data copied",lf>
 	mov esi, ltaskaddr
-	@strout <"#prev client data=%lX",lf>, esi
+	@strout <"#CreateVM: prev client data=%lX",lf>, esi
 	mov ecx, offset _EndOfClientData
 	sub ecx, offset _StartOfVMData
 	shr ecx, 2
 	push es
 	pop ds
 	rep movsd
-	@strout <"#client + VM data copied",lf>
+	@strout <"#CreateVM: client + VM data copied",lf>
 
 	mov ecx,(?GDTLIMIT+1)/4
 if ?MOVEGDT
@@ -4182,7 +4211,7 @@ endif
 	mov edx, edi
 	mov esi, ss:pdGDT.dwBase
 	rep movsd
-	@strout <"#GDT copied (to temp location in host stack area)",lf>
+	@strout <"#CreateVM: GDT copied (to temp location in host stack area)",lf>
 gdtok:
 	mov eax, [esp]
 	mov [edx+_SSSEL_].DESCRPTR.A0015,ax
@@ -4289,7 +4318,7 @@ endif
 ;--- field in the tss.
 ;	mov pg0ptr, 8
 
-	call _initrms
+	call _initrms	;may fail if ?ALLOCRMS is set!
 
 if _LTRACE_
 	mov dl,es:[ecx+(_TLBSEL_ and 0F8h)].DESCRPTR.A1623
@@ -4297,18 +4326,20 @@ if _LTRACE_
 	shl edx, 16
 	mov dx,es:[ecx+(_TLBSEL_ and 0F8h)].DESCRPTR.A0015
 endif
-	@strout <"#GDT.base=%lX, dwHostBase=%lX, wSegTLB=%X, TLB=%lX",lf>, pdGDT.dwBase, dwHostBase, wSegTLB, edx
-	@strout <"#taskseg._Esp0=%lX, dwHostStackExc=%lX",lf>, taskseg._Esp0, dwHostStackExc
+	@strout <"#CreateVM: GDT.base=%lX, dwHostBase=%lX, wSegTLB=%X, TLB=%lX",lf>, pdGDT.dwBase, dwHostBase, wSegTLB, edx
+ife ?FIXTSSESP
+	@strout <"#CreateVM: taskseg.esp0=%lX, dwHostStackExc=%lX",lf>, taskseg._Esp0, dwHostStackExc
+endif
 
 hp_createvm proto
 
 	call hp_createvm
-	@strout <"#GDT and instance switched, new instance=%X, RMS=%X:%X",lf>, wHostSeg, tskstate.rmSS, tskstate.rmSP
+	@strout <"#CreateVM: GDT and instance switched, new instance=%X, RMS=%X:%X",lf>, wHostSeg, tskstate.rmSS, tskstate.rmSP
 
-	@strout <"#calling pm_createvm",lf>
+	@strout <"#CreateVM: calling pm_createvm",lf>
 	call pm_createvm	
 	jc error
-	@strout <"#pm_createvm called",lf>
+	@strout <"#CreateVM: pm_createvm called",lf>
 
 	test fHost, FH_XMS or FH_VCPI	;in raw mode hook int 15
 	jnz @F
@@ -4333,7 +4364,7 @@ hp_createvm proto
 	mov edi, offset GROUP32:cldata32
 	mov ecx, offset GROUP32:endcldata32
 	sub ecx, edi
-	@strout <"#cldata32 src=%lX, dst=%lX siz=%lX [%lX %lX]",lf>, esi, edi, ecx, <dword ptr [esi]>, <dword ptr [esi+4]>
+	@strout <"#CreateVM: cldata32 src=%lX, dst=%lX siz=%lX [%lX %lX]",lf>, esi, edi, ecx, <dword ptr [esi]>, <dword ptr [esi+4]>
 	shr ecx, 2
 	rep movsd
 	push ds
@@ -4343,7 +4374,7 @@ hp_createvm proto
 
 	call _movehigh_pm		;allocates+inits CD30s + IDT
 	jc error
-	@strout <"#initswitch called, edi=%lX",lf>, edi
+	@strout <"#CreateVM: movehigh_pm called, edi=%lX",lf>, edi
 
 	movzx edi, wCurSS
 	shl edi, 4
@@ -4351,10 +4382,10 @@ hp_createvm proto
 	add edi, eax
 
 	call _init2server_pm		;host initialization on first client
-	@strout <"#init2server_pm called",lf>
+	@strout <"#CreateVM: init2server_pm called",lf>
 
 	call savermvecs
-	@strout <"#real-mode vectors saved for std rmcbs",lf>
+	@strout <"#CreateVM: real-mode vectors saved for std rmcbs",lf>
 	mov ltaskaddr, 0		;avoid to restore task state
 	@strout <"#CreateVM exit",lf>
 error:
@@ -4364,21 +4395,23 @@ CreateVM endp
 endif
 
 _initrms proc
-if ?ALLOCRMS                            ;alloc new RMS
-		mov bx,?RMSTKSIZE/16
-		mov ah,48h
-		call rmdosintern
-		jc exit
+if ?ALLOCRMS					;alloc new RMS
+	mov bx,?RMSTKSIZE/16
+	mov ah,48h
+	call rmdosintern
+	jc exit
 else
-		mov ax,es:[edi].INITCL.wES
+	mov ax,es:[edi].INITCL.wES
 endif
-		shl eax,16
-		mov ax, ?RMSTKSIZE
-		mov tskstate.rmSSSP, eax		;set new RMS
+	shl eax,16
+	mov ax, ?RMSTKSIZE
+	mov tskstate.rmSSSP, eax	;set new RMS
 if ?RMSCNT
-		mov [bRMScnt],0
+	mov [bRMScnt],0
 endif
-		ret
+	@strout <"#initrms: new rmSS:SP=%X:%X",lf>, tskstate.rmSS, tskstate.rmSP
+exit:
+	ret
 _initrms endp
 
 _initclientstate proc
@@ -4395,319 +4428,320 @@ _initclientstate endp
 
 ;--- client initialization protected mode
 
-		@ResetTrace
+	@ResetTrace
 
 _initclient_pm proc
-		push ss
-		pop ds
-		assume ds:GROUP16
-		push byte ptr _FLATSEL_
-		pop es
-		sub esp, sizeof IRET32 + 4
-		pushad
-		mov ebp, esp
-		xor eax,eax
-		mov fs,eax
-		mov gs,eax
+	push ss
+	pop ds
+	assume ds:GROUP16
+	push byte ptr _FLATSEL_
+	pop es
+	sub esp, sizeof IRET32 + 4
+	pushad
+	mov ebp, esp
+	xor eax,eax
+	mov fs,eax
+	mov gs,eax
 
-		@strout <"#initclient: hello pm, instance=%X",lf>, ss:wHostSeg
+	@strout <"#initclient_pm: hdpmi instance=%X, RMS=%X:%X tss.esp0=%lX",lf>,\
+		ss:wHostSeg, ss:tskstate.rmSS, ss:tskstate.rmSP, ss:taskseg._Esp0
 
-		test byte ptr [fMode],FM_INIT
-		jnz @F
-		call _init2server_pm		;host initialization on first client
-		jc initclerr1
-		@strout <"initserver_pm returned",lf>
-		or byte ptr [fMode],FM_INIT
+	test byte ptr [fMode],FM_INIT
+	jnz @F
+	call _init2server_pm		;host initialization on first client
+	jc initclerr1
+	@strout <"#initclient_pm: initserver_pm returned",lf>
+	or byte ptr [fMode],FM_INIT
 @@:
-						;save all rm IRQ vectors to stdrmcbs
-		call savermvecs	;if not done already. remains in prot-mode
+					;save all rm IRQ vectors to stdrmcbs
+	call savermvecs	;if not done already. remains in prot-mode
 
-		movzx edi, wCurSS
-		shl edi, 4
-		movzx eax, wCurSP
-		add edi, eax
+	movzx edi, wCurSS
+	shl edi, 4
+	movzx eax, wCurSP
+	add edi, eax
 if ?VM
-		test bEnvFlags, ENVF_VM
-		jz @F
-		cmp cApps,0
-		jz @F
-		call CreateVM
+	test bEnvFlags, ENVF_VM
+	jz @F
+	cmp cApps,0
+	jz @F
+	call CreateVM
 behindcreatevm::        
-		jc initclerr10
-		jmp vmok
+	jc initclerr10
+	jmp vmok
 @@:
 endif
-		@strout <"call saveclientstate, task mem=%X",lf>,ax
-		call _saveclientstate	;increments cApps
-		jc initclerr11			;no memory
-		call _restorephysmem	;int 15h mode: grab memory again
-		call _initclientstate
+	@strout <"#initclient_pm: call saveclientstate, task mem=%X",lf>,ax
+	call _saveclientstate	;increments cApps
+	jc initclerr11			;no memory
+	call _restorephysmem	;int 15h mode: grab memory again
+	call _initclientstate
 vmok:
 if ?TLBLATE
-		call settlb_pm
-		jc initclerr12
+	call settlb_pm
+	jc initclerr12
 endif
 
 if 0;?CR0COPY	;now done for first client only        
-		mov eax,cr0				;use CR0, lmsw cannot set NE bit!
-		and al, bFPUAnd
-		or al, bFPUOr
-		mov cr0,eax
+	mov eax,cr0				;use CR0, lmsw cannot set NE bit!
+	and al, bFPUAnd
+	or al, bFPUOr
+	mov cr0,eax
 endif
 if ?CLEARDR6
-		xor eax, eax
-		mov dr6, eax
+	xor eax, eax
+	mov dr6, eax
 endif
-		mov cx,es:[edi].INITCL.wFS
-		mov dx,es:[edi].INITCL.wGS
-		mov bx,es:[edi].INITCL.wDS
-		mov ax,es:[edi].INITCL.wES
-		mov v86iret.rFS,cx
-		mov v86iret.rGS,dx
-		mov v86iret.rDS,bx
-		mov v86iret.rES,ax
-								;get selector for DS
-		@strout <"call getmyseldata(big)",lf>
+	mov cx,es:[edi].INITCL.wFS
+	mov dx,es:[edi].INITCL.wGS
+	mov bx,es:[edi].INITCL.wDS
+	mov ax,es:[edi].INITCL.wES
+	mov v86iret.rFS,cx
+	mov v86iret.rGS,dx
+	mov v86iret.rDS,bx
+	mov v86iret.rES,ax
+							;get selector for DS
+	@strout <"#initclient_pm: call getmyseldata(big)",lf>
 if ?32BIT
-		call getmyseldatabig
+	call getmyseldatabig
 else
-		call getmyseldata
+	call getmyseldata
 endif
-		jc initclerr2
-		@strout <"DS=%X, real mode DS=%X",lf>,bx,es:[edi].INITCL.wDS
-		mov [ebp].INITCLSTK.rDS,ebx
-		mov [ebp].INITCLSTK.rSS,bx
-		movzx eax, wCurSP
-		add ax, sizeof INITCL
-		mov [ebp].INITCLSTK.rSP, eax
-		mov ax, es:[edi].INITCL.wIP
-		mov [ebp].INITCLSTK.rIP, eax
-		mov ax, es:[edi].INITCL.wFlags
-		and ax, 3FEh			;clear CF, IOPL, NT
-		or ah, ?PMIOPL			;set protected-mode IOPL
-		mov [ebp].INITCLSTK.rFL, eax
+	jc initclerr2
+	@strout <"#initclient_pm: DS=%X, real mode DS=%X",lf>,bx,es:[edi].INITCL.wDS
+	mov [ebp].INITCLSTK.rDS,ebx
+	mov [ebp].INITCLSTK.rSS,bx
+	movzx eax, wCurSP
+	add ax, sizeof INITCL
+	mov [ebp].INITCLSTK.rSP, eax
+	mov ax, es:[edi].INITCL.wIP
+	mov [ebp].INITCLSTK.rIP, eax
+	mov ax, es:[edi].INITCL.wFlags
+	and ax, 3FEh			;clear CF, IOPL, NT
+	or ah, ?PMIOPL			;set protected-mode IOPL
+	mov [ebp].INITCLSTK.rFL, eax
 
-		mov bx,es:[edi].INITCL.wCS
-		mov dx,0008 			;attrib CODE
-		call getmyselx
-		jc initclerr4
-		@strout <"CS=%X, real mode CS=%X",lf>,bx, es:[edi].INITCL.wCS
-		mov [ebp].INITCLSTK.rCS,bx
-									;get selector for SS
-		mov bx,[wCurSS]
-		cmp bx,es:[edi].INITCL.wDS
-		jz @F
+	mov bx,es:[edi].INITCL.wCS
+	mov dx,0008 			;attrib CODE
+	call getmyselx
+	jc initclerr4
+	@strout <"#initclient_pm: CS=%X, real mode CS=%X",lf>,bx, es:[edi].INITCL.wCS
+	mov [ebp].INITCLSTK.rCS,bx
+								;get selector for SS
+	mov bx,[wCurSS]
+	cmp bx,es:[edi].INITCL.wDS
+	jz @F
 if ?32BIT
-		call getmyseldatabig
+	call getmyseldatabig
 else
-		call getmyseldata
+	call getmyseldata
 endif
-		jc initclerr3
-		@strout <"SS=%X, real mode SS=%X",lf>,bx,[wCurSS]
-		mov [ebp].INITCLSTK.rSS,bx
+	jc initclerr3
+	@strout <"#initclient_pm: SS=%X, real mode SS=%X",lf>,bx,[wCurSS]
+	mov [ebp].INITCLSTK.rSS,bx
 @@:
 if 0
-		@strout <"first dos call, disp '#'",lf>
-;		 @waitesckey
-		mov ah,02h
-		mov dl,'#'
-		call rmdosintern
+	@strout <"#first dos call, disp '#'",lf>
+;	@waitesckey
+	mov ah,02h
+	mov dl,'#'
+	call rmdosintern
 endif
-		@strout <"first dos call, get PSP",lf>
-;		 @waitesckey
+	@strout <"#initclient_pm: first dos call, get PSP",lf>
+;	@waitesckey
 if ?SAVEPSP
-		mov eax,[dwSDA]
-		mov bx,es:[eax+10h]
-		@strout <"PSP from real-mode dos=%X",lf>,bx
-;		 @waitesckey
-		mov [rmpsporg],bx
-		call getpspsel
+	mov eax,[dwSDA]
+	mov bx,es:[eax+10h]
+	@strout <"#initclient_pm: PSP from real-mode dos=%X",lf>,bx
+;	@waitesckey
+	mov [rmpsporg],bx
+	call getpspsel
 else
-		mov ah,51h
-		@int_21
+	mov ah,51h
+	@int_21
 endif
-		mov es,ebx
-		assume es:SEG16
-		@strout <"protected mode PSP=%X",lf>,bx
-;		 @waitesckey
-		mov bx,es:[002ch]
-		and bx,bx
-		jz @F
-		call getmyseldata
-		jc initclerr5
-		mov es:[002ch],bx		;set environment selector
+	mov es,ebx
+	assume es:SEG16
+	@strout <"#initclient_pm: protected mode PSP=%X",lf>,bx
+;	@waitesckey
+	mov bx,es:[002ch]
+	and bx,bx
+	jz @F
+	call getmyseldata
+	jc initclerr5
+	mov es:[002ch],bx		;set environment selector
 @@:
-		@strout <"ENV=%X",lf>,bx
+	@strout <"ENV=%X",lf>,bx
 
 if ?GUARDPAGE0
-		test [bEnvFlags],ENVF_GUARDPAGE0 	;should page0 be guarded?
-		jz @F
-		mov v86topm._Eip, offset vcpi_pmentry2
-		mov eax,[pg0ptr]
-		and byte ptr [eax],not ?GPBIT ;page 0 auf "system"
+	test [bEnvFlags],ENVF_GUARDPAGE0 	;should page0 be guarded?
+	jz @F
+	mov v86topm._Eip, offset vcpi_pmentry2
+	mov eax,[pg0ptr]
+	and byte ptr [eax],not ?GPBIT ;page 0 auf "system"
 @@:
-endif	
+endif
 if ?INT21API
-		mov ah,2Fh
-		call rmdosintern
-		movzx ebx,bx
-		mov dword ptr [dtaadr+0],ebx
+	mov ah,2Fh
+	call rmdosintern
+	movzx ebx,bx
+	mov dword ptr [dtaadr+0],ebx
   ife ?DTAINHOSTPSP
-		movzx eax, [v86iret.rES]
-		shl eax, 4
-		add eax, ebx
-		mov dwDTA, eax
+	movzx eax, [v86iret.rES]
+	shl eax, 4
+	add eax, ebx
+	mov dwDTA, eax
   endif
-		lea eax,[ebx+80h-1]
-		mov bx,[v86iret.rES]
-		call allocxsel
-		mov word ptr [dtaadr+4],ax
+	lea eax,[ebx+80h-1]
+	mov bx,[v86iret.rES]
+	call allocxsel
+	mov word ptr [dtaadr+4],ax
   if ?DTAINHOSTPSP
-		call resetdta
+	call resetdta
   endif
 endif
 if ?LOCALINT2324
-		mov cx,_INTSEL_
+	mov cx,_INTSEL_
 if ?32BIT
-		mov edx,_INT23_
+	mov edx,_INT23_
 else
-		mov dx,_INT23_
+	mov dx,_INT23_
 endif
-		mov bl,23h
-		mov ax,205h
-		@int_31
+	mov bl,23h
+	mov ax,205h
+	@int_31
 if ?32BIT
-		mov edx,_INT24_
+	mov edx,_INT24_
 else
-		mov dx,_INT24_
+	mov dx,_INT24_
 endif
-		mov bl,24h
-		@int_31
+	mov bl,24h
+	@int_31
 endif
 if ?WDEB386
-		test fDebug,FDEBUG_KDPRESENT
-		jz @F
+	test fDebug,FDEBUG_KDPRESENT
+	jz @F
 if 0 ;no longer required, use HDPMI=8192, works with any debugger
-		mov cx,[ebp].INITCLSTK.rCS
-		mov ebx,[ebp].INITCLSTK.rIP
-		mov ax,DS_ForcedGO
-		int Debug_Serv_Int
+	mov cx,[ebp].INITCLSTK.rCS
+	mov ebx,[ebp].INITCLSTK.rIP
+	mov ax,DS_ForcedGO
+	int Debug_Serv_Int
 endif
-		mov ebx,[pdIDT.dwBase]
-		push ds
-		push byte ptr _FLATSEL_
-		pop ds
-		or byte ptr [ebx+41h*sizeof GATE + GATE.attrib+1],60h
-		pop ds
+	mov ebx,[pdIDT.dwBase]
+	push ds
+	push byte ptr _FLATSEL_
+	pop ds
+	or byte ptr [ebx+41h*sizeof GATE + GATE.attrib+1],60h
+	pop ds
 @@:
 endif
 if ?DBGSUPP
-		test bEnvFlags2, ENVF2_DEBUG
-		jz @F
-		or byte ptr [ebp].INITCLSTK.rFL+1,1	;set TF
+	test bEnvFlags2, ENVF2_DEBUG	;HDPMI=8192 set?
+	jz @F
+	or byte ptr [ebp].INITCLSTK.rFL+1,1	;set TF
 @@:
 endif
-		@strout <"everything is ok, client in PM, ebp=%lX, ss:esp=%lX:%lX",lf>,ebp, ss, esp
-		@strout <"client: CS:IP=%X:%lX, SS:SP=%X:%lX, DS=%lX",lf>,[ebp].INITCLSTK.rCS, [ebp].INITCLSTK.rIP, [ebp].INITCLSTK.rSS, [ebp].INITCLSTK.rSP,[ebp].INITCLSTK.rDS
-		@strout <"GDT: %lX (%X), IDT: %lX (%X), LDT: %lX (%X)",lf>, pdGDT.dwBase, pdGDT.wLimit, pdIDT.dwBase, pdIDT.wLimit, dwLDTAddr, wLDTLimit
-		popad
+	@strout <"#initclient_pm: client status ok, ebp=%lX, ss:esp=%lX:%lX",lf>, ebp, ss, esp
+	@strout <"#initclient_pm: client: CS:IP=%X:%lX, SS:SP=%X:%lX, DS=%lX",lf>,[ebp].INITCLSTK.rCS, [ebp].INITCLSTK.rIP, [ebp].INITCLSTK.rSS, [ebp].INITCLSTK.rSP,[ebp].INITCLSTK.rDS
+	@strout <"#initclient_pm: GDT: %lX (%X), IDT: %lX (%X), LDT: %lX (%X)",lf>, pdGDT.dwBase, pdGDT.wLimit, pdIDT.dwBase, pdIDT.wLimit, dwLDTAddr, wLDTLimit
+	popad
 if ?32BIT
   if ?CLEARHIWORDS
-		test bEnvFlags2,ENVF2_CLRHIWORD
-		jz @F
-		movzx esi,si
-		movzx edi,di
+	test bEnvFlags2,ENVF2_CLRHIWORD
+	jz @F
+	movzx esi,si
+	movzx edi,di
 @@:
   endif
 endif
-		pop ds
+	pop ds
 if ?32BIT
-;		mov al,1
+;	mov al,1
 endif
-		iretd
+	iretd
 
-		assume ds:GROUP16
+	assume ds:GROUP16
 
 initclerr1:						;error global init PM
-		@strout <"#initapp err1: cannot init",lf>
-		mov al,13h
-		jmp termserver
+	@strout <"#init err1: cannot init",lf>
+	mov al,13h
+	jmp termserver
 initclerr10:
-		@strout <"#initapp err1: createvm failed",lf>
+	@strout <"#init err10: createvm failed",lf>
 if _LTRACE_
-		jmp initclerr1x
+	jmp initclerr1x
 endif
 initclerr11:					;saveclientstate failed
-		@strout <"#initapp err1: saveclientstate failed",lf>
+	@strout <"#init err11: saveclientstate failed",lf>
 if _LTRACE_
-		jmp initclerr1x
+	jmp initclerr1x
 endif
 initclerr12:					;settlb_pm failed
-		@strout <"#initapp err1: settlb_pm failed",lf>
+	@strout <"#init err12: settlb_pm failed",lf>
 if _LTRACE_
-		jmp initclerr1x
+	jmp initclerr1x
 endif
 initclerr1x:
-		mov al,14h
-		test [fMode],FM_RESIDENT
-		jnz termclient2
-		cmp [cApps],0
-		je termserver
-		jmp termclient2
+	mov al,14h
+	test [fMode],FM_RESIDENT
+	jnz termclient2
+	cmp [cApps],0
+	je termserver
+	jmp termclient2
 initclerr2:						;cant alloc DS sel
-		@strout <"#initapp err2: can't alloc DS sel",lf>
+	@strout <"#init err2: can't alloc DS sel",lf>
 if _LTRACE_
-		jmp @F
+	jmp @F
 endif
 initclerr3:						;cant alloc SS sel
-		@strout <"#initapp err3: can't alloc SS sel",lf>
+	@strout <"#init err3: can't alloc SS sel",lf>
 if _LTRACE_
-		jmp @F
+	jmp @F
 endif
 initclerr4:						;cant alloc CS sel
-		@strout <"#initapp err4: can't alloc CS sel",lf>
+	@strout <"#init err4: can't alloc CS sel",lf>
 if _LTRACE_
-		jmp @F
+	jmp @F
 endif
 initclerr5:						;cant alloc ENV/PSP sel
-		@strout <"#initapp err5: can't alloc ENV/PSP sel",lf>
+	@strout <"#init err5: can't alloc ENV/PSP sel",lf>
 @@:
-		mov al,11h
+	mov al,11h
 initclerr:
-		test [fMode],FM_RESIDENT
-		jnz termclient
-		cmp [cApps],1
-		jbe termserver
+	test [fMode],FM_RESIDENT
+	jnz termclient
+	cmp [cApps],1
+	jbe termserver
 termclient:
-		call _restoreclientstate	;important: rms restore
+	call _restoreclientstate	;important: rms restore
 termclient2:
-		mov ah,80h
-		mov [ebp].PUSHADS.rAX, ax
-		mov esp, ebp
-		popad
-		@rawjmp_rm	_initclienterr_rm	;jmp rm, no stack switch
+	mov ah,80h
+	mov [ebp].PUSHADS.rAX, ax
+	mov esp, ebp
+	popad
+	@rawjmp_rm	_initclienterr_rm	;jmp rm, no stack switch
 
 ;--- no client running as of yet
 
 termserver:
-		mov ah,80h
-		mov [ebp].PUSHADS.rAX, ax
-		mov esp, ebp
-		popad
+	mov ah,80h
+	mov [ebp].PUSHADS.rAX, ax
+	mov esp, ebp
+	popad
 
-		@printf <"hdpmi: cannot initialize",lf>
+	@printf <"hdpmi: cannot initialize",lf>
 
-		push byte ptr _FLATSEL_
-		pop es
-		call resetrmvecs
+	push byte ptr _FLATSEL_
+	pop es
+	call resetrmvecs
 
-		@exitserver_pm _initclienterr_rm	;preserves ax, back in real mode
-		align 4
+	@exitserver_pm _initclienterr_rm	;preserves ax, back in real mode
+	align 4
 
 _initclient_pm endp
 
 
-		@ResetTrace
+	@ResetTrace
 
 ;--- check if an interrupt is in service
 ;--- if so, send EOI to pic
@@ -4717,37 +4751,37 @@ _initclient_pm endp
 
 closeinterrupts proc public
 
-		mov al,0Bh		;irq 8-15 in service?
-		out 0A0h,al
-		in al,0A0h
-		mov ah,al
-		and al,al
-		jz @F
-		mov al,20h
-		out 0A0h,al		;slave PIC EOI
+	mov al,0Bh		;irq 8-15 in service?
+	out 0A0h,al
+	in al,0A0h
+	mov ah,al
+	and al,al
+	jz @F
+	mov al,20h
+	out 0A0h,al		;slave PIC EOI
 @@:
-		mov al,0Bh		;irq 0-7 in service?
-		out 20h,al
-		in al,20h
-		and al,al
-		jz exit
-		push eax
+	mov al,0Bh		;irq 0-7 in service?
+	out 20h,al
+	in al,20h
+	and al,al
+	jz exit
+	push eax
 if ?RESETKBD
-		in al,64h
-		test al,1h		;data at port 60h?
-		jz no_kbd
-		in al,60h		;ack keyboard and/or ps/2
+	in al,64h
+	test al,1h		;data at port 60h?
+	jz no_kbd
+	in al,60h		;ack keyboard and/or ps/2
 no_kbd:
-;		mov al,0AEh		;send "enable kbd"
-;		out 64h,al
+;	mov al,0AEh		;send "enable kbd"
+;	out 64h,al
 endif
-		mov al,20h
-		out 20h,al		;master PIC EOI
+	mov al,20h
+	out 20h,al		;master PIC EOI
 
-		pop eax
+	pop eax
 exit:
-		ret
-		align 4
+	ret
+	align 4
 closeinterrupts endp
 
 ;--- exit a client, possibly exit server as well
@@ -4766,7 +4800,7 @@ endif
 
 ife ?RMCBSTATICSS
 _exitclientEx4 proc public
-	mov ax,_EAERR4_
+	mov ax,_EAERR4_		;real-mode callback: no more descriptors for rm ss
 _exitclientEx4 endp ;fall through
 endif
 
@@ -4782,6 +4816,7 @@ _exitclientEx endp ;fall through
 	@ResetTrace
 
 ;--- client terminated with int 21h, ah=4Ch
+;--- also jumped to from exception handler to terminate client
 
 _exitclient_pm proc public
 	@DebugBreak 0
@@ -4791,7 +4826,7 @@ _exitclient_pm proc public
 	assume DS:GROUP16
 	push byte ptr _FLATSEL_
 	pop es
-	@strout <"#exitclient enter, cApps=%X, task=%lX",lf>,<word ptr cApps>, ltaskaddr
+	@strout <"#exitclient enter, cApps=%X, task=%lX RMS=%X:%X",lf>,<word ptr cApps>, ltaskaddr, tskstate.rmSS, tskstate.rmSP
 	call closeinterrupts
 	cmp [cApps],0			;fatal error on host initialization?
 	jz exitclient_1
@@ -4808,9 +4843,9 @@ if 1
 	pop dword ptr wStdRmCb
 endif
 if ?ALWAYSRESTORE
-	@strout <"#exitclient: call restoreclientstate",lf>
 	mov bx,tskstate.rmSP		;needed for _exitclient_rm
 	mov dx,tskstate.rmSS
+	@strout <"#exitclient: call restoreclientstate",lf>
 	call _restoreclientstate	;no register modified
 endif
 	@strout <"#exitclient: last task check",lf>
@@ -4829,7 +4864,7 @@ ife ?ALWAYSRESTORE
 	mov dx,tskstate.rmSS
 	call _restoreclientstate	;no registers modified
 endif
-	@strout <"#exitclient: jump to exitclient_rm",lf>
+	@strout <"#exitclient: jump to exitclient_rm, RMS=%X:%X, dx:bx=%X:%X",lf>, tskstate.rmSS, tskstate.rmSS, dx, bx
 	pop eax			;get return code
 	@rawjmp_rm _exitclient_rm	;raw jump to rm, no stack switch
         
@@ -5021,13 +5056,13 @@ endif
 	or [fMode],FM_DISABLED		;disable int 2Fh real-mode interface
 ;	@strout <"#call mouse33_exit, esp=%lX",lf>, esp
 ;	call mouse33_exit
-	@strout <"#call pm_exitserver_pm, ds=%lX es=%lX esp=%lX",lf>, ds, es, esp
-	call pm_exitserver_pm			;modifies no general purpose register
-	@strout <"#final jump to real-mode, ds=%lX es=%lX esp=%lX [ESC]",lf>, ds, es, esp
+	@strout <"#call pm_exit_pm, ds=%lX es=%lX esp=%lX",lf>, ds, es, esp
+	call pm_exit_pm				;modifies no general purpose register
+	@strout <"#final jump to real-mode, ds=%lX es=%lX esp=%lX",lf>, ds, es, esp
 ;	@waitesckey
 	pop eax
 	pop ss:[taskseg._Esi]
-	@rawjmp_rm	_exitserver_rm		;jmp rm, no stack switch
+	@rawjmp_rm _exitserver_rm		;jmp rm, no stack switch
 	align 4
 _exitserver_pm endp
 
@@ -5040,46 +5075,46 @@ _TEXT16 segment
 ;--- out: C if real-mode vecs cannot be restored
 ;--- ES modified
 
-		@ResetTrace
+	@ResetTrace
 
 unhookIVTvecs proc public
-		pusha
-		push 0
-		pop es
-		cld
-		mov cl, 0
-		mov dx, wHostSeg	;GROUP16
-		mov si, offset ivthooktab
+	pusha
+	push 0
+	pop es
+	cld
+	mov cl, 0
+	mov dx, wHostSeg	;GROUP16
+	mov si, offset ivthooktab
 nextitem:
-		lodsb
-		cmp al,-1		;end of table?
-		jz exit
-		movzx bx,al
-		lodsw			;old vector offset -> ax
-		mov di, ax
-		lodsw
-		cmp bl,-2		;ignore this entry?
-		jz nextitem
-		shl bx,2
-		cmp es:[bx+2], dx	;is GROUP16?
-		jz @F
+	lodsb
+	cmp al,-1		;end of table?
+	jz exit
+	movzx bx,al
+	lodsw			;old vector offset -> ax
+	mov di, ax
+	lodsw
+	cmp bl,-2		;ignore this entry?
+	jz nextitem
+	shl bx,2
+	cmp es:[bx+2], dx	;is GROUP16?
+	jz @F
 if ?CANTEXIT
-		or fMode,FM_CANTEXIT
+	or fMode,FM_CANTEXIT
 endif
-		or cl,1
-		@stroutrm <"cannot restore rm vec at %X [%X %X]",lf>, bx, di, ax
-		jmp nextitem
+	or cl,1
+	@stroutrm <"-cannot restore rm vec at %X [%X %X]",lf>, bx, ax, di
+	jmp nextitem
 @@:
-		push dword ptr [di]
-		pop dword ptr es:[bx]
-		@stroutrm <"restored rm vec at %X [%lX]",lf>, bx, eax
-		mov byte ptr [si-5],-2
-		jmp nextitem
+	push dword ptr [di]
+	pop dword ptr es:[bx]
+	@stroutrm <"-restored rm vec at 0000:%X",lf>, bx
+	mov byte ptr [si-5],-2
+	jmp nextitem
 exit:
-		shr cl,1
-		popa
-		ret
-		align 4
+	shr cl,1
+	popa
+	ret
+	align 4
 unhookIVTvecs endp
 
 _TEXT16 ends
@@ -5089,46 +5124,46 @@ _TEXT16 segment
 ;--- final host termination code
 ;--- AX=exit code
 
-		@ResetTrace
+	@ResetTrace
 
 _exitserver_rm proc
-		call load_rmsegs			;restore FS, GS
-		push cs
-		pop ds
-		push word ptr [taskseg._Esi]	;push the final real-mode dest
-		push ax
-		@stroutrm <"-now permanently in real-mode, ss:sp=%X:%X",lf>, ss, sp
+	call load_rmsegs			;restore FS, GS
+	push cs
+	pop ds
+	push word ptr [taskseg._Esi]	;push the final real-mode dest
+	push ax
+	@stroutrm <"-now permanently in real-mode, ss:sp=%X:%X",lf>, ss, sp
 if ?SAVEMSW
-		smsw ax
-		test al,1		;VM86?
-		jnz @F
-		mov ax,wMSW
-		@stroutrm <"-restoring old MSW=%X",lf>,ax
-		lmsw ax
+	smsw ax
+	test al,1		;VM86?
+	jnz @F
+	mov ax,wMSW
+	@stroutrm <"-restoring old MSW=%X",lf>,ax
+	lmsw ax
 @@:
 endif
-		@stroutrm <"-call pm_exitserver_rm",lf>
-		call pm_exitserver_rm
-		@stroutrm <"-call unhookivtvecs",lf>
-		call unhookIVTvecs		;reset IVT 2F,15 and 96 vectors
+	@stroutrm <"-call pm_exit_rm",lf>
+	call pm_exit_rm
+	@stroutrm <"-call unhookivtvecs",lf>
+	call unhookIVTvecs		;reset IVT 2F,15 and 96 vectors
 if ?CANTEXIT
-		test fMode,FM_CANTEXIT	;could host be terminated?
-		jnz @F
+	test fMode,FM_CANTEXIT	;could host be terminated?
+	jnz @F
 endif
-		@stroutrm <"-call unlinkserver",lf>
-		call unlinkserver
+	@stroutrm <"-call unlinkserver",lf>
+	call unlinkserver
 @@:
-		@stroutrm <"-call disablea20",lf>
-		call _disablea20
+	@stroutrm <"-call disablea20",lf>
+	call _disablea20
 if ?I2FINITEXIT
-		mov ax,1606h
-		mov dx,0001h
-		int 2Fh
+	mov ax,1606h
+	mov dx,0001h
+	int 2Fh
 endif
-		pop ax
-		@stroutrm <"-exitserver exit, sp=%X, ax=%X",lf>,sp,ax
-		ret
-		align 4
+	pop ax
+	@stroutrm <"-exitserver exit, sp=%X, ax=%X",lf>,sp,ax
+	ret
+	align 4
 
 _exitserver_rm endp
 
@@ -5136,46 +5171,46 @@ _exitserver_rm endp
 ;*** now we want to terminate with the exiting app
 
 unlinkserver proc
-		pusha
+	pusha
 if ?VM
-		test [fMode], FM_CLONE	;nothing to be done if this is a clone
-		jnz @exit
+	test [fMode], FM_CLONE	;nothing to be done if this is a clone
+	jnz @exit
 endif
-		mov dx,[wEMShandle]
-		and dx,dx
-		jz @F
-		mov ah,45h
-		int 67h
+	mov dx,[wEMShandle]
+	and dx,dx
+	jz @F
+	mov ah,45h
+	int 67h
 @@:
 ife ?STUB
-		@stroutrm <"-calling int 21h, ah=51h [sp=%X]",lf>,sp
-		mov ah,51h				;get current psp in BX
-		int 21h
-		mov ax,[wHostPSP]
-		dec ax
-		mov es,ax
-		mov es:[1],bx				;set owner of host segment to cur psp
-		@stroutrm <"-set psp of mcb %X to %X",lf>,ax,bx
-		test [fMode], FM_TLBMCB		;is TLB an extra MCB?
-		jz @exit
-		mov ax,[wSegTLB]
+	@stroutrm <"-calling int 21h, ah=51h [sp=%X]",lf>,sp
+	mov ah,51h				;get current psp in BX
+	int 21h
+	mov ax,[wHostPSP]
+	dec ax
+	mov es,ax
+	mov es:[1],bx				;set owner of host segment to cur psp
+	@stroutrm <"-set psp of mcb %X to %X",lf>,ax,bx
+	test [fMode], FM_TLBMCB		;is TLB an extra MCB?
+	jz @exit
+	mov ax,[wSegTLB]
 if ?TLBLATE
-		and ax,ax
-		jz @exit
+	and ax,ax
+	jz @exit
 endif
-		dec ax
-		mov es,ax
-		mov es:[1],bx
-		@stroutrm <"-set psp of mcb %X to %X",lf>,ax,bx
+	dec ax
+	mov es,ax
+	mov es:[1],bx
+	@stroutrm <"-set psp of mcb %X to %X",lf>,ax,bx
 endif
 @exit:
-		popa
-		ret
+	popa
+	ret
 unlinkserver endp
 
-		@ResetTrace
+	@ResetTrace
 
-if ?I2FINITEXIT	;optimize size
+if ?I2FINITEXIT	;this switch is off by default to optimize size
 
 ;--- host real-mode init on 1. client's initial switch to protected-mode
 ;--- ds=GROUP16
@@ -5184,31 +5219,31 @@ if ?I2FINITEXIT	;optimize size
 
 _init2server_rm proc
 
-		assume ds:GROUP16
+	assume ds:GROUP16
 
-		pusha
-		push es
+	pusha
+	push es
 
-		@stroutrm <"entry rm init",lf>
+	@stroutrm <"-init2server_rm entry, first client starting",lf>
 if ?I2FINITEXIT
-		push ds
-		xor cx,cx
-		mov bx,cx
-		mov si,cx
-		mov ds,cx
-		mov es,cx
-		mov dx,1
-		mov ax,1605h
-		int 2Fh
-		pop ds
-		cmp cx,-1
-		jnz exit
+	push ds
+	xor cx,cx
+	mov bx,cx
+	mov si,cx
+	mov ds,cx
+	mov es,cx
+	mov dx,1
+	mov ax,1605h
+	int 2Fh
+	pop ds
+	cmp cx,-1
+	jnz exit
 endif
-		clc
+	clc
 exit:
-		pop es
-		popa
-		ret
+	pop es
+	popa
+	ret
 _init2server_rm endp
 
 endif
@@ -5218,63 +5253,61 @@ endif
 ;--- AX=0000 -> 16bit client, AX=0001 -> 32bit client
 ;--- ES=client data (used for real-mode stack)
 
-		align 4
+	align 4
 
-		@ResetTrace
+	@ResetTrace
 
 req_bad:
 if ?CALLPREVHOST
-		test cs:[fHost],FH_HDPMI	;is another instance of HDPMI installed?
-		jz @F
-		jmp cs:[dwHost16]		;then route the request to it
+	test cs:[fHost],FH_HDPMI	;is another instance of HDPMI installed?
+	jz @F
+	jmp cs:[dwHost16]		;then route the request to it
 @@:
 endif
-		@stroutrm <"-initclient_rm: bad client request, ax=%X",lf>,ax
-		mov ax,8021h
-		stc
-		retf
+	@stroutrm <"-initclient_rm: bad client request, ax=%X",lf>,ax
+	mov ax,8021h
+	stc
+	retf
 
 _initclient_rm proc 
 
-		assume DS:nothing
+	assume DS:nothing
 
-		test al,1
+	test al,1
 if ?32BIT
-		jz req_bad
+	jz req_bad
 else
-		jnz req_bad
+	jnz req_bad
 endif
-		pushf
-		@rm2pmbreak
-		push ds
-		push es
-		push fs
-		push gs
+	pushf
+	@rm2pmbreak
+	push ds
+	push es
+	push fs
+	push gs
 
-		push cs
-		pop ds
+	push cs
+	pop ds
 
-		assume ds:GROUP16
+	assume ds:GROUP16
 
-if 0
-		@pushrmstate DS	;do not touch tskstate here
-else
-		mov [wCurSP],sp
-		mov [wCurSS],ss
-endif
-		@stroutrm <"-initclient_rm: new client starting, host=%X, es=%X, ss:sp=%X:%X",lf>,cs,es,ss,sp
+;	@pushrmstate	;do not touch tskstate here
+	mov [wCurSP],sp
+	mov [wCurSS],ss
+
+	@stroutrm <"-initclient_rm: new client starting, host=%X, es=%X, ss:sp=%X:%X",lf>,cs,es,ss,sp
 
 if ?I2FINITEXIT        
-		test byte ptr [fMode],FM_INIT
-		jnz @F
-		call _init2server_rm		;server initialization on first client
-;;  	jc initclerrx
-		@stroutrm <"_init2server_rm ok",lf>
+	test byte ptr [fMode],FM_INIT
+	jnz @F
+	call _init2server_rm		;server initialization on first client
+;;  jc initclerrx
+	@stroutrm <"_init2server_rm ok",lf>
 @@:
 endif
 
-;		@rawjmp_pm _initclient_pm, 1	;save real-mode segments, SP unchanged
-		@rawjmp_pm _initclient_pm
+;	@rawjmp_pm _initclient_pm, 1	;save real-mode segments, SP unchanged
+	@rawjmp_pm _initclient_pm
 
 _initclient_rm endp
 
@@ -5283,23 +5316,23 @@ _initclient_rm endp
 _initclienterr_rm proc
 
 if 1
-		lss sp,cs:[dwCurSSSP]
+	lss sp,cs:[dwCurSSSP]
 else
-		@poprmstate
+	@poprmstate
 endif
-		pop gs
-		pop fs
-		pop es
-		pop ds
-		popf
-		stc
-		@stroutrm <"client init failed, ss:sp=%X:%X, ds-gs=%X %X %X %X, ax=%X",lf>,\
-			ss, sp, ds, es, fs, gs, ax
-;		@waitesckey
-		retf
+	pop gs
+	pop fs
+	pop es
+	pop ds
+	popf
+	stc
+	@stroutrm <"client init failed, ss:sp=%X:%X, ds-gs=%X %X %X %X, ax=%X",lf>,\
+		ss, sp, ds, es, fs, gs, ax
+;	@waitesckey
+	retf
 _initclienterr_rm endp
 
-		@ResetTrace
+	@ResetTrace
 
 _exitclient_rm proc
 
@@ -5312,11 +5345,11 @@ else
 	mov ss,dx
 	mov sp,bx
 endif
-
 	@stroutrm <"-exitclient_rm enter: ss:sp=%X:%X",lf>,ss,sp
 
 	call load_rmsegs	;restore rm segment registers
 	@stroutrm <"-exitclient_rm: ds-gs=%X %X %X %X",lf>,ds,es,fs,gs
+
 if _LTRACE_
 	push ax
 	mov ah,51h
@@ -5349,25 +5382,25 @@ if ?TRAPINT06RM
 
 int06rm proc far
 if _LTRACE_
-		push bp
-		mov bp,sp
-		mov bx,[bp+2]
-		mov ds,[bp+4]
-		@stroutrm <"exception 06 in real mode at %X:%X: %X %X",lf>,ds,bx,[bx],[bx+2]
-		pop bp
+	push bp
+	mov bp,sp
+	mov bx,[bp+2]
+	mov ds,[bp+4]
+	@stroutrm <"exception 06 in real mode at %X:%X: %X %X",lf>,ds,bx,[bx],[bx+2]
+	pop bp
 endif
-		@jmp_pm _exitclientEx8
+	@jmp_pm _exitclientEx8
 
 _TEXT32 segment
 _exitclientEx8:
-		xor eax,eax
-		mov ds,eax
-		mov es,eax
-		mov fs,eax
-		mov gs,eax
-		mov ax,_EAERR8_
-		jmp _exitclientEx
-		align 4
+	xor eax,eax
+	mov ds,eax
+	mov es,eax
+	mov fs,eax
+	mov gs,eax
+	mov ax,_EAERR8_
+	jmp _exitclientEx
+	align 4
 _TEXT32 ends
 
 int06rm endp
@@ -5376,117 +5409,117 @@ endif
 
 ;*** real mode int 0x2F routine
 
-		@ResetTrace
+	@ResetTrace
 
 int2Frm proc far
-		pushf
+	pushf
 if ?CANTEXIT
-		test cs:fMode,FM_CANTEXIT
-		jnz tryexitnow
+	test cs:fMode,FM_CANTEXIT
+	jnz tryexitnow
 endif
-		cmp ah,16h
-		jz int2f16
+	cmp ah,16h
+	jz int2f16
 noint2f16:
-		popf
+	popf
 int2f_default:
-		@jmpoldvec 2F
+	@jmpoldvec 2F
 int2f16:
-		test cs:[fMode],FM_DISABLED
-		jnz noint2f16
-		popf
-		cmp al,87h
-		jz int2f1687
+	test cs:[fMode],FM_DISABLED
+	jnz noint2f16
+	popf
+	cmp al,87h
+	jz int2f1687
 if _LTRACE_
   ifndef _DEBUG			;dont display too much in debug version
-		cmp al,8fh
-		jz @F
-		@stroutrm <"int 2f rm,ax=%X,bx=%X",lf>,ax,bx
+	cmp al,8fh
+	jz @F
+	@stroutrm <"int 2f rm,ax=%X,bx=%X",lf>,ax,bx
 @@:
   endif
 endif
 if ?SUPI2F1600
-		cmp al,00h			  ;1600?
-		jnz @F
-		mov ax,?2F1600VER 	  ;get windows version
-		iret            ;real-mode int ret!
+	cmp al,00h			  ;1600?
+	jnz @F
+	mov ax,?2F1600VER 	  ;get windows version
+	iret            ;real-mode int ret!
 @@:
 endif
 if ?I2FINITEXIT
-		cmp al,05h
-		jnz @F
-		mov cx,0FFFFh
+	cmp al,05h
+	jnz @F
+	mov cx,0FFFFh
 @@:
 endif
 if ?SUPI2F160A
-		cmp al,0Ah			  ;160A?
-		jnz @F
-		test cs:[bEnvFlags2],ENVF2_NOI2F160A
-		jnz @F
-		xor ax,ax
-		mov bx,?2F160AVER 	  ;get windows version
-		mov cx,?WINMODE 	  ;mode (2=standard/3=enhanced)
-		iret		          ;real-mode iret!
+	cmp al,0Ah			  ;160A?
+	jnz @F
+	test cs:[bEnvFlags2],ENVF2_NOI2F160A
+	jnz @F
+	xor ax,ax
+	mov bx,?2F160AVER 	  ;get windows version
+	mov cx,?WINMODE 	  ;mode (2=standard/3=enhanced)
+	iret		          ;real-mode iret!
 @@:
 endif
 if ?SUPP32RTM
-		cmp al,8ah
-		jz int2f168a
+	cmp al,8ah
+	jz int2f168a
 endif
-		jmp int2f_default
+	jmp int2f_default
 
 int2f1687:
-		push cs
-		pop es				;PM Entry
-		mov di,offset _initclient_rm
+	push cs
+	pop es				;PM Entry
+	mov di,offset _initclient_rm
 if ?ALLOCRMS
-		mov si,0000 		;task bytes
+	mov si,0000 		;task bytes
 else
-		mov si,?RMSTKSIZE/10h  ;task bytes
+	mov si,?RMSTKSIZE/10h  ;task bytes
 PatchRMStkSize label word
 endif
-		mov dx,cs:[wVersion]
-		mov cl,cs:[_cpu]	;prozessor
+	mov dx,cs:[wVersion]
+	mov cl,cs:[_cpu]	;prozessor
 if ?32BIT
-		mov bx,1			;32-Bit Apps
+	mov bx,1			;32-Bit Apps
 else
-		mov bx,0			;keine 32-Bit Apps
+	mov bx,0			;keine 32-Bit Apps
 endif
-		xor ax,ax
-		iret				;real-mode int ret!
+	xor ax,ax
+	iret				;real-mode int ret!
 if ?SUPP32RTM
 int2f168a:
-		push es
-		pusha
-		push cs
-		pop es
-		mov di, offset szVirtual
-		mov cx, LSIZEVIRT
-		repz cmpsb
-		popa
-		pop es
-		jnz @F
-		mov al,0
+	push es
+	pusha
+	push cs
+	pop es
+	mov di, offset szVirtual
+	mov cx, LSIZEVIRT
+	repz cmpsb
+	popa
+	pop es
+	jnz @F
+	mov al,0
 @@:
-		iret				;real-mode int ret!
+	iret				;real-mode int ret!
 szVirtual db "VIRTUAL SUPPORT",0
 LSIZEVIRT equ $ - szVirtual
 endif
 
 if ?CANTEXIT
 tryexitnow:
-		push ds
-		push es
-		push cs
-		pop ds
-		call unhookIVTvecs
-		jc @F
-		call unlinkserver
+	push ds
+	push es
+	push cs
+	pop ds
+	call unhookIVTvecs
+	jc @F
+	call unlinkserver
 @@:
-		pop es
-		pop ds
-		jmp noint2f16
+	pop es
+	pop ds
+	jmp noint2f16
 endif
-		align 4
+	align 4
 int2Frm endp
 
 ;--- this is Int 96h real-mode proc
@@ -5496,64 +5529,87 @@ int2Frm endp
 if ?INTRM2PM
 intrrm2pm proc far public
 if 1
-		push bp
-		mov bp,sp
-		and byte ptr [bp+2].IRETSRM.rFL+1,0BCh	;clear NT, IF, TF
-		inc [bp+2].IRETSRM.rIP
-		pop bp
-		iret
+	push bp
+	mov bp,sp
+	and byte ptr [bp+2].IRETSRM.rFL+1,0BCh	;clear NT, IF, TF
+	inc [bp+2].IRETSRM.rIP
+	pop bp
+	iret
 else
-		movzx esp,sp
-		and byte ptr [esp].IRETSRM.rFL+1,0BCh	;clear NT, IF, TF
-		inc [esp].IRETSRM.rIP
+	movzx esp,sp
+	and byte ptr [esp].IRETSRM.rFL+1,0BCh	;clear NT, IF, TF
+	inc [esp].IRETSRM.rIP
 endif
-		iret                            ;real-mode iret!
+	iret                            ;real-mode iret!
 intrrm2pm endp
 endif
 
 ;--- real-mode HLT emulation
 
 sim_hlt proc near
-		sti
-		hlt
-		ret
+	sti
+	hlt
+	ret
 sim_hlt endp
 
 ;*** int 15 interrupt routine
 ;*** used in raw mode only
 
-		@ResetTrace
+	@ResetTrace
 
 int15rm proc far
-		pushf
-		cmp ax, 0E801h
-		jz int1588
-		cmp ah,88h
-		jz int1588
-		@stroutrm <"int 15 rm, ax=%X,bx=%X",lf>,ax,bx
-if ?WATCHDOG
-		cmp ax,0C301h				 ;enable watchdog timer?
-		jz iretwithC
+	pushf
+	cmp ah,88h
+	jz int1588
+if 0	;v3.18 removed
+	cmp ax, 0E801h
+	jz int1588
 endif
-		popf
-		@jmpoldvec 15
+if ?CATCHREBOOT
+	cmp ax,4F00h + __DEL_MAKE
+	jz int154f53
+endif
+if ?WATCHDOG
+	cmp ax,0C301h				 ;enable watchdog timer?
+	jz iretwithC
+endif
+stdint15rm:
+	popf
+	@jmpoldvec 15
 int1588:
-		popf
-		call pm_int15rm
+	popf
+	call pm_int15rm
 iretwithNC:
-		push bp
-		mov bp,sp
-		and byte ptr [bp+6],not _CY
-		pop bp
-		iret            ;real-mode int ret!
+	push bp
+	mov bp,sp
+	and byte ptr [bp+6],not _CY
+	pop bp
+	iret            ;real-mode int ret!
 if ?WATCHDOG
 iretwithC:
-		popf
-		push bp
-		mov bp,sp
-		or byte ptr [bp+6],_CY
-		pop bp
-		iret            ;real-mode int ret!
+	popf
+	push bp
+	mov bp,sp
+	or byte ptr [bp+6],_CY
+	pop bp
+	iret            ;real-mode int ret!
+endif
+if ?CATCHREBOOT
+int154f53:
+	cmp cs:[cApps],0
+	jz stdint15rm
+	push ds
+	push 0
+	pop ds
+	push ax
+	mov al,byte ptr ds:[417h]
+	and al,0Ch					;ctrl+alt pressed?
+	cmp al,0Ch
+	pop ax
+	pop ds
+	jnz stdint15rm
+	@stroutrm <"int 15 rm, ctrl-alt-del pressed",lf>,ax,bx
+	@jmp_pmX catchreboot
 endif
 
 int15rm endp
@@ -5563,69 +5619,69 @@ if ?TRAPINT21RM
 
 ;--- int 21 hook. not used
 
-		@ResetTrace
+	@ResetTrace
 
 int21rm proc far
-		push ax
+	push ax
 if ?CHECKIRQRM
-		cmp ah,25h
-		jz @F
-		cmp ah,35h
-		jz @F
+	cmp ah,25h
+	jz @F
+	cmp ah,35h
+	jz @F
 endif
 normint21:
-		pop ax
-		@jmpoldvec 21
-;		jmp  dword ptr cs:[int21hk.dwOldVec]
+	pop ax
+	@jmpoldvec 21
+;	jmp  dword ptr cs:[int21hk.dwOldVec]
 
 
 if ?CHECKIRQRM
 @@:
-		cmp al,?MPICBASE+0
-		jb normint21
-		cmp al,?MPICBASE+8
-		jb specialint21_1
-		mov ah,10h
-		cmp al,1Ch
-		jz specialint21_2
-		inc ah
-		cmp al,23h
-		jz specialint21_2
-		inc ah
-		cmp al,24h
-		jz specialint21_2
-		cmp al,?SPICBASE+0
-		jb normint21
-		cmp al,?SPICBASE+8
-		jnb normint21
-		sub al,?SPICBASE-8
-		jmp specialint21_3
+	cmp al,?MPICBASE+0
+	jb normint21
+	cmp al,?MPICBASE+8
+	jb specialint21_1
+	mov ah,10h
+	cmp al,1Ch
+	jz specialint21_2
+	inc ah
+	cmp al,23h
+	jz specialint21_2
+	inc ah
+	cmp al,24h
+	jz specialint21_2
+	cmp al,?SPICBASE+0
+	jb normint21
+	cmp al,?SPICBASE+8
+	jnb normint21
+	sub al,?SPICBASE-8
+	jmp specialint21_3
 specialint21_1:
-		sub al,8
-		jmp specialint21_3
+	sub al,8
+	jmp specialint21_3
 specialint21_2:
-		mov al,ah
+	mov al,ah
 specialint21_3:
-		mov ah,00
-		shl ax,4					;assume size STDRMCB == 16!!!
-		add ax,offset stdrmcbs
-		movzx esp,sp
-		xchg ax,[esp]
-		cmp ah,25h
-		jz setint
-		pop bx
-		@stroutrm <"rm get int %X %X %X",lf>,ax,cs:[bx],cs:[bx+2]
-		push dword ptr cs:[bx]
-		pop bx
-		pop es
-		iret            ;real-mode int ret!
+	mov ah,00
+	shl ax,4					;assume size STDRMCB == 16!!!
+	add ax,offset stdrmcbs
+	movzx esp,sp
+	xchg ax,[esp]
+	cmp ah,25h
+	jz setint
+	pop bx
+	@stroutrm <"rm get int %X %X %X",lf>,ax,cs:[bx],cs:[bx+2]
+	push dword ptr cs:[bx]
+	pop bx
+	pop es
+	iret            ;real-mode int ret!
 setint:
-		xchg bx,[esp]
-		@stroutrm <"rm set int %X %X %X %X",lf>,ax,bx,ds,dx
-		mov cs:[bx+0],dx
-		mov cs:[bx+2],ds
-		pop bx
-		iret            ;real-mode int ret!
+	xchg bx,[esp]
+	@stroutrm <"rm set int %X %X %X %X",lf>,ax,bx,ds,dx
+	mov cs:[bx+0],dx
+	mov cs:[bx+2],ds
+	pop bx
+	iret            ;real-mode int ret!
 endif
 
 int21rm endp
@@ -5642,7 +5698,7 @@ if ?STACKLAST
 ;--- and tool SETMZHDR will then set the stack size to 0x200.
 
 STACK segment use16 stack 'STACK'
-		db 200h dup (?)
+	db 200h dup (?)
 STACK ends
 endif
 

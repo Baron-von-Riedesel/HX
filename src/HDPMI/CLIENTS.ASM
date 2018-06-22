@@ -108,17 +108,17 @@ _saveclientstate proc public
 	push es
 	pushad
 
-	@strout <"_saveclientstate: ax=%X",lf>, ax
+	@strout <"#saveclientstate: ax=%X",lf>, ax
 if ?SAVELDTPTE
-	@strout <"_saveclientstate: calling _ClonePage for 1. LDT page",lf>
+	@strout <"#saveclientstate: calling _ClonePage for 1. LDT page",lf>
 	mov edx,[dwLDTAddr]
 	call _ClonePage
 	jc exit
-	@strout <"_saveclientstate: _ClonePage returned %lX",lf>, eax
+	@strout <"#saveclientstate: _ClonePage returned %lX",lf>, eax
 	mov ebp, eax
 endif
 	call _getsavelength
-	@strout <"_saveclientstate: length=%lX",lf>,ecx
+	@strout <"#saveclientstate: length=%lX",lf>,ecx
 ife ?USESYSSPACE2
 	mov edx, ecx
 	shr edx,12			;bytes -> pages
@@ -151,7 +151,7 @@ endif
 	mov esi,offset _StartOfClientData	;save client specific data
 	mov ecx,offset _EndOfClientData
 	sub ecx, esi
-	@strout <"save client data, dst=%lX, src=%lX, size=%lX",lf>, edi, esi, ecx
+	@strout <"#saveclientstate, save 16bit data dst=%lX, src=%lX, size=%lX",lf>, edi, esi, ecx
 	shr ecx, 2
 	cld
 	rep movsd
@@ -172,7 +172,7 @@ endif
 	mov esi,offset GROUP32:cldata32
 	mov ecx,offset GROUP32:endcldata32
 	sub ecx, esi
-	@strout <"save cldata32, dst=%lX, src=%lX, size=%lX",lf>,edi, esi, ecx
+	@strout <"#saveclientstate: save 32bit data, dst=%lX, src=%lX, size=%lX",lf>,edi, esi, ecx
 	shr ecx, 2
 	rep movsd
 
@@ -181,7 +181,7 @@ endif
 
 	mov esi,ss:[pdIDT.dwBase]	   ;save IDT
 	mov ecx,800h/4
-	@strout <"save IDT, dst=%lX, src=%lX",lf>,edi, esi
+	@strout <"#saveclientstate: save IDT, dst=%lX, src=%lX",lf>,edi, esi
 	rep movsd
 
 if ?SAVELDTPTE
@@ -190,20 +190,20 @@ if ?SAVELDTPTE
 else
 	mov esi,ss:[dwLDTAddr]
 	mov ecx,1000h/4 			   ;save (1. page of) LDT
-	@strout <"save LDT, dst=%lX, src=%lX",lf>,edi, esi
+	@strout <"#saveclientstate: save LDT, dst=%lX, src=%lX",lf>,edi, esi
 	rep movsd
 endif
 
 if ?SAVEIVT
 	xor esi,esi					;save IVT	
-	@strout <"save IVT, dst=%lX, src=%lX",lf>,edi, esi
+	@strout <"#saveclientstate: save IVT, dst=%lX, src=%lX",lf>,edi, esi
 	mov cx,400h/4
 	rep movsd
 endif
 	push ss
 	pop ds
 
-	@strout <"client state saved",lf>
+	@strout <"#saveclientstate exit",lf>
 
 	clc
 ife ?SAVELDTPTE
@@ -254,7 +254,7 @@ if _LTRACE_
 	mov  bx,offset stdrmcbs
 	mov  cx,0
 @@:
-	@strout <"rmcb %X rmvec:%lX",lf>,cx, ss:[bx].STDRMCB.rm_vec
+	@strout <"#restoreclientstate: rmcb %X rmvec:%lX",lf>, cx, ss:[bx].STDRMCB.rm_vec
 	add  bx,sizeof STDRMCB
 	inc cl
 	cmp cl,16+3
@@ -269,7 +269,7 @@ endif
 
 	assume ds:nothing
 
-	@strout <"restore client state, addr=%lX",lf>,esi
+	@strout <"#restoreclientstate, src addr=%lX",lf>,esi
 
 if ?VM
 	mov ecx,offset _StartOfClientData
@@ -279,7 +279,7 @@ endif
 	mov edi,offset _StartOfClientData
 	mov ecx,offset _EndOfClientData
 	sub ecx, edi
-	@strout <"load client data, dst=%lX, src=%lX, size=%lX",lf>, edi, esi, ecx
+	@strout <"#restoreclientstate: load 16bit data, dst=%lX, src=%lX, size=%lX",lf>, edi, esi, ecx
 	shr ecx, 2
 
 	cld
@@ -306,14 +306,14 @@ endif
 	mov edi,offset GROUP32:cldata32
 	mov ecx,offset GROUP32:endcldata32
 	sub ecx, edi
-	@strout <"load exc vectors, dst=%lX, src=%lX, size=%lX",lf>,edi, esi, ecx
+	@strout <"#restoreclientstaten: load exc vectors, dst=%lX, src=%lX, size=%lX",lf>,edi, esi, ecx
 	shr ecx, 2
 	rep movsd
 
 	push byte ptr _FLATSEL_
 	pop es
 	mov edi,ss:[pdIDT.dwBase]	;restore IDT
-	@strout <"load IDT, dst=%lX, src=%lX",lf>,edi, esi
+	@strout <"#restoreclientstate: load IDT, dst=%lX, src=%lX",lf>,edi, esi
 	mov ecx,800h/4
 	rep movsd
 
@@ -327,14 +327,14 @@ if ?SAVELDTPTE
 	pop ds
 else
 	mov edi,ss:[dwLDTAddr] 	;restore LDT (1. page)
-	@strout <"load LDT, dst=%lX, src=%lX",lf>,edi, esi
+	@strout <"#restoreclientstate: load LDT, dst=%lX, src=%lX",lf>,edi, esi
 	mov cx,1000h/4
 	rep movsd
 endif
 
 if ?SAVEIVT
 	xor edi,edi				;restore IVT	
-	@strout <"load IVT, dst=%lX, src=%lX",lf>,edi, esi
+	@strout <"#restoreclientstate: load IVT, dst=%lX, src=%lX",lf>,edi, esi
 	mov cx,400h/4
 	rep movsd
 endif
@@ -346,7 +346,7 @@ endif
 ife ?USESYSSPACE2
 	pop di 					;get task handle
 	pop si
-	@strout <"will free client state memory %lX",lf>,di,si
+	@strout <"#restoreclientstate: freeing client state memory %lX",lf>,di,si
 	call freemem
 else
 	call _getsavelength
@@ -358,7 +358,7 @@ endif
 
 if _LTRACE_
 	jnc @F
-	@strout <"free client state memory failed",lf>
+	@strout <"#restireclientstate: free client state memory failed",lf>
 @@:
 endif
 if ?CR0COPY
@@ -458,7 +458,7 @@ EnlargeLDT proc near public
 	pushad
 	push ss
 	pop ds
-	@strout <"EnlargeLDT, base=%lX, old limit=%X",lf>, dwLDTAddr, wLDTLimit
+	@strout <"#EnlargeLDT, base=%lX, old limit=%X",lf>, dwLDTAddr, wLDTLimit
 	mov eax,[dwLDTAddr]
 	movzx ecx,wLDTLimit
 	jecxz @F
@@ -480,7 +480,7 @@ EnlargeLDT proc near public
 	cmc
 	adc wLDTLimit,0FFFh
 
-	@strout <"EnlargeLDT, new limit=%X",lf>, wLDTLimit
+	@strout <"#EnlargeLDT, new limit=%X",lf>, wLDTLimit
 	call setldtinfos
 	clc
 exit:
