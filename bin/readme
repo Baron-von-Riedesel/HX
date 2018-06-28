@@ -1,5 +1,3 @@
 binaries will be placed here.
 
-HDPMI.EXE: a stand-alone DPMI host, the core of the HX DOS extender.
-DPMILD32.EXE: the 32-bit version of HX's PE file loader.
-DPMI.EXE: a simple DPMI information and test program.
+HXRT218 contains the HX runtime, including the DPMI host, the PE program loader DPMILD32 and the basic Win32 emulation.
