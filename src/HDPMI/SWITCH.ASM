@@ -58,9 +58,6 @@ else
  endif
 endif
 
-if ?RMSCNT
-	dec ss:[bRMScnt]		;modifies flags (carry untouched!)
-endif
 	push ss:[dwRetAdr]
 _gotopm_pm endp	;fall throu!
 
@@ -90,6 +87,8 @@ kdinit_rm proc
 	ret
 	align 4
 kdinit_rm endp
+
+;--- called for each switch to real-mode
 
 kdinit2_rm proc
 	mov ah,D386_Real_Mode_Init
@@ -283,10 +282,6 @@ else
  endif
 endif
 
-if ?RMSCNT
-	inc ss:[bRMScnt]	;modifies flags (carry untouched)!	
-endif
-
 	@rawjmp_rm _gotorm_rm	;rawjmp rm, no stack switch
 	align 4
 _gotorm endp
@@ -296,17 +291,17 @@ _TEXT32 ends
 _TEXT16 segment
 
 _gotorm_rm proc
-		@setrmstk
-		push cs:[wRetAdrRm]
+	lss sp,cs:tskstate.rmSSSP
+	push cs:[wRetAdrRm]
 _gotorm_rm endp	;fall through
 
 load_rmsegs proc public
-		mov es,cs:[v86iret.rES]   ;do it in this order!
-		mov ds,cs:[v86iret.rDS]
-		mov fs,cs:[v86iret.rFS]
-		mov gs,cs:[v86iret.rGS]
-		ret
-		align 4
+	mov es,cs:[v86iret.rES]   ;do it in this order!
+	mov ds,cs:[v86iret.rDS]
+	mov fs,cs:[v86iret.rFS]
+	mov gs,cs:[v86iret.rGS]
+	ret
+	align 4
 load_rmsegs endp
 
 _TEXT16 ends
@@ -320,49 +315,49 @@ _TEXT32 segment
 ;--- real-mode dest in wRetAdrRm2
 
 _rawjmp_rm proc public
-;		@strout <"entry rawjmp_rm, ss:sp=%X:%X",lf>,ss,sp
-		pushfd
-		mov ss:[taskseg._Eax],eax
+;	@strout <"entry rawjmp_rm, ss:sp=%X:%X",lf>,ss,sp
+	pushfd
+	mov ss:[taskseg._Eax],eax
 if ?SETRMIOPL
-		and byte ptr [esp+1],0CFh		;reset IOPL
-		or byte ptr [esp+1],?RMIOPL
+	and byte ptr [esp+1],0CFh		;reset IOPL
+	or byte ptr [esp+1],?RMIOPL
 endif
-		pop ss:[taskseg._Efl]
+	pop ss:[taskseg._Efl]
 ife ?CR0COPY
-		mov eax, cr0
-		mov ss:dwCR0, eax
+	mov eax, cr0
+	mov ss:dwCR0, eax
 endif
 
 ife ?PATCHCODE
-		jmp ss:[rawjmp_rm_vector]
-		align 4
+	jmp ss:[rawjmp_rm_vector]
+	align 4
 else
-rawjmp_rm_patch::						;will be patched!
+rawjmp_rm_patch::					;might be patched!
 endif
 
 rawjmp_rm_vcpi_1::
 
 if ?GUARDPAGE0
-		mov eax,ss:[pg0ptr]
-		or byte ptr ss:[eax],?GPBIT	;set page to user
+	mov eax,ss:[pg0ptr]
+	or byte ptr ss:[eax],?GPBIT	;set page to user
 endif
 
 rawjmp_rm_vcpi_2::
-		clts							;clear task switched flag
-		mov ax,_FLATSEL_
-		mov ds,eax
+	clts							;clear task switched flag
+	mov ax,_FLATSEL_
+	mov ds,eax
 ife ?HSINEXTMEM
-		mov ss:[v86iret.rESP],esp		;SS:ESP -> dq ?,V86IRET
+	mov ss:[v86iret.rESP],esp		;SS:ESP -> dq ?,V86IRET
 endif
-		mov esp,offset v86iret
-		mov ax,0DE0Ch
-		call fword ptr ss:[vcpicall]	;changes eax
-		int 3							;should never return
-		align 4
+	mov esp,offset v86iret
+	mov ax,0DE0Ch
+	call fword ptr ss:[vcpicall]	;changes eax
+	int 3							;should never return
+	align 4
 
 nullidt PDESCR <3FFh,0>			;pseudo descriptor IDT real mode
 
-rawjmp_rm_novcpi::
+rawjmp_rm_novcpi::	;the true real-mode jump
 
 if ?PATCHCODE
 
@@ -442,7 +437,7 @@ if ?SAVERMCR3
 	mov cr3,eax
 endif
 if ?WDEB386
-kdpatch2::
+kdpatch2::		;if no debugger present, this code is disabled
 	call kdinit2_rm
 endif
 vcpi_rmentry::	; v86-mode entry if running as VCPI client

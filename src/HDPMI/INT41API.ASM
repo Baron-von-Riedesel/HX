@@ -18,13 +18,13 @@ _LTRACE_ = 0
 ;*** which should call the ring3 procs if called by ring3
 
 intr41 proc public
-		test byte ptr [esp.IRET32.rCS],4
-		jnz @F
-		@strout <"i41 call in ring0 with AX=%X",lf>,ax
-		iretd
+	test byte ptr [esp.IRET32.rCS],4
+	jnz @F
+	@strout <"i41 call in ring0 with AX=%X",lf>,ax
+	iretd
 @@:
-		@strout <"i41 call in ring3 with AX=%X",lf>,ax
-		@simintpms 41
+	@strout <"i41 call in ring3 with AX=%X",lf>,ax
+	@simintpms 41
 intr41 endp
 
 ;*** ring3 int41 default proc, called by int30 dispatcher
@@ -33,47 +33,47 @@ intr41 endp
 _LTRACE_ = 0
 
 intr41_ proc public
-		@strout <"i41 call with AX=%X in default handler",lf>,ax
+	@strout <"i41 call with AX=%X in default handler",lf>,ax
 if ?I41SUPPORT
-		cmp ax,0000
-		jnz @F
-		push eax
-		mov al,dl
-		call _putchrx
-		pop eax
-		iretd
+	cmp ax,0000
+	jnz @F
+	push eax
+	mov al,dl
+	call _putchrx
+	pop eax
+	iretd
 @@:
-		cmp ax,0001
-		jnz @F
-		call _getchrx
-		iretd
+	cmp ax,0001
+	jnz @F
+	call _getchrx
+	iretd
 @@:
-		cmp ax,0012h	;display string in es:esi
-		jnz @F
-		push ds
-		push eax
-		mov eax,es
-		mov ds,eax
-		call OutStr
-		pop eax
-		pop ds
-		iretd
+	cmp ax,0012h	;display string in es:esi
+	jnz @F
+	push ds
+	push eax
+	mov eax,es
+	mov ds,eax
+	call OutStr
+	pop eax
+	pop ds
+	iretd
 @@:
 endif
-		iretd
+	iretd
 intr41_ endp
 
 if ?I41SUPPORT
 OutStr:
-		cld
+	cld
 OutStr_1:
-		lodsb
-		and al,al
-		jz OutStr_2
-		call _putchrx
-		jmp OutStr_1
+	lodsb
+	and al,al
+	jz OutStr_2
+	call _putchrx
+	jmp OutStr_1
 OutStr_2:
-		ret
+	ret
 endif
 
 _TEXT32  ends

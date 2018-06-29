@@ -84,19 +84,16 @@ endif
 ?SAFEPAGETABS	equ 0	;std=0, 1=page tables cannot be accessed from ring 3
 ?USESYSSPACE2	equ 1	;std=1, 1=use a second sys space ptr (downwards)
 ?CANTEXIT		equ 0	;std=0, 1=support FM_CANTEXIT flag
-?LPMSINGDT		equ 0  	;std=0, 1=LPMS selector in GDT
-?SAVEPSP		equ 1	;std=1, 1=save real-mode psp of client in rmpsp.
+?LPMSINGDT		equ 0	;std=0, 1=LPMS selector in GDT
+?SAVEPSP		equ 1	;std=1, 1=save real-mode psp of client in wPSPSegm;
 						;       this psp will be used as owner for the 
                         ;       dyn. TLB (avoids memory leaks when in 
                         ;       int 21h, ah=3Fh Ctrl-C is pressed)
 ?CR0COPY		equ 1   ;std 1: 1=copy cr0 to/from real-mode                        
-?RMSCNT			equ 0	;std 0: 1=cnt RMS usage. has the benefit that on raw
-						;       jmps to protected mode the current RMS can be
-                        ;       left unchanged if not in use. testcase is to 
-                        ;       debug Borlands RTM.EXE. The win9x dpmi host
-                        ;       has problems.
 ?FASTINT31		equ 1	;std 1: 1=direct int 31h, 0=call by int 30h dispatcher
+ifndef ?MOVEHIGH
 ?MOVEHIGH		equ 1	;std 1: 1=move _TEXT32 in extended memory
+endif
 ?FASTINT21		equ 0	;std 0: 1=direct int 21h, 0=call by int 30h dispatcher
 ?I41SUPPORT		equ 0	;std 0: 1=support some Int 41h codes
 ?DTAINHOSTPSP	equ 0	;std 0: 1=global DTA located in host PSP:80h
@@ -117,7 +114,7 @@ endif
 ?DYNTLBSIZE		equ 0FE00h	;std 0FE00, size of dynamic TLB
 ?NOINVLPG		equ 0	;std 0: 1=optionally disable INVLPG usage
 ?SETEXCHS		equ 1	;std 1: 1=set exception host stack value
-?CHECKHOSTSTACK	equ 0	;std 0: 1=check for host stack overflow
+?CHECKHOSTSTACK	equ 1	;std 1: 1=detect host stack exhaustion (in host reentries)
 ?RESTRICTMEM	equ 0ffffh	;std=0ffffh - free page restriction is 256MB, 0 disables
 
 if ?DPMI10EXX
@@ -128,7 +125,10 @@ endif
 
 if ?MOVEHIGH
 ?MOVEHIGHHLP	equ 1	;std 1: a helper code selector is required for CS
-endif					;       because paging cannot be disabled on _TEXT32
+;								because paging cannot be disabled on _TEXT32
+else
+?MOVEHIGHHLP	equ 0
+endif
                         
 ifndef ?MPICBASE                        
 ?MPICBASE	= 08h   	;std 08: master PIC base
@@ -179,7 +179,7 @@ endif
 ?TLBINUMB	 = 1		;std 1: TLB allocated in UMB if possible
 ?CHECKSSIS32 = 0		;std 0: 1=check if client SS is 32bit
 ?SINGLESETCR3 = 0		;std 0; 1 only for test purposes!
-?RING0FLATCS  = 1		;std 1; supply a ring 0 flat CS in GDT (for wdeb386)	 
+?RING0FLATCS  = 1		;std 1; supply a ring 0 flat CS in GDT (for wdeb386)   
 
 ?IRQ00VAL	  = 0		;std 0: 0=route IRQ 00 to PM
 ?IRQ05VAL	  = 0		;std 0: 0=route IRQ 05 to PM
@@ -191,8 +191,8 @@ endif
 ?TRAPINT21RM  = 0		;std 0: watch int 21h real-mode
 ?INT10SUPP	  = 1		;std 1: check for exception 10h/INT 10h
 ?INT11SUPP    = 1		;std 1: support exception 11h
-?TRANSFL	  = 1		;std 1: copy std flags when returning from std rmcbs
-?COPYTF 	  = 0		;std 0: copy TF when returning from std rmcbs
+?TRANSFL	  = 1		;std 1: copy flags when returning from internal rmcbs
+?COPYTF 	  = 0		;std 0: copy TF when returning from internal rmcbs
 						;       2005/07/30: std changed to 0 
 						;       it was nonsense to copy the TF flag 
                         ;       because at best we get an int 01 in real-mode.
@@ -232,13 +232,8 @@ endif
 ?CR0_EM 	  = 0		;std 0: support -w ( clear EM bit on host init )
 ?CSIPFROMTOP  = 1		;std 1: get CS:E/IP from top of LPMS
 ?CLEARHWESPRM = 1		;std 1: clear highword(esp) in real mode
-
-?SAVERMSPONHS  	equ 0	;std 0: 1=save real-mode SS:SP on host stack
-?SAVERMSEGSONHS	equ 1	;std 1: 1=save/restore real-mode segment registers on HS
-								;0 required by INT 24h?
-
-?VCPIPICTEST  = 1       ;std 1: test if vcpi host did not remap PICs
-?QEMMSUPPORT  = 1       ;std 1: make HDPMI compatible with QEMM vcpi host
+?VCPIPICTEST  = 1		;std 1: test if vcpi host did not remap PICs
+?QEMMSUPPORT  = 1		;std 1: make HDPMI compatible with QEMM vcpi host
 ?CALLPREVHOST = 1		;std 1: route to a previously installed 16bit host
 ?GLOBALTLBUSAGE = 1		;std 1: share one TLB between HDPMI instances
 ?LOADHIGH     = 0		;std 0: move resident part into upper memory (not yet)
@@ -262,9 +257,9 @@ endif
 						;       is to be a v1 host (doesnt work yet)
 
 if ?GUARDPAGE0
-?CHECKIFINRMIDT = 0		;check if host owns the ivt IRQ vector
+?CHECKIFINRMIVT = 0		;check if host owns the ivt IRQ vector
 else
-?CHECKIFINRMIDT = 1
+?CHECKIFINRMIVT = 1		;why
 endif
 
 ?FIXTSSESP    = 0		;std 0: change SS:ESP in TSS for R0
@@ -283,8 +278,10 @@ if ?MOVEIDT
 else
 ?RING0STACK = 600h-4
 endif
+?TRAPI15E801	equ 1	;std 0: trap int 15h, ax=e801h in raw mode
+						;this may be required if HDPMI=32 is set
 
-
+?PREDEFIDTGATES equ 78h	;number of predefined IDT gates
 
 ;----------------------------------------------------------------
 
@@ -346,7 +343,7 @@ externdef _GDTSEL_:abs
 endif
 externdef _STDSEL_:abs
 
-if ?MOVEHIGH
+if 1;?MOVEHIGH
 externdef _CSALIAS_:abs
 endif
 
@@ -374,13 +371,13 @@ endif
 
 ;--- fatal __exitclient errorcodes
 
-_EAERR2_  equ 0002H 		; server termination requested
+;_EAERR2_  equ 0002H 		; server termination requested
 _EAERR3_  equ 0003H 		; Interrupt in ring 0 occured
 ife ?RMCBSTATICSS
 _EAERR4_  equ 0004H			; no free selector in real-mode callback
 endif
 if ?CHECKHOSTSTACK
-_EAERR5_  equ 0005H			; host stack overflow
+_EAERR5_  equ 0005H			; host stack exhausted
 endif
 _EAERR6_  equ 0006H 		; PSP error on getpspsel (helper.asm)
 if ?TRAPINT06RM
@@ -401,6 +398,13 @@ endif
 
 ;--------------------------------- structures and equates
 
+DOSSDA struct
+		db ?		;critical error flag
+bInDOS	db ?
+		db 0Eh dup (?)
+wPSP	dw ?
+DOSSDA ends
+
 cr		equ 13
 lf		equ 10
 
@@ -419,13 +423,16 @@ FM_INIT 	equ 80h		;1=server initialized
 
 ;--- fMode2 flags
 
-FM2_TLBLATE		equ 01h	;-b: alloc TLB late/free when idle
-FM2_VCPI   		equ 02h	;-v: prefer VCPI, ignore any XMS host
-FM2_INT15XMS	equ 04h	;-y: use extended memory not managed by XMS
-FM2_MEMBUFF		equ 08h	;-n: don't report true free phys pages
+FM2_TLBLATE		equ 01h ;-b: alloc TLB late/free when idle
+FM2_VCPI		equ 02h ;-v: prefer VCPI, ignore any XMS host
+FM2_INT15XMS	equ 04h ;-y: use extended memory not managed by XMS
+FM2_MEMBUFF		equ 08h ;-n: don't report true free phys pages
 FM2_FORCETEXT	equ 10h ;-k: force text mode when displaying register dump
 FM2_NOINVLPG	equ 20h ;don't use invlpg (80386 or option -g)
 FM2_RESTRMEM	equ 40h ;restrict free memory reported to client to 256MB
+ifdef _DEBUG
+FM2_NOLOG		equ 80h ;suppress log file writing
+endif
 
 ;--- flags in bEnvFlags (low byte of environment variable HDPMI)
 
@@ -624,13 +631,13 @@ TSSSEG ends
 
 ;------------------------ client memory item structure
 
-MEMITEM	struct
+MEMITEM struct
 pNext	dd  ?			; points to next element (must be first)
 dwBase  dd  ?			; linear address
 dwSize	dd  ?			; size (in pages)
 flags	dw  ?			; flags (see HDLF_xxx)
 owner	dw  ?			; owner (just no of current client)
-MEMITEM	ends
+MEMITEM ends
 
 ;------------------------ values of flags in HDLELM
 
@@ -647,21 +654,21 @@ CR0_TS	equ 08h			;task switch
 CR0_NE	equ 20h			;numeric exception (exc 10h instead of int 75h)
 CR0_PG	equ 80000000h   ;paging
 
-;--- standard real-mode callbacks
+;--- internal real-mode callbacks
 ;--- this table contains no client-specific data
 
-STDRMCB	struct			;size must be 16!
+INTRMCB struct			;size must be 16!
 rm_vec	 dd ?			;current real mode vector (must be first!)
 orgvec	 dd ?			;saved (original) real mode vector
-myproc	 dw ?			;offset server handler (current IVT value)
+myproc	 dw ?			;near16 offset host handler (curr IP value in ivt)
 flags	 dw ?			;see RMVFL_xxx
-pmvec	 dw ?			;pointer to a R3PROC (current client vector)
+pmvec	 dw ?			;near16 pointer to a R3PROC (current client vector)
 wIvtOfs  dw ?			;offset IVT
-STDRMCB	ends
+INTRMCB ends
 
 ?RMCBMOUSE	equ 13h		;the int 33h mouse std rm callback index
 
-;--- values of flags in STDRMCB.flags (global, not client specific)
+;--- values of flags in INTRMCB.flags (global, not client specific)
 
 RMVFL_IGN		equ 01h		;don't touch this INT's vector in IVT
 RMVFL_IDT		equ 02h		;field pmvec point directly in IDT
@@ -719,14 +726,13 @@ rGS		dw ?		;+6
 ends
 ends
 rESP	dd ?		;+8  client protected mode esp
-rSS		dw ?		;+12 client protected mode ss
-		dw ?		;+14
+rSS		dd ?		;+12 client protected mode ss
 union
+rmSSSP	dd ?		;+16
 struct
 rmSP	dw ?		;+16 real mode sp
 rmSS	dw ?		;+18 real mode ss
 ends
-rmSSSP	dd ?
 ends
 
 TASKSTATE ends
@@ -1064,10 +1070,10 @@ PF16 typedef far16 ptr
 PF32 typedef far32 ptr
 
 IVTHOOK struct
-bInt		db ?
+bInt		db ?	;int# to hook, or -2 if to be ignored
 ;dwOldVec	dd ?
-wOldVec		dw ?
-wNewOfs		dw ?
+wOldVec		dw ?	;near16 ptr where the old ivt vector is stored
+wNewOfs		dw ?	;offset part of new value for vector (segment is GROUP16)
 IVTHOOK ends
 
 ;-------------------------------- macros
@@ -1322,99 +1328,67 @@ endm
 	align 4
 endm
 
-;--- set SS:SP to current real-mode stack
-
-@setrmstk macro
-	lss sp,cs:[tskstate.rmSSSP]
-endm
-
-;--- save current real-mode state
-;--- this is just the real-mode SS:SP
+;--- save current real-mode SS:SP
+;--- so it can be saved on the host stack later.
 ;--- this is used by standard and client real-mode callbacks
+;--- this macro should be followed by @pushstate in protected-mode
 
-@pushrmstate macro
-if ?SAVERMSPONHS
-?RMPUSHSIZE = 0
-	mov cs:[wCurSP],sp
-	mov cs:[wCurSS],ss
-else
-?RMPUSHSIZE = 4
-	push cs:[tskstate.rmSSSP]
-	mov cs:[tskstate.rmSP],sp
-	mov cs:[tskstate.rmSS],ss
-endif
+@savermstk macro
+	push cs:tskstate.rmSSSP
+	pop cs:dwrmSSSPtmp
+	mov cs:tskstate.rmSP,sp
+	mov cs:tskstate.rmSS,ss
 endm
 
 ;--- restore value of real-mode stack
+;--- this is done after a @popstate macro in protected-mode
 ;--- this is used by standard and client real-mode callbacks
 
-@poprmstate macro
-if ?SAVERMSPONHS
-	lss sp, cs:[dwCurSSSP]
-else
-	lss sp, cs:[tskstate.rmSSSP]
-	pop cs:[tskstate.rmSSSP]
-endif
+@restorermstk macro
+	lss sp, cs:tskstate.rmSSSP
+	push cs:dwrmSSSPtmp
+	pop cs:tskstate.rmSSSP
 endm
 
-;--- save protected-mode state
+;--- save client state on host stack
 ;--- this is used by standard and client real-mode callbacks
 
-@pushpmstate macro bRMSegs
+@pushstate macro bRMSegs
 ifnb <bRMSegs>
-  if ?SAVERMSEGSONHS
-	push ss:[v86iret].rES
-	push ss:[v86iret].rDS
-	push ss:[v86iret].rFS
-	push ss:[v86iret].rGS
-  endif
+	push ss:v86iret.rES
+	push ss:v86iret.rDS
+	push ss:v86iret.rFS
+	push ss:v86iret.rGS
 endif
-if ?RMSCNT
-	push dword ptr ss:[bRMScnt]
-	mov ss:[bRMScnt],0
-endif
-if ?SAVERMSPONHS
-	push ss:tskstate.rmSSSP
-	push ss:[dwCurSSSP]
-	pop ss:[tskstate.rmSSSP]
-endif
-	push dword ptr ss:tskstate.rSS
-	push dword ptr ss:tskstate.rESP
+	push ss:dwrmSSSPtmp
+	push ss:tskstate.rSS
+	push ss:tskstate.rESP
 	push ss:tskstate.rFSGS
 	push ss:tskstate.rDSES
 if ?FIXTSSESP
-	mov ss:[dwHostStack], esp
+	mov ss:dwHostStack, esp
 else
-	mov ss:[taskseg._Esp0], esp
+	mov ss:taskseg._Esp0, esp
 	lea esp, [esp - sizeof R3FAULT32]
-	mov ss:[dwHostStackExc], esp
+	mov ss:dwHostStackExc, esp
 	lea esp, [esp + sizeof R3FAULT32]
 endif
 endm
 
-;--- restore protected-mode state
+;--- restore client state from host stack
 ;--- this is used by standard and client real-mode callbacks
 
-@poppmstate macro bRMSegs
+@popstate macro bRMSegs
 	pop ss:tskstate.rDSES
 	pop ss:tskstate.rFSGS
-	pop dword ptr ss:tskstate.rESP
-	pop dword ptr ss:tskstate.rSS
-if ?SAVERMSPONHS
-	push ss:[tskstate.rmSSSP]
-	pop  ss:[dwCurSSSP]
-	pop ss:tskstate.rmSSSP
-endif
-if ?RMSCNT
-	pop dword ptr ss:[bRMScnt]
-endif
+	pop ss:tskstate.rESP
+	pop ss:tskstate.rSS
+	pop ss:dwrmSSSPtmp
 ifnb <bRMSegs>
-  if ?SAVERMSEGSONHS
-	pop ss:[v86iret].rGS
-	pop ss:[v86iret].rFS
-	pop ss:[v86iret].rDS
-	pop ss:[v86iret].rES
-  endif
+	pop ss:v86iret.rGS
+	pop ss:v86iret.rFS
+	pop ss:v86iret.rDS
+	pop ss:v86iret.rES
 endif
 if ?FIXTSSESP
 	mov ss:[dwHostStack], esp
@@ -1443,8 +1417,8 @@ endm
 	mov ebp, ss:taskseg._Esp0
 	push [ebp - sizeof IRET32].IRET32.rSP
 	mov ebp, dword ptr [ebp - sizeof IRET32].IRET32.rSS
-	pop dword ptr ss:[tskstate.rESP]
-	mov dword ptr ss:[tskstate.rSS], ebp
+	pop ss:tskstate.rESP
+	mov ss:tskstate.rSS, ebp
 	pop ebp
 endm
 
@@ -1549,9 +1523,6 @@ endm
 endm
 
 @rawjmp_rm macro xx
-;	push offset xx
-;	db 68h
-;	dd offset xx
 	mov ss:[wRetAdrRm2], offset xx
 	jmp _rawjmp_rm
 endm
@@ -1575,9 +1546,9 @@ endm
 	jmp _gotopmEx
 endm
 
-@rawjmp_pm macro xx, bMode
+@rawjmp_pm macro xx, bSaveSegm
 	push word ptr LOWWORD(offset xx)
-ifb <bMode>        
+ifb <bSaveSegm>        
 	jmp _rawjmp_pm
 else
 	jmp _rawjmp_pm_savesegm	;save segment regs in v86iret before switch

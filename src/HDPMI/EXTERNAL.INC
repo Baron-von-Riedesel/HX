@@ -136,6 +136,7 @@ _getcldata32 proto
 @proto _exceptX    ;R3 exception with full frame
 @proto _exceptY    ;R3 exception with
 @proto _exceptZ    ;R0 exception
+@proto fatappexit2 
 
 ;--- movehigh.asm
 
@@ -203,7 +204,7 @@ externdef   _I2F1684_0017_:abs
 externdef   _I2F1684_0021_:abs
 externdef   _I2F1684_002A_:abs
 externdef   _I2F1684_0442_:abs
-;externdef   SIZESTDRMCB:abs
+;externdef   SIZEINTRMCB:abs
 ;externdef	RMCBMOUSE:abs
 
 externdef RAWJMP_PM_PATCHVALUE:abs
@@ -254,7 +255,10 @@ externdef meventr:near16			;real-mode mouse event proc
 externdef PatchRMStkSize:word
 externdef linadvs:byte
 externdef unhookIVTvecs:near
+if ?MOVEHIGHHLP
 externdef wPatchDgrp1:word
+endif
+externdef wPatchDgrp3:word
 externdef kdpatch1:near
 externdef kdpatch2:near
 externdef rawjmp_pm_patch:near
@@ -285,10 +289,6 @@ endif
 
 externdef   dtaadr:fword
 
-if ?RMSCNT
-externdef   bRMScnt:byte
-endif
-
 if ?USEINTS
 externdef   intnr0:byte
 else
@@ -299,7 +299,6 @@ if ?LDTROSEL
 externdef   selLDTsafe:word
 endif
 
-externdef   MyRMCS:RMCS
 externdef   _StartOfVMData:near16
 externdef   _StartOfClientData:near16
 externdef   _EndOfClientData:near16
@@ -325,15 +324,14 @@ externdef   tmpFLReg:word			;temp storage for flags register
 externdef   tmpFLRegD:dword			;same address, but DWORD type
 externdef   bEnvFlags:byte			;value HDPMI environment variable
 externdef   bEnvFlags2:byte			;high byte of HDPMI environment variable
-externdef   bExcEntry:byte			;exception dump mutex
-externdef   bExcMode:byte			;used by default exception handler
+externdef   bExcEntry:byte			;exception mutex
 externdef   bTrap:byte				;serial input Ctrl-D received
 externdef   bFPUAnd:byte
 externdef   bFPUOr:byte
 externdef   cApps:byte				;cnt active clients
 externdef   cLPMSused:byte			;flag LPMS used
 externdef   cRMCB:word				;count open real-mode callbacks
-externdef   cStdRMCB:word			;count open std real-mode callbacks
+externdef   cIntRMCB:word			;count open internal real-mode callbacks
 externdef   dwHostBase:dword		;linear address host CS/DS (GROUP16)
 externdef   wHostSeg:word			;segment host CS/DS (==GROUP16)
 externdef   dwHostSeg:dword			;segment host CS/DS (==GROUP16)
@@ -354,7 +352,7 @@ externdef   pMemItems:dword			;start list of memory items
 externdef   pg0ptr:dword			;for page 0 access guard
 ;externdef   rmcbs:RMCB				;start client real-mode callbacks
 externdef   rmsels:dword			;start real-mode selector list
-externdef   stdrmcbs:STDRMCB		;start std real-mode callbacks
+externdef   intrmcbs:INTRMCB		;start internal real-mode callbacks
 externdef   szVirtual:byte			;string "VIRTUAL SUPPORT"
 externdef   tskstate:TASKSTATE		;client task state
 externdef   v86iret:V86IRET			;client v86/real-mode segments
@@ -371,21 +369,19 @@ externdef   dwSegTLB:dword			;segment TLB (same as wSegTLB, but DWORD)
 externdef   wVersion:word			;DPMI version
 externdef   xmsaddr:PF16            ;XMS entry (RM)
 ;externdef	rmpsp:word				;current real-mode PSP of active client
-externdef	rmpsporg:word			;initial real-mode PSP of active client
+externdef	wPSPSegm:word			;initial real-mode PSP of active client
 externdef   wRetAdrRm:word
 externdef   wRetAdrRm2:word
-externdef	wStdRmCb:word
+externdef	wIntRmCb:word
 externdef	wHostPSP:word
 if ?DTAINHOSTPSP
 externdef	dwHostDTA:dword
 else
 externdef	dwDTA:dword
 endif
-if ?SAVERMSPONHS
-externdef	wCurSS:word
-externdef	wCurSP:word
-externdef	dwCurSSSP:dword
-endif
+externdef	wrmSPtmp:word
+externdef	wrmSStmp:word
+externdef	dwrmSSSPtmp:dword
 if ?DPMI10EXX
 externdef	wExcHdlr:word
 endif

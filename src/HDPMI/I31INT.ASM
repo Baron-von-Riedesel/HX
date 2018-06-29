@@ -22,7 +22,7 @@ _TEXT32  segment
 
 ;*** get/set interrupt vectors RM
 ;*** this proc is called on several occations
-;*** int 31h,ax=200,201
+;*** int 31h,ax=200h,201h
 ;--- in: DS=flat, bl=int no
 ;--- out: ds:[ebx] -> rm int vector to get/set
 
@@ -59,8 +59,8 @@ cirq24:
 int080f:
 	sub bl,?MPICBASE
 cirqxx:
-	shl ebx,4		   ;* 16 (assume size STDRMCB == 16)
-	add ebx,offset stdrmcbs
+	shl ebx,4		   ;* 16 (assume size INTRMCB == 16)
+	add ebx,offset intrmcbs
 	push ss
 	pop ds
 	ret
@@ -285,7 +285,9 @@ endif
 	align 4
 getpmivec endp
 
-;*** DPMI funktion 0x0205 (set PM vector) ***
+;*** DPMI funktion 0x0205 (set PM vector)
+;--- interrupt in BL, vector in CX:E/DX
+;--- DS=flat
 
 _LTRACE_ = 0
 
@@ -294,9 +296,13 @@ setpmivec proc public
 	lar eax,ecx		;setting an invalid vector (or 0) will fail
 	pop eax			;win9x fails as well, but returns with NC
 	jnz error
+if ?32BIT
+	@strout <"setpmintvec: int %X with %X:%lX",lf>,bx,cx,edx
+else
 	@strout <"setpmintvec: int %X with %X:%X",lf>,bx,cx,dx
+endif
 	call installirqhandler
-	@strout <"setpmintvec: return from installirqhandler %X:%lX",lf>,cx,edx
+	@strout <"setpmintvec: return from installirqhandler %X:%lX",lf>, cx, edx
 	call getpmptr
 	jc setpmivec_1
 	mov [ebx.GATE.ofs],dx

@@ -35,7 +35,7 @@ _TEXT32  segment
 _getspecaddrspace proc public
 
 	pushad
-	@strout <"_getspecaddrspace: req base=%lX, size=%lX",lf>, ebx, ecx
+	@strout <"#getspecaddrspace: req base=%lX, size=%lX",lf>, ebx, ecx
 nextscan:
 	mov esi, offset pMemItems
 	jmp skipitem
@@ -59,7 +59,7 @@ nexthandle:						   ;<----
 	shl edx, 12
 	add edx, [esi.MEMITEM.dwBase]	;get max address of block in edx
 
-	@strout <"_getspecaddrspace: hdl=%lX,base=%lX,end=%lX (req=%lX,siz=%lX)",lf>,esi,\
+	@strout <"#getspecaddrspace: hdl=%lX,base=%lX,end=%lX (req=%lX,siz=%lX)",lf>,esi,\
 		[esi.MEMITEM.dwBase], edx, ebx, ecx
 
 	cmp ebx, edx					;is req. address in this block?
@@ -104,13 +104,13 @@ skipitem:
 if 1
 	sub eax, [esi.MEMITEM.dwSize]
 endif
-	@strout <"_getspecaddrspace: create addr space, size=%lX (%lX)",lf>,eax,ecx
+	@strout <"#getspecaddrspace: create addr space, size=%lX (%lX)",lf>,eax,ecx
 	call _AllocUserSpace		;get new address space 
 	jc error
 	call _addmemhandle	;add adress space to list
 	jnc nextscan
 error:
-	@strout <"_getspecaddrspace: alloc failed",lf>
+	@strout <"#getspecaddrspace: alloc failed",lf>
 	popad
 	ret
 
@@ -139,9 +139,9 @@ found:
 	shr ebx, 12
 	mov [edx.MEMITEM.dwSize], ebx
 	sub [esi.MEMITEM.dwSize], ebx
-	@strout <"_getspecaddrspace: new free handle, handle=%lX,base=%lX,size=%lX",lf>,\
+	@strout <"#getspecaddrspace: new free handle, handle=%lX,base=%lX,size=%lX",lf>,\
 		edx,[edx.MEMITEM.dwBase],[edx.MEMITEM.dwSize]
-	@strout <"_getspecaddrspace: next free handle, handle=%lX,base=%lX,size=%lX",lf>,\
+	@strout <"#getspecaddrspace: next free handle, handle=%lX,base=%lX,size=%lX",lf>,\
 		esi,[esi.MEMITEM.dwBase],[esi.MEMITEM.dwSize]
 	mov eax, edx
 	pop ecx
@@ -167,7 +167,7 @@ found1:
 
 	call _allocmemhandle ;get new handle in EBX
 	jc error
-;;	@strout <"_getspecaddrspace: new handle allocated",lf>
+;;	@strout <"#getspecaddrspace: new handle allocated",lf>
 	mov [ebx.MEMITEM.dwSize], ecx
 	sub [esi.MEMITEM.dwSize], ecx
 	mov edx, [esi.MEMITEM.dwBase]
@@ -184,7 +184,7 @@ if _LTRACE_
 endif
 
 exit:
-	@strout <"_getspecaddrspace: alloc ok, handle=%lX,addr=%lX,size=%lX",lf>,\
+	@strout <"#getspecaddrspace: alloc ok, handle=%lX,addr=%lX,size=%lX",lf>,\
 		esi,[esi.MEMITEM.dwBase],[esi.MEMITEM.dwSize]
 	or [esi.MEMITEM.flags], HDLF_ALLOC
 	movzx ax,byte ptr [cApps]
@@ -272,7 +272,7 @@ _AllocMemEx endp				;<--- fall thru
 _AllocMem proc
 
 	push ecx
-	@strout <"_AllocMem: request for %lX pages, flags=%X",lf>, edx, cx
+	@strout <"#AllocMem: request for %lX pages, flags=%X",lf>, edx, cx
 	mov ecx,edx
 	xor ebx,ebx
 	call _getspecaddrspace
@@ -282,7 +282,7 @@ _AllocMem proc
 	jz done
 	test byte ptr [ebx.MEMITEM.flags], HDLF_COMMIT
 	jnz done
-	@strout <"_AllocMem: commit %lX pages for base %lX",lf>, [ebx.MEMITEM.dwSize], [ebx.MEMITEM.dwBase]
+	@strout <"#AllocMem: commit %lX pages for base %lX",lf>, [ebx.MEMITEM.dwSize], [ebx.MEMITEM.dwBase]
 	call _commitblock
 	jc error2
 if _LTRACE_
@@ -295,13 +295,13 @@ if _LTRACE_
 	pop es
 endif
 done:
-	@strout <"_AllocMem: request successful, handle=%lX, base=%lX",lf>, ebx, [ebx.MEMITEM.dwBase]
+	@strout <"#AllocMem: request successful, handle=%lX, base=%lX",lf>, ebx, [ebx.MEMITEM.dwBase]
 	pop ecx
 	ret
 error2:
 	call _freememint
 error:
-	@strout <"_AllocMem: request failed",lf>
+	@strout <"#AllocMem: request failed",lf>
 	pop ecx
 	stc
 	ret
@@ -408,11 +408,11 @@ allocmem proc public
 	push bx
 	push cx
 	pop eax 		   ;size -> EAX
-	@strout <"allocmem: bx:cx=%X:%X",lf>, bx, cx
+	@strout <"#allocmem: bx:cx=%X:%X",lf>, bx, cx
 	mov cl, HDLF_COMMIT
 	call _AllocMemEx
 	jc error1
-	@strout <"allocmem: no error, ebx=%lX, base=%lX",lf>, ebx, [ebx].MEMITEM.dwBase
+	@strout <"#allocmem: no error, ebx=%lX, base=%lX",lf>, ebx, [ebx].MEMITEM.dwBase
 if ?ADDRISHANDLE
 	mov eax, [ebx].MEMITEM.dwBase
 	mov edx, eax
@@ -791,7 +791,7 @@ resizemem proc public
 
 	pushad
 
-	@strout <"resizemem: handle=%X:%X, new size=%X:%X",lf>,si,di,bx,cx
+	@strout <"#resizemem: handle=%X:%X, new size=%X:%X",lf>,si,di,bx,cx
         
 	push bx
 	push cx
@@ -836,7 +836,7 @@ if ?DPMI10
 allocmemx proc public
 
 	pushad
-	@strout <"allocmemx: linear memory request, ebx=%lX, ecx=%lX, dx=%X",lf>, ebx, ecx, dx
+	@strout <"#allocmemx: linear memory request, ebx=%lX, ecx=%lX, dx=%X",lf>, ebx, ecx, dx
 	and ebx, ebx
 	jz anyaddress
 	test bx,0FFFh
@@ -854,7 +854,7 @@ allocmemx proc public
 	mov ebx, eax
 	test dl, 1
 	jz done
-	@strout <"allocmemx: commit block %lX pages",lf>, [ebx.MEMITEM.dwSize]
+	@strout <"#allocmemx: commit block %lX pages",lf>, [ebx.MEMITEM.dwSize]
 	call _commitblock
 	jnc done
 	jmp error8013
@@ -918,7 +918,7 @@ allocmemx endp
 resizememx proc public
 
 	pushad
-	@strout <"int 31h, ax=0505h: handle=%lX, new size=%lX, flags=%lX",lf>,esi,ecx,edx
+	@strout <"#resizememx: handle=%lX, new size=%lX, flags=%lX",lf>,esi,ecx,edx
 	mov ebx, esi
 	mov eax, ecx
 	mov ebp, edx
@@ -931,7 +931,7 @@ resizememx proc public
 	jz noselectorupdate
 	mov ecx, [esp].PUSHADS.rEDI
 	jecxz noselectorupdate
-	@strout <"int 31h, ax=505h: selector update, %lX selectors",lf>, ecx
+	@strout <"#resizememx: selector update, %lX selectors",lf>, ecx
 	mov ebx, esi		;old size -> ebx
 	mov esi, [esp].PUSHADS.rEBX
 	shl ebx, 12
@@ -942,11 +942,11 @@ resizememx proc public
 	cld
 nextitem:
 	lodsw
-	@strout <"int 31h, ax=505h: selector %X",lf>, ax
+	@strout <"#resizememx: selector %X",lf>, ax
 	push eax
 	call getlinaddr
 	jc @F
-	@strout <"int 31h, base of selector=%lX, old base=%lX, old end=%lX",lf>, eax, edi, ebx
+	@strout <"#resizememx: base of selector=%lX, old base=%lX, old end=%lX",lf>, eax, edi, ebx
 	cmp eax, edi
 	jb @F
 	cmp eax, ebx
@@ -1010,7 +1010,7 @@ setpageattr endp		;fall throu
 
 getsetpageattr proc
 	pushad
-	@strout <"I31 %X: esi=%lX, ebx=%lX, ecx=%lX, es:edx=%lX:%lX",lf>,ax,esi,ebx,ecx,es,edx
+	@strout <"#getsetpageattr (%X): esi=%lX, ebx=%lX, ecx=%lX, es:edx=%lX:%lX",lf>,ax,esi,ebx,ecx,es,edx
 if 0							;allow 0 pages because of 32rtm.exe
 	stc
 	jecxz	exit
@@ -1041,20 +1041,20 @@ exit:
 if _LTRACE_
 	pushfd
 	pop eax
-	@strout <"I31 0506/0507: fl=%X",lf>,ax
+	@strout <"#getsetpageattr: fl=%X",lf>,ax
 endif
 	popad
 	ret
 error8023:
 	popad
 	mov ax,8023h
-	@strout <"I31 0506/0507: error %X",lf>,ax
+	@strout <"#getsetpageattr: error %X",lf>,ax
 	stc
 	ret
 error8025:
 	popad
 	mov ax,8025h
-	@strout <"I31 0506/0507: error %X",lf>,ax
+	@strout <"#getsetpageattr: error %X",lf>,ax
 	stc
 	ret
 	align 4
@@ -1097,7 +1097,7 @@ mapdos endp
 
 mapx proc
 	pushad
-	@strout <"I31 %X: esi=%lX, ebx=%lX, ecx=%lX, edx=%lX",lf>,ax,esi,ebx,ecx,edx
+	@strout <"mapx (%X): esi=%lX, ebx=%lX, ecx=%lX, edx=%lX",lf>,ax,esi,ebx,ecx,edx
 	mov 	ebx, esi
 	call	searchhandle	;sets DS=GROUP16
 	jc		error8023
@@ -1148,7 +1148,7 @@ mapx endp
 
 getmemsize proc public
 	pushad
-	@strout <"I31 %X: si:di=%lX",lf>,ax,si,di
+	@strout <"#getmemsize (%X): si:di=%lX",lf>,ax,si,di
 	push si
 	push di
 	pop  ebx
@@ -1163,7 +1163,7 @@ getmemsize proc public
 	mov  [esp].PUSHADS.rDI, ax
 	shr  eax, 16
 	mov  [esp].PUSHADS.rSI, ax
-	@strout <"I31 %X: returnes si:di=%lX, bx:cx=%lX",lf>,ax,si,di,bx,cx
+	@strout <"#getmemsize (%X): returnes si:di=%lX, bx:cx=%lX",lf>,ax,si,di,bx,cx
 	clc
 	popad
 	ret
@@ -1203,7 +1203,7 @@ getmeminfox proc public
 	pop ds
 	assume ds:GROUP16
 
-	@strout <"I31 %X: es:edi=%lX:%lX",lf>,ax,es,edi
+	@strout <"#getmeminfox (%X): es:edi=%lX:%lX",lf>,ax,es,edi
 
 	call _GetNumPhysPages  ;get free pages
 if ?32BIT eq 0
@@ -1252,45 +1252,45 @@ mapphysregion proc public
 
 	push si
 	push di
-	pop  eax		;size -> eax	
+	pop eax		;size -> eax	
 
-	@strout <"i31mem: phys2lin addr=%lX, size=%lX",lf>,edx,eax
+	@strout <"#mapphysregion: phys2lin addr=%lX, size=%lX",lf>,edx,eax
 
-	lea		eax, [eax+edx-1]	;eax -> last byte to map
-	cmp		eax, edx
-	jc		error				;error if size==0 or too large
+	lea eax, [eax+edx-1]	;eax -> last byte to map
+	cmp eax, edx
+	jc error				;error if size==0 or too large
 
-	mov		ecx,edx 	   
-	shr		ecx,12
-	shr		eax,12
-	sub		eax,ecx
-	inc		eax					;now eax contains pages
-	test	eax, 0fff00000h
+	mov ecx,edx 	   
+	shr ecx,12
+	shr eax,12
+	sub eax,ecx
+	inc eax					;now eax contains pages
+	test eax, 0fff00000h
 	stc
-	jnz 	error
-	and 	dx,0F000h			;adjust to page boundary
+	jnz error
+	and dx,0F000h			;adjust to page boundary
 
 	call _searchphysregion		;search region EDX, size EAX
-	jnc  found
+	jnc found
 	xor ebx, ebx
 	mov ecx, eax
 	push ss
 	pop ds
 	call _getspecaddrspace		;changes eax only
-	jc	 error
-	or	[eax].MEMITEM.flags, HDLF_MAPPED
+	jc error
+	or [eax].MEMITEM.flags, HDLF_MAPPED
 	mov eax,[eax.MEMITEM.dwBase]
 	mov bl,0					;dont set PWT flag in PTEs
 	call _mapphysregion			;map ECX pages, cannot fail
 
-	@strout <"i31mem: phys2lin successfull, mapped at %lX",lf>,eax
+	@strout <"#mapphysregion: phys2lin successfull, mapped at %lX",lf>,eax
 found:
-	mov  cx,word ptr [esp.PUSHADS.rCX]
-	and  ch,0Fh
-	or	 ax,cx
-	mov  [esp].PUSHADS.rCX, ax
-	shr  eax, 16
-	mov  [esp].PUSHADS.rBX, ax
+	mov cx,word ptr [esp.PUSHADS.rCX]
+	and ch,0Fh
+	or ax,cx
+	mov [esp].PUSHADS.rCX, ax
+	shr eax, 16
+	mov [esp].PUSHADS.rBX, ax
 	clc
 ife _LTRACE_
 error:
@@ -1300,9 +1300,9 @@ endif
 	ret
 if _LTRACE_
 error:
-	@strout <"i31mem: phys2lin failed",lf>
+	@strout <"#mapphysregion: phys2lin failed",lf>
 ?DISPLAYHDLTAB equ 1
-	call	displayhdltab
+	call displayhdltab
 	stc
 	popad
 	ret
@@ -1318,12 +1318,12 @@ if ?DPMI10
 unmapphysregion proc public
 
 	pushad
-	shl  ebx, 16
-	mov  bx, cx
+	shl ebx, 16
+	mov bx, cx
 	call _freememintEx
 if _LTRACE_
 	jc @F
-	@strout <"i31mem: unmap successfull",lf>
+	@strout <"#unmapphysregion: unmap successfull",lf>
 @@:
 endif
 	popad
@@ -1344,50 +1344,50 @@ endif
 _freeclientmemory proc public
 
 	pushad
-	mov 	cl,[cApps]
+	mov cl,[cApps]
 	@strout <"#freeclientmemory enter, client=%X",lf>, cx
 if 0;_LTRACE_
 	@strout <"#freeclientmemory: hdltab before freeing blocks",lf>
 ?DISPLAYHDLTAB equ 1
-	call	displayhdltab
+	call displayhdltab
 endif
 nextscan:
-	mov 	ebx,offset pMemItems
-	jmp 	nexthandle
+	mov ebx,offset pMemItems
+	jmp nexthandle
 freememory_1:
-	test	byte ptr [ebx].MEMITEM.flags,HDLF_ALLOC
-	jz		nexthandle
-	cmp 	byte ptr [ebx].MEMITEM.owner,cl
-	jnz 	nexthandle
+	test byte ptr [ebx].MEMITEM.flags,HDLF_ALLOC
+	jz nexthandle
+	cmp byte ptr [ebx].MEMITEM.owner,cl
+	jnz nexthandle
 	@strout <"#freeclientmemory: free handle=%lX, base=%lX, size=%lX, owner=%X",lf>,ebx,\
-			[ebx].MEMITEM.dwBase,[ebx].MEMITEM.dwSize,[ebx].MEMITEM.owner
-	call	_freememint
-	jmp 	nextscan
+		[ebx].MEMITEM.dwBase,[ebx].MEMITEM.dwSize,[ebx].MEMITEM.owner
+	call _freememint
+	jmp nextscan
 nexthandle:
-	mov 	ebx,[ebx].MEMITEM.pNext
-	and 	ebx, ebx
-	jnz 	freememory_1
+	mov ebx,[ebx].MEMITEM.pNext
+	and ebx, ebx
+	jnz freememory_1
 if 1
 ;--- if there is just 1 large address space remaining
 ;--- free it
-	mov		ebx, pMemItems
-	and		ebx, ebx
-	jz		@F
-	cmp		[ebx].MEMITEM.pNext,0
-	jnz		@F
-	test	[ebx].MEMITEM.flags,HDLF_ALLOC
-	jnz		@F
-	mov		eax, [ebx].MEMITEM.dwBase
-	mov		ecx, [ebx].MEMITEM.dwSize
-	call	_FreeUserSpace
-	mov		pMemItems,0
-	push	ebx
-	call	_freememhandle
+	mov ebx, pMemItems
+	and ebx, ebx
+	jz @F
+	cmp [ebx].MEMITEM.pNext,0
+	jnz @F
+	test [ebx].MEMITEM.flags,HDLF_ALLOC
+	jnz @F
+	mov eax, [ebx].MEMITEM.dwBase
+	mov ecx, [ebx].MEMITEM.dwSize
+	call _FreeUserSpace
+	mov	pMemItems,0
+	push ebx
+	call _freememhandle
 @@:
 endif
 if _LTRACE_
 ?DISPLAYHDLTAB equ 1
-	call	displayhdltab
+	call displayhdltab
 endif
 	@strout <"#freeclientmemory exit",lf>
 	popad

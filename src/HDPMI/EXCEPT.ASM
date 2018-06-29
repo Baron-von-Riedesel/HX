@@ -25,6 +25,13 @@
 CONST32 segment byte use32 public 'CODE'
 CONST32 ends
 
+_DATA16 segment
+bExcMode	db 0		;0=normal,1=suppress [EIP],2=suppress [ESP]
+ifdef _DEBUG
+savedfDebug db 0
+endif
+_DATA16 ends
+
 GROUP32 group _TEXT32, CONST32
 
 CONST32 segment
@@ -287,9 +294,14 @@ endif
 if ?FORCETEXTMODE
 	call forcetextmode
 endif
+
 ;	test [fDebug],FDEBUG_KDPRESENT
 ;	jnz @F
-
+ifdef _DEBUG
+	mov al, fDebug
+	mov savedfDebug, al
+	and fMode2, not FM2_NOLOG	;enable displays in case they were suppressed
+endif
 ;--- dump exception number
 
 	@printf <"Exception ">
@@ -324,9 +336,9 @@ if ?DISPCLSP
 endif
 @@:
 	@strout <"r0sp=%X %X %X %X %X %X %X %X %X",lf>, bx,\
-		<word ptr [ebx-16]>,<word ptr [ebx-14]>,<word ptr [ebx-12]>,\
-		<word ptr [ebx-10]>,<word ptr [ebx-08]>,<word ptr [ebx-06]>,\
-		<word ptr [ebx-04]>,<word ptr [ebx-02]>
+		word ptr [ebx-16], word ptr [ebx-14], word ptr [ebx-12],\
+		word ptr [ebx-10], word ptr [ebx-08], word ptr [ebx-06],\
+		word ptr [ebx-04], word ptr [ebx-02]
 
 
 except_cont:
@@ -437,8 +449,8 @@ endif
 ;--- dump some host variables (LPMS, RMS, RMCB, ...)
 
 	@printf <"LPMS Sel/Cnt=%X/%X RMS=%X:%X open RMCBs=%X/%X ">,\
-		<word ptr _LPMSSEL_>,<word ptr [cLPMSused]>,\
-		[tskstate.rmSS], [tskstate.rmSP], [cStdRMCB], [cRMCB]
+		word ptr _LPMSSEL_, word ptr [cLPMSused],\
+		[tskstate.rmSS], [tskstate.rmSP], [cIntRMCB], [cRMCB]
 ;--- clear dr7 to avoid I/O watchpoints                
 	xor eax, eax
 	mov dr7, eax
@@ -518,6 +530,11 @@ if ?LOGINT30
 	@strout <"last int 30=%X",lf>,[lint30]
 endif
 
+ifdef _DEBUG
+	mov al,[savedfDebug]
+	mov [fDebug], al
+endif
+
 ;--- dump is done
 
 if ?DUMP
@@ -570,16 +587,17 @@ endif
 if ?SETCLIENTPSP        
 	cmp cApps,0			;is there a client?
 	jz @F
-	mov bx,[rmpsporg]	;set client's initial PSP
+	mov bx,[wPSPSegm]	;set client's initial PSP
 	mov ah,50h
 	call rmdosintern
 @@:
 endif
 	and fMode, not FM_RESIDENT
-	mov ax, _EAERR2_
 if 0
+	mov ax, _EAERR2_
 	jmp _exitclientEx
 else
+	mov al,-1
 	jmp _exitclient_pm
 endif
 except_2x:
@@ -595,7 +613,7 @@ fatappexit proc
 	invoke _charout, lf
 fatappexit endp	;fall throu
 
-_fatappexit2 proc
+fatappexit2 proc public
 	xor eax, eax
 	mov es, eax
 	mov ds, eax
@@ -611,7 +629,7 @@ myexit:
 	int 21h
 	push cs
 	pop ss	;in case the int 21h did return cause a GPF now
-_fatappexit2 endp        
+fatappexit2 endp        
 
 if ?WDEB386
 

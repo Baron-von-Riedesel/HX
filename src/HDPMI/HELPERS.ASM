@@ -839,7 +839,7 @@ next:
 suitsexact:
 if ?SAVEPSP
 	mov ecx, ss:[dwSDA]
-	mov ax, [ecx+10h]	;get current PSP
+	mov ax, [ecx].DOSSDA.wPSP	;get current PSP
 else
 	mov ax,GROUP16
 	sub ax,10h

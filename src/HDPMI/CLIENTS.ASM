@@ -134,7 +134,6 @@ else
 	jc exit2
 	mov edi, eax
 endif
-
 	inc byte ptr [cApps]
 
 if ?CR0COPY
@@ -195,7 +194,7 @@ else
 endif
 
 if ?SAVEIVT
-	xor esi,esi					;save IVT	
+	xor esi,esi					;save IVT
 	@strout <"#saveclientstate: save IVT, dst=%lX, src=%lX",lf>,edi, esi
 	mov cx,400h/4
 	rep movsd
@@ -251,11 +250,11 @@ endif
 	pop es					;ES=GROUP16
 
 if _LTRACE_
-	mov  bx,offset stdrmcbs
+	mov  bx,offset intrmcbs
 	mov  cx,0
 @@:
-	@strout <"#restoreclientstate: rmcb %X rmvec:%lX",lf>, cx, ss:[bx].STDRMCB.rm_vec
-	add  bx,sizeof STDRMCB
+	@strout <"#restoreclientstate: rmcb %X rmvec:%lX",lf>, cx, ss:[bx].INTRMCB.rm_vec
+	add  bx,sizeof INTRMCB
 	inc cl
 	cmp cl,16+3
 	jnz @B
@@ -366,7 +365,6 @@ if ?CR0COPY
 	mov al, bCR0
 	mov cr0, eax
 endif
-	call _freephysmem		;in raw mode, free some memory
 exit:
 	call checkrmsel 		;check real mode selectors
 

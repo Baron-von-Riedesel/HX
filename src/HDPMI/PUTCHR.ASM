@@ -184,6 +184,10 @@ endif	;?VIDOUT
 
 _putchrx proc public
 
+ifdef _DEBUG
+	test ss:fMode2,FM2_NOLOG
+	jnz _ret
+endif
 	push es
 	pushad
 if ?USEDEBUGOUTPUT	;is active only if ?WDEB386 is on 
@@ -220,7 +224,7 @@ if ?VIDOUT
 	@getoffsfromcursor		;cursor pos in BX -> screen ptr in EDI
 	pop eax
 	cmp al,cr
-	jz putchrex
+	jz putchrex				;skip crs, lf positions at start of next line
 	cmp al,lf
 	jnz putchrx1
 
@@ -269,6 +273,11 @@ putchr2:
 	jmp putchrex
 endif		;?VIDOUT
 if ?DOSOUTPUT
+	push byte ptr _FLATSEL_
+	pop es
+	mov edx,ss:[dwSDA]
+	cmp es:[edx].DOSSDA.bInDOS,0
+	jnz usebios
 	cmp al,10
 	jnz @F
 	mov dl,13
@@ -283,10 +292,10 @@ if ?DOSOUTPUT
 endif
 if ?BIOSOUT
 usebios:
-	push ds
-	xor ecx,ecx
-	mov ds,ecx
-	mov es,ecx
+;	push ds
+;	xor ecx,ecx
+;	mov ds,ecx
+;	mov es,ecx
 	mov bx,7
 	cmp al,0Ah
 	jnz @F
@@ -296,7 +305,7 @@ usebios:
 @@:
 	mov ah,0Eh		;for graphics mode, use BIOS output routine
 	@simrmint 10h
-	pop ds
+;	pop ds
 endif
 putchrex:
 
@@ -353,6 +362,7 @@ endif					;?SEROUT
 exit:
 	popad
 	pop es
+_ret:
 	ret
 _putchrx endp
 
@@ -465,12 +475,14 @@ stroutx_s:						;%ls or %s get string
 	pop ds
 	retn
 stroutx_lX:						;%lX get 2 words
-	call getwordfromstack
-	push eax
-	call getwordfromstack
-	call wordout
-	pop eax
-	jmp wordout
+	call getwordfromstack		;get low16
+	push ax
+	call getwordfromstack		;get high16
+	shl eax,16
+	pop ax
+;	test eax,0ffff0000h			;skip high16 if zero
+;	jz wordout
+	jmp dwordout
 stroutx_X:						;%X get 1 word
 	call getwordfromstack
 	jmp wordout

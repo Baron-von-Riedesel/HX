@@ -17,8 +17,8 @@
 @proto _AllocSysPages2			;alloc memory in system region 2
 @proto _FreeSysPages2			;free memory in system region 2
 @proto _GetNumPhysPages			;get free/total physical pages
-@proto _freephysmem				;free some mem in raw mode
-@proto _restorephysmem			;restore the mem in raw mode
+@proto _freeI15mem				;free some mem for Int 15h in raw mode
+@proto _restoreI15mem			;restore the mem in raw mode
 @proto _AllocUserSpace			;allocate user address space
 @proto _FreeUserSpace			;free user address space
 @proto _AllocSysAddrSpace		;allocate system address space

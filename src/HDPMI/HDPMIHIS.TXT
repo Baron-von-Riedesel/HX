@@ -15,6 +15,9 @@
     is pressed. Instead it intercepts int 15h, ah=4Fh. This avoids reading
     the keyboard controller data port 60h, which should be done by the
     keyboard driver only.
+  þ the memory handling in "Int15" or "raw" mode has been changed. HDPMI
+    will now report the amount of memory that was and is not used by a
+    client as free via Int 15h, ax=E801h.
 
   09.10.2013, version 3.17
 

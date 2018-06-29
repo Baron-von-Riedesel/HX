@@ -177,9 +177,11 @@ if ?TLBINUMB
 	mov ax,5803h		;set umb link status
 	int 21h
 	pop bx
+	jc nonewtlb			;UMBs not available or not active
 	mov bh,0
 	ror bl,1			;80h or 00
-	or  bl,1			;81h or 01 (best fit)
+;--- do not set best fit, so TLB is allocated low if required
+;	or  bl,1			;81h or 01 (best fit)
 	mov ax,5801h		;select allocation strategy
 	int 21h
 	push offset restorememstrat
@@ -355,27 +357,6 @@ ife ?PATCHCODE
 @@:
 endif
 patch_done:
-	push ds
-	mov ax,5D06h		;returns SDA in DS:SI
-	int 21h
-	mov ax,ds
-	pop ds
-	movzx eax,ax
-	shl eax,4
-	movzx ebx,si
-	add eax,ebx
-	mov [dwSDA],eax
-
-if ?DYNTLBALLOC
-	mov ah,52h			;get LoL
-	int 21h
-	xor eax,eax
-	mov ax,es
-	shl eax,4
-	movzx ebx,bx
-	add eax,ebx
-	mov [dwLoL],eax
-endif
 	clc
 	ret
 filldesc endp
@@ -414,7 +395,7 @@ getcpu proc near
 	inc eax				; get register 1
 	@cpuid
 	mov cl,ah
-	mov	[dwFeatures],edx
+	mov [dwFeatures],edx
 @@:
 	mov [_cpu],cl
 	cmp cl,4
@@ -501,9 +482,9 @@ initdebugger_rm proc
 	pop ds
 	jz nokerneldebugger
 	mov ah,D386_Identify
-	@stroutrm <"int 68 Identify (ax=%X)",lf>,ax
+	@stroutrm <"-int 68 Identify (ax=%X)",lf>,ax
 	int D386_RM_Int
-	@stroutrm <"int 68 ret, ax=%X",lf>,ax
+	@stroutrm <"-int 68 ret, ax=%X",lf>,ax
 	cmp ax,D386_Id			;0F386h?
 	jnz nokerneldebugger
 	@stroutrm <"WDeb386 present",lf>
@@ -518,21 +499,22 @@ endif
 ;------------------------------------ prepare kernel debugger for PM
 
 	mov ax,D386_Prepare_PMode * 100h + 00h
-	mov cx, _KDSEL_
-	mov bx, _FLATSEL_
-	mov dx, _GDTSEL_
+	mov cx, _KDSEL_		;first of 2 selectors reserved for kd
+	mov bx, _FLATSEL_	;selector for full memory access
+	mov dx, _GDTSEL_	;selector for GDT
 	push cs
 	pop es
-	mov si,offset curGDT
-	mov di,offset curIDT
-	@stroutrm <"int 68 Prepare PMode, ax=%X,bx=%X,cx=%X,dx=%X,es:di=%X:%X,ds:si=%X:%X",lf>,ax,bx,cx,dx,es,di,ds,si
+	mov si,offset curGDT;ds:si = pointer to GDT   
+	mov di,offset curIDT;es:di = pointer to IDT
+	@stroutrm <"-int 68 Prepare PMode, ax=%X,bx=%X,cx=%X,dx=%X,es:di=%X:%X,ds:si=%X:%X",lf>,ax,bx,cx,dx,es,di,ds,si
 	int D386_RM_Int
+;--- function returns a pointer in es:edi for a function to call
 	mov dword ptr [dbgpminit+0],edi
 	mov word ptr [dbgpminit+4],es
-	@stroutrm <"int 68 ret, es:edi=%X:%lX,ds=%X",lf>,es,edi,ds
+	@stroutrm <"-int 68 ret, es:edi=%X:%lX,ds=%X",lf>,es,edi,ds
 	ret
 nokerneldebugger:
-	@stroutrm <"WDeb386 not active",lf>
+	@stroutrm <"-WDeb386 not active",lf>
 	mov ax,8B66h		;MOV AX,AX or MOV EAX,EAX
 	mov cl,0C0h
 	mov word ptr kdpatch1+0,ax
@@ -544,21 +526,22 @@ initdebugger_rm endp
 
 endif
 
-;*** kernel debugger init prot mode ***
-;--- DS=GROUP16, ES=FLAT
-
 _ITEXT32 segment
 
 if ?WDEB386
 
-initdebugger_pm proc 
+;*** kernel debugger init prot mode ***
+;--- DS=GROUP16, ES=FLAT
+
+initwdeb386_pm proc 
 	assume DS:GROUP16
 	test fDebug,FDEBUG_KDPRESENT
 	jz done
 	pushad
+;--- call wdeb386, tell it IDT address
 	mov edi,[pdIDT.dwBase]
 	mov al,PMINIT_INIT_IDT
-	@strout <"calling debugger pm proc,ax=%X,es:edi=%X:%lX",lf>,ax,es,edi
+	@strout <"call debugger pm proc,ax=%X,es:edi=%X:%lX (init IDT)",lf>,ax,es,edi
 	call fword ptr [dbgpminit]
 	mov ax,DS_DebLoaded
 	@strout <"int 41h call,ax=%X",lf>,ax
@@ -569,7 +552,7 @@ initdebugger_pm proc
 	popad
 done:
 	ret
-initdebugger_pm endp
+initwdeb386_pm endp
 
 endif        
 
@@ -612,6 +595,31 @@ else
 	cmp al,4			;dos 4+?
 	jb _ret2
 endif
+
+;--- set field dsSDA
+	push ds
+	mov ax,5D06h		;returns SDA in DS:SI
+	int 21h
+	mov ax,ds
+	pop ds
+	movzx eax,ax
+	shl eax,4
+	movzx ebx,si
+	add eax,ebx
+	mov [dwSDA],eax
+
+if ?DYNTLBALLOC
+;--- set field dsLoL
+	mov ah,52h			;get LoL
+	int 21h
+	xor eax,eax
+	mov ax,es
+	shl eax,4
+	movzx ebx,bx
+	add eax,ebx
+	mov [dwLoL],eax
+endif
+
 	call getcpu 		;get cpu type
 	mov ax,1687h		;get dpmi entry point (ES:DI)
 	int 2fh
@@ -793,7 +801,7 @@ if ?386SWAT
 	call initkd386swat2_rm
 endif
 if ?WDEB386
-	call initdebugger_rm	;modifies ax,bx,cx,dx!
+	call initdebugger_rm	;modifies ax,bx,cx,dx,si,di,es!
 endif
 
 ;--- now do call protected-mode the first time
@@ -833,7 +841,7 @@ _initsvr_pm proc
 	mov gs,eax
 	@strout <"#initsvr_pm: start, current rmStack: %X:%X",lf>, tskstate.rmSS, tskstate.rmSP
 if ?WDEB386
-	call initdebugger_pm
+	call initwdeb386_pm
 endif
 	@strout <"#initsvr_pm: call pm_createvm",lf>
 	call pm_createvm			;preserves all registers
@@ -918,9 +926,6 @@ _initsvr_rm2 proc
 	popf
 	jc nodosmem3
 
-	mov tskstate.rmSP, ?RMSTKSIZE	;used on next initial switch to pm
-	mov tskstate.rmSS, cs			;make sure the old value is not
-
 	@stroutrm <"-initsvr_rm2: back in real mode, ss:sp=%X:%X",lf>,ss,sp
 	mov al,EXIT_HDPMI_IN_VCPIMODE
 	test byte ptr [fHost], FH_VCPI
@@ -974,7 +979,7 @@ _initserver_rm proc
 	pushad
 	call _initsvr_rm		;returns with code in AL!
 	mov bp,sp
-	mov [bp+1Ch],ax
+	mov [bp].PUSHADS.rAX,ax
 	popad
 ;	pop di
 ;	pop si
@@ -1049,60 +1054,67 @@ text41  db "%.EXE open error",0
 text42  db "%.EXE read error",0
 endif
 ife ?STUB
-error4	db "% v",?VERMAJOR+'0',".",@CatStr(!",%?VERMINOR/10,%?VERMINOR mod 10,!")," (c) japheth 1993-2009",cr,lf
+error4	db "% v",?VERMAJOR+'0',".",@CatStr(!",%?VERMINOR/10,%?VERMINOR mod 10,!")," (c) japheth 1993-2018"
+ifdef _DEBUG
+	db @CatStr(!" [, %@Date, <, >, %@Time,  ]!")
+endif
+	db lf
 ?OPTIONS textequ <" [ -options ]">
-		db "usage: %",?OPTIONS,lf
+	db "usage: %",?OPTIONS,lf
  if ?VM
-		db "  -a: run clients in separate address contexts [32]",lf
+	db "  -a: run clients in separate address contexts [32]",lf
  endif
 if ?RESIDENT
  if ?TLBLATE
-		db "  -b: keep TLB only while a client is running",lf
+	db "  -b: keep TLB only while a client is running",lf
  endif
  if ?SUPPDISABLE
-		db "  -d: disable a running instance of %",lf
-		db "  -e: reenable a disabled instance of %",lf
+	db "  -d: disable a running instance of %",lf
+	db "  -e: reenable a disabled instance of %",lf
  endif
 endif
 if ?NOINVLPG
-		db "  -g: don't use INVLPG opcode",lf
+	db "  -g: don't use INVLPG opcode",lf
 endif
-		db "  -i: hide host's IVT hooks for IRQ 0-15 [1]",lf
+	db "  -i: hide host's IVT hooks for IRQ 0-15 [1]",lf
 if ?FORCETEXTMODE
-		db "  -k: ensure a text mode is set for host's displays",lf
+	db "  -k: ensure a text mode is set for host's displays",lf
 endif
-		db "  -l: allocate TLB in low DOS memory [8]",lf
-		db "  -m: disable DPMI 1.0 memory functions [1024]",lf
+	db "  -l: allocate TLB in low DOS memory [8]",lf
+	db "  -m: disable DPMI 1.0 memory functions [1024]",lf
 if ?MEMBUFF
-		db "  -n: report a smaller amount of free physical pages",lf
+	db "  -n: report a smaller amount of free physical pages",lf
 endif
 if ?LOADHIGH
-		db "  -p: move resident part of % to upper memory",lf
+	db "  -p: move resident part of % to upper memory",lf
 endif
 if ?RESIDENT
-		db "  -r: install as TSR permanently. Without this option %",lf
-		db "      remains installed until the next client terminates.",lf
+	db "  -r: install as TSR permanently. Without this option %",lf
+	db "      remains installed until the next client terminates.",lf
 endif
-		db "  -s: 'safe' mode. Prohibits client to modify system tables [4096]",lf
+	db "  -s: 'safe' mode. Prohibits client to modify system tables [4096]",lf
 if ?CR0_NE
-		db "  -t: don't touch CR0 NE bit [32768]",lf
+	db "  -t: don't touch CR0 NE bit [32768]",lf
 endif
 if ?RESIDENT
-		db "  -u: uninstall a running instance of %",lf
+	db "  -u: uninstall a running instance of %",lf
 endif
 if ?VCPIPREF
-		db "  -v: use VCPI memory if both XMS and VCPI hosts were detected",lf
+	db "  -v: use VCPI memory if both XMS and VCPI hosts were detected",lf
 endif
 if ?CR0_EM
-		db "  -w: don't clear CR0 EM bit",lf
+	db "  -w: don't clear CR0 EM bit",lf
 endif
 if ?RESTRICTMEM
-		db "  -x: restrict reported free memory to 256MB",lf
+	db "  -x: restrict reported free memory to 256MB",lf
 endif
 if ?INT15XMS
-		db "  -y: use extended memory not managed by XMS host",lf
+	db "  -y: use extended memory not managed by XMS host",lf
 endif
-		db 0
+ifdef _DEBUG
+	db "  -z: switch log file writes off/on",lf 
+endif
+	db 0
 endif
 
 if ?RESIDENT
@@ -1466,8 +1478,11 @@ endif
 	mov v86iret.rCS, ax	;GROUP16
 	mov v86iret.rSS, ax	;GROUP16
 	mov wHostSeg, ax	;GROUP16
+if ?MOVEHIGHHLP
 	mov wPatchDgrp1, ax	;GROUP16
+endif
 	mov wPatchDgrp2, ax	;GROUP16
+	mov wPatchDgrp3, ax	;GROUP16
 ife ?DELAYLOAD
 	mov dx, offset endof16bit
 	shr dx, 4
@@ -1518,17 +1533,17 @@ nextopt:
 	jnz nextopt
 else
 	push offset nextchar
-if ?NOINVLPG
+ if ?NOINVLPG
 	cmp al,'g'
 	jz noinvlpg
-endif
+ endif
 	cmp al,'i'
 	jz hideivthooks
 	cmp al,'m'
 	jz ismem10disable
 	cmp al,'l'
 	jz tlbinlowdos
-if ?RESIDENT
+ if ?RESIDENT
 	cmp al,'r'
 	jz isresident
 	cmp al,'u'
@@ -1543,45 +1558,49 @@ if ?RESIDENT
 	cmp al,'b'
 	jz tlblate
   endif
-endif
-if ?LOADHIGH
+ endif
+ if ?LOADHIGH
 	cmp al,'p'
 	jz loadhigh
-endif
+ endif
 	cmp al,'s'
 	jz safemode
-if ?CR0_NE
+ if ?CR0_NE
 	cmp al,'t'
 	jz disablene
-endif
-if ?VM
+ endif
+ if ?VM
 	cmp al,'a'
 	jz vmsupp
-endif
-if ?VCPIPREF
+ endif
+ if ?VCPIPREF
 	cmp al,'v'
 	jz vcpipref
-endif
-if ?CR0_EM
+ endif
+ if ?CR0_EM
 	cmp al,'w'
 	jz disableem
-endif
-if ?RESTRICTMEM
+ endif
+ if ?RESTRICTMEM
 	cmp al,'x'
 	jz restrictmem
-endif
-if ?INT15XMS
+ endif
+ if ?INT15XMS
 	cmp al,'y'
 	jz int15xms
-endif
-if ?MEMBUFF
+ endif
+ if ?MEMBUFF
 	cmp al,'n'
 	jz membuff
-endif
-if ?FORCETEXTMODE
+ endif
+ if ?FORCETEXTMODE
 	cmp al,'k'
 	jz setforcetext
-endif
+ endif
+ ifdef _DEBUG
+	cmp al,'z'
+	jz switchlog
+ endif
 endif
 	jmp ishelp
 
@@ -1642,6 +1661,9 @@ endif
 if ?INT15XMS
 	@OPTENTRY 'y', int15xms
 endif
+ifdef _DEBUG
+	@OPTENTRY 'z', switchlog
+endif
 	db -1
 endif
 
@@ -1692,6 +1714,17 @@ endif
 safemode:
 	or bEnvFlags2, ENVF2_SYSPROT
 	retn
+ifdef _DEBUG
+switchlog:
+	call IsHDPMIRunning
+	jc @F
+	mov es, ax					;set ES to running instance
+	assume es:GROUP16
+	xor es:fMode2,FM2_NOLOG
+@@:
+	xor fMode2, FM2_NOLOG
+	retn
+endif
 if ?RESIDENT
 isresident:
 	call IsHDPMIRunning
@@ -1738,7 +1771,7 @@ isuninstall:
 	assume es:GROUP16
 if _LTRACE_
 	movzx ax,es:[cApps]
-	@stroutrm <"currently active clients %X",lf>,ax
+	@stroutrm <"-hdpmi found at %X, currently active clients %X (psp=%X)",lf>, es, ax, es:wPSPSegm
 endif
 	cmp byte ptr es:[cApps],0
 	mov dx,offset error2
@@ -1768,21 +1801,21 @@ else
 	push ds				;just use GROUP16 for RMS here!
 	pop es				;this should still work for all cases
 endif
-	@stroutrm <"launching a client to terminate HDPMI, RMS=%X",lf>,es
+	@stroutrm <"launching a client to terminate HDPMI, client seg=%X",lf>,es
 	assume es:nothing
 	mov ax,?32BIT
 	call dword ptr [bp]
-;	mov dx,offset error8	;memory error (doesn't matter, HDPMI	
+;	mov dx,offset error8	;memory error (doesn't matter, HDPMI   
 ;	jc errorexit			;should be uninstalled nevertheless)
 	mov edx,offset error3	;'HDPMI uninstalled'
 	call display_string
-	mov ax,4c00h				;return with rc=00
+	mov ax,4c00h			;return with rc=00
 	int 21h
 endif ;?RESIDENT
 
 ishelp:
-	mov dx,offset error4		;HDPMI version
-errorexit:						;<--- error 
+	mov dx,offset error4	;HDPMI version
+errorexit:					;<--- error 
 	call display_string
 @@:
 	mov ax,4C00h + EXIT_CMDLINE_INVALID
@@ -1792,6 +1825,7 @@ endif	;?STUB
 
 scanok:
 	call _initserver_rm
+
 if ?STUB
 ;--- return resident size (paragraphs) in DX
 	call getendpara
@@ -1813,6 +1847,10 @@ else
 ;--- 1 may be used for displays.
 
 	mov es,wHostPSP
+
+	mov tskstate.rmSP, 100h	;used on next initial switch to pm;
+	mov tskstate.rmSS, es	;the current stack isnt valid anymore
+
 	assume es:SEG16
 	mov bx,2
 @@:

@@ -89,6 +89,10 @@ endif
 
 _$putchrx proc
 
+ifdef _DEBUG
+	test cs:fMode2,FM2_NOLOG
+	jnz _ret
+endif
 if ?USEDEBUGOUTPUT
 	test cs:fDebug,FDEBUG_OUTPFORKD
 	jz @F
@@ -102,9 +106,41 @@ endif
 if ?DOSOUTPUT
 	push dx
 	push ax
+	push ebx
+
+	mov ebx,cs:[dwSDA]
+	and ebx,ebx		;not set yet?
+	jz ok
+	push ds
+	push bx
+	shr ebx,4
+	mov ds,bx
+	pop bx
+	and bx,0fh
+	cmp byte ptr [bx].DOSSDA.bInDOS,0
+	pop ds
+	jz ok
+	cmp al,10
+	jnz @F
+	mov al,13
+	int 29h
+	mov al,10
+@@:
+	int 29h
+	jmp done
+ok:
+	cmp al,10
+	jnz @F
+	mov dl,13
+	mov ah,2
+	int 21h
+	mov al,10
+@@:
 	mov dl,al
 	mov ah,2
 	int 21h
+done:
+	pop ebx
 	pop ax
 	pop dx
 else
@@ -158,9 +194,15 @@ char equ [bp-6]
 @@:
   endif
 	mov al,byte ptr char
-
 	cmp al,cr
-	jnz ppch21
+	jz @F
+	cmp al,lf
+	jnz ppch1
+;--- locate cursor one line below
+	add bx,cx
+	add bx,cx
+@@:
+;--- locate cursor to start of line
 	mov ax,bx
 	shr ax,1
 	div cl
@@ -168,12 +210,6 @@ char equ [bp-6]
 	xor ah,ah
 	add ax,ax
 	sub bx,ax
-	jmp ppch3
-ppch21:
-	cmp al,lf
-	jnz ppch1
-	add bx,cx
-	add bx,cx
 	jmp ppch3
 ppch1:
 	mov es:[bx+si],al
@@ -198,11 +234,13 @@ ppch4:
 	mov ah,00
 	mov ch,00
 	invoke _$VioSetCurPosDir,cx,ax
+done:
 	pop es
 	pop ds
 	mov sp,bp
 	popa
 endif	;?DOSOUTPUT
+_ret:
 	ret
 
 ife ?DOSOUTPUT
@@ -265,12 +303,6 @@ nextitem:
 	jz done
 	cmp al,'%'
 	jz format
-	cmp al,lf
-	jnz @F
-	mov al,13
-	call _$putchrx
-	mov al,lf
-@@:
 	call _$putchrx
 	jmp nextitem
 done:

@@ -22,9 +22,9 @@ endif
 
 _TEXT32  segment
 
-		assume ds:GROUP16
+	assume ds:GROUP16
 
-		@ResetTrace
+	@ResetTrace
 
 ;--- what's done?
 ;--- 1. alloc 1 page for PM breaks
@@ -40,100 +40,100 @@ _TEXT32  segment
 
 _movehigh_pm proc public
 
-		pushad
-		@strout	<"#movehigh_pm enter, bEnvFlags=%X",lf>, <word ptr bEnvFlags>
+	pushad
+	@strout <"#movehigh_pm enter, bEnvFlags=%X",lf>, <word ptr bEnvFlags>
 if ?DYNBREAKTAB
-		mov ebp,offset _AllocSysPages
-		test bEnvFlags2, ENVF2_SYSPROT
-		jz @F
-		mov ebp,offset _AllocSysPagesRo
+	mov ebp,offset _AllocSysPages
+	test bEnvFlags2, ENVF2_SYSPROT
+	jz @F
+	mov ebp,offset _AllocSysPagesRo
 @@:
-		mov ecx,1		;alloc PM BREAK table
-		call ebp			;doesnt modify ES
-		jc error
-		mov edi,eax
-		@strout <"#switch: setting pm breakpoint descriptor (%lX)",lf>,eax
-		mov edx, pdGDT.dwBase
-		mov ecx, _INTSEL_
-		and cl,0F8h
-		add edx, ecx
-		mov es:[edx].DESCRPTR.A0015,ax
-		shr eax,16
-		mov es:[edx].DESCRPTR.A1623,al
-		mov es:[edx].DESCRPTR.A2431,ah
-		push edi
-		mov ax,30CDh
-		mov ecx,_MAXCB_
-		cld
-		rep stosw
-		pop edi
+	mov ecx,1		;alloc PM BREAK table
+	call ebp		;doesnt modify ES
+	jc error
+	mov edi,eax
+	@strout <"#movehigh_pm: setting pm breakpoint descriptor (%lX)",lf>,eax
+	mov edx, pdGDT.dwBase
+	mov ecx, _INTSEL_
+	and cl,0F8h
+	add edx, ecx
+	mov es:[edx].DESCRPTR.A0015,ax
+	shr eax,16
+	mov es:[edx].DESCRPTR.A1623,al
+	mov es:[edx].DESCRPTR.A2431,ah
+	push edi
+	mov ax,30CDh
+	mov ecx,_MAXCB_
+	cld
+	rep stosw
+	pop edi
 
 if ?MOVEGDT
-		test bEnvFlags2, ENVF2_LDTLOW
-		jnz nogdtmove
-		push edi
+	test bEnvFlags2, ENVF2_LDTLOW
+	jnz nogdtmove
+	push edi
 if ?IDTPAGE
-		lea edi, [edi+800h]
-		mov dx,7FFh
+	lea edi, [edi+800h]
+	mov dx,7FFh
 else
-		lea edi, [edi+400h]
-		mov dx,3FFh
+	lea edi, [edi+400h]
+	mov dx,3FFh
 endif
-		mov esi, pdGDT.dwBase
-		@strout <"#switch: move GDT to %lX, src=%lX",lf>, edi, esi
-		mov pdGDT.dwBase,edi
-		lea eax, [edi+_TSSSEL_]
-		sub eax, [dwHostBase]
-		mov [dwTSSdesc],eax		;update TSS descriptor linear address
-	if ?KDSUPP
-		mov eax, edi
-		lea ecx, [esi + _GDTSEL_]
-		mov es:[ecx].DESCRPTR.limit,dx
-		mov es:[ecx].DESCRPTR.A0015,ax
-		shr eax,16
-		mov es:[ecx].DESCRPTR.A1623,al
-		mov es:[ecx].DESCRPTR.A2431,ah
-	endif
-		movzx ecx, pdGDT.wLimit
-		mov pdGDT.wLimit,dx			;set new limit for GDT
-		inc ecx
-		push es
-		pop ds
-		rep movsb
-		push ss
-		pop ds
-		lgdt pdGDT
-		pop edi
-	if 0;
-		push ds
-		pop es
-		mov edi, offset curGDT		;clear current GDT with -1
-		movzx ecx, pdGDT.wLimit		;(not needed, since it isn't resident)
-		inc ecx
-		mov al,-1
-		rep stosb
-	endif
+	mov esi, pdGDT.dwBase
+	@strout <"#movehigh_pm: move GDT to %lX, src=%lX",lf>, edi, esi
+	mov pdGDT.dwBase,edi
+	lea eax, [edi+_TSSSEL_]
+	sub eax, [dwHostBase]
+	mov [dwTSSdesc],eax		;update TSS descriptor linear address
+  if ?KDSUPP
+	mov eax, edi
+	lea ecx, [esi + _GDTSEL_]
+	mov es:[ecx].DESCRPTR.limit,dx
+	mov es:[ecx].DESCRPTR.A0015,ax
+	shr eax,16
+	mov es:[ecx].DESCRPTR.A1623,al
+	mov es:[ecx].DESCRPTR.A2431,ah
+  endif
+	movzx ecx, pdGDT.wLimit
+	mov pdGDT.wLimit,dx			;set new limit for GDT
+	inc ecx
+	push es
+	pop ds
+	rep movsb
+	push ss
+	pop ds
+	lgdt pdGDT
+	pop edi
+  if 0
+	push ds
+	pop es
+	mov edi, offset curGDT		;clear current GDT with -1
+	movzx ecx, pdGDT.wLimit		;(not needed, since it isn't resident)
+	inc ecx
+	mov al,-1
+	rep stosb
+  endif
 
 nogdtmove:
 endif
 
 if ?MOVEIDT
-		mov ecx,1
+	mov ecx,1
   if ?USERIDT
-		test bEnvFlags2, ENVF2_LDTLOW
-		jz @F
-		call _AllocUserPages			;alloc page for IDT
-		jc error
-		mov edi, eax
-		jmp alloc_done
+	test bEnvFlags2, ENVF2_LDTLOW
+	jz @F
+	call _AllocUserPages			;alloc page for IDT
+	jc error
+	mov edi, eax
+	jmp alloc_done
 @@:
   endif
   if ?IDTPAGE
-		call ebp
-		jc error
-		mov edi, eax
+	call ebp
+	jc error
+	mov edi, eax
   else
-		add edi,800h
+	add edi,800h
   endif
 alloc_done:
 
@@ -141,71 +141,73 @@ alloc_done:
 
 if ?VM
 
-		mov pdIDT.dwBase,edi
-		test fMode, FM_CLONE
-		jz @F
-		call _getidtaddr
-		mov esi, 0FFBFD000h
-		add esi, eax
-		push es
-		pop ds
-		mov ecx, 800h/4
-		rep movsd
-		push ss
-		pop ds
-		@strout <"#switch: IDT copied, pdIDT=%X:%lX, pdGDT=%X:%lX",lf>, pdIDT.wLimit, pdIDT.dwBase, pdGDT.wLimit, pdGDT.dwBase
-if _LTRACE_
-		mov edi, pdIDT.dwBase
-endif
-		lidt pdIDT
-		jmp exit
+	mov pdIDT.dwBase, edi
+	test fMode, FM_CLONE
+	jz @F
+	call _getidtaddr
+	mov esi, 0FFBFD000h
+	add esi, eax
+	push es
+	pop ds
+	mov ecx, 800h/4
+	rep movsd
+	push ss
+	pop ds
+	@strout <"#movehigh_pm: IDT copied, pdIDT=%X:%lX, pdGDT=%X:%lX",lf>, pdIDT.wLimit, pdIDT.dwBase, pdGDT.wLimit, pdGDT.dwBase
+  if _LTRACE_
+	mov edi, pdIDT.dwBase
+  endif
+	lidt pdIDT
+	jmp exit
 @@:
-endif
-		mov esi, offset curIDT
-		mov ecx,78h * sizeof DESCRPTR/4
-		@strout <"#switch: copy IDT from %lX to %lX",lf>,esi, edi
-		rep movsd
+endif	;?VM
+	mov esi, offset curIDT
+
+;--- the predefined IDT contains just 78h entries
+	mov ecx,?PREDEFIDTGATES * sizeof DESCRPTR/4
+	@strout <"#movehigh_pm: copy IDT from GROUP16:%lX to %lX",lf>, esi, edi
+	rep movsd
 
 ;--- initialize the rest of the IDT
 
-		mov ax,_INTSEL_
-		shl eax, 16
-		mov ax, 78h*2
-		xor edx, edx
-		mov dh, _TGATE_ or ?PLVL
+	mov ax,_INTSEL_
+	shl eax, 16
+	mov ax, ?PREDEFIDTGATES * 2
+	xor edx, edx
+	mov dh, _TGATE_ or ?PLVL
 @@:
-		mov es:[edi+ecx*8+0],eax
-		mov es:[edi+ecx*8+4],edx
-		inc eax
-		inc eax
-		inc cl
-		cmp cl,88h
-		jnz @B
+	mov es:[edi+ecx*8+0],eax
+	mov es:[edi+ecx*8+4],edx
+	inc eax
+	inc eax
+	inc cl
+	cmp cl,100h - ?PREDEFIDTGATES
+	jnz @B
 
 idtcopied:
 
 ;--- the memory where the IDT was stored in conv memory will now be
 ;--- used as host stack. initialize it with "STAC"
 
-		lidt pdIDT
-		mov eax,"CATS"
-		mov ecx,esp
-		sub ecx,offset stacktop
-		shr ecx,2
-		mov edi,esp
+	lidt pdIDT
+	mov eax,"CATS"
+	mov ecx,esp
+	sub ecx,offset stacktop
+	shr ecx,2
+	mov edi,esp
 @@:
-		push eax
-		loop @B
-		mov esp,edi
+	push eax
+	loop @B
+	mov esp,edi
 endif
 
 endif
 exit:
-		@strout <"#movehigh_pm exit, esp=%lX",lf>, esp
-		clc
+	@strout <"#movehigh_pm exit, esp=%lX",lf>, esp
+	clc
 error:
-		popad
-		ret
+	popad
+	ret
 _movehigh_pm endp
 
 _TEXT32  ends

@@ -214,28 +214,28 @@ endif
 	mov ax, ?RMCBMOUSE
 	jz resetrm
 
-	bts [wStdRmCb], ax
+	bts [wIntRmCb], ax
 	mov ax, [wHostSeg]		  
 	mov dx,offset mouintrm
 	mov [v86iret.rES], ax
 	jmp setresetproc
 resetrm:
-	btr [wStdRmCb], ax
+	btr [wIntRmCb], ax
 	xor edx, edx
 	mov [v86iret.rES], dx
 setresetproc:
-	@strout <"I33: set real mode event proc to %X:%X, mask=%X [stdrmcbbits=%lX]",lf>,v86iret.rES,dx,cx,\
-			<dword ptr wStdRmCb>
+	@strout <"I33: set real mode event proc to %X:%X, mask=%X [wIntRmCb=%lX]",lf>,v86iret.rES,dx,cx,\
+			<dword ptr wIntRmCb>
 	mov ax,0014h			;instead of set -> xchg
 	@simrmint 33h
 	@strout <"I33: previous values es:dx=%X:%X, cx=%X",lf>,v86iret.rES,dx,cx
 	bts dword ptr [fMouse], MF_RMEVTSETB
 	jc exit
 	mov ax,[v86iret.rES]
-	@strout <"I33: original values (%X:%X, %X) stored in STDRMCB",lf>, ax, dx, cx
+	@strout <"I33: original values (%X:%X, %X) stored in INTRMCB",lf>, ax, dx, cx
 	mov [oldrmmask],cx
-	mov word ptr [stdrmcbs + ?RMCBMOUSE * sizeof STDRMCB].rm_vec+0,dx
-	mov word ptr [stdrmcbs + ?RMCBMOUSE * sizeof STDRMCB].rm_vec+2,ax
+	mov word ptr [intrmcbs + ?RMCBMOUSE * sizeof INTRMCB].rm_vec+0,dx
+	mov word ptr [intrmcbs + ?RMCBMOUSE * sizeof INTRMCB].rm_vec+2,ax
 exit:
 	popad
 	ret
@@ -291,8 +291,8 @@ mouse33_exit proc
 ;	@strout <"I33: mouse33_exit enter, ss=%lX ds=%lX es=%lX",lf>, ss, ds, es
 	btr dword ptr [fMouse], MF_RMEVTSETB
 	jnc @F
-	mov ax,word ptr [stdrmcbs + ?RMCBMOUSE * sizeof STDRMCB].rm_vec+2
-	mov dx,word ptr [stdrmcbs + ?RMCBMOUSE * sizeof STDRMCB].rm_vec+0
+	mov ax,word ptr [intrmcbs + ?RMCBMOUSE * sizeof INTRMCB].rm_vec+2
+	mov dx,word ptr [intrmcbs + ?RMCBMOUSE * sizeof INTRMCB].rm_vec+0
 	mov [v86iret.rES],ax
 	mov cx,[oldrmmask]
 	@strout <"I33: int 33, ax=0014, es:dx=%X:%X cx=%X",lf>,ax,dx,cx
@@ -314,12 +314,18 @@ _TEXT16 segment
 ;--- int 33h mouse event proc real-mode
 ;--- in Win9x and DPMIONE the event proc is called with ints enabled!
 
+intrmcb_rm proto near
+
 mouintrm proc
 	@stroutrm <"I33 mouse event in rm, ss:sp=%X:%X",lf>,ss,sp
 ;--- create an IRET frame
 	pushf
 	push cs
-	call meventr
+	push bp
+	mov bp,sp
+	add byte ptr [bp+2],?RMCBMOUSE
+	pop bp
+	call intrmcb_rm
 	@stroutrm <"I33 exit from mouse event in rm, ss:sp=%X:%X",lf>,ss,sp
 	retf
 mouintrm endp

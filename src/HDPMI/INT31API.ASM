@@ -45,7 +45,7 @@ endif
 intr31 endp
 
 intr31_ proc public
-	@strout <"i31 enter a-d=%X %lX %lX %lX esi=%lX edi=%lX",lf>,ax,ebx,ecx,edx,esi,edi
+	@strout <"i31 enter a-d=%X %lX %lX %lX esi=%lX edi=%lX hs=%lX",lf>,ax,ebx,ecx,edx,esi,edi,esp
 ;	@waitesckey
 
 if ?LOGINT31
@@ -294,41 +294,41 @@ I31FR2 ends
 ;--- dos memory functions
 
 func01:
-		push offset jmpvector1
-		jmp func_01_03_05_0B
-		align 4
+	push offset jmpvector1
+	jmp func_01_03_05_0B
+	align 4
 
 ;--- mode switch functions
 
 func03:
-		push offset jmpvector3
-		jmp func_01_03_05_0B
-		align 4
+	push offset jmpvector3
+	jmp func_01_03_05_0B
+	align 4
 
 ;--- watchpoint functions
 
 func0B:
-		push offset jmpvectorB
-		jmp func_01_03_05_0B
-		align 4
+	push offset jmpvectorB
+	jmp func_01_03_05_0B
+	align 4
 
 ;--- extended memory functions
 
 func05:
-		push offset jmpvector5
-;		push byte ptr _FLATSEL_
-;		pop ds
+	push offset jmpvector5
+;	push byte ptr _FLATSEL_
+;	pop ds
 func_01_03_05_0B:
-		movzx ebx, al
-		shl ebx, 2
-		add ebx, [esp].I31FR2.dwJumpVec
-		mov ebx, cs:[ebx]
-		mov [esp].I31FR2.dwJumpVec, ebx
-		mov ebx, [esp].I31FR2.dwEbx
-		retn 4
-		align 4
+	movzx ebx, al
+	shl ebx, 2
+	add ebx, [esp].I31FR2.dwJumpVec
+	mov ebx, cs:[ebx]
+	mov [esp].I31FR2.dwJumpVec, ebx
+	mov ebx, [esp].I31FR2.dwEbx
+	retn 4
+	align 4
 
-		@ResetTrace
+	@ResetTrace
 
 HF_32BIT	equ 1	;running under a 32-bit implementation
 HF_INTINRM	equ 2	;ints reflected to real-mode
@@ -336,21 +336,21 @@ HF_VIRTMEM	equ 4	;virtual memory supported
 
 
 func04:
-		pop ebx
+	pop ebx
 if ?DPMI10
-		and al,al
-		jnz func0401
+	and al,al
+	jnz func0401
 endif
-		mov ax,ss:[wVersion] 
-		mov bx,HF_32BIT
-		test ss:[fHost], FH_VCPI
-		jnz @F
-		or bl,HF_INTINRM
+	mov ax,ss:[wVersion] 
+	mov bx,HF_32BIT
+	test ss:[fHost], FH_VCPI
+	jnz @F
+	or bl,HF_INTINRM
 @@:
-		mov cl,ss:[_cpu]			;CPU=80386/80486
-		mov dx,?MPICBASE*100h+?SPICBASE  ;PIC bases
-		ret
-		align 4
+	mov cl,ss:[_cpu]			;CPU=80386/80486
+	mov dx,?MPICBASE*100h+?SPICBASE  ;PIC bases
+	ret
+	align 4
 
 if ?DPMI10
 
@@ -364,10 +364,10 @@ DPMI10_WRITEPROTHOST	equ 64	;host cannot modify r/o pages
 
 if ?EXCRESTART
 HOSTCAPS equ DPMI10_PAGE_ACCDIRTY + DPMI10_EXCRESTART + \
-		DPMI10_DEVICEMAPPING + DPMI10_CONVMEMMAPPING + DPMI10_WRITEPROTCLIENT
+	DPMI10_DEVICEMAPPING + DPMI10_CONVMEMMAPPING + DPMI10_WRITEPROTCLIENT
 else
 HOSTCAPS equ DPMI10_PAGE_ACCDIRTY + DPMI10_DEVICEMAPPING + \
-		DPMI10_CONVMEMMAPPING + DPMI10_WRITEPROTCLIENT
+	DPMI10_CONVMEMMAPPING + DPMI10_WRITEPROTCLIENT
 endif
 
 dpmi10str	db ?VERMAJOR,?VERMINOR,"HDPMI",0
