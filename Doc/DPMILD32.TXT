@@ -1,0 +1,976 @@
+///////////////////////////////////////////////////////////////////////////////
+/                                                                             /
+/               DPMILD32 - PE binary Loader                                   /
+/                                                                             /
+///////////////////////////////////////////////////////////////////////////////
+
+ 0.   Contents
+
+      1.  Introduction
+      2.  Requirements
+      3.  Starting DPMILD32 from the Command-Line
+      4.  Environment variable DPMILDR
+      5.  Win32 API Emulation
+      6.  Memory Model
+      7.  Loader API
+      8.  PX executables
+      9.  Support for NE binaries
+     10.  Debugging Support
+     11.  Returncodes
+     12.  Error Messages
+     13.  Restrictions
+     14.  History
+     15.  Copyright
+
+
+ 1.  Introduction
+
+     DPMILD32 is HX's PE loader. Both types of binaries, applications and
+     dlls are supported, and dlls may be loaded statically or dynamically.
+     HX's Win32 emulation is based on the functions DPMILD32 supplies and
+     won't work without it.
+
+     Although DPMILD32.EXE is a DOS MZ-executable and can be started
+     by simply typing its name in the command line, it usually is invoked
+     automatically. This is done either with the help of HXLdr32, a DOS
+     TSR, or by a stub (DPMIST32.BIN) which has been added to the PE binary.
+
+     DPMILD32 will search for the binary to load (.EXE extension may be
+     omitted) in the current directory and then in all directories of the
+     PATH environment variable.
+
+     One of DPMILD32's first tasks is to check if a DPMI host is active.
+     If this is not the case, it will try to silently start HDPMI32.EXE,
+     which will be found only if it is located in the same directory as
+     DPMILD32.EXE.
+
+     Besides PE binaries DPMILD32 also knows NE binaries, but this is
+     rarely needed.
+
+
+ 2.  Requirements
+
+     þ DPMILD32 expects the DPMI host to implement Int 21h API translation. 
+       That's why it does not run with CWSDPMI.
+
+     þ Many Win32 applications are linked so they must be loaded at a 
+       fixed location in address space (usually 0x400000). This is a problem
+       for most DPMI hosts. The DPMI V0.9 API has no function to allocate
+       memory with a given base address, it was introduced in the DPMI V1.0
+       specifications (Int 31h, AX=0504h [allocate committed/uncommitted
+       linear memory]). Some V0.9 hosts have this function implemented, but
+       in practice they often fail. That's why DPMILD32 will need HDPMI or
+       DOSEMU as underlying hosts to successfully load such binaries.
+
+     þ To support files with long names (LFN) the underlying DPMI host
+       must supply API translation for LFN (when running in a Windows NT/XP
+       DOS box, the loader's LFN support is disabled).
+
+
+ 3.  Starting DPMILD32 from the Command-Line
+
+     If DPMILD32 is launched manually, the syntax is as follows:
+
+       DPMILD32 [ options ] name_of_binary_to_load
+
+     valid options are:
+       - g = instructs DPMILD32 to load a console application as if it is
+             a GUI application, that is, it will try to load HXGUIHLP.DLL
+             before the application's entry point is called.
+
+
+ 4.  Environment variable DPMILDR
+
+     By setting environment variable DPMILDR one can control some aspects
+     of the loader's behaviour. The variable is a number whose individual bits
+     are interpreted as follows:
+
+     - bit 0 (DPMILDR=1): forces a breakpoint at program entry point. If no
+       debugger is present, this switch has no effect.
+
+     - bit 1 (DPMILDR=2): prevents the loader from moving itself into extended
+       memory. It remains in conventional DOS memory after switching to
+       protected mode. 
+
+     - bit 2 (DPMILDR=4): disables support for loading 32-Bit NE applications.
+
+     - bit 3 (DPMILDR=8): prevents loader from trying to run another
+       application in the current DPMI client. Instead the int 21h, ax=4B00h
+       call is routed to the next handler in the chain. This is useful if
+       the applications to run cannot share the client, which is mostly the
+       case for Win32 applications where the relocation information has 
+       been stripped from the binary. To make this finally work as expected,
+       it must be ensured that the DPMI host will run clients in separate
+       address spaces (see HDPMI docs for details).
+
+     - bit 4 (DPMILDR=16): don't protect read-only sections. Without this
+       option set DPMILDR will try to
+         a) protect all read-only sections and to
+         b) uncommit memory belonging to discardable sections.
+       This will only succeed if the DPMI host supports DPMI function 0507h.
+       There exist some apps written with WDOSX dos extender which write
+       to sections marked as readonly, thus causing a GPF with DPMILD32
+       if running on a DPMI 1.0 host. To avoid this use this switch.
+
+     - bit 5 (DPMILDR=32): don't use any DPMI 1.0 function. This option
+       is automatically set for Windows NT/2k/XP because of the very
+       buggy DPMI support (DOSX.EXE) on these systems.               
+
+     - bit 6 (DPMILDR=64): ignore SEM_NOOPENFILEERRORBOX flag. With this
+       setting the loader will display errors during module loads in any
+       case.
+
+     - bit 7 (DPMILDR=128): ignore unresolved imports. With this
+       setting the loader will continue to load and execute a binary even
+       if an unresolved import has been detected. If such an import is 
+       called, however, an error message is displayed and the application
+       will exit.
+
+     - bit 8 (DPMILDR=256): try to load NE debug dll DEBUGO32.DLL
+       at startup. This is mainly for compatibility with older versions,
+       where the loader has tried to load this dll unconditionally.
+       
+     - bit 9 (DPMILDR=512): <not used currently>
+
+     - bit 10 (DPMILDR=1024): try to load dlls at their prefered load
+       address. Usually the memory block for a dll's image is allocated
+       without a given linear address. This option has no effect if dpmi
+       host doesn't support function int 31h, ax=504h.
+
+     - bit 11 (DPMILDR=2048): alloc 32-bit flat data selector as "expand
+       down". This will provide memory access protection for linear address 
+       range 0-3FFh. This is intended for debugging purposes to catch NULL
+       pointer usage.
+
+       *** Warning: the MS Windows 9x DPMI hosts will get confused by 
+       *** "expand down" data segments and cause a GPF. Other hosts may 
+       *** also have problems. Compatible are: HDPMI, DOSEMU, DPMIONE.
+       *** WinXP SR2 fails, but previous versions work.
+
+     - bit 12 (DPMILDR=4096): restrict size of stack to be allocated to
+       128 kB. This usually is enough and may allow some PE apps to be run
+       on systems with little memory, because DPMILD32 will allocate the
+       stack as committed memory. If HDPMI is used, setting HDPMI=2 will
+       add DOS memory to the memory pool, so with these 2 settings it may
+       be possible to run some PE binaries on 2 MB machines ;-).
+
+     - bit 13 (DPMILDR=8192): allow Win32 GUI apps to be loaded when
+       running in a Windows DOS box. Usually DPMILD32 refuses to load
+       such applications when running in this environment, because this 
+       allows to launch Win32 GUI apps from DPMI applications.
+
+
+ 5.  Win32 API Emulation
+
+     During the load process some imported dlls will be "replaced"
+     by DPMI compatible versions. These are:
+
+     KERNEL32.DLL ->  DKRNL32.DLL
+     ADVAPI32.DLL ->  DADVAPI.DLL
+     USER32.DLL   ->  DUSER32.DLL
+     GDI32.DLL    ->  DGDI32.DLL
+     DDRAW.DLL    ->  DDDRAW.DLL
+
+     This feature allows dual-mode applications. Such apps run as normal Win32
+     apps in Win32 environments and will run as DPMI clients in non-Win32
+     environments. 
+
+     Please note that some exports supplied by DKRNL32.DLL, such as 
+     CreateProcess, LoadLibrary, FreeLibrary, GetProcAddress, GetModuleHandle
+     or GetModuleFileName are just thin wrappers around the loader's int 21h
+     API. This means that DKRNL32 can only work in conjunction with DPMILD32,
+     other PE loaders won't do the job. 
+
+
+ 6.  Memory Model
+
+     As in Win32, PE binaries loaded by DPMILD32 execute in a flat, zero
+     based environment with a 4 GB 32-bit code selector in CS and a 4 GB
+     32-bit data selector in SS, DS and ES. FS and GS are not used, they
+     should have been initialized to ZERO by the DPMI host. 
+
+      Processes in a Win32 environment execute in separate address spaces.
+     For PE applications loaded with DPMILD32 this is not true. In fact,
+     DPMILD32 has no means to support several address spaces. There 
+     exist 2 workarounds:
+
+     - set DPMILDR=8: as described below this may result in each PE   
+       application having its own copy of DPMILD32 and HDPMI32, so in fact
+       running in a privately owned address space. Will most likely work
+       with HDPMI only.
+     - use loader API Int 21h, ax=4B92: this is a simple way to ensure
+       that each application has its own copies of dlls loaded. There is
+       one address space for all apps, but if they behave well this should
+       be no problem. However, running several applications in one address
+       space most likely requires relocation information not being stripped
+       from the binaries.
+
+     DPMILD32 will always allocate the application's stack as committed
+     memory, since there exists no "Guard Page" mechanism in DPMI. This may
+     cause binaries defining a very large 'reserved' stack to run out of
+     memory.
+
+
+ 7.  Loader API
+
+     DPMILD32 installs a simple API for loading PE/NE binaries.
+
+     þ Int 21h, AX=4B00h (LoadModule/LoadLibrary): Loads a PE/NE module
+       dynamically.
+       Input:
+         DS:EDX - must hold a far32 pointer to the name of the module to
+                  load
+         ES:EBX - if an application is to be loaded, these must hold a
+                  far32 pointer to a execute parameter block.
+       Output:
+         EAX - if a dll has been loaded returns the module handle
+               (or 0 if an error occured)
+         C - error
+
+       Applications will execute synchronously, like in standard DOS,
+       and a calling application will regain control when the loaded
+       application has terminated.
+       For dlls, the module handle returned in EAX is - for PE modules -
+       simply the address the image has been loaded to. If the dll was
+       a NE module, the module handle will be a selector containing
+       the NE module header and HIWORD(eax) will be zero.
+
+     þ Int 21h, AX=4B80h (FreeLibrary): Free a PE/NE module.
+       Input:
+         EDX - the handle of the module to free
+       Output:
+         EAX - 0 indicates a failure
+
+     þ Int 21h, AX=4B81h (GetProcAddress): Get the address of an export
+       in a PE dll. 
+       Input:
+         EBX - holds the module handle of the dll
+         EDX - holds the linear address of the export's name or - if
+               HIWORD(EDX) is zero - should contain the export's number 
+       Output:
+         EAX - the address of the export. EAX=0 will indicate a failure.
+         C - error
+
+     þ Int 21h, AX=4B82h (GetModuleHandle): Get the handle of a PE module.
+       Input:
+         EDX - holds the linear address of the name of the module.
+         May be NULL, in which case the module handle of the binary
+         attached to the current task is returned.
+       Output:
+         EAX - returns the module's handle. EAX=0 indicates a failure.
+         if EDX was 0 on entry the following information is also returned:
+          EDX - linear address of module's stack
+          ECX - linear address of start of module list
+         C - error
+
+     þ Int 21h, AX=4B83h: Get next PE module handle.
+       Input:
+         EDX - current module handle or 0 for the first module.
+       Output:
+         EAX - next module handle
+         ECX - module count
+         EDX - DPMI memory handle for this module
+         C - error
+
+     þ Int 21h, AX=4B84h (CallProc32W): Call 32-bit flat procedure from a
+       16-bit dll.
+       Input: 
+         EDX - holds the flat address of the proc to call
+
+     þ Int 21h, AX=4B85h (GetProcAddress16): Get the address of a procedure
+       in a 16-bit module.
+       Input: 
+         BX - holds the module handle
+         CL - determines the type of the export and how EDX is interpreted.
+              If CL=1, EDX is interpreted as a number. If CL=0, EDX is
+              interpreted as offset to a name. 
+         DS:EDX - points to name of procedure if CL=0.
+       Output:  
+         DX:AX - Address of procedure
+
+     þ Int 21h, AX=4B86h (GetModuleFileName): Get a pointer to a 
+       module's full path and file name.
+       Input:
+         EDX - holds module handle.
+       Output:
+         EAX - returns a linear address to the module's path.
+               Works for 16bit NE dlls as well.
+         C - error      
+
+     þ Int 21h, AX=4B87h (CallProc16): call a 16-bit proc from a 32-bit
+       module.
+       Input:
+         EDX - holds value for CS:IP to call
+          CX - holds number of WORD parameters to copy to the 16-bit
+               stack
+         EBX - linear address of pointer to the stack parameters.
+
+     þ Int 21h, AX=4B88h (GetModuleHandle16): Get the handle of a
+       16-bit NE module.
+       Input:
+         CL - determines the type of the module reference. If CL=0,
+              EDX is interpreted as an offset. If CL=1, EDX is
+              interpreted as a selector.
+         DS:(E)DX - must point to the name of the module if CL=0.
+       Output:  
+         AX - the module handle. AX=0 indicates a failure.
+         DX - holds the module handle of kernel
+
+     þ Int 21h, AX=4B91h: enable/disable loader. This feature may be
+       useful for DPMI applications, which want to start a true Win32
+       console application and so first have to prevent the loader from
+       trying to load it as DPMI client.
+       Input:
+         BL - contains new state (1=enable, 0=disable).
+
+     þ Int 21h, AX=4B92h: Set the start of the PE module list, which
+       is read with int 21h, ax=4b83h.
+       Input: 
+         EDX - the linear address of new start address.
+       Output:
+         EAX - the linear address of the previous start address 
+
+       Calling this service with edx=0 makes DPMILD32 load fresh copies
+       of already loaded dlls at next program load.
+
+     þ Int 21h, AX=4B93h (SetErrorMode): Set error mode flag
+       SEM_NOOPENFILEERRORBOX. During the initial load process
+       this flag is cleared, causing the loader to display error messages
+       if it encounts any problems. Just before the application is started
+       the loader will set this flag, thus suppressing any further messages.
+       With environment variable DPMILDR=64 this behaviour may be modified.
+       Input:
+         EDX - new flags.
+
+     þ Int 21h, AX=4B94h: Set new value of variable DPMILDR.
+       Input:
+         CX - mask for the bits to change
+         DX - new values for these bits
+       Output:  
+         AX - returns old value of the bits.
+
+     þ Int 21h, AX=4B95h: Set value of "system directory" path
+       Input:
+         EDX - linear address system directory path (or NULL)
+
+     Support of DOS4G consists of
+
+     þ Int 21h, AX=FF00h:
+       Input:
+         DX = 0078h
+       Output:
+         ES = PSP
+         EAX = 4734FFFFh
+
+     This API is available in protected mode only.
+
+
+ 8.  PX executables
+
+     If a PE executable uses non-Win32 compatible features (like software
+     interrupts 0x21/0x31 or in/out instructions), it should be ensured
+     that is is NOT loaded as Win32 app. For this the loader supports
+     "PX" files, which contain 'PX' as magic bytes instead of 'PE'.
+     To convert a PE binary to PX, just use tool PATCHPE.EXE after the link
+     step. A small catch is that modules modified this way won't be
+     recognized by PE tools anymore.
+
+
+ 9.  Support for NE binaries
+
+     The loader has built-in support for NE binaries. Usually this support
+     isn't needed at all and can be ignored. But on some very rare occasions
+     it may be advantageous to implement a dll in NE format. It doesn't 
+     need to be written in 16bit code, the NE format supports 32bit code
+     as well, although segment size is limited to 64 kB.
+       Besides dlls the loader will also accept 32bit NE applications.
+     This is a very special HX format and not recommended, because the
+     NE format doesn't allow an application to run in a true flat memory
+     model. But model tiny will work and is not too bad for small apps.
+     On program entry the following registers are set:
+
+     -  CS = code segment
+     -  DS, SS = DGROUP (usually has the same base as CS)
+     -  ES = PSP selector
+     -  GS = true flat descriptor
+     -  EBX = size of stack in bytes
+     -  ECX = size of heap in bytes
+
+     The application's type must be set to 6 (by tool patchNE), which will
+     be unknown to NE file dumpers. 
+
+
+10.  Debugging Support
+
+     DPMILD32 supports Int 41h in protected mode. That is, events such as
+     loading a dll, starting a task, loading a segment a.s.o are all
+     reported through calls to Int 41h with AX set appropriately. To force
+     a breakpoint at app start set environment variable "DPMILDR=1".
+
+
+11.  Returncodes
+
+     Usually DPMILD32 returns the returncode of the (last) program it
+     has executed. But there are several internal error conditions, which
+     are reported to the caller through the following return codes:
+
+     rc   comment                  possible reasons
+     -----------------------------------------------------------------
+     FB   loader init error        cannot switch CPU in protected mode
+          real mode                memory shrink error (in real mode)
+                                   no conventional memory available
+     FC   loader init error        no filename supplied
+          protected mode           file not found
+                                   no extended memory available
+                                   no conventional memory available
+                                   DOS API translation not available
+                                   no selectors available
+     FD   error in exception 0Bh   no more memory
+          (NE files only)          error in NE exe file
+     FE   application init error   imports couldn't be resolved
+                                   dll init returns with ax/eax=0
+     FF   fatalexit                application has called FatalExit or
+          (NE files only)          FatalAppExit
+
+     DPMILD32 always displays an error text to STDERR in these cases.
+
+
+12.  Error Messages
+
+     "relocs stripped, cannot load": relocation information is stripped
+                      from PE binary. It can only be loaded at prefered
+                      load address, which may be used already or DPMI
+                      host doesn't support function 0x504.
+     "out of memory": allocating memory for PE binary failed. Please note
+                      that DPMILD32 cannot commit stack memory dynamically
+                      by setting a GUARD page, it has to be fully allocated
+                      at load time.
+     "cannot create psp": most likely there is no more conventional DOS
+                      memory available.
+     "invalid PE format": there is a severe error in the PE binary. Try
+                      to relink it.
+     "cannot resolve imports": not all imports could be resolved. DPMILD32
+                      will display the missing imports in detail.
+     "dll init failed": dll entry code was called and returned with EAX != 1
+
+
+13.  Restrictions
+
+     The Loader loads the PE header in the first page of a module, but it
+     doesn't map the header as it is found in the image file. In fact, only
+     the IMAGE_NT_HEADERS structure and the object table are loaded, the 
+     rest is ignored. Usually this is no problem at all, but there exist
+     at least one linker which places strings in the header. Such strings
+     can be determined with a PE file dumper - the RVA of the string is
+     < 1000h. If these strings have to be used by the loader (for example,
+     if it is a name of an imported dll), the load process will fail!
+
+     Tool PEStub may be used to test if such restrictions are met by
+     a binary. Use "PEStub -r filename" and watch for warning messages.
+
+
+14.  History
+
+ 03.07.2018: version 3.9
+
+ þ bugfix: if option DPMILDR=8 was set, nested execution failed.
+ þ bugfix: when terminating, segment register SS was temporarily connected
+   to a 16-bit data descriptor, which may have caused problems if the ring
+   0 stackpointer was >= 0x10000.
+ þ linking the loader statically to a binary as a stub ( DPMILD32.BIN )
+   didn't work.
+
+ 27.05.2011: version 3.8
+
+ þ minor size reduction.
+ þ failure of DllMain is now assumed if EAX == 0. Previously it was
+   EAX != 1.
+
+ 16.11.2009: version 3.7
+
+ þ bugfix: int 21h, ax=4B81h (GetProcAddress32) didn't check if RVA of
+   export directory is NULL.
+ þ WLink is used as linker.
+
+ 20.01.2009: version 3.6
+
+ þ assembler switched to JWasm.
+ þ int 21h, ax=4B82h (GetModuleHandle) now checks the full path if
+   a full path is given.
+
+ 01.03.2008: version 3.5
+
+ þ bugfix: the stub version (HDLD32.BIN) did release too much DOS
+   memory, resulting in corruption of the DPMI host's memory image.
+ þ bugfix: the bottom stack page was not always discarded (when running
+   on a DPMI v1.0 host).
+ þ the reserved stack space of PE binaries is still increased by 64 kB,
+   but this is now uncommitted space (on a DPMI v1.0 host).
+ þ for PE applications, it's ensured that ESI points to module base on
+   entry (makes DPMILD32 compatible with HX's LOADPE.BIN stub).
+ þ int 21h, ax=4B82h, edx=0 API returns more info.
+
+ 11.01.2008: version 3.4
+
+ þ environment variable switch DPMILDR=512 isn't used anymore.
+ þ if DPMILDR=128 is set and an "unresolved import" is called, there
+   will be a message displayed before exiting.
+ þ there is now another MZ stub supported (HDLD32.BIN), which includes HDPMI.
+
+ 15.07.2007: version 3.3.0
+
+ þ FS is no longer used/modified by DPMILD32. 
+ þ DPMILD32 does no longer allocate and initialize a TIB for DKRNL32. 
+   This is now handled entirely by DKRNL32.
+
+ 15.03.2007: version 3.2.0
+
+ þ bugfix: slashs ('/') in a path weren't handled like backslashs.
+ þ loader initialization simplified.
+ þ DPMILD32 now available as DOS MZ stub (DPMILD32.BIN).
+ þ export GlobalDOSFree added.
+ þ hack removed which made DPMILD32 set a field in the MZ header used
+   by DKRNL32 (to end the application load phase). Now this is done
+   by a Int 41h callout.
+ þ int 21h, ax=4B95h added to support a "system directory", which some
+   applications rely upon.
+
+ 14.12.2006: version 3.1.8
+
+ þ bugfix: there was a chance that the loader allocated too large an
+   environment (or even caused a GPF) when a new program was launched
+   due to a bug in the routine which get the length of the program name.
+ þ bugfix: exports _AHINCR and _AHSHIFT had wrong ordinals (should be
+   a minor issue for DPMILD32 since these exports are used by 16-bit
+   binaries only).
+ þ NE dlls reference counter wasn't always updated correctly under some
+   circumstances.
+
+ 15.10.2006: version 3.1.7
+
+ þ bugfix: calling WEP of a 16-bit NE dll didn't set DS to DGROUP.
+
+ 14.09.2006: version 3.1.6
+
+ þ GetMuduleFileName may have caused a GPF if an invalid hModule parameter
+   was given. 16-bit dlls only.
+ þ bugfix: GlobalFree modified ES. This should only happen if ES contains
+   the selector of the block which was released (then ES should be set to 0).
+   16-bit dlls only.
+ þ in GlobalRealloc interrupts were disabled by "pushf cli" and restored
+   by testing the pushed flags. Now DPMI functions 0900h and 0901h are used.
+   16-bit dlls only.
+
+ 15.07.2006: version 3.1.5
+
+ þ switch DPMILDR=8 no longer tries to "hide" the DPMI host. This was a
+   hack which caused a HX or Win32 program launched by the current app
+   to load a new instance of HDPMI, thus running in a separate address
+   space. Since HDPMI 3.07 there is support for multiple address contexts
+   natively, so hiding the host is no longer required (which had some
+   disadvantages and most likely worked with HDPMI only). However, 
+   setting DPMILDR=8 is still usefull when running Win32 applications,
+   since it prevents the loader from trying to load the app into the current
+   client.
+ þ if DPMILDR=8 is set, the loader will no longer create a child PSP
+   for the application to launch (since there will be just one application).
+ þ int 2F, ax=168Eh (to set the console title in win9x) is now only called
+   if system *is* win9x.
+
+ 14.06.2006: version 3.1.4
+
+ þ bugfix: loader has lost values of ECX and EBX for 32-bit NE application
+   entry points.
+
+ 15.05.2006: version 3.1.3
+
+ þ command line option -g to load a console application as GUI app.
+
+ 02.05.2006: version 3.1.2
+
+ þ bugfix: loading a dll standalone (without an application) didn't work
+   in previous version.
+ þ bugfix: if a dll launched a PE app (in dll initialization), it
+   never returned.
+
+ 30.03.2006: version 3.1.1
+
+ þ EBX saved/restored when trying to open a file. Some DOSes trash
+   HIWORD(EBX) on this call.
+ þ additional security check that FS is valid when unloading dlls.
+
+ 27.02.2006: version 3.1
+
+ þ bugfix: lpvReserved parameter when calling DllMain was always 0.
+   Now it is 0 only if dlls are loaded dynamically.
+ þ test for invalid relocations and skip them (SDL_net.dll)
+ þ 200h bytes at stack top no longer reserved and no longer needed.
+   TLS array and context save area are handled entirely by DKRNL32.
+
+ 05.02.2006: version 3.0.9
+
+ þ 200h bytes at stack top reserved for DKRNL32 thread context saving.
+ þ Int 21h, AX=4B81h (GetProcAddress) may have caused a GPF if
+   module handle was invalid.
+ þ error "invalid module handle" no longer displayed if flag
+   SEM_NOOPENFILEBOX is set.
+
+ 20.12.2005: version 3.0.8
+
+ þ don't execute an application if it is loaded as dll.
+
+ 06.12.2005: version 3.0.7
+
+ þ DPMILD32 displays to stderr now (because stdout output may be
+   lost after HXGUIHLP has been loaded)
+ þ HXGUIHLP.DLL now loaded *before* other dll initialization code
+   is called (required for OPENGL32.DLL).
+ þ bugfix: cross references in PE dlls caused a GPF
+ þ bugfix LFN version: there was one place with still 65 byte
+   size limit for filenames.
+
+ 24.11.2005: version 3.0.6
+
+ þ implemented a version of DPMILD32 with LFN support enabled
+ þ bugfix: bounds check didn't work when importing a function by number
+
+ 18.11.2005: version 3.0.5
+
+ þ loader now will try loading GUI apps on true DOS without
+   having to set DPMILDR=8192. 
+
+ 01.11.2005: version 3.0.4
+
+ þ bugfix: int 21h, ax=4b80h (free module) returned 0 on success
+
+ 21.10.2005: version 3.0.3
+
+ þ new DPMILDR setting (8192) to allow loading GUI apps.
+
+ 28.09.2005: version 3.0.2
+
+ þ module name translation GDI32.DLL -> DGDI32.DLL added
+ 
+ 19.09.2005: version 3.0.1
+
+ þ bugfix: memory for image wasn't freed if stack couldn't be allocated.
+ þ DPMILDR switch 4096 added to restrict stack size to 128 kB.
+
+ 05.09.2005: version 3.0.0
+
+ þ bugfix: launching a real-mode app may have failed just because
+   MZ-Hdr contained a "big" value at offset 3Ch.
+
+ 28.08.2005: version 2.9.9
+
+ þ error code 000Bh returned if a PE load error occured.
+   Previously it was "undefined".
+
+ 14.08.2005: version 2.9.8
+
+ þ bugfix: support for going resident with int 21h, ah=31h lost
+   returncode in AL.
+ þ DPMILDR switch 2048 added to protect address range 0-3FFh.
+ þ bugfix: 32bit NE app didn't work in previous release if app wasn't
+   the first one. 
+
+ 06.08.2005: version 2.9.7
+
+ þ bugfix: program name in environment was ok for first task only.
+ þ bugfix: first page of stack was uncommitted, but FS:[8]
+   (stack bottom) was not adjusted accordingly.
+ þ DOS4G "support" added. This is for PE binaries only, the loader
+   doesn't know how to load LE/LX binaries. But it will allow
+   to use Open Watcom's CRT modules for DOS extenders to create
+   HX PE binaries.
+
+ 01.08.2005: version 2.9.6
+
+ þ field FileHeader.Machine now checked for i386. This will
+   prevent the loader from trying to load some old MS binaries
+   which must use their own loader (MS32KRNL).
+ þ bugfix: 32bit NE apps trying to load a PE dll caused a GPF.
+ þ bugfix: there was always the last module name displayed on errors.
+ þ new DPMILDR setting (1024) to load dlls at their prefered
+   load address. This option is meant mainly for debugging
+   purposes, usually dlls can be loaded anywhere in the user address space.
+
+ 20.07.2005: version 2.9.5
+
+ þ bugfix: some messages weren't suppressed despite
+   SEM_NOOPENFILEERRORBOX was active.
+ þ bugfix: there was a problem with dynamically loaded dlls,
+   which the app doesn't unload itself. DPMILD32 had problems
+   to determine the correct unload order, which may have
+   resulted in an access violation.
+
+ 15.07.2005: version 2.9.4
+
+ þ first page of stack is now uncommitted to avoid stack 
+   overflows to overwrite other memory regions. Works only
+   if DPMI host supports int 31h, ax=0507h (V1.0).
+
+ 13.07.2005: version 2.9.3
+
+ þ new DPMILDR setting (512) to exclude DKRNL32 from module list reset.
+ þ bugfix: setting DPMILDR=4 worked, but then if a 32bit NE
+   app was started, this caused a loop.
+
+ 06.07.2005: version 2.9.2
+
+ þ bugfix: the 32bit loader may have tried to load 16bit NE
+   applications - with bad results. Now this is refused.
+ þ bugfix: int 21h, ax=4b81h expected ES to be a flat selector
+ þ bugfix: if an error occured while resolving imports of a
+   starting app, the application exited with errorcode 0FFh.
+   Should have been 0FEh instead. And the error message may
+   have been suppressed.
+ þ Int 21h, ax=4B81h (GetProcAddress32) now accepts a number
+   instead of a string (HIWORD(edx) == 0). This feature was
+   required to fully support delay loading.
+ þ bugfix: loader always assumed OptionalHeader has maximum size
+   and ignored field FileHeader.SizeOfOptionalHeader.
+
+ 27.06.2005: version 2.9.1
+
+ þ bugfix: an internal function to set the console title
+   assumed a wrong DS, thus corrupting DOS memory! It was just
+   one bit set to 0, that's why there was a good chance that the
+   bug had no consequence - and that's why it remained undeteced
+   for quite some time :(.
+ þ bugfix: changing the order of FreeDynLoadedModules
+   /FreeReferencedModules calls in the last version was a bug!
+ þ try to load DEBUGO32.DLL now only if switch in DPMILDR is set
+ þ support for 16-bit exports Get-/WritePrivateProfileString deleted.
+ þ search order for dlls:
+   - directory of application binary. didn't work previously! 
+   - current directory
+   - directories of PATH
+
+ 23.06.2005: version 2.9
+
+ þ exchanged calls FreeDynLoadedModules/FreeReferencedModules in FreeModule32
+ þ D bit of stack selector for calling 16-bit procs is now set
+   (again). As long as HIWORD(ebp) is cleared before a 16-bit
+   proc is called, this should be no problem. On the other hand
+   SS with D bit cleared is something that most software doesn't
+   expect in a 32-bit host.
+ þ bugfix: error mode set to 8000h as default before app start
+   (this means SEM_NOOPENFILEERRORBOX)
+ þ bugfix: export _AHINCR/_AHSHIFT when using DM linker
+ þ bugfix: process termination didn't work if a dll caused
+   an error in DLL_DETACH_PROCESS routine.
+
+ 14.06.2005: version 2.8.9
+
+ þ workaround for DPMIONE implemented
+ þ display correct error if memory reallocation failed
+
+ 22.05.2005: version 2.8.8
+
+ þ bugfix: version 2.8.7 introduced a bug so a module was
+   searched in PATH even if a directory was included in path!
+
+ 20.05.2005: version 2.8.7
+
+ þ bugfix: loading a dll with a relative path didn't work
+ þ bugfix: the loader assumed that word at PSP:[7Eh] was
+   zero-initialized. For OpenDOS (DR-DOS) this is not true and is
+   the reason why the loader may have caused a crash by launching 
+   a real-mode app. 
+ þ 64kB are added to the reserved stack as it is done in win9x
+   systems. Wlink by default defines a 64kB reserved stack region
+   only, and, on the other hand, the OW stack checking code
+   requires a stack of at least 76 kB on win9x systems!
+ þ stack bottom now set in THREAD_INFORMATION_BLOCK.
+   Used by VirtualQuery of DKRNL32.DLL (OW stack check)
+             
+ 09.01.2005: version 2.8.7 preliminary
+
+ þ stack for PE applications is now allocated as a separate
+   memory block with unspecified address. Thus it will run
+   much better on DOSEMU.
+
+ 03.12.2004: version 2.8.6
+
+ þ loader moving in extended memory now supported for dosemu.
+   termination code simplified.
+ þ switched to Digital Mars C++ linker to link DPMILDxx.EXE
+ þ bugfix: on int 21h, ah=4Ch don't modify AL
+
+ 31.10.2004: version 2.8.5
+
+ þ error messages modified:
+   "memory allocation error #2" -> "out of memory"
+   "init failed" -> "dll init failed"
+
+ 08.10.2004: version 2.8.4
+
+ þ always ignore relocation directory entry if relocations are
+   stripped (ldw.exe)
+
+ 06.10.2004: version 2.8.3
+
+ þ bugfix: GetModuleHandle32 didn't find modules if extension
+   ".dll" wasn't specified
+
+ 11.09.2004: version 2.8.2
+
+ þ bugfix: don't launch HDPMIxx with command line of DPMILDxx
+ þ loader automatically increases file handles if file open
+   fails with error 4
+
+ 21.08.2004: version 2.8.1
+
+ þ new API int 21h, AX=4B94 (set DPMILDR value)
+ þ ESI now holds module handle when a PE module starts
+ þ when receiving an int 41h, AX=F003 (set break), CX:EBX
+   may be modified, so it is no longer necessary to set a break
+
+ 21.08.2004: version 2.8
+
+ þ DPMILDR=128 switch added (ignore unresolved import errors).
+ þ bugfix: use current PSP to copy environment selector from
+   when creating a child PSP. This is for FreeDOS mainly.
+
+ 27.07.2004: version 2.7.9
+
+ þ DPMILD32, int 21h, ax=4B00h now compatible with DOSEMU 
+ þ Load dlls at their base address if relocs are stripped
+
+ 14.06.2004: version 2.7.8
+
+ þ bugfix: setting DTA (12.05.2004) destroyed HIWORD(ebx) in 
+   DPMILD32 (EBX is pointer to EXEC parameter block)
+
+ 09.06.2004: version 2.7.7 (released in DEBXXF)
+
+ þ bugfix: dpmi error display may have caused an exception
+ þ disable 16bit flag now only valid for apps (and DPMILD32)
+ þ SetErrorMode(0) called for PE apps just before app starts
+ þ free 16-bit stack mem only if 16-bit stack selector is valid
+ þ set NE flag 4000h if libentry has been called for dlls
+ þ Loader now always sets parent in PSP as selector, since
+   this is required not only by NT platforms, but by win31 as well
+
+ 26.05.2004: version 2.7.6
+
+ þ DPMILD32: NE LibEntry now called with 16-bit stack
+ þ vector int 31h now saved at startup and used in dpmicall.
+   this helps for terminating code when client has left interrupts
+   in a bad state
+ þ bugfix: DPMILD32: before calling LoadlibIntern clear HIWORD(esi)
+ þ DPMILD32: NE Wep now called with 16-bit stack
+ þ dta saved and restored for each task
+ þ bugfix: WritePrivateProfileString works now!?
+ þ bugfix: user loader psp selector as parent for NT/2K/XP again
+   (bugfix from 03.03.2004)
+ þ DPMILD16.EXE and DPMILD32.EXE now patched as DPMI executable
+ þ functions ax=4b91h and ax=4b93h for 16 bit loader as well.
+   4b91h will totally disable/enable loader now
+ þ use switch DPMILDR=8 for NE files as well (TLINK.EXE!)
+
+ 28.04.2004: version 2.7.5
+
+ þ if pointer to raw data is zero, dont try to load from file
+ þ use raw data size to determine if anything to load from
+   the file (previous just checked uninitialized data flag)
+ þ win16api.asm cleaned, OutputDebugString now for 16bit only
+ þ bugfix: dont check for 0 as dpmi memory handle. this may be valid
+ þ dont free psp with int 31h, ax=102h if dos kill function worked
+
+ 22.04.2004: version 2.7.4
+
+ þ no changes in DPMILDXX, but in DKRNL32
+
+ 20.04.2004: version 2.7.3
+
+ þ freeing 32-bit segment notifications added
+ þ DPMILDR=64 switch added (ignore SEM_NOOPENFILEERRORBOX).
+   Also added new API ax=4B93h (SetErrorMode)
+
+ 10.04.2004: version 2.7.2
+
+ þ release memory of discardable sections
+ þ to clear a section use phys size if virt size is smaller
+ þ function int 21h, ax=4b83h now returns dpmi handle in edx
+
+ 30.03.2004: version 2.7.1
+
+ þ no changes in DPMILDXX, but in DKRNL32
+
+ 14.03.2004: version 2.7.0
+
+ þ no more special loader version for DOSEMU needed
+ þ notification int 41h, ax=164h (loading 32bit dll)
+ þ set parent PSP as segment, not selector
+ þ loader now DOSEMU compatible (special version)
+
+ 02.02.2004: version 2.6.6
+
+ þ in FreeModule32 check value of popped fs first (may be invalid)
+ þ copy env ptr to child psp if it is NULL (FreeDOS)
+
+ 24.01.2004: version 2.6.5
+
+ þ another bugfix (the last?) in command line preparation 
+ þ call SetCmdLine for PE apps as well
+
+ 19.01.2004: version 2.6.4
+
+ þ no changes in DPMILDXX, but in DKRNL32
+
+ 01.01.2004: version 2.6.3
+
+ þ write-protect read/only sections (optionally, see DPMILDR=16)
+ þ heap no longer allocated. is done by dkrnl32 now
+
+ 20.12.2003: version 2.6.2
+
+ þ 32bit segment load notifications added (int 41h, AX=150)
+ þ bug fixed in command line parser if DPMILDR was executed
+   directly (not as overlay from stub)            
+ þ loading continues after first import hasnt been found
+   so all missing imports will be reported.
+ þ some changes for CallProc16 (switch to 16-bit stack)
+ þ Dlls now called with stack and PSP of application
+   TIB now located behind MZ (each 40h bytes in size)
+ þ FS points to a full TIB now, TLS slots now located on stack
+
+ 11.12.2003: version 2.5.3
+
+ þ import resolves now works with borland PEs (missing ILT)
+ þ dont try to load PE GUI apps
+
+ 07.12.2003: version 2.5.2
+
+ þ new switch DPMILDR=8 (disable loader and server)
+
+ 30.11.2003: version 2.5.1
+
+  Versions < 2.5.1:
+
+  The loader was created mainly in 1993 to execute protected mode
+  NE executables as 16-bit DPMI clients. This version was able to
+  run on 80286 processors as well. Some time later a version for
+  32-bit DPMI clients was added, still supporting NE executables
+  only and thus unable to provide a true flat memory model. This
+  changed in 1995, when the 32-bit version was extended to support
+  PE file format. Another major extension was the win32 emulation dll
+  DKRNL32.DLL, which allowed to create dual-mode (or bimodal) 
+  applications. This happened mainly in 1995 and 1996.
+
+  In 2003 some support for DPMI V1.0 features were added to the DPMI
+  server HDPMI. The most remarkable extension was support for function
+  0x0504, which allows a client to allocate memory at a specified address.
+  This feature allowed the PE loader to load and execute (console) 
+  programs even if relocation infos are missing.
+
+
+15.  Copyright
+
+  DPMILD32.EXE is part of HX DOS extender. This extender is freeware. 
+  View HXRT.TXT for license details.
+
+  Japheth (http://www.japheth.de)
+
