@@ -39,8 +39,6 @@ _UNDEFDYNLINK_	 = 0	;0 1=resolve missing imports with UndefDynLink()
 _SETCSLIM_		 = 0	;0 1=adjust CS limit of loader (if ?EXTLOAD=0)
 _SETDSLIM_		 = 0	;0 1=adjust DS limit of loader (if ?EXTLOAD=0)
 ?MAXSEG			 = 255	;255 max number of segments for a module (8 Bit!)
-_ACCDATA_		 = 12h	;12h value for accessrights data segments (memory,r/w)
-_ACCCODE_		 = 1Ah	;1Ah value for accessrights code segments (memory,e/r)
 _MAXTASK_		 = 8	;8 max. number of task recursion 
 _SFLAGS_		 = 20h	;share flags to use for file open (20h=deny write)
 _ONLY4B00_		 = 1	;1 1=catch int 21,4B00h+4B01, ignore 4B02-4B7F
@@ -793,8 +791,7 @@ if ?USELOADERPSP
 ;--- now this code is no longer called. The PSP of the DOS memory blocks is
 ;--- set manually to the loader's.
 
-setldrpsp proc
-	push ax
+setldrpsp proc uses ax	;AX must be preserved
 	mov ah,51h
 	int 21h
 	push bx
@@ -802,7 +799,6 @@ setldrpsp proc
 	mov ah,50h
 	int 21h
 	pop bx
-	pop ax
 	ret
 setldrpsp endp
 resetldrpsp proc
@@ -894,7 +890,7 @@ endif
 	call GetNPBase				;segm-desc -> ES:SI
 	jc error
 	mov ax,EXCCS
-if ?RMSEGMENTS
+if ?RMSEGMENTS	;obsolete
 	test byte ptr es:[si.SEGITEM.flags],SF_RES1
 	jz @F
 	call ExecRMProc				;Call Real Mode Proc
@@ -906,7 +902,7 @@ if ?USELOADERPSP
 	call setldrpsp
 	push bx
 endif
-	call Load_Segm				;load segment
+	call Load_Segm				;load segment, AX=CS of caller
 if ?USELOADERPSP
 	pop bx
 	call resetldrpsp
@@ -973,7 +969,7 @@ exc0berrorexit endp
 
 displaymodandseg proc        
 	invoke string_out, offset szModule
-	call modnameout			;expects ES=NE hdr
+	call modnameout			;expects ES=module
 	mov ax, si
 	sub ax, es:[NEHDR.ne_segtab]
 	shr ax, 3+1				;size of segment table in ES is 16!!!
@@ -4205,73 +4201,70 @@ normerr:
 	ret
 stroutax endp
 
-;*** alloc 1 Selector
+;*** alloc 1 Selector (+ optionally, an alias selector)
 ;*** Input: segment flags in BX (bit 0)
-;*** Output: AX=Selector, C=error
+;*** Output: NC & AX = Selector or,
+;***         C  & AX = error text
+;--- modifies AX, CX
 
 AllocSel proc
-	mov cx,0001
+	mov cx,1	;alloc 1 descriptor
 if ?AUTOCSALIAS        
 	test bl,SF_DATA
 	jnz @F
 	test es:[NEHDR.APPFLGS],10h
 	jz @F
-	inc cx
+	inc cx	;alloc 2 descriptors
 @@:
 endif
 	xor ax,ax
-	call dpmicall			;alloc selector
+	call dpmicall			;alloc selector(s)
 	jc error1
-	push ax
-	test bl,01				 ;DATA=1/CODE=0
-	jnz @F
-	mov cx,_ACCCODE_
 	call SetAccBits
-	jc error2
-	pop ax					;selector in AX
-	clc
-	ret
-@@:
-	mov cx,_ACCDATA_		;this should be set already
-	call SetAccBits
-	jc error2
-	pop ax
-	clc
+	jnc done
+	mov ax,offset szErr36	;error "set acc rights failed"
+done:
 	ret
 error1:
 	mov ax,offset szErr33	;error "out of descriptors"
-	stc
-	ret
-error2:
-	pop ax
-	mov ax,offset szErr36	;error "set acc rights failed"
-	stc
 	ret
 AllocSel endp
 
-;*** set CODE/DATA accessrights(in CX) for Selector AX
+;*** set CODE/DATA accessrights of a descriptor
+;*** AX = selector
 ;*** BX = segment flags
+;--- modifies CX
+
+_ACCDATA_ equ 12h	;bit 1=1 is writable, bit 3=0 is data, bit 4=1 is memory segm
+_ACCCODE_ equ 1Ah	;bit 1=1 is readable, bit 3=1 is code, bit 4=1 is memory segm
 
 SetAccBits proc uses ax bx
 
-	test bh,20h		;32-Bit?
+	mov cx,_ACCDATA_		;this should be set already
+	test bl,SF_DATA			;data=1, code=0
+	jnz @F
+	mov cl,_ACCCODE_
+@@:
+	test bh,SF_32BIT shr 8	;32bit segment?
 	jz @F
 	or ch,40h
 @@:
-	test bl,80h		;readonly?
+	test bl,SF_RDONLY		;readonly?
 	jz @F
-	and cl,0FDh
+	and cl,0FDh				;reset bit 1, makes data r/o, code e/o
 @@:
-	test bh,02h		;conforming?
+	test bh,SF_CONFRM shr 8	;conforming?
 	jz @F
-	or cl,04h
+	or cl,04h				;set bit 2, makes code "conforming", data "expand down"
 @@:
 	mov bx,ax
+
 	mov ax,cs
 	and ax,0003h
 	shl ax,05
 	or cx,ax
-	mov ax,0009h	;set access rights
+
+	mov ax,0009h	;set access rights (CX) of selector in BX
 	call dpmicall
 	ret
 SetAccBits endp
@@ -4279,20 +4272,21 @@ SetAccBits endp
 ;*** alloc memory
 ;*** for segments + MD
 ;*** Input: CX=bytes (0000=64k)
-;***		DX=flags
-;***		AX=selector
-;***		ES=MD
+;***        DX=segment flags
+;***        AX=selector
+;***        ES=MD
 ;*** Output:
-;*** on errors: C, AX=^error text
-;*** modifies blksize,blkaddr,SI,DI
+;*** NC = ok, then linear address in CX:DX
+;***  C = error, then AX -> error text
+;*** modifies blksize,blkaddr,SI,DI,BX,CX,DX
 
 AllocMem proc
 	push ax
-	@printf <"AllocMem enter: size=%X flags=%X",lf>,cx,dx
+	@printf <"AllocMem enter: sel=%X size=%X flags=%X",lf>, ax, cx, dx
 	sub bx,bx
-	mov word ptr [blksize+2],bx 	;set limit
 	dec cx
 	mov word ptr [blksize+0],cx
+	mov word ptr [blksize+2],bx 	;set limit
 	add cx,1
 	adc bx,bx
 	mov dh,00
@@ -4321,37 +4315,39 @@ else
 endif
 	@printf <"AllocMem: memory allocated, handle=%X%X, base=%X%X, limit=%X",lf>,si,di,bx,cx,word ptr [blksize]
 
-	mov word ptr [blkaddr+2],bx 	;save lineare address
 	mov word ptr [blkaddr+0],cx
+	mov word ptr [blkaddr+2],bx ;save linear address
 	pop ax
-	call SetBaseLimit			  ;set base and limit of AX
+	call SetBaseLimit			;set base and limit of AX
 	jc error2
 if ?32BIT
+;--- this code probably is never executed, since
+;--- the limit here is always <= 0ffff.
 	lsl ecx,eax
 	test ecx,0FFFF0000h
 	jz @F
 	pusha
-	mov bx,word ptr [blkaddr+2]
 	mov cx,word ptr [blkaddr+0]
+	mov bx,word ptr [blkaddr+2]
 	inc ecx
 	push ecx
 	pop di
 	pop si
-	mov ax,0703h
+	mov ax,0703h	;discard page contents of memory region BX:CX
 	int 31h
 	popa
 @@:
 endif
-	mov cx,word ptr [blkaddr+2] 	;address in CX:DX
 	mov dx,word ptr [blkaddr+0]
+	mov cx,word ptr [blkaddr+2] 	;address in CX:DX
 	clc
 	ret
 error1:
 	pop ax
-	mov ax,offset szErr31	;error: ALLOC memory
+	mov ax,offset szErr31	;error: no memory
 	stc
 	ret
-AllocDosMem:
+AllocDosMem:	;here ax is still pushed!
 	shr bx,1
 	rcr cx,1
 	mov bx,cx			;now in CX number of words
@@ -4359,9 +4355,9 @@ AllocDosMem:
 	inc bx
 	@printf <"AllocMem: alloc %X paras conv memory",lf>,bx
 	mov ax,0100h		;alloc DOS memory
-	call dpmicall
+	call dpmicall		;returns segment in AX, selector in DX
 	jc error3
-	mov bx,0010h		;segment in AX
+	mov bx,0010h
 ife ?USELOADERPSP
 ife ?STUB
 	@trace_s <"AllocMem: adjust owner of DOS memblock", lf>
@@ -4383,11 +4379,11 @@ ife ?STUB
 	popa
 endif
 endif
-	push dx
+	push dx			;save selector of DOS memblock
 	mov cx,ax
 	mul bx			;convert paragraph in AX to linaddr in DX:AX
-	mov word ptr [blkaddr+2],dx  ;now address in DX:AX
 	mov word ptr [blkaddr+0],ax
+	mov word ptr [blkaddr+2],dx
 	pop dx
 
 	pop ax				;selector -> AX
@@ -4399,8 +4395,8 @@ endif
 	pop cx
 	jc error2
 	@printf <"DOS memory allocated, handle=%X",lf>,dx
-	mov si,-1		;Handle = -1
-	mov di,si		;return in DX:	DOS memory selector
+	mov si,-1		;return a dpmi handle SI:DI = -1
+	mov di,si		;this indicates that DX contains DOS memory selector
 	clc
 	ret
 error2:
@@ -4518,6 +4514,7 @@ endif
 ;*** blkaddr: address
 ;*** blksize: limit
 ;*** out: C=error, then AX=^error text
+;*** NC=ok, then AX unchanged
 
 SetBaseLimit proc uses bx
 
@@ -4722,7 +4719,7 @@ openimage endp
 ;--- may be called from exception 0B handler
 
 closefile proc
-	cmp word ptr callcs,0
+	cmp callcs, 0
 	jz exit
 	mov bx,-1
 	xchg bx,es:[NEHDR.ne_hFile]
@@ -4747,13 +4744,13 @@ closefile endp
 
 Load_Segm proc
 	mov [callcs],ax
-if ?RMSEGMENTS
+if ?RMSEGMENTS	;obsolete
 	test byte ptr es:[si.SEGITEM.flags],SF_RES1
 	jnz ls_1
 endif
-	@printf <"Load_Segm: about to allocate memory for %X",lf>, es:[si].SEGITEM.wSel
-	call Alloc_Mem_for_Segm			;alloc memory (rc in AX=size) +
-	jc error4				;set descriptor to present
+	@printf <"Load_Segm: calling Alloc_Mem_for_Segm, segm desc=%X:%X, sel=%X",lf>, es,si, es:[si].SEGITEM.wSel
+	call Alloc_Mem_for_Segm		;alloc memory (rc in AX=size) +
+	jc error4					;set descriptor to present
 	push ax
 ls_1:
 	mov dx,es:[si.SEGITEM.filepos]
@@ -4761,14 +4758,9 @@ ls_1:
 	jz ls_3					;then segment isnt external object
 	call openimage
 	jnc ls_2
-	@trace_s <"Load_Segm, open() failed",lf>
+	@printf <"Load_Segm, open() of %ls failed",lf>, es, offset NEHDR.szModPath
 	invoke string_out_prefix, CStr("Cannot open file ")
-	push ds
-	push es
-	pop ds
-	mov bx, offset NEHDR.szModPath
-	call stroutBX 	;DS not dgroup here!
-	pop ds
+	call modnameout
 	call cr_out
 	jmp error2
 ls_2:
@@ -4779,11 +4771,11 @@ ls_2:
 	rcl ax,1
 	loop @B
 	mov cx,ax
-	mov ax,4200h					;lseek
+	mov ax,4200h			;lseek, pos in CX:DX
 	int 21h
 if _TRACE_
 	jnc @F
-	@trace_s <"Load_Segm: lseek() failed",lf>
+	@printf <"Load_Segm: lseek(%X, %lX) failed",lf>, bx, cx, dx
 	jmp error2x
 @@:
 else
@@ -4797,7 +4789,7 @@ if ?RMSEGMENTS
 	mov dx,es:[si].SEGITEM.wDosSel	;selector
 @@:
 endif
-	@trace_s <"Load_Segm: trying to read segment",lf>
+	@printf <"Load_Segm: trying to read segment, size in file=%X",lf>, cx
 	push ds
 	mov ds,dx
 	sub dx,dx
@@ -4813,6 +4805,7 @@ endif
 	mov cx,08000h
 	mov ah,3Fh
 	int 21h							;then do it in 2 reads
+	jc readdone
 	mov dx,8000h
 	mov cx,dx
 @@:
@@ -4822,13 +4815,13 @@ readdone:
 	pop ds
 if _TRACE_
 	jnc @F
-	@trace_s <"Load_Segm, read() failed",lf>
+	@printf <"Load_Segm, read() of %X bytes failed",lf>, cx
 	jmp error2x
 @@:
 else
 	jc error2x						;error (mit stackkorrektur)
 endif
-	@trace_s <"Load_Segm: done file read",lf>
+	@trace_s <"Load_Segm: done segment read",lf>
 ls_3:
 	pop ax							;size -> AX
 	@trace_s <"Load_Segm: about to zeroinit rest of segment",lf>
@@ -4866,14 +4859,14 @@ endif
 	clc
 ;exit:
 	ret
-error2x:
+error2x:			;read or lseek failed
 	call closefile
-error2:
-	pop dx				;clear stack (selector)
-error3:
+error2:				;open failed
+	pop dx			;clear stack (selector)
+error3:				;close failed
 	sub ax,ax
 error4:
-	@trace_s <"Load_Segm: error exit",lf>
+	@trace_s <"Load_Segm: exit with error",lf>
 	stc
 	ret
 error1:
@@ -5021,6 +5014,7 @@ ReallocMem endp
 ;*** will be called by NP-exception handler as well
 ;*** RC: if NC size in AX
 ;--- on error C and AX=error string or NULL
+;--- modifies AX,BX,CX,DX
 
 Alloc_Mem_for_Segm proc
 	mov dx,es:[si.SEGITEM.flags]	;flags
@@ -5059,13 +5053,11 @@ endif
 	ret
 amfs_1:
 	push si
-	push es
 	call AllocMem		;memory alloc (AX=Selector, DX=Flags)
 	mov bx,si
-	pop es
 	pop si				;get ^segment
 	jc error1			;on errors AX is 0000 or error text	
-if ?RMSEGMENTS
+if ?RMSEGMENTS	;obsolete
 	test byte ptr es:[si.SEGITEM.flags],SF_RES1
 	jz @F
 	mov es:[si+XDOSSEG],cx			;CX=Segment
@@ -5073,12 +5065,12 @@ if ?RMSEGMENTS
 	jmp done
 @@:
 endif
+	mov word ptr es:[si].SEGITEM.dwHdl+0,di	;store dpmi handle
 	mov word ptr es:[si].SEGITEM.dwHdl+2,bx
-	mov word ptr es:[si].SEGITEM.dwHdl+0,di
 	and bx,di
 	cmp bx,0FFFFh
 	jnz done
-	mov es:[si].SEGITEM.wDosSel,dx	;DOS memory used
+	mov es:[si].SEGITEM.wDosSel,dx	;DOS memory, save selector of memblock
 done:
 	call Set_AX_Present
 	or byte ptr es:[si.SEGITEM.flags],SF_LOADED
@@ -5093,10 +5085,9 @@ error1:				  ;memory error
 	ret
 Alloc_Mem_for_Segm endp
 
+if 0
 
 ;*** get position in file
-
-if 0
 
 GetSegmentPos proc
 	sub ax,ax
@@ -5178,8 +5169,8 @@ endif
 	test byte ptr es:[si.SEGITEM.flags],SF_PRELOD
 	jz dontloadit
 loadit:
-	xor ax,ax
-	call Load_Segm				;load segment
+	xor ax,ax				;no "caller" CS
+	call Load_Segm			;load segment
 	jc error1
 	jmp doneitem
 dontloadit:
@@ -6757,6 +6748,15 @@ copy_to_psp_and_exit proc
 @@:
 	@trace_s <"critical section: create code alias for PSP and jump",lf>
 	mov bx,[wLdrPSP]
+if ?32BIT		;v3.9: set big bit since the psp is used by esp
+	lar cx,bx
+	shr cx,8
+	or  ch,40h	;set BIG bit
+	push ax
+	mov ax,9
+	int 31h
+	pop ax
+endif
 	mov ss,bx
 if ?32BIT
 	mov esp,100h
@@ -6887,6 +6887,7 @@ n_2_str:
 
 ;--- print char in AL
 ;--- modifies AH in 16-bit
+;--- this routine must be bimodal
 
 printchar proc
 if ?32BIT
@@ -6954,8 +6955,7 @@ endif
 	ret
 dpmildrout endp
 
-;*** display string onto Stack
-;--- this is the standard output routine
+;*** display name of dpmildr, then a string
 
 string_out_prefix proc stdcall public arg:ptr
 string_out_prefix endp
@@ -6963,7 +6963,8 @@ string_out_prefix endp
 
 ;--- fall thru!
 
-;--- display a string, DS may be "undefined"
+;--- this is the standard string output routine.
+;--- DS will be set to DGROUP internally.
 ;--- modifies no registers ( except flags )
 
 string_out proc stdcall public arg:ptr
@@ -7727,12 +7728,12 @@ JumpToPM_3:
 	mov bx,si
 	mov ah,48h				  ;alloc real-mode mem block
 	int 21h
-	jc ERROR1
+	jc error1
 	mov es,ax
 @@:
 	call restorememstrat
 
-	@printf <lf,"DPMILDxx: initial switch to protected mode, CS=%X, DS=%X, ES=%X, stk=%X:%X",lf>, cs, ds, es, ss, sp
+	@printf <lf,"DPMILDxx: initial switch to p-mode, CS=%X, DS=%X, ES=%X, stk=%X:%X",lf>, cs, ds, es, ss, sp
 if ?32BIT
 	mov ax,0001
 else
@@ -7741,7 +7742,7 @@ endif
 	mov bp,sp
 	call dword ptr [bp]
 	mov ax,offset errstr3		;cannot switch to prot-mode
-	jc ERROR3
+	jc error3
 	@int3 _INT03JMPPM_
 	mov [wLdrDS],ds
 	mov [wDPMIFlg],cx			;DPMI Flags
@@ -7766,9 +7767,9 @@ else
 endif
 	add sp,4
 	ret
-ERROR1:		;insufficient DOS memory
+error1:		;insufficient DOS memory
 	mov ax, offset errstr2
-ERROR3:		;no switch possible
+error3:		;no switch possible
 	add sp,4
 ERROR0:		;no dpmi host
 	@printf <"initial switch failed, AX=%s",lf>, ax
