@@ -12,19 +12,26 @@
 	include debugsys.inc
 
 if ?DOSOUTPUT
-?VIDOUT			= 0
-?CHECKTEXTMODE	= 0
-else
-?VIDOUT			= 0	;std 0, 1=direct output on VGA screen
-?CHECKTEXTMODE	= 1	;std 1, 1=display on screen only in text mode
-endif
-?BIOSOUT		= 1	;std 1, 1=bios output is a fallback
-?SEROUT			= 0	;std 0, 1=output on COMx
-if ?VIDOUT
-?MONOOUT		= 0	;std 0, 1=output on mono screen (requires ?VIDOUT=1)
+?VIODIROUT equ 0
+elseifndef ?VIODIROUT
+?VIODIROUT equ 0	;std 0, 1=direct output on VGA screen
 endif
 
-if ?VIDOUT
+if ?VIODIROUT
+?CHECKTEXTMODE equ 1	;std 1, 1=display on screen only in text mode
+else
+?CHECKTEXTMODE equ 0
+endif
+
+if ?VIODIROUT
+?MONOOUT equ 0	;std 0, 1=output on mono screen (requires ?VIODIROUT=1)
+endif
+
+?BIOSOUT equ 1	;std 1, 1=bios output is a fallback
+?SEROUT  equ 0	;std 0, 1=output on COMx
+
+
+if ?VIODIROUT
 if ?MONOOUT
 ?ALTCURPOS	equ 5F0h
 ?ALTISVALID	equ 0DEB1h
@@ -40,14 +47,10 @@ XOFF		= 13h
 EOT 		= 03H
 endif
 
-
-@seg	SEG16
-@seg	_TEXT32
-
-if ?VIDOUT
+if ?VIODIROUT
 
 if _SCRNTRACE_
-_BRIGHT_	equ 9
+_BRIGHT_	equ 7+8
 else
 _BRIGHT_	equ 7	;std color
 endif
@@ -56,7 +59,7 @@ _NORM_		equ 7	;text attribute
 
 BIOSCOLS	equ 44Ah
 BIOSPGOFS	equ 44Eh
-BIOSCSR 	equ 450h
+BIOSCSR		equ 450h
 BIOSPAGE	equ 462h
 BIOSCRT		equ 463h
 BIOSROWS	equ 484h
@@ -119,19 +122,47 @@ endif
 	xchg al,ah
 endm
 
-endif	;?VIDOUT
+endif	;?VIODIROUT
 
 _TEXT32 segment
 
 	assume es:SEG16
 	assume ds:SEG16
 
-if ?VIDOUT
+if ?VIODIROUT
+
+if _LTRACE_
+checkpause proc
+	pushfd
+	push eax
+sm1:
+	in al,64h		;key from keyboard arrived?
+	test al,1
+	jz no
+	in al,60h
+	cmp al,45h		;PAUSE key?
+	jnz no
+@@:
+	in al,64h
+	test al,1
+	jz @B
+	in al,60h
+	test al,80h
+	jnz @B
+no:
+	pop eax
+	popfd
+	ret
+checkpause endp
+endif
 
 ;--- scroll text screen
 ;--- ES=FLAT, esi=B0000h/B8000h, CL=num rows-1
 
 scroll proc near
+if _LTRACE_
+	call checkpause
+endif
 	push ds
 	pushad
 	push es
@@ -175,7 +206,7 @@ IsTextMode proc public	;used also by exception display routine
 IsTextMode endp
 endif
 
-endif	;?VIDOUT
+endif	;?VIODIROUT
 
 ;--- display a char in AL
 ;--- do not assume SS == GROUP16 here!
@@ -202,7 +233,7 @@ if ?USEDEBUGOUTPUT	;is active only if ?WDEB386 is on
 	jmp exit
 @@:
 endif
-if ?VIDOUT
+if ?VIODIROUT
   if ?CHECKTEXTMODE
 	call IsTextMode
 	jnz usebios	;use bios in graphics mode
@@ -271,7 +302,7 @@ putchr1:
 putchr2:
 	@setcursorpos
 	jmp putchrex
-endif		;?VIDOUT
+endif		;?VIODIROUT
 if ?DOSOUTPUT
 	push byte ptr _FLATSEL_
 	pop es
@@ -310,7 +341,7 @@ endif
 putchrex:
 
 if ?SEROUT
- if ?VIDOUT
+ if ?VIODIROUT
 	mov al,byte ptr [esp.PUSHADS.rEAX]
  endif
 	cmp al,lf
@@ -572,7 +603,7 @@ getchrx_ex:
 	popfd
 	ret
 endif
-if ?VIDOUT
+if ?VIODIROUT
 	mov ah,00
 	@simrmint 16h
 	ret

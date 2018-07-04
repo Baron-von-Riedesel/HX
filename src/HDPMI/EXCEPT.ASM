@@ -18,10 +18,6 @@
 ?RESETMOUSE		= 1 ;std 1, 1=reset mouse before getting a key
 ?SAFERMSTACK	= 0 ;std 0, 1=ensure real-mode stack is usable
 
-@seg _TEXT16
-@seg _TEXT32
-@seg _DATA16
-
 CONST32 segment byte use32 public 'CODE'
 CONST32 ends
 
@@ -98,7 +94,6 @@ error:
 mygetbase endp
 
 ife ?DOSOUTPUT
-IsTextMode proto
 
 forcetextmode proc public
 if ?FORCETEXTMODE
@@ -140,7 +135,7 @@ PTEout:
 
 _exceptZ proc public	;exception in ring 0
 
-	@strout <"exceptZ entry",lf>
+	@strout <"#exceptZ entry",lf>
 ;	@waitesckey
 
 if 0
@@ -161,7 +156,7 @@ _exceptZ endp
 
 ;--- ring 3 default exception handler
 
-EXCFRX	struct
+EXCFRX struct
 wExcNo	dw ?
 		dw ?
 		dq ?		;dpmi return address
@@ -173,7 +168,7 @@ rSS		dw ?
 ends
 rSSSP	df ?
 ends
-EXCFRX	ends
+EXCFRX ends
 
 
 _exceptX proc public
@@ -182,7 +177,7 @@ _exceptX proc public
 	push ebp		;+4=16
 	mov ebp,esp
 
-	@strout <"exceptX exc=%X errc=%lX ss:sp=%X:%lX",lf>,\
+	@strout <"#exceptX exc=%X errc=%lX ss:sp=%X:%lX",lf>,\
 		[ebp+16].EXCFRX.wExcNo, [ebp+16].EXCFRX.rErr,\
 		[ebp+16].EXCFRX.rSS, [ebp+16].EXCFRX.rSP
 ;	@waitesckey
@@ -196,9 +191,9 @@ _exceptX proc public
 	lds esi,[ebp+16].EXCFRX.rSSSP
 	mov [ebp+8].R3FAULT32.rErr,eax
 if 0
-	@strout <"sp=%X %X %X %X %X %X",lf>,\
-		<word ptr [esi+00]>,<word ptr [esi+02]>,<word ptr [esi+04]>,\
-		<word ptr [esi+06]>,<word ptr [esi+08]>,<word ptr [esi+10]>
+	@strout <"#sp=%X %X %X %X %X %X",lf>,\
+		word ptr [esi+00], word ptr [esi+02], word ptr [esi+04],\
+		word ptr [esi+06], word ptr [esi+08], word ptr [esi+10]
 endif
 if ?32BIT
 	lodsd
@@ -279,7 +274,7 @@ if 0
 	popfd
 endif
 
-	@strout <"except wExc=%X rErr=%lX cs:ip=%X:%lX fl=%lX ss:sp=%X:%lX",lf>,\
+	@strout <"#except wExc=%X rErr=%lX cs:ip=%X:%lX fl=%lX ss:sp=%X:%lX",lf>,\
 		[ebp].wExcNo, [ebp].de.rErr, [ebp].de.rCS, [ebp].de.rIP, [ebp].de.rFL,\
 		[ebp].de.rSS, [ebp].de.rSP
 ;	@waitesckey
@@ -335,7 +330,7 @@ if ?DISPCLSP
 	pop ds
 endif
 @@:
-	@strout <"r0sp=%X %X %X %X %X %X %X %X %X",lf>, bx,\
+	@strout <"#r0sp=%X %X %X %X %X %X %X %X %X",lf>, bx,\
 		word ptr [ebx-16], word ptr [ebx-14], word ptr [ebx-12],\
 		word ptr [ebx-10], word ptr [ebx-08], word ptr [ebx-06],\
 		word ptr [ebx-04], word ptr [ebx-02]
@@ -527,7 +522,7 @@ esp_done:
 	mov [bExcMode], 0
 
 if ?LOGINT30
-	@strout <"last int 30=%X",lf>,[lint30]
+	@strout <"#last int 30=%X",lf>,[lint30]
 endif
 
 ifdef _DEBUG
@@ -562,8 +557,8 @@ else
 	call _stroutesi
 tryagain:
 	inc bExcEntry
-	@pushproc getakey
-	call dormprocintern
+	pushd offset getakey
+	call callrmprocintern
 	dec bExcEntry
 endif ;?DOSOUTPUT
 	cmp cApps,0

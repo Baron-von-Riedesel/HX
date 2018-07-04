@@ -38,11 +38,6 @@
 ;*** rm2pm         raw mode switch rm to pm
 ;*** _pm2rm        raw mode switch pm to rm
 
-@seg _DATA16
-@seg _TEXT16
-@seg _TEXT32
-@seg CDATA32
-
 _DATA16 segment
 
 MRMSTRUC struct
@@ -241,7 +236,11 @@ endif
 
 
 if ?CHECKHOSTSTACK
+  if ?HSINEXTMEM
+	cmp esp, ss:dwStackTop
+  else
 	cmp esp, 80h
+  endif
 	jc _exitclientEx5
 endif
 	@strout <"#rmcb, taskstate ss:esp=%X:%lX",lf>,\
@@ -336,7 +335,7 @@ endif
 
 	lea esp, [esp+ sizeof IRET32]	;skip the IRET32 frame build in rmcb_pm
 	@popstate				;restore client state
-	@rawjmp_rm _retcb_rm	;raw jump rm
+	@rawjmp_rm _retcb_rm	;raw jump rm, rm stack "undefined"
 	align 4
 _retcb endp
 
@@ -801,14 +800,14 @@ ife ?DOSOUTPUT
 	@strout <"#srtask: task state save, es:edi=%lX:%lX",lf>,es,edi
 endif
 	rep movsw
-	mov ax, [v86iret.rES]
-	shl eax, 16
-	mov ax, [v86iret.rDS]
-	stosd
-	mov ax, [v86iret.rGS]
-	shl eax, 16
-	mov ax, [v86iret.rFS]
-	stosd
+	mov ax, v86iret.rES
+	stosw
+	mov ax, v86iret.rDS
+	stosw
+	mov ax, v86iret.rFS
+	stosw
+	mov ax, v86iret.rGS
+	stosw
 	jmp exit
 @@:
 ;--- restore task state
@@ -821,14 +820,14 @@ endif
 	push ss
 	pop es
 	rep movsw
-	lodsd
-	mov es:[v86iret.rDS], ax
-	shr eax, 16
-	mov es:[v86iret.rES], ax
-	lodsd
-	mov es:[v86iret.rFS], ax
-	shr eax, 16
-	mov es:[v86iret.rGS], ax
+	lodsw
+	mov es:v86iret.rES, ax
+	lodsw
+	mov es:v86iret.rDS, ax
+	lodsw
+	mov es:v86iret.rFS, ax
+	lodsw
+	mov es:v86iret.rGS, ax
 exit:
 ;	clc			;useless!
 	popad
@@ -865,13 +864,13 @@ srtask_rm proc
 	pop ds
 	assume DS:GROUP16
 	rep movsw
-	mov ax, [v86iret.rDS]
+	mov ax, v86iret.rES
 	stosw
-	mov ax, [v86iret.rES]
+	mov ax, v86iret.rDS
 	stosw
-	mov ax, [v86iret.rFS]
+	mov ax, v86iret.rFS
 	stosw
-	mov ax, [v86iret.rGS]
+	mov ax, v86iret.rGS
 	stosw
 	jmp exit
 @@:
@@ -885,13 +884,13 @@ srtask_rm proc
 	pop es
 	rep movsw
 	lodsw
-	mov es:[v86iret.rDS], ax
+	mov es:v86iret.rES, ax
 	lodsw
-	mov es:[v86iret.rES], ax
+	mov es:v86iret.rDS, ax
 	lodsw
-	mov es:[v86iret.rFS], ax
+	mov es:v86iret.rFS, ax
 	lodsw
-	mov es:[v86iret.rGS], ax
+	mov es:v86iret.rGS, ax
 	pop es
 exit:
 	popa
@@ -1018,7 +1017,7 @@ _pm2rm proc near public
 		si,di,dx,bx,ax,ss:[tmpFLReg],ss:[tskstate.rmSS],ss:[tskstate.rmSP]
 
 	@savepmstate			;store segment and stack values in tskstate
-	@rawjmp_rm _pm2rm_rm	;raw jump rm, SP unchanged
+	@rawjmp_rm _pm2rm_rm	;raw jump rm, rm stack "undefined"
 	align 4
 _pm2rm endp
 

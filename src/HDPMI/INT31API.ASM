@@ -13,16 +13,11 @@
 
 	option proc:private
 
-@seg _TEXT32
 if ?LOGINT31
-@seg _DATA
-endif
-
-if ?LOGINT31
-_DATA	segment
-        public i31func
+_DATA16 segment
+		public i31func
 i31func dw 0
-_DATA	ends
+_DATA16 ends
 endif
 
 _TEXT32 segment

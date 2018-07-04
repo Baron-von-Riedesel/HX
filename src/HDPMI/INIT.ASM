@@ -16,7 +16,7 @@ endif
 
 ife ?STUB
 ?DELAYLOAD    = 1		;1=load 32part on my own (requires ?STACKLAST==0)
-?STACKLAST    = 0		;std 0:	1=stack is last segment (behind GROUP32)
+?STACKLAST    = 0		;std 0: 1=stack is last segment (behind GROUP32)
 else
 ?DELAYLOAD    = 0
 ?STACKLAST    = 1
@@ -24,13 +24,11 @@ endif
 
 	@seg _ITEXT16
 	@seg _ITEXT32
-	@seg _TEXT32
-	@seg SEG16
 
-IDTSEG	segment para use16 public 'CODE'
+IDTSEG segment para use16 public 'CODE'
 externdef startofidtseg:byte
+IDTSEG ends
 GROUP16 group IDTSEG
-IDTSEG	ends
 
 	public mystart
 
@@ -91,14 +89,14 @@ handleenvflags proc
 	assume ds:GROUP16
 
 	mov ax,wEnvFlags
-	@stroutrm <"wEnvFlags=%X",lf>,ax
+	@stroutrm <"-wEnvFlags=%X",lf>,ax
 	test al, ENVF_DPMI10
 	jz @F
 	mov wVersion, 0100h
 if ?EXC10FRAME
 	or dword ptr wExcHdlr, -1
 endif
-	@stroutrm <"dpmi version set to 1.0",lf>
+	@stroutrm <"-dpmi version set to 1.0",lf>
 @@:
 	test ah, ENVF2_NOMEM10
 	jz @F
@@ -112,11 +110,12 @@ if ?CR0_NE
 endif
 if ?VM
 	test al, ENVF_VM
-	jz novm
+	jz @F
 	call getendpara
-	add dx,?RMSTKSIZE/16
-	mov PatchRMStkSize-2,dx
-novm:
+;	add dx,?RMSTKSIZE/16
+;	mov PatchRMStkSize-2,dx
+	mov wCloneSize,dx
+@@:
 endif
 	ret
 handleenvflags endp
@@ -343,7 +342,7 @@ if 1
 	test bEnvFlags2, ENVF2_DEBUG
 	jnz @F
 	mov ax,90FAh
-	mov word ptr _gotopmEx,ax	;deactivate RM2PM int
+	mov word ptr _jmp_pmX, ax	;deactivate RM2PM int
 externdef rm2pm_brk:near
 	mov word ptr rm2pm_brk,ax	;deactivate RM2PM int
 @@:
@@ -425,7 +424,7 @@ initkd386swat1_rm proc
 	@stroutrm <"-initkd386swat1: 386swat detected",lf>
 	or fDebug,FDEBUG_KDPRESENT
 if ?INTRM2PM
-	mov word ptr _gotopmEx,90FAh	;deactivate RM2PM int
+	mov word ptr _jmp_pmX, 90FAh	;deactivate RM2PM int
 endif
 nokerneldebugger:
 	ret
@@ -494,7 +493,7 @@ else
 	or fDebug,FDEBUG_KDPRESENT
 endif
 if ?INTRM2PM
-	mov word ptr _gotopmEx,90FAh	;deactivate RM2PM int
+	mov word ptr _jmp_pmX, 90FAh	;deactivate RM2PM int
 endif
 ;------------------------------------ prepare kernel debugger for PM
 
@@ -862,8 +861,10 @@ if ?HSINEXTMEM
 	mov ecx,1
 	call _AllocSysPages		;alloc ECX pages
 	jc initsvr_pm_failed
-	add eax, 1000h
 	sub eax, [dwHostBase]
+	lea ecx, [eax+80h]
+	mov dwStackTop, ecx
+	add eax, 1000h
 	@strout <"#initsvr_pm: new host stack bottom %lX",lf>, eax
  if ?FIXTSSESP
 	mov [dwHostStack], eax
@@ -908,7 +909,7 @@ initsvr_pm_failed:
 	stc
 initsvr_pm_done:
 pmfirst_done:
-	@rawjmp_rm _initsvr_rm2		;raw jump rm, no stack switch
+	@rawjmp_rm _initsvr_rm2		;raw jump rm, rm stack "undefined"
 _initsvr_pm endp
 
 _ITEXT32 ends
@@ -1476,7 +1477,7 @@ endif
 
 	mov ax,cs
 	mov v86iret.rCS, ax	;GROUP16
-	mov v86iret.rSS, ax	;GROUP16
+;	mov v86iret.rSS, ax	;GROUP16
 	mov wHostSeg, ax	;GROUP16
 if ?MOVEHIGHHLP
 	mov wPatchDgrp1, ax	;GROUP16

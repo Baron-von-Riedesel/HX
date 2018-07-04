@@ -95,8 +95,6 @@ GROUP32 group BEGTEXT32, _TEXT32, CONST32, CDATA32, _ITEXT32, ENDTEXT32
 
 	option proc:private
 
-	@seg SEG16
-
 ;--- configuration constants
 
 _CY equ 1	;carry flag in LOBYTE(flags)
@@ -251,6 +249,29 @@ ifnb <zz>
 endif
 	push yy
 	jmp dormproc
+	align 4
+endm
+
+@checkssattr macro x,y
+local xxxx
+if ?32BIT
+  ifnb <x>
+	mov ax,x
+  endif
+	lar eax,eax
+	bt eax,22
+	jc xxxx
+	movzx e&y,y
+endif
+xxxx:
+endm
+
+;--- switch to LPMS, then call ring 3 protected mode int xx
+
+@simintlpms macro xx
+	db 68h		;"push" opcode
+	dd offset GROUP32:r3vect&xx
+	jmp lpms_call_int
 	align 4
 endm
 
@@ -427,8 +448,11 @@ endif
 
 ife ?MOVEIDT
 
-?int = 78h
-  rept 88h
+;--- if the IDT is not moved in extended memory,
+;--- define the rest of the gates here.
+
+?int = ?PREDEFIDTGATES
+  rept 100h - ?PREDEFIDTGATES
   GATE <?int*2		   ,_INTSEL_,?TVAL, 0>
 ?int = ?int + 1
   endm
@@ -444,10 +468,22 @@ endif
 ;-------------- ring 0 stack ---------------------
 ;--- this shouldn't be moved, since the space for IDT
 ;--- will be reused for the stack
+;--- in case ?HSINEXTMEM is set, this space is "almost" free;
+;--- it's still used temporarily in CreateVM, when a new VM is
+;--- about to be created.
 
-	db ?RING0STACK dup (?)
-ring0stack label dword
-;	dd offset ring0stack	;end of stack chain
+if ?MOVEIDT
+  if ?HSINEXTMEM
+	?R0STACKSIZE = 200h-4
+  else
+	?R0STACKSIZE = 440h-4	;alloc a smaller stack (IDT space will be reused)
+  endif
+else
+	?R0STACKSIZE = 600h-4
+endif
+
+	db ?R0STACKSIZE dup (?)
+ring0stack label near
 
 dwSegTLB label dword			;segment translation buffer
 wSegTLB	dw 0					;defined here so this variable can be
@@ -478,7 +514,7 @@ value	equ $ - offset curGDT
 endif
 endif
 	DESCRPTR {content}
-	endm
+endm
 
 ;--- GDT - since version 3.02 the GDT is moved to extended memory
 ;---       which leaves this space unused after initialization.
@@ -790,7 +826,8 @@ endif
 
 ;--- used for VCPI function DE0C (switch rm to pm)
 ;--- CR3, address pd GDTR, address pd IDTR, LDTR, TR, EIP, CS
-v86topm	VCPIRM2PM <0,0,0,_LDTSEL_,_TSSSEL_, offset vcpi_pmentry, _CSSEL_>
+v86topm VCPIRM2PM <0,0,0,_LDTSEL_,_TSSSEL_, offset vcpi_pmentry, _CSSEL_>
+
 wVersion	dw 005ah	;DPMI version 0.90
 	align 4
 
@@ -829,6 +866,9 @@ rmgdt	  df 0					;GDT pseudo descriptor for real mode
 endif
 if ?SAVEMSW
 wMSW	dw 0					;real-mode MSW on entry
+endif
+if ?VM
+wCloneSize dw 0
 endif
 
 dwOldVec96 dd 0
@@ -912,7 +952,7 @@ tmpFLRegD label dword
 tmpFLReg  dw 0	;temporary storage for FL register
           dw 0
 
-calladdr3 dw 0	;used by dormprocintern
+calladdr3 dw 0	;used by callrmprocintern
 wRetAdrRm dw 0	;3. store ( used by @jmp_rm )
 tmpAXReg  dw 0	;temporary storage for AX
 tmpBXReg  dw 0	;temporary storage for BX
@@ -1016,7 +1056,8 @@ endif
 ;--- structure (which must be located in 1. MB)
 ;--- EIP,CS,0,EFL,ESP,SS,0,ES,0,DS,0,FS,0,GS,0
 
-v86iret	  V86IRET <offset vcpi_rmentry,0,0,0,40h,0,0,0,0,0,0,0,0,0,0>
+;v86iret	  V86IRET <offset vcpi_rmentry,0,0,0,40h,0,0,0,0,0,0,0,0,0,0>
+v86iret	  V86IRET <offset vcpi_rmentry,0,0,0,0,0,0,0,0,0,0,0,0,0,0>
 
 ltaskaddr	dd 0		;addr tcb previous client
 ife ?CR0COPY
@@ -1045,6 +1086,9 @@ dwHostStack dd 0
 else
 dwHostStackExc label dword
 			dw offset ring0stack - sizeof R3FAULT32, 0
+endif
+if ?HSINEXTMEM
+dwStackTop	dd 0
 endif
 
 if ?INT21API
@@ -1283,15 +1327,7 @@ exc2int endp
 
 ;*** emulate int xx on PMS
 ;--- [esp+0]: near ptr to R3PROC
-;--- [esp+4]: IRET32
-
-PCIFR	struct
-dwDs	dd ?
-dwEdi	dd ?
-dwEbx	dd ?
-pR3Proc dd ?
-		IRET32 <>
-PCIFR	ends
+;--- esp+4  : IRET32
 
 	@ResetTrace
 
@@ -1299,6 +1335,14 @@ pms_call_int proc public
 	push ebx
 	push edi
 	push ds
+
+PCIFR struct
+dwDs	dd ?
+dwEdi	dd ?
+dwEbx	dd ?
+pR3Proc dd ?
+		IRET32 <>
+PCIFR ends
 
 	mov ebx, [esp].PCIFR.pR3Proc
 	lds edi, [esp].PCIFR.rSSSP
@@ -1345,7 +1389,7 @@ pms_call_int endp
 
 ;*** parameter onto stack:
 ;*** [esp+0]: near pointer to R3PROC (CS:E/IP)
-;*** [esp+4]: IRET32
+;*** esp+4  : IRET32
 ;***   IRET32.E/SP+SS only valid for ring3 irq
 ;*** ----------------------------------------------------
 ;*** a RET32 stack frame is generated onto the host stack
@@ -1363,17 +1407,6 @@ pms_call_int endp
 ;--- if LPMS is in use already, use current PMS instead
 ;--- and don't create the backswitching frame
 
-IRQFRAME struct
-rEdi	dd ?
-rEdx	dd ?
-rEax	dd ?
-rDs		dd ?
-rEfl	dd ?
-retfs	RETF32 <>
-pR3Proc	dd ?
-iret32  IRET32 <>
-IRQFRAME ends
-
 	@ResetTrace
 
 
@@ -1386,6 +1419,18 @@ lpms_call_int proc public
 	push eax
 	push edx
 	push edi
+
+IRQFRAME struct
+rEdi	dd ?
+rEdx	dd ?
+rEax	dd ?
+rDs		dd ?
+rEfl	dd ?
+retfs	RETF32 <>
+pR3Proc	dd ?
+iret32  IRET32 <>
+IRQFRAME ends
+
 	mov edi,[esp].IRQFRAME.pR3Proc
 if ?32BIT
 	mov eax, cs:[edi].R3PROC._Eip
@@ -1496,7 +1541,7 @@ if ?ALLOWR0IRQ
 	@ResetTrace
 	pop ss:[taskseg._Eax]	;pop the client R3PROC ptr
 							;now ESP->IRET32
-	@strout	<"interrupt in ring 0, esp=%lX",lf>,esp
+	@strout <"interrupt in ring 0, esp=%lX",lf>,esp
 	push ss:[taskseg._Esp0]
 	mov ss:[taskseg._Esp0],esp
 	sub esp, sizeof IRET32+4
@@ -1511,7 +1556,7 @@ IRQ0FR ends
 if _LTRACE_
 	push ebp
 	mov ebp,esp
-	@strout	<"frame: cs:ip=%X:%lX fl=%lX, ss:sp=%X:%lX",lf>,\
+	@strout <"frame: cs:ip=%X:%lX fl=%lX, ss:sp=%X:%lX",lf>,\
 		[ebp+4].IRQ0FR.iro.rCS, [ebp+4].IRQ0FR.iro.rIP,\
 		[ebp+4].IRQ0FR.iro.rFL,\
 		[ebp+4].IRQ0FR.iro.rSS, [ebp+4].IRQ0FR.iro.rSP
@@ -1603,9 +1648,9 @@ rpmstacki endp
 	@ResetTrace
 
 LCEFR struct
-r	 	RETF32 <>
+r		RETF32 <>
 dwExc	dd ?
-f	  	R3FAULT32 <>	;or R0FAULT32 for an exception in ring 0
+f		R3FAULT32 <>	;or R0FAULT32 for an exception in ring 0
 LCEFR ends
 
 lpms_call_exc proc
@@ -2080,13 +2125,6 @@ iret_with_CF_mod endp
 ;*** client's stack und the stack must be adjusted
 ;*** Int 30h is a interrupt gate (interrupts disabled) 
 
-I30FR struct
-dwEax	dd ?
-dwEbx	dd ?
-dwRes	dd ?
-		IRET32 <>
-I30FR ends
-
 	@ResetTrace
 _LTRACE_ = 0
 
@@ -2100,12 +2138,19 @@ endif
 	push ebx
 	push eax
 
+I30FR struct
+dwEax	dd ?
+dwEbx	dd ?
+dwRes	dd ?
+		IRET32 <>
+I30FR ends
+
 	mov ebx,[esp].I30FR.rIP
 	sub ebx,2
 if ?LOGINT30
 	mov ss:[lint30],bx
 endif
-	cmp bh,02h
+	cmp bh,02h			;break 00h-ffh?
 	jnb intr30_special
 
 if _LTRACE_
@@ -2121,8 +2166,7 @@ endif
 	push ds
 	mov [esp+4].I30FR.dwRes,ebx	;is an intno now
 	lds ebx, [esp+4].I30FR.rSSSP
-
-if 0;?CHECKSSATTR
+if ?CHECKSSIS32
 	lar eax, dword ptr [esp+4].I30FR.rSS
 	test eax,400000h
 	jnz @F
@@ -2172,6 +2216,8 @@ endif
 	align 4
 
 	@ResetTrace
+
+;--- special breaks ( offset >= 200h in breakpoint table )
 
 intr30_special:
 if _LTRACE_
@@ -2376,11 +2422,11 @@ endif
 ;--- if it is a programmed INT 01.
 
 intr00 proc
-		@exception 00
+	@exception 00
 if ?MAPEXC00				;route exc 00 to int 00?
-		@mapexc2int 00
+	@mapexc2int 00
 else
-		@defaultexc 00, 1	;terminate client
+	@defaultexc 00, 1	;terminate client
 endif
 intr00 endp
 
@@ -2517,9 +2563,9 @@ if 0
 	push eax
 	lea eax,[esp+8]
 	@strout <"int 0D: sp=%lX,[sp]=%lX,%lX,%lX,%lX,%lX",lf>,\
-		eax,<dword ptr [ebp+4]>,<dword ptr [ebp+8]>,\
-		<dword ptr [ebp+12]>,<dword ptr [ebp+16]>,\
-		<dword ptr [ebp+20]>
+		eax, dword ptr [ebp+4], dword ptr [ebp+8],\
+		dword ptr [ebp+12], dword ptr [ebp+16],\
+		dword ptr [ebp+20]
 	pop eax
 	pop ebp
 endif
@@ -2912,7 +2958,11 @@ irqrm2pm_1:
 	call load_pmsegs		;load client ds,es,fs,gs
 
 if ?CHECKHOSTSTACK
+  if ?HSINEXTMEM
+	cmp esp, ss:dwStackTop
+  else
 	cmp esp, 80h
+  endif
 	jc _exitclientEx5
 endif
 
@@ -3082,7 +3132,7 @@ dormproc_pm2 proc
 dormproc_pm2 endp
 
 ;***  call real-mode software interrupt
-;---  esp+0 -> DWORD intno
+;---  [esp+0] : DWORD intno
 ;---  esp+4 -> IRET32
 ;---  flags are modified!
 ;---  used by macro @callrmsint
@@ -3140,7 +3190,7 @@ dormsint_pm2 endp
 ;--- esp+4 -> DWORD near16 proc to call
 ;--- DS+ES may contain ring 0 selectors!
 
-dormprocintern proc public
+callrmprocintern proc public
 	push eax
 	mov eax, [esp+2*4]
 ;	mov ss:[calladdr3], eax
@@ -3155,24 +3205,27 @@ dormprocintern proc public
 	pop es
 	push 0
 	pop ds
-	@jmp_rm dormprocintern_rm
+	@jmp_rm callrmprocintern_rm
 	align 4
-dormprocintern endp
+callrmprocintern endp
 
 _TEXT32 ends
 
 _TEXT16 segment
         
-dormprocintern_rm proc
+callrmprocintern_rm proc
 
-;;	push cs
 	call cs:[calladdr3]
-	pushf
+if 1
+	@jmp_pmX callrmprocintern_pm2
+else
+	pushf				;flags need not be saved, since jmp_pm won't modify them
 	@rm2pmbreak			;clears IF,TF+NT
 	pop cs:[tmpFLReg]
-	@jmp_pm dormprocintern_pm2
+	@jmp_pm callrmprocintern_pm2
+endif
 	align 4
-dormprocintern_rm endp
+callrmprocintern_rm endp
 
 _TEXT16 ends
 
@@ -3180,16 +3233,18 @@ _TEXT16 ends
 
 _TEXT32 segment
 
-dormprocintern_pm2 proc
+callrmprocintern_pm2 proc
 	pop es
 	pop ds
+if 0
 	push eax
 	mov ah, byte ptr ss:[tmpFLReg]
 	sahf
 	pop eax
+endif
 	ret
 	align 4
-dormprocintern_pm2 endp
+callrmprocintern_pm2 endp
 
 ;*** proc called by macro @simrmint 
 ;--- esp+0 -> return address
@@ -3219,7 +3274,6 @@ dormintintern_rm proc
 	pushf
 	call cs:[calladdr2]
 
-externdef dormintintern_rm_exit:near16
 
 dormintintern_rm_exit::	;<--- entry for int21api.asm
 
@@ -3423,8 +3477,8 @@ ife ?SIMHLT
 	hlt
 	cli
   else
-	@pushproc sim_hlt
-	call dormprocintern
+	pushd offset sim_hlt
+	call callrmprocintern
   endif
 else
 	push eax
@@ -3775,7 +3829,7 @@ if ?GUARDPAGE0
 
 @watchentry macro wAddr, wSize, wOffs
 	dw wAddr, wAddr+wSize, wOffs
-	endm
+endm
 
 watchtab label word
 	@watchentry ?SPICBASE*4, 8*4, 8*sizeof INTRMCB
@@ -4087,7 +4141,6 @@ settlb_pm endp
 
 endif
 
-
 INITCLRM struct	;real mode stack frame
 wGS		dw ?
 wFS		dw ?
@@ -4114,7 +4167,7 @@ hp_createvm proto
 
 ;--- CreateVM is called by initclient_pm
 ;--- during client's initial switch to protected-mode
-;--- but not for the first client and then only if -a
+;--- but not for the first client and only if -a
 ;--- cmdline switch ( or HDPMI=32 ) is set.
 ;--- the following data is cloned:
 ;--- + the host's GROUP16 segment (with adjustments)
@@ -4176,16 +4229,22 @@ endif
 
 ;--- create new GDT
 
+?TMPGDTOFS equ 10h	;offset in GROUP16 to temporarily move the GDT
+
 	mov edi, [esp]		;get new dwHostBase (just above new RMS)
 if 0
+;--- the real-mode stack cannot be used, it's active
+;--- after _initrms has been called and is then
+;--- used by pagemgr.
 	sub edi, ?RMSTKSIZE
 else
-	add edi, 20h		;copy GDT temporarily in host stack area
+;--- copy GDT temporarily in new host stack area
+	add edi, ?TMPGDTOFS
 endif
 	mov edx, edi		;EDX = new GDT address
 	mov esi, ss:pdGDT.dwBase
 	rep movsd
-	@strout <"#CreateVM: GDT copied (to temp location in host stack area)",lf>
+	@strout <"#CreateVM: GDT copied to %lX (temp location in host stack area)",lf>, edx
 gdtok:
 
 	mov eax, [esp]		;get new dwHostBase
@@ -4206,32 +4265,36 @@ endif
 	shr eax,16
 	mov [edx+_TSSSEL_].DESCRPTR.A1623,al
 
-;--- set new GDT
+;--- set new GDT, reload SS and DS caches
 
 	push edx
-	push word ptr ?GDTLIMIT
+	pushw ?GDTLIMIT
 	lgdt fword ptr [esp]
+	lea esp,[esp+6]
 
 ;--- reload client standard registers
-
 	mov esp, ebp
 	popad
 
-;--- all registers restored, GDT set to new VM
-;--- now reload SS and DS caches
+;--- set DS to new GROUP16 base
+	push ss
+	pop ds
 
+;--- set SS to new GROUP16 base;
+;--- then recreate a INITCLPM struct on new stack
+;--- then readdress client standard registers with EBP
 	push ss
 	pop ss
 	mov esp, offset ring0stack
-	push ss
-	pop ds
 	mov taskseg._Esp0, esp
-
-;--- readdress client standard registers with EBP
+ife ?HSINEXTMEM	;if hs will be in extended memory, this is not required
 	sub esp, sizeof IRET32 + 4
+endif
 	pushad
 	mov ebp, esp
 
+;--- now base of SS is new host base, GROUP16 variables of clone
+;--- may be accessed from now on!
 ;--- re-access the client's stack with EDI
 
 	movzx edi, wCurSS
@@ -4239,13 +4302,9 @@ endif
 	movzx eax, wCurSP
 	add edi, eax
 
-;--- ???
-	push offset behindcreatevm
-
 	movzx eax, es:[edi].INITCLRM.wES
 	shl eax, 4
-	lea ecx, [eax + ?RMSTKSIZE + 20h]	;this is where the new GDT is temp located
-
+	lea ecx, [eax + ?RMSTKSIZE + ?TMPGDTOFS]
 	add eax, ?RMSTKSIZE
 
 	test bEnvFlags2, ENVF2_LDTLOW
@@ -4261,7 +4320,7 @@ endif
 ;--- repatch code in new GROUP16
 
 	mov v86iret.rCS, ax	;GROUP16
-	mov v86iret.rSS, ax	;GROUP16
+;	mov v86iret.rSS, ax	;GROUP16
 	mov dwHostSeg, eax	;GROUP16
 if ?MOVEHIGHHLP
 	mov wPatchDgrp1, ax	;GROUP16
@@ -4327,6 +4386,28 @@ endif
 	jc error
 	@strout <"#CreateVM: pm_createvm called",lf>
 
+if ?HSINEXTMEM
+	mov ecx,1
+	call _AllocSysPages		;alloc ECX pages
+	jc error
+	sub eax, [dwHostBase]
+	lea ecx, [eax+80h]
+	mov dwStackTop, ecx		;this is stack top
+	add eax, 1000h
+	mov taskseg._Esp0, eax
+	mov esp, ebp
+	popad
+	mov esp, taskseg._Esp0
+	sub esp, sizeof IRET32 + 4
+	pushad
+	mov ebp, esp
+	@strout <"#CreateVM: new host stack=%lX",lf>, taskseg._Esp0
+endif
+
+;--- since the return address has been lost,
+;--- a new one has to be pushed.
+	push offset behindcreatevm
+
 	test fHost, FH_XMS or FH_VCPI	;in raw mode?
 	jnz @F
 ;--- in raw mode hook int 15h again.
@@ -4382,11 +4463,15 @@ endif
 	@strout <"#CreateVM: real-mode vectors saved for internal rmcbs",lf>
 	mov ltaskaddr, 0		;avoid to restore task state
 	@strout <"#CreateVM exit",lf>
-error:
 	ret
+error:
+	jmp behindcreatevm
 CreateVM endp
 
 endif
+
+;--- init RMS.
+;--- expects es:edi -> INITCLRM struct
 
 _initrms proc
 if ?ALLOCRMS					;alloc new RMS
@@ -4485,14 +4570,14 @@ if ?CLEARDR6
 endif
 
 if 0	;v2.18 useless moves
+	mov ax,es:[edi].INITCLRM.wES
+	mov bx,es:[edi].INITCLRM.wDS
 	mov cx,es:[edi].INITCLRM.wFS
 	mov dx,es:[edi].INITCLRM.wGS
-	mov bx,es:[edi].INITCLRM.wDS
-	mov ax,es:[edi].INITCLRM.wES
+	mov v86iret.rES,ax
+	mov v86iret.rDS,bx
 	mov v86iret.rFS,cx
 	mov v86iret.rGS,dx
-	mov v86iret.rDS,bx
-	mov v86iret.rES,ax
 else
 	mov bx,es:[edi].INITCLRM.wDS
 endif
@@ -4584,13 +4669,13 @@ if ?INT21API
 	movzx ebx,bx
 	mov dword ptr [dtaadr+0],ebx
   ife ?DTAINHOSTPSP
-	movzx eax, [v86iret.rES]
+	movzx eax, v86iret.rES
 	shl eax, 4
 	add eax, ebx
 	mov dwDTA, eax
   endif
 	lea eax,[ebx+80h-1]
-	mov bx,[v86iret.rES]
+	mov bx, v86iret.rES
 	call allocxsel
 	mov word ptr [dtaadr+4],ax
   if ?DTAINHOSTPSP
@@ -4716,7 +4801,7 @@ termclient2:
 	mov [ebp].PUSHADS.rAX, ax
 	mov esp, ebp
 	popad
-	@rawjmp_rm	_initclienterr_rm	;jmp rm, no stack switch
+	@rawjmp_rm _initclienterr_rm	;jmp rm, rm stack "undefined"
 
 ;--- no client running as of yet
 
@@ -4732,7 +4817,8 @@ termserver:
 	pop es
 	call resetrmvecs
 
-	@exitserver_pm _initclienterr_rm	;preserves ax, back in real mode
+	pushd offset _initclienterr_rm
+	jmp _exitserver_pm 	;preserves ax, back in real mode
 	align 4
 
 _initclient_pm endp
@@ -4788,12 +4874,20 @@ closeinterrupts endp
 if ?CHECKHOSTSTACK
 _exitclientEx5 proc public
 	mov ax,_EAERR5_
+if ?HSINEXTMEM
+	mov esp,ss:dwStackTop
+	lea esp, [esp+0F80h]
+else
 	mov esp,offset ring0stack
+endif
 	mov ss:[taskseg._Esp0], esp
 if ?FIXTSSESP
 	mov ss:[dwHostStack], esp
 else
-	mov ss:[dwHostStackExc], offset ring0stack - sizeof R3FAULT32
+;	mov ss:[dwHostStackExc], offset ring0stack - sizeof R3FAULT32
+	lea esp, [esp - sizeof R3FAULT32]
+	mov ss:[dwHostStackExc], esp
+	lea esp, [esp + sizeof R3FAULT32]
 endif
 	jmp _exitclientEx
 _exitclientEx5 endp
@@ -4867,7 +4961,7 @@ ife ?ALWAYSRESTORE
 endif
 	@strout <"#exitclient: jump to exitclient_rm, RMS=%X:%X, dx:bx=%X:%X",lf>, tskstate.rmSS, tskstate.rmSP, dx, bx
 	pop eax			;get return code
-	@rawjmp_rm _exitclient_rm	;raw jump to rm, no stack switch
+	@rawjmp_rm _exitclient_rm	;raw jump to rm, rm stack "undefined"
         
 ;--- either last client terminates
 ;--- or server terminates without client (fatal exit on init)
@@ -4895,7 +4989,8 @@ if ?RESIDENT
 endif
 	@strout <"#server *will* terminate",lf>
 	pop eax					;get return code
-	@exitserver_pm _dosexit_rm	;will return in real mode
+	pushd offset _dosexit_rm
+	jmp _exitserver_pm 	;will return to real mode
 	align 4
 
 _exitclient_pm endp
@@ -5046,9 +5141,10 @@ exit:
 resetrmvecs endp
 
 ;--- exit the dpmi server
-;--- what is the real-mode stack value if no client is active?
-;--- is this routine never called without an active client?
+;--- this routine is actually never called without an active client;
+;--- the hdpmi -u switch launches a temp client to remove the host.
 ;--- DS=GROUP16, ES=FLAT
+;--- [esp]=routine to jump to (offset32) after switch to real-mode.
 
 	@ResetTrace	;@SetTrace may require to set ?USEBIOS=0 in putchr.asm
 
@@ -5072,7 +5168,7 @@ endif
 ;	@waitesckey
 	pop eax
 	pop ss:[taskseg._Esi]
-	@rawjmp_rm _exitserver_rm		;jmp rm, no stack switch
+	@rawjmp_rm _exitserver_rm		;jmp rm, rm stack "undefined"
 	align 4
 _exitserver_pm endp
 
@@ -5484,14 +5580,20 @@ if ?ALLOCRMS
 	mov si,0000 		;task bytes
 else
 	mov si,?RMSTKSIZE/10h  ;task bytes
-PatchRMStkSize label word
+;PatchRMStkSize label word
+endif
+if ?VM
+	cmp cs:cApps,0
+	jz @F
+	add si,cs:wCloneSize
+@@:
 endif
 	mov dx,cs:[wVersion]
-	mov cl,cs:[_cpu]	;prozessor
+	mov cl,cs:[_cpu]	;processor
 if ?32BIT
 	mov bx,1			;32-Bit Apps
 else
-	mov bx,0			;keine 32-Bit Apps
+	mov bx,0			;no 32-Bit Apps
 endif
 	xor ax,ax
 	iret				;real-mode int ret!

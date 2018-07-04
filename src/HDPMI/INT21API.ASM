@@ -17,11 +17,6 @@ endif
 
 SIZE_BY_HANDLE_FILE_INFO equ 7*4 + 3*8
 
-
-@seg	SEG16
-@seg	_DATA16
-@seg	_TEXT32
-
 ;--- the structure of the EXEC parameter block
 ;--- is not documented anywhere. It is the one
 ;--- used by Win9x, WinXP, DPMIONE and 32RTM.
@@ -249,7 +244,7 @@ intr214C:
 ;*** is set to an address which returns to protected mode. In real-mode
 ;*** an int 21h, ah=4Ch function is executed.
 
-	@ResetTrace
+	@SetTrace
 
 	assume es:SEG16
 
@@ -284,14 +279,14 @@ intr2100:
 	jc @F
 	mov es:[ebx+16h],ax
 @@:
-	@strout <"#i21,00: will simulate a dos call 4Ch, SP=%X",lf>,sp
+	@strout <"#i21,00: will simulate a dos call 4Ch, esp=%lX",lf>, esp
 	mov eax, ss:[dwHostSeg]
 	shl eax,16
 	mov ax,offset dormintintern_rm_exit
 	mov es:[ebx+000Ah], eax
 	mov ax,4C00h
 	call rmdos
-	@strout <"#i21,00: back from real mode, sp=%X",lf>, sp
+	@strout <"#i21,00: back from real mode, esp=%lX",lf>, esp
 
 intr2100_ex:
 	pop es
@@ -603,7 +598,7 @@ intr214A endp
 resetdta proc public
 if ?DTAINHOSTPSP
 	mov dx,ss:[wHostPSP]
-	mov ss:[v86iret.rDS],dx
+	mov ss:v86iret.rDS,dx
 	mov dx,0080h
 	mov ah,1Ah
 	jmp rmdos
@@ -734,17 +729,17 @@ endif
 	mov bx,offset execparm
 
 	mov eax,ss:[dwHostSeg]
-	mov ss:[v86iret.rES], ax
+	mov ss:v86iret.rES, ax
 
 	@strout <"  ds:dx=%X:%X es:bx=%X:%X [env=%X cmdl=%X:%X]",lf>,\
-		ss:[v86iret.rDS], dx, ss:[v86iret.rES], bx, ss:[bx].EXECRM.environ,\
+		ss:v86iret.rDS, dx, ss:v86iret.rES, bx, ss:[bx].EXECRM.environ,\
 		word ptr ss:[bx].EXECRM.cmdline+2, word ptr ss:[bx].EXECRM.cmdline+0
 if _LTRACE_
 	push ds
 	push byte ptr _TLBSEL_
 	pop ds
 	@strout <"[cmdline]=%lX %lX %lX",lf>, dword ptr ds:[120h],\
-			dword ptr ds:[124h]>,<dword ptr ds:[128h]
+			dword ptr ds:[124h], dword ptr ds:[128h]
 	pop ds
 endif
 ;	@waitesckey
@@ -1155,7 +1150,7 @@ endif
 	test eax,0FFF00000h
 	jnz @F
 	shr eax,4
-	mov dword ptr ss:[v86iret.rDS], eax
+	mov dword ptr ss:v86iret.rDS, eax
 	@strout <"no TLB needed for read/write (%lX addr, %X size)",lf>,eax,cx
 	pop eax
 	add esp,4			;dont return
@@ -1169,267 +1164,267 @@ checkfileparams endp
 
 ;*** 3F -> read file BX, (E)CX bytes into DS:(E)DX ***
 
-		@ResetTrace
+	@ResetTrace
 
 intr213F proc
 if ?OPTIMIZETLBCOPY
-		call checkfileparams
+	call checkfileparams
 endif
-		pushad
+	pushad
 ife ?32BIT
-		movzx edx,dx
-		movzx ecx,cx
+	movzx edx,dx
+	movzx ecx,cx
 endif
-		mov ebp,?TLBSIZE
-		mov si,ss:[wSegTLB]
+	mov ebp,?TLBSIZE
+	mov si,ss:[wSegTLB]
 if ?DYNTLBALLOC
-		cmp ecx,ebp
-		jbe @F
-		call _AllocDosMemory
-		jc @F
-		mov bp,?DYNTLBSIZE
-		shr edi,4
-		mov esi,edi
+	cmp ecx,ebp
+	jbe @F
+	call _AllocDosMemory
+	jc @F
+	mov bp,?DYNTLBSIZE
+	shr edi,4
+	mov esi,edi
 @@:
 endif
-		@strout <"start read at %lX:%lX,%lX bytes using %X",lf>,ds,edx,ecx,si
-		xor edi,edi 	 ;edi is used to count bytes written
+	@strout <"start read at %lX:%lX,%lX bytes using %X",lf>,ds,edx,ecx,si
+	xor edi,edi 	 ;edi is used to count bytes written
 nextblock:
-		mov eax,[esp].PUSHADS.rEAX
-		push ecx
-		push edx
-		cmp ecx,ebp
-		jb @F
-		mov ecx,ebp
+	mov eax,[esp].PUSHADS.rEAX
+	push ecx
+	push edx
+	cmp ecx,ebp
+	jb @F
+	mov ecx,ebp
 @@:
-		mov dword ptr ss:[v86iret.rDS],esi
-		xor edx,edx
-		@strout <"  call rm dos, read (ax=%X) in TLB (=%X:%X) %X bytes",lf>,ax,si,dx,cx
-		call rmdos
-		pop edx
-		pop ecx
-		jc intr213FB
-		and ax,ax
-		jz intr213F_1
-		push ecx
-		movzx ecx,ax	;copy bytes read to ecx
-		add edi,ecx 	;update byte count
+	mov dword ptr ss:v86iret.rDS,esi
+	xor edx,edx
+	@strout <"  call rm dos, read (ax=%X) in TLB (=%X:%X) %X bytes",lf>,ax,si,dx,cx
+	call rmdos
+	pop edx
+	pop ecx
+	jc intr213FB
+	and ax,ax
+	jz intr213F_1
+	push ecx
+	movzx ecx,ax	;copy bytes read to ecx
+	add edi,ecx 	;update byte count
 
-		@strout <"  copying from %X to %lX:%lX %X bytes",lf>,si,ds,edx,cx
+	@strout <"  copying from %X to %lX:%lX %X bytes",lf>,si,ds,edx,cx
 
-		push ds
-		push edx
-		push esi
-		call copy_flat_2_far32
+	push ds
+	push edx
+	push esi
+	call copy_flat_2_far32
 
-		add edx,ecx 	 ;now update  ^ buffer pointer
+	add edx,ecx 	 ;now update  ^ buffer pointer
 
-		pop ecx
-		cmp ax,bp		 ;if  AX <> BP we're done
-		jnz intr213F_1
-		sub ecx,ebp
-		ja nextblock
+	pop ecx
+	cmp ax,bp		 ;if  AX <> BP we're done
+	jnz intr213F_1
+	sub ecx,ebp
+	ja nextblock
 intr213F_1:
-		clc
+	clc
 if ?32BIT
-		mov eax,edi
+	mov eax,edi
 else
-		mov ax,di
+	mov ax,di
 endif
 intr213FB:
 intr213F_er:
 if ?32BIT
-		mov [esp].PUSHADS.rEAX,eax
+	mov [esp].PUSHADS.rEAX,eax
 else
-		mov [esp].PUSHADS.rAX,ax
+	mov [esp].PUSHADS.rAX,ax
 endif
 if ?DYNTLBALLOC
-		pushfd
-		cmp bp,?TLBSIZE
-		jz @F
-		call _FreeDosMemory
+	pushfd
+	cmp bp,?TLBSIZE
+	jz @F
+	call _FreeDosMemory
 @@:        
-        popfd
+	popfd
 endif
-		popad
-		ret
-		align 4
+	popad
+	ret
+	align 4
 intr213F endp
 
 ;*** 40 -> write file BX (E)CX bytes from DS:(E)DX ***
 
-		@ResetTrace
+	@ResetTrace
 
 intr2140 proc
 if ?OPTIMIZETLBCOPY
-		call checkfileparams
+	call checkfileparams
 endif
-		pushad
+	pushad
 ife ?32BIT
-		movzx edx,dx
-		movzx ecx,cx
+	movzx edx,dx
+	movzx ecx,cx
 endif
-		mov ebp,?TLBSIZE
-		mov si,ss:[wSegTLB]
+	mov ebp,?TLBSIZE
+	mov si,ss:[wSegTLB]
 if ?DYNTLBALLOC
-		cmp ecx,ebp
-		jbe @F
-		call _AllocDosMemory
-		jc @F
-		mov bp,?DYNTLBSIZE
-		shr edi,4
-		mov esi,edi
+	cmp ecx,ebp
+	jbe @F
+	call _AllocDosMemory
+	jc @F
+	mov bp,?DYNTLBSIZE
+	shr edi,4
+	mov esi,edi
 @@:
 endif
-		@strout <"start write at %lX:%lX,%lX bytes using %X",lf>,ds,edx,ecx,si
-		xor edi,edi 	 ;EDI is used to count bytes written
+	@strout <"start write at %lX:%lX,%lX bytes using %X",lf>,ds,edx,ecx,si
+	xor edi,edi 	 ;EDI is used to count bytes written
 intr2140A:				 ;<----
-		mov eax, [esp].PUSHADS.rEAX
-		push ecx
-		cmp ecx,ebp
-		jb @F
-		mov ecx,ebp
+	mov eax, [esp].PUSHADS.rEAX
+	push ecx
+	cmp ecx,ebp
+	jb @F
+	mov ecx,ebp
 @@:
-		@strout <"  copying from %lX:%lX to TLB %X bytes",lf>,ds,edx,cx
+	@strout <"  copying from %lX:%lX to TLB %X bytes",lf>,ds,edx,cx
 
-		push edx
+	push edx
 
-		push ds
-		push edx
-		push esi
-		call copy_far32_2_flat
+	push ds
+	push edx
+	push esi
+	call copy_far32_2_flat
 
-		xor edx,edx
-		mov dword ptr ss:[v86iret.rDS],esi
-		call rmdos
-		pop edx
-		pop ecx
-		jc fail
-		movzx eax,ax	;bytes written
-		add edi,eax		;update byte count
-		add edx,eax		;update source ptr
-		sub ecx,ebp
-		ja intr2140A	;if > TLB another loop is required!
-		clc
+	xor edx,edx
+	mov dword ptr ss:v86iret.rDS,esi
+	call rmdos
+	pop edx
+	pop ecx
+	jc fail
+	movzx eax,ax	;bytes written
+	add edi,eax		;update byte count
+	add edx,eax		;update source ptr
+	sub ecx,ebp
+	ja intr2140A	;if > TLB another loop is required!
+	clc
 if ?32BIT
-		mov eax,edi
+	mov eax,edi
 else
-		mov ax,di
+	mov ax,di
 endif
 fail:
 if ?32BIT
-		mov [esp].PUSHADS.rEAX,eax
+	mov [esp].PUSHADS.rEAX,eax
 else
-		mov [esp].PUSHADS.rAX,ax
+	mov [esp].PUSHADS.rAX,ax
 endif
 if ?DYNTLBALLOC
-		pushfd
-		cmp bp,?TLBSIZE
-		jz @F
-		call _FreeDosMemory
+	pushfd
+	cmp bp,?TLBSIZE
+	jz @F
+	call _FreeDosMemory
 @@:
-        popfd
+	popfd
 endif
-		popad
-		ret
-		align 4
+	popad
+	ret
+	align 4
 intr2140 endp
 
 ;*** translate bios parameter block to drive parameter block
 ;*** inp: DS:SI -> bios parameter block
 ;*** out: ES:BP -> drive parameter block
 
-		@ResetTrace
+	@ResetTrace
 
 ?BPBSIZE = 36	  ;
 
 intr2153 proc
-		push esi
-		push edx
-		push ecx
-		mov edx,esi
-		mov cx,?BPBSIZE
-		call copy_dsdx_2_tlb
-		call setesreg2tlb
-		pop ecx
-		pop edx
-		push ebp
-		mov ebp,100h
+	push esi
+	push edx
+	push ecx
+	mov edx,esi
+	mov cx,?BPBSIZE
+	call copy_dsdx_2_tlb
+	call setesreg2tlb
+	pop ecx
+	pop edx
+	push ebp
+	mov ebp,100h
 if 1
-		push ds
-		push byte ptr _TLBSEL_
-		pop ds
-		mov word ptr ds:[ebp],0	  ;die ersten 2 bytes werden nicht init.
-		pop ds
+	push ds
+	push byte ptr _TLBSEL_
+	pop ds
+	mov word ptr ds:[ebp],0	  ;die ersten 2 bytes werden nicht init.
+	pop ds
 endif
-		mov si,0000
-		call rmdos
-		pop ebp
-		pop esi
+	mov si,0000
+	call rmdos
+	pop ebp
+	pop esi
         
-		pushfd
-		push edi
-		mov edi, ebp
+	pushfd
+	push edi
+	mov edi, ebp
 if ?SUPPDOS33
-		push word ptr ss:[wDPBSize]
+	push word ptr ss:[wDPBSize]
 else
-		push word ptr ?DPBSIZE
+	push word ptr ?DPBSIZE
 endif
-		push word ptr 100h
-		call copy_tlbxx_2_esdi
-		pop edi
-		popfd
-		ret
-		align 4
+	push word ptr 100h
+	call copy_tlbxx_2_esdi
+	pop edi
+	popfd
+	ret
+	align 4
 intr2153 endp
 
 ;*** Subsystem AH=44h ***
 
-		@ResetTrace
+	@ResetTrace
 
 subsys44 proc
-		cmp al,2
-		jb rmdos	;00/01 ok
-		jz f4402
-		cmp al,4
-		jb f4403
-		jz f4404
-		cmp al,5
-		jz f4405
-		cmp al,0Ch
-		jb rmdos	;06/07/08/09/0A/0B ok
-		jz f440C
-		cmp al,0Eh
-		jb intr21440D
-		jmp rmdos	;0E/0F/10/11 ok
+	cmp al,2
+	jb rmdos	;00/01 ok
+	jz f4402
+	cmp al,4
+	jb f4403
+	jz f4404
+	cmp al,5
+	jz f4405
+	cmp al,0Ch
+	jb rmdos	;06/07/08/09/0A/0B ok
+	jz f440C
+	cmp al,0Eh
+	jb intr21440D
+	jmp rmdos	;0E/0F/10/11 ok
 
 f4402:				;read ioctrl
 f4404:				;read ioblock
-		push edx
-		call copy_dsdx_2_tlb
-		xor edx,edx
-		call rmdos
-		pop edx
-		jc @F
-		push ecx
-		mov ecx,eax
-		call copy_tlb_2_dsdx
-		pop ecx
+	push edx
+	call copy_dsdx_2_tlb
+	xor edx,edx
+	call rmdos
+	pop edx
+	jc @F
+	push ecx
+	mov ecx,eax
+	call copy_tlb_2_dsdx
+	pop ecx
 @@:
-		ret
+	ret
 f4403:				;write ioctrl
 f4405:				;write ioblock
-		push edx
-		call copy_dsdx_2_tlb
-		xor edx,edx
-		call rmdos
-		pop edx
-		ret
+	push edx
+	call copy_dsdx_2_tlb
+	xor edx,edx
+	call rmdos
+	pop edx
+	ret
 
 ;*** AX=440Ch (generic character device request) ***
 
 f440C:
-		jmp unsuppcall
+	jmp unsuppcall
 
 subsys44 endp
 
@@ -1455,88 +1450,88 @@ subsys44 endp
 ;--- 6Dh enumerate open files
 ;--- 6Eh find swap file
 
-		@ResetTrace
+	@ResetTrace
 
 intr21440D proc
 
-		@strout <"I21: call AX=%X,BX=%X,CX=%X,DX=%X",lf>,ax,bx,cx,dx
-		push esi
-		cmp cl,40h
-		jnz not440D40
+	@strout <"I21: call AX=%X,BX=%X,CX=%X,DX=%X",lf>,ax,bx,cx,dx
+	push esi
+	cmp cl,40h
+	jnz not440D40
 if ?32BIT
-		mov ax,[edx+38]
+	mov ax,[edx+38]
 else
-		mov si,dx
-		mov ax,[si+38]
+	mov si,dx
+	mov ax,[si+38]
 endif
-		shl ax,2
-		add ax,38+2
-		pop esi
-		jmp f440D_ok1
+	shl ax,2
+	add ax,38+2
+	pop esi
+	jmp f440D_ok1
 f440D_notrans:
-		call setdsreg2tlb	;just to be safe
-		mov ax,440Dh
-		pop esi
-		jmp rmdos
+	call setdsreg2tlb	;just to be safe
+	mov ax,440Dh
+	pop esi
+	jmp rmdos
 not440D40:
-		mov esi,offset tab440D
+	mov esi,offset tab440D
 @@:
-		db 2Eh			;CS prefix
-		lodsw
-		cmp al,-1
-;;  	jz f440D_er	;why error? in this case just no translation!
-		jz f440D_notrans
-		cmp al,cl
-		jnz @B
-		pop esi
-		mov al,ah
-		mov ah,00
+	db 2Eh			;CS prefix
+	lodsw
+	cmp al,-1
+;;  jz f440D_er	;why error? in this case just no translation!
+	jz f440D_notrans
+	cmp al,cl
+	jnz @B
+	pop esi
+	mov al,ah
+	mov ah,00
 f440D_ok1:
-		push ecx
-		mov ecx,eax
-		@strout <"I21: func 440d: copy %X bytes to tlb",lf>,cx
-		call copy_dsdx_2_tlb
-		pop ecx
-		cmp cl,41h
-		jnz @F
-		call f440D41b
+	push ecx
+	mov ecx,eax
+	@strout <"I21: func 440d: copy %X bytes to tlb",lf>,cx
+	call copy_dsdx_2_tlb
+	pop ecx
+	cmp cl,41h
+	jnz @F
+	call f440D41b
 @@:
-		cmp cl,61h
-		jnz @F
-		call f440D61b
+	cmp cl,61h
+	jnz @F
+	call f440D61b
 @@:
-		call setdsreg2tlb
-		push edx
-		xor edx,edx
-		mov ax,440Dh
-		call rmdos
-		pop edx
-		jc error
-		push esi
-		mov esi,offset tab440D2
+	call setdsreg2tlb
+	push edx
+	xor edx,edx
+	mov ax,440Dh
+	call rmdos
+	pop edx
+	jc error
+	push esi
+	mov esi,offset tab440D2
 @@:
-		cmp byte ptr cs:[esi],-1
-		jz f440D2_ok2
-		cmp cl,cs:[esi]
-		jz f440D2_ok
-		inc esi
-		inc esi
-		jmp @B
+	cmp byte ptr cs:[esi],-1
+	jz f440D2_ok2
+	cmp cl,cs:[esi]
+	jz f440D2_ok
+	inc esi
+	inc esi
+	jmp @B
 f440D2_ok:
-		push ecx
-		movzx cx,byte ptr cs:[esi+1]
-		@strout <"I21: func 440d: copy %X bytes from tlb",lf>,cx
-		call copy_tlb_2_dsdx
-		pop ecx
+	push ecx
+	movzx cx,byte ptr cs:[esi+1]
+	@strout <"I21: func 440d: copy %X bytes from tlb",lf>,cx
+	call copy_tlb_2_dsdx
+	pop ecx
 f440D2_ok2:
-		pop esi
-		cmp cl,61h
-		jnz @F
-		call f440D61a
+	pop esi
+	cmp cl,61h
+	jnz @F
+	call f440D61a
 @@:
-		clc
+	clc
 error:
-		ret
+	ret
 
 LOGTRACKPARM struct
 special	db ?
@@ -1550,157 +1545,157 @@ LOGTRACKPARM ends
 ;--- prepare read track. set
 
 f440D61b:
-		@strout <"I21: func 440d,41+61: set transfer buffer to rm",lf>
-		push ds
-		push byte ptr _TLBSEL_
-		pop ds
-		push word ptr ss:[wSegTLB]
-		push word ptr 0020h
-		pop dword ptr ds:[LOGTRACKPARM.dta]
-		pop ds
-		ret
+	@strout <"I21: func 440d,41+61: set transfer buffer to rm",lf>
+	push ds
+	push byte ptr _TLBSEL_
+	pop ds
+	push word ptr ss:[wSegTLB]
+	push word ptr 0020h
+	pop dword ptr ds:[LOGTRACKPARM.dta]
+	pop ds
+	ret
 
 ;--- write track: copy [DS:E/DX+9] -> TLB.20
 
 f440D41b:
-		call f440D61b
+	call f440D61b
 
-		pushad					 ;copy track [DS:DX+9] -> TLB
-		push ds
-		push es
+	pushad					 ;copy track [DS:DX+9] -> TLB
+	push ds
+	push es
 ife ?32BIT
-		movzx edx,dx
+	movzx edx,dx
 endif
-		movzx ecx,[edx].LOGTRACKPARM.numsecs
-		lds si,[edx].LOGTRACKPARM.dta
-		movzx esi, si
-		shl ecx,9			 ;sectors -> bytes
-		@strout <"I21: func 440d,41: copy %lX bytes to tlb.20",lf>,ecx
-		push byte ptr _TLBSEL_
-		pop es
-		mov edi,20h
-		rep movsb
+	movzx ecx,[edx].LOGTRACKPARM.numsecs
+	lds si,[edx].LOGTRACKPARM.dta
+	movzx esi, si
+	shl ecx,9			 ;sectors -> bytes
+	@strout <"I21: func 440d,41: copy %lX bytes to tlb.20",lf>,ecx
+	push byte ptr _TLBSEL_
+	pop es
+	mov edi,20h
+	rep movsb
 
-		pop es
-		pop ds
-		popad
-		ret
+	pop es
+	pop ds
+	popad
+	ret
         
 ;--- read track. copy TLB.20 -> [DS:E/DX+9]
 
 f440D61a:
-		pushad
-		push ds
-		push es
+	pushad
+	push ds
+	push es
 ife ?32BIT
-		movzx edx, dx
+	movzx edx, dx
 endif
-		movzx ecx,[edx].LOGTRACKPARM.numsecs
-		les di,[edx].LOGTRACKPARM.dta
-		movzx edi, di
-		shl ecx,9			 ;sektors -> bytes
-		@strout <"I21: func 440d,11: copy %X bytes from tlb.20",lf>,cx
-		push byte ptr _TLBSEL_
-		pop ds
-		mov esi,20h
-		rep movsb
+	movzx ecx,[edx].LOGTRACKPARM.numsecs
+	les di,[edx].LOGTRACKPARM.dta
+	movzx edi, di
+	shl ecx,9			 ;sektors -> bytes
+	@strout <"I21: func 440d,11: copy %X bytes from tlb.20",lf>,cx
+	push byte ptr _TLBSEL_
+	pop ds
+	mov esi,20h
+	rep movsb
 
-		pop es
-		pop ds
-		popad
-		ret
+	pop es
+	pop ds
+	popad
+	ret
 
 ;--- table of int 21h, ax=440D, subfunction CL
 ;--- bytes to copy from DS:E/DX
 
 tab440D label byte
-		db 41h,13
-		db 42h,4
-		db 46h,25
-		db 47h,2
-		db 60h,38
-		db 61h,13
-		db 62h,4
-		db 66h,25
-		db 67h,2
-		db 68h,2
-		db -1
+	db 41h,13
+	db 42h,4
+	db 46h,25
+	db 47h,2
+	db 60h,38
+	db 61h,13
+	db 62h,4
+	db 66h,25
+	db 67h,2
+	db 68h,2
+	db -1
 
 ;--- table of int 21h, ax=440D, subfunction CL
 ;--- bytes to copy back to DS:E/DX
 
 tab440D2 label byte
-		db 60h,38
-		db 61h,13-4
-		db 62h,4
-		db 66h,25
-		db 67h,2
-		db 68h,2
-;		db 6Dh,255		;enum open files
-;		db 6Eh,255		;find swap file path
-		db -1h
+	db 60h,38
+	db 61h,13-4
+	db 62h,4
+	db 66h,25
+	db 67h,2
+	db 68h,2
+;	db 6Dh,255		;enum open files
+;	db 6Eh,255		;find swap file path
+	db -1h
 
 intr21440D endp
 
 ;*** Subsystem AH=5Dh - server function call ***
 
-		@ResetTrace
+	@ResetTrace
 
 subsys5d proc
-		cmp al,6			;get address of SDA?
-		jb error			;0,1,2,3,4,5
-		jz f5d06			;6
-		cmp al,0Ah   		;7,8,9 ist ok
-		jb rmdos
-		ja error
-		push ecx				;0Ah: set extended error info
-		mov cx,22
-		call copy_dsdx_2_tlb
-		pop ecx
-		push edx
-		xor edx,edx
-		call rmdos
-		pop edx
-		ret
+	cmp al,6			;get address of SDA?
+	jb error			;0,1,2,3,4,5
+	jz f5d06			;6
+	cmp al,0Ah   		;7,8,9 ist ok
+	jb rmdos
+	ja error
+	push ecx				;0Ah: set extended error info
+	mov cx,22
+	call copy_dsdx_2_tlb
+	pop ecx
+	push edx
+	xor edx,edx
+	call rmdos
+	pop edx
+	ret
 f5d06:
-		call rmdos		;get SDA in DS:E/SI
-		jmp ds_segm2sel ;no need to clear HIWORD(esi)!
+	call rmdos		;get SDA in DS:E/SI
+	jmp ds_segm2sel ;no need to clear HIWORD(esi)!
 error:
-		jmp unsuppcall
+	jmp unsuppcall
 
 subsys5d endp
 
 ;*** Subsystem AH=5Eh - network ***
 
-		@ResetTrace
+	@ResetTrace
 
 subsys5e proc
-		cmp al,0
-		jnz rmdos
-;;		jz f5e00
+	cmp al,0
+	jnz rmdos
+;;	jz f5e00
 f5e00:
-		push edx
-		call setdsreg2tlb
-		xor edx,edx
-		push ds
-		push byte ptr _TLBSEL_
-		pop ds
-		mov ds:[0010h],dl
-		pop ds
-		call rmdos
-		pop edx
-		jc @F
-		push esi
-		mov esi,edx
-		call copyz_tlb_2_dssi ;copy to DS:(E)SI
-		pop esi
+	push edx
+	call setdsreg2tlb
+	xor edx,edx
+	push ds
+	push byte ptr _TLBSEL_
+	pop ds
+	mov ds:[0010h],dl
+	pop ds
+	call rmdos
+	pop edx
+	jc @F
+	push esi
+	mov esi,edx
+	call copyz_tlb_2_dssi ;copy to DS:(E)SI
+	pop esi
 @@:
-		ret
+	ret
 subsys5e endp
 
 ;*** subsystem FCBs 0Fh-17h ***
 
-		@ResetTrace
+	@ResetTrace
 
 intr210F:
 intr2110:
@@ -1709,134 +1704,134 @@ intr2115:
 intr2116:
 intr2117:
 unsuppcall:
-		push 21h
-		call unsupp
-		stc
-		ret
+	push 21h
+	call unsupp
+	stc
+	ret
 intr2111:
 intr2112:
 intr2113:							   ;ds:dx -> fcb
-		push ecx
-		push edx
-		mov cx,0025h			   ;size of "normal fcb" is 37 bytes
+	push ecx
+	push edx
+	mov cx,0025h			   ;size of "normal fcb" is 37 bytes
 ife ?32BIT
-		movzx edx,dx
+	movzx edx,dx
 endif
-		cmp byte ptr [edx],0FFh	   ;extended fcb?
-		jnz @F
-		mov cl,25h+7			   ;then size 44 bytes
+	cmp byte ptr [edx],0FFh	   ;extended fcb?
+	jnz @F
+	mov cl,25h+7			   ;then size 44 bytes
 @@:
-		push ecx
-		call copy_dsdx_2_tlb 	   ;copy cx bytes to tlb:0
-		xor edx,edx
-		call rmdos
-		pop ecx
-		pop edx
-		call copy_tlb_2_dsdx 	   ;copy back! - may have been modified
-		cmp al,0FFh 			   ;error?
-		jz @F
-;		@strout <"I21: fcb call was successful",lf>
-		push word ptr 0
-		push cx
-		call copy_tlbdta_2_dta	   ;copy cx bytes tlbdta -> dta
+	push ecx
+	call copy_dsdx_2_tlb 	   ;copy cx bytes to tlb:0
+	xor edx,edx
+	call rmdos
+	pop ecx
+	pop edx
+	call copy_tlb_2_dsdx 	   ;copy back! - may have been modified
+	cmp al,0FFh 			   ;error?
+	jz @F
+;	@strout <"I21: fcb call was successful",lf>
+	push word ptr 0
+	push cx
+	call copy_tlbdta_2_dta	   ;copy cx bytes tlbdta -> dta
 @@:
-		pop ecx
-		ret
+	pop ecx
+	ret
 
 ;*** 1B: get actual drive info DS:E/BX
 ;*** 1C: get drive info DS:E/BX
 ;*** 1F: get DPB for default drive in DS:E/BX
 ;*** 32: get DPB for drive in DL in DS:E/BX
 
-		@ResetTrace
+	@ResetTrace
 
 intr211B:
 intr211C:
 intr211F:
 intr2132:
-		@strout <"I21: ax=%X,dx=%X",lf>,ax,dx
-		call rmdos
+	@strout <"I21: ax=%X,dx=%X",lf>,ax,dx
+	call rmdos
 ;--- al=FF indicates error, set Carry flag then
-		@strout <"I21: ret, ax=%X, rmDS:bx=%X:%X",lf>,ax,ss:[v86iret.rDS],bx
-		cmp al,0FFh
-		jz @F
-		call ds_segm2sel
-		@strout <"I21: ds=%X translated to %lX",lf>,ss:[v86iret.rDS],ds
+	@strout <"I21: ret, ax=%X, rmDS:bx=%X:%X",lf>,ax,ss:v86iret.rDS,bx
+	cmp al,0FFh
+	jz @F
+	call ds_segm2sel
+	@strout <"I21: ds=%X translated to %lX",lf>,ss:v86iret.rDS,ds
 if ?32BIT
-		movzx ebx,bx
+	movzx ebx,bx
 endif
-		clc
-		ret
+	clc
+	ret
 @@:
-		stc
-		ret
+	stc
+	ret
 
 ;*** 34: indos flag (ES:BX) ***
 ;*** 52: get ListofList (ES:BX) ***
 
-		@ResetTrace
+	@ResetTrace
 
 intr2134:
 intr2152:
-		call rmdos
-		call es_segm2sel
+	call rmdos
+	call es_segm2sel
 if ?32BIT
-		movzx ebx,bx
+	movzx ebx,bx
 endif
-		ret
-		align 4
+	ret
+	align 4
 
 ;*** 51: get psp (BX) ***
 ;*** 62: get psp (BX) ***
 
 intr2151:
 intr2162:
-		call rmdos
-		call getpspsel
-		ret
+	call rmdos
+	call getpspsel
+	ret
 
 ;*** get extended error info (ES:DI]
 ;--- this call may modify v86.rES to 0000
 
 intr2159 proc
-		call rmdos
-		pushfd
-		cmp al,22h		;for this code a pointer is in es:e/di
-		jnz @F
-		call es_segm2sel
+	call rmdos
+	pushfd
+	cmp al,22h		;for this code a pointer is in es:e/di
+	jnz @F
+	call es_segm2sel
 @@:
-		popfd
-		ret
+	popfd
+	ret
 intr2159 endp
 
 ;--- get DBCS table in DS:E/SI
 
 intr2163 proc
-		cmp al,0
-		jnz rmdos
-		call rmdos
-;		jc @F				;test for Carry may not work for 21,6300!!!
-		pushfd
-		cmp al,0
-		jnz @F
-		call ds_segm2sel
+	cmp al,0
+	jnz rmdos
+	call rmdos
+;	jc @F				;test for Carry may not work for 21,6300!!!
+	pushfd
+	cmp al,0
+	jnz @F
+	call ds_segm2sel
 if ?32BIT
-		movzx esi,si
+	movzx esi,si
 endif
 @@:
-		popfd
-		ret
+	popfd
+	ret
 intr2163 endp
 
 ;--- get/set disk serial number
 
 intr2169 proc
-		push ecx
-		mov cx,25
-		call intr216521
-		pop ecx
-		ret
-		align 4
+	push ecx
+	mov cx,25
+	call intr216521
+	pop ecx
+	ret
+	align 4
 intr2169 endp
 
 ;*** long filename functions
@@ -1845,77 +1840,77 @@ intr2169 endp
 ;*** and there exist real mode drivers LFNDOS/DOSLFN, which
 ;*** implements these functions in real dos
 
-		@ResetTrace
+	@ResetTrace
 
 if ?LFNSUPPORT
 
 int2171a7 proc
-		cmp bl,1
-		jz @F
-		push esi
-		call setdsreg2tlb
-		push es
+	cmp bl,1
+	jz @F
+	push esi
+	call setdsreg2tlb
+	push es
 if ?32BIT
-		push esi
+	push esi
 else
-		push word ptr 0
-		push si
+	push word ptr 0
+	push si
 endif
-		xor esi, esi
-		push esi
-		push sizeof QWORD
-		call copy_far32_2_tlbxx	;copy 37 bytes to TLB:100h
-		call rmdoswithcarry
-		pop esi
-		ret
+	xor esi, esi
+	push esi
+	push sizeof QWORD
+	call copy_far32_2_tlbxx	;copy 37 bytes to TLB:100h
+	call rmdoswithcarry
+	pop esi
+	ret
 @@:
-		push edi
-		call setesreg2tlb
-		xor edi, edi
-		call rmdoswithcarry
-		pop edi
-		jc @F
-		push word ptr sizeof QWORD
-		push word ptr 0
-		call copy_tlbxx_2_esdi
+	push edi
+	call setesreg2tlb
+	xor edi, edi
+	call rmdoswithcarry
+	pop edi
+	jc @F
+	push word ptr sizeof QWORD
+	push word ptr 0
+	call copy_tlbxx_2_esdi
 @@:
-		ret
+	ret
 int2171a7 endp
 
 ;--- bh=0 -> ds:edx -> tlb:0
 ;--- bh=2 -> tlb:0 -> ds:edx
         
 int2171aa proc
-		@strout <"int 21,ax=71AA",lf>
-		cmp bh,0
-		jz copyz_dsdx
-		cmp bh,2
-		jnz rmdoswithcarry
-		push edx
-		call setdsreg2tlb
-		call rmdoswithcarry
-		pop edx
-		jc @F
-		call copyz_tlb_2_dsdx
+	@strout <"int 21,ax=71AA",lf>
+	cmp bh,0
+	jz copyz_dsdx
+	cmp bh,2
+	jnz rmdoswithcarry
+	push edx
+	call setdsreg2tlb
+	call rmdoswithcarry
+	pop edx
+	jc @F
+	call copyz_tlb_2_dsdx
 @@:
-		ret
-		align 4
+	ret
+	align 4
 int2171aa endp
 
 ;--- int 21, ax=7139 | 713A | 713B | 7141 | 7143        
         
 copyz_dsdx proc
 if ?32BIT
-		@strout <"int 21,ax=%X ds:edx=%ls",lf>,ax,ds,edx
+	@strout <"int 21,ax=%X ds:edx=%ls",lf>,ax,ds,edx
 else
-		@strout <"int 21,ax=%X ds:dx=%s",lf>,ax,ds,dx
+	@strout <"int 21,ax=%X ds:dx=%s",lf>,ax,ds,dx
 endif
-		push edx
-		call copyz_dsdx_2_tlb
-		call rmdoswithcarry
-		pop edx
-		ret
-		align 4
+	push edx
+	call copyz_dsdx_2_tlb
+	call rmdoswithcarry
+	pop edx
+	ret
+	align 4
 copyz_dsdx endp
 
 
@@ -1923,50 +1918,50 @@ endif
 
 intr2171 proc
 if ?LFNSUPPORT
-		test ss:[bEnvFlags], ENVF_NOLFN
-		jnz unsupp71
-		cmp al,39h
-		jb rmdoswithcarry
-		cmp al,3bh		;39/3a/3b create/remove/change dir
-		jbe copyz_dsdx
-		cmp al,41h		;delete file
-		JZ copyz_dsdx
-		cmp al,43h		;get/set file attr
-		JZ copyz_dsdx
-		cmp al,47h		;get cur dir
-		jz int217147
-		cmp al,4Eh		;get first file  
-		jz int21714e
-		cmp al,4Fh		;get next file
-		jz int21714f
-		cmp al,56h		;rename file
-		jz int217156
-		cmp al,60h		;get canonical form
-		jz int217160
-		cmp al,6ch		;create/open file
-		jz int21716c
-		cmp al,0A0h		;get volume info
-		jz int2171a0
-		cmp al,0A2h		;same as 714F
-		jz int2171a2
-		cmp al,0A6h		;get file info by handle
-		jz int2171a6
-		cmp al,0A7h		;file time to dos time/dos time to file time
-		jz int2171a7
-		cmp al,0A8h		;generate short filename
-		jz int2171a8
-		cmp al,0AAh		;subst
-		jz int2171aa
-		jb rmdoswithcarry
+	test ss:[bEnvFlags], ENVF_NOLFN
+	jnz unsupp71
+	cmp al,39h
+	jb rmdoswithcarry
+	cmp al,3bh		;39/3a/3b create/remove/change dir
+	jbe copyz_dsdx
+	cmp al,41h		;delete file
+	JZ copyz_dsdx
+	cmp al,43h		;get/set file attr
+	JZ copyz_dsdx
+	cmp al,47h		;get cur dir
+	jz int217147
+	cmp al,4Eh		;get first file  
+	jz int21714e
+	cmp al,4Fh		;get next file
+	jz int21714f
+	cmp al,56h		;rename file
+	jz int217156
+	cmp al,60h		;get canonical form
+	jz int217160
+	cmp al,6ch		;create/open file
+	jz int21716c
+	cmp al,0A0h		;get volume info
+	jz int2171a0
+	cmp al,0A2h		;same as 714F
+	jz int2171a2
+	cmp al,0A6h		;get file info by handle
+	jz int2171a6
+	cmp al,0A7h		;file time to dos time/dos time to file time
+	jz int2171a7
+	cmp al,0A8h		;generate short filename
+	jz int2171a8
+	cmp al,0AAh		;subst
+	jz int2171aa
+	jb rmdoswithcarry
 unsupp71:				;A0, A7, A8, A9, AA
-		mov al,00
-		stc
-		ret
-		align 4
+	mov al,00
+	stc
+	ret
+	align 4
 rmdoswithcarry::
-		stc
-		jmp rmdos
-		align 4
+	stc
+	jmp rmdos
+	align 4
 
 intr2171 endp
 
@@ -1975,64 +1970,64 @@ intr2171 endp
         
 int21716c proc
 if ?32BIT
-		@strout <"int 21,ax=%X ds:esi=%ls",lf>,ax,ds,esi
+	@strout <"int 21,ax=%X ds:esi=%ls",lf>,ax,ds,esi
 else
-		@strout <"int 21,ax=%X ds:si=%s",lf>,ax,ds,si
+	@strout <"int 21,ax=%X ds:si=%s",lf>,ax,ds,si
 endif
-		push esi
-		call copyz_dssi_2_tlb
-		call rmdoswithcarry
-		pop esi
-		ret
-		align 4
+	push esi
+	call copyz_dssi_2_tlb
+	call rmdoswithcarry
+	pop esi
+	ret
+	align 4
 int21716c endp
 
 ;--- int 21, ax=7147 (get cur dir into ds:e/si)        
 
 int217147 proc
-		@strout <"int 21,ax=7147",lf>
-		push esi
-		xor esi,esi
-		call setdsreg2tlb
-		call rmdoswithcarry
-		pop esi
-		jc @F
-		call copyz_tlb_2_dssi
+	@strout <"int 21,ax=7147",lf>
+	push esi
+	xor esi,esi
+	call setdsreg2tlb
+	call rmdoswithcarry
+	pop esi
+	jc @F
+	call copyz_tlb_2_dssi
 @@:
-		ret
-		align 4
+	ret
+	align 4
 int217147 endp
 
 ;--- int 21, ax=7156 (rename file)        
         
 int217156 proc
 if ?32BIT
-		@strout <"int 21,ax=%X ds:edx=%ls",lf>,ax,ds,edx
+	@strout <"int 21,ax=%X ds:edx=%ls",lf>,ax,ds,edx
 else
-		@strout <"int 21,ax=%X ds:dx=%s",lf>,ax,ds,dx
+	@strout <"int 21,ax=%X ds:dx=%s",lf>,ax,ds,dx
 endif
-		push edx
-		push edi
+	push edx
+	push edi
 
-		call copyz_dsdx_2_tlb
+	call copyz_dsdx_2_tlb
 
-		push es
+	push es
 if ?32BIT
-		push edi
+	push edi
 else
-		push word ptr 0
-		push di
+	push word ptr 0
+	push di
 endif
-		mov edi,100h
-		push edi
-		call copyz_far32_2_tlbxx
-		call setesreg2tlb
-		call rmdoswithcarry
+	mov edi,100h
+	push edi
+	call copyz_far32_2_tlbxx
+	call setesreg2tlb
+	call rmdoswithcarry
 
-		pop edi
-		pop edx
-		ret
-		align 4
+	pop edi
+	pop edx
+	ret
+	align 4
 int217156 endp
 
 ;--- int 21, ax=714E
@@ -2042,16 +2037,16 @@ int217156 endp
 ;--- CX = attributes
 
 int21714e proc
-		push edx
-		call copyz_dsdx_ret_esdi
-		pop edx
-		jc exit
-		push word ptr 13eh	;13E = finddata size
-		push word ptr 100h	;offset in TLB
-		call copy_tlbxx_2_esdi
+	push edx
+	call copyz_dsdx_ret_esdi
+	pop edx
+	jc exit
+	push word ptr 13eh	;13E = finddata size
+	push word ptr 100h	;offset in TLB
+	call copy_tlbxx_2_esdi
 exit:
-		ret
-		align 4
+	ret
+	align 4
 int21714e endp
 
 ;--- int 21, ax=71A0
@@ -2061,22 +2056,22 @@ int21714e endp
 ;--- DX = [out] max length of path
 
 int2171a0 proc
-		push cx				;size of buffer (2. param copy_tlbxx_2_esdi)
-		push word ptr 100h	;offset in TLB (1. param copy_tlbxx_2_esdi)
-		call copyz_dsdx_ret_esdi
-		jc error
+	push cx				;size of buffer (2. param copy_tlbxx_2_esdi)
+	push word ptr 100h	;offset in TLB (1. param copy_tlbxx_2_esdi)
+	call copyz_dsdx_ret_esdi
+	jc error
 if ?32BIT
-		@strout <"int 21,ax=71A0 ok, es:edi=%lX:%lX, cx=%X",lf>,es,edi,cx
+	@strout <"int 21,ax=71A0 ok, es:edi=%lX:%lX, cx=%X",lf>,es,edi,cx
 else
-		@strout <"int 21,ax=71A0 ok, es:di=%lX:%X, cx=%X",lf>,es,di,cx
+	@strout <"int 21,ax=71A0 ok, es:di=%lX:%X, cx=%X",lf>,es,di,cx
 endif
-		call copy_tlbxx_2_esdi
-		ret
+	call copy_tlbxx_2_esdi
+	ret
 error:
-		add esp,4
-		stc
-		ret
-		align 4
+	add esp,4
+	stc
+	ret
+	align 4
 int2171a0 endp
 
 ;--- used by ax=714e and 71a0
@@ -2085,18 +2080,18 @@ int2171a0 endp
 copyz_dsdx_ret_esdi proc
 
 if ?32BIT
-		@strout <"int 21 ax=%X ds:edx=%ls es:edi=%lX:%lX cx=%X",lf>,ax,ds,edx,es,edi,cx
+	@strout <"int 21 ax=%X ds:edx=%ls es:edi=%lX:%lX cx=%X",lf>,ax,ds,edx,es,edi,cx
 else
-		@strout <"int 21 ax=%X ds:dx=%s es:di=%lX:%X cx=%X",lf>,ax,ds,dx,es,di,cx
+	@strout <"int 21 ax=%X ds:dx=%s es:di=%lX:%X cx=%X",lf>,ax,ds,dx,es,di,cx
 endif
-		push edi
-		call copyz_dsdx_2_tlb	;copy ds:dx to TLB:0, set dx=0, v86-ds=TLB
-		mov di,100h
-		call setesreg2tlb		;es:di = TLB:100h
-		call rmdoswithcarry
-		pop edi
-		ret
-		align 4
+	push edi
+	call copyz_dsdx_2_tlb	;copy ds:dx to TLB:0, set dx=0, v86-ds=TLB
+	mov di,100h
+	call setesreg2tlb		;es:di = TLB:100h
+	call rmdoswithcarry
+	pop edi
+	ret
+	align 4
 
 copyz_dsdx_ret_esdi endp
         
@@ -2107,20 +2102,20 @@ int21714f:
 int2171a2:
 
 copy_esdi_ret_esdi proc
-		push edi
-		push ecx
-		mov cx,13Eh
-		call copy_esdi_2_tlb
-		pop ecx
-		xor edi,edi
-		call rmdoswithcarry
-		pop edi
-		jc exit
-		push word ptr 13Eh
-		push word ptr 0
-		call copy_tlbxx_2_esdi
+	push edi
+	push ecx
+	mov cx,13Eh
+	call copy_esdi_2_tlb
+	pop ecx
+	xor edi,edi
+	call rmdoswithcarry
+	pop edi
+	jc exit
+	push word ptr 13Eh
+	push word ptr 0
+	call copy_tlbxx_2_esdi
 exit:
-		ret
+	ret
 copy_esdi_ret_esdi endp
 
 ;--- copy asciiz ds:esi to tlb:0, return asciiz from tlb:100h into es:edi
@@ -2135,55 +2130,55 @@ int2171a8:
 int217160 proc
 
 if ?32BIT
-		@strout <"int 21 ax=%X ds:esi=%ls es:edi=%lX:%lX",lf>,ax,ds,esi,es,edi
+	@strout <"int 21 ax=%X ds:esi=%ls es:edi=%lX:%lX",lf>,ax,ds,esi,es,edi
 else
-		@strout <"int 21 ax=%X ds:si=%s es:di=%lX:%X",lf>,ax,ds,si,es,di
+	@strout <"int 21 ax=%X ds:si=%s es:di=%lX:%X",lf>,ax,ds,si,es,di
 endif
-		push esi
-		push edi
-		call copyz_dssi_2_tlb
-		mov di,100h
-		call setesreg2tlb
-		call rmdoswithcarry
-		pop edi
-		pop esi
-		jc exit
-		push es
+	push esi
+	push edi
+	call copyz_dssi_2_tlb
+	mov di,100h
+	call setesreg2tlb
+	call rmdoswithcarry
+	pop edi
+	pop esi
+	jc exit
+	push es
 if ?32BIT
-		push edi
+	push edi
 else
-		push word ptr 0
-		push di
+	push word ptr 0
+	push di
 endif
-		push 100h
-		call copyz_tlbxx_2_far32
+	push 100h
+	call copyz_tlbxx_2_far32
 exit:
-		ret
+	ret
 int217160 endp
 
 ;--- int 21, ax=71A6
 ;--- return TLB:0 to ds:e/dx
 
 int2171a6 proc
-		push edx
-		call setdsreg2tlb
-		xor edx,edx
-		call rmdoswithcarry
-		pop edx
-		jc exit
-		push ecx
-		mov cx,SIZE_BY_HANDLE_FILE_INFO
-		call copy_tlb_2_dsdx
-		pop ecx
+	push edx
+	call setdsreg2tlb
+	xor edx,edx
+	call rmdoswithcarry
+	pop edx
+	jc exit
+	push ecx
+	mov cx,SIZE_BY_HANDLE_FILE_INFO
+	call copy_tlb_2_dsdx
+	pop ecx
 exit:
-		ret
+	ret
 int2171a6 endp
-		
-		
+
+
 else					;no LFN support
-		mov al,00
-		stc
-		ret
+	mov al,00
+	stc
+	ret
 intr2171 endp
 
 endif

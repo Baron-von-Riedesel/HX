@@ -1,7 +1,7 @@
  
  History HDPMI 
 
-  22.06.2018, version 3.18
+  04.07.2018, version 3.18
 
   þ bugfix: nested real-mode stack handling did not work reliably
     if nesting level was > 1.
@@ -18,6 +18,10 @@
   þ the memory handling in "Int15" or "raw" mode has been changed. HDPMI
     will now report the amount of memory that was and is not used by a
     client as free via Int 15h, ax=E801h.
+  þ if option -a is used ( or HDPMI=32 is set ), the first client won't 
+    need additional DOS memory for a "cloned host".
+  þ the standard version of HDPMI will now allocate the host stack in
+    extended memory. The size of the stack is now 4 kB instead of 2 kB.
 
   09.10.2013, version 3.17
 

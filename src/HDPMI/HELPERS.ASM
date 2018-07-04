@@ -9,12 +9,10 @@
 	option proc:private
 
 if ?32BIT
-?CHECKWRITE		equ 1	;std=?, when copying from TLB make sure dst isnt r/o
+?CHECKWRITE	equ 1	;std=?, when copying from TLB make sure dst isnt r/o
 else
-?CHECKWRITE		equ 1	;std=1, when copying from TLB make sure dst isnt r/o
+?CHECKWRITE	equ 1	;std=1, when copying from TLB make sure dst isnt r/o
 endif
-
-@seg _TEXT32
 
 _TEXT32 segment
 
@@ -54,7 +52,7 @@ _LTRACE_ = 0
 
 setdsreg2tlb proc public
 	push ss:[dwSegTLB]
-	pop dword ptr ss:[v86iret.rDS]
+	pop dword ptr ss:v86iret.rDS
 	ret
 	align 4
 setdsreg2tlb endp
@@ -63,7 +61,7 @@ setdsreg2tlb endp
 
 setesreg2tlb proc public
 	push ss:[dwSegTLB]
-	pop dword ptr ss:[v86iret.rES]
+	pop dword ptr ss:v86iret.rES
 	ret
 	align 4
 setesreg2tlb endp
@@ -593,7 +591,7 @@ sel2segm endp
 ;--- translate v86-ds into selector
 
 ds_segm2sel proc public
-	push dword ptr ss:[v86iret.rDS]
+	push dword ptr ss:v86iret.rDS
 	call segm2sel
 	pop ds
 	ret
@@ -603,7 +601,7 @@ ds_segm2sel endp
 ;--- translate v86-es into selector
 
 es_segm2sel proc public
-	push dword ptr ss:[v86iret.rES]
+	push dword ptr ss:v86iret.rES
 	call segm2sel
 	pop es
 	ret

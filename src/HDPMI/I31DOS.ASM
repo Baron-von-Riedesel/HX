@@ -8,8 +8,6 @@
 
 	option proc:private
 
-@seg	_TEXT32
-
 _TEXT32  segment
 
 	assume DS:nothing
@@ -40,7 +38,7 @@ allocdos proc public
 	popad
 	ret
 allocdos_err2:
-	mov ss:[v86iret.rES], si
+	mov ss:v86iret.rES, si
 	mov ah,49h
 	call rmdos
 	popad
@@ -71,7 +69,7 @@ freedos proc public
 	mov ebx,edx
 	call bx_sel2segm
 	jc freedos_err			;it's not a DOS selector
-	mov ss:[v86iret.rES], bx
+	mov ss:v86iret.rES, bx
 	mov ah,49h
 	call rmdos				;es=segment
 	@strout <"i31: rc from DOS: %X",lf>,ax
@@ -117,7 +115,7 @@ resizedos proc public
 	call bx_sel2segm
 	jc resizedos_err2		;it's not a DOS selector
 	@strout <"resize dos: memory is dos memory (%X)",lf>,bx
-	mov ss:[v86iret.rES], bx
+	mov ss:v86iret.rES, bx
 ife ?32BIT
 	movzx ebx,[esp].PUSHADS.rBX
 	shl ebx,4

@@ -1,5 +1,5 @@
 
-# nmake makefile, creates a HDPMI32 which may work with WDeb386
+# nmake makefile, creates a HDPMI32 which may work with WDeb386.
 # tools used:
 #  - JWasm | Masm
 #  - JWLib | WLib (Open Watcom) | MS OMF LIB (lib16.exe)
@@ -22,12 +22,12 @@ SRCMODS = \
 OBJNAMES = $(SRCMODS:.ASM=.OBJ)
 
 !if $(DEBUG)
-OUTSTD= NOHIGHD
-OBJMODS = $(OBJNAMES:.\=NOHIGHD\)
+OUTSTD= WDEBD
+OBJMODS = $(OBJNAMES:.\=WDEBD\)
 AOPTD=-D_DEBUG
 !else
-OUTSTD= NOHIGH
-OBJMODS = $(OBJNAMES:.\=NOHIGH\)
+OUTSTD= WDEB
+OBJMODS = $(OBJNAMES:.\=WDEB\)
 !endif
 
 NAME  = HDPMI32
@@ -39,7 +39,7 @@ DEPS0 = hdpmi.inc external.inc version.inc
 .SUFFIXES: .asm .obj
 
 .asm{$(OUTSTD)}.obj:
-	@jwasm -nologo -c -Cp -Sg -D?32BIT=1 $(AOPTD) -I$(INC32DIR) -Fl$* -Fo$* -D?MOVEHIGH=0 $<
+	@jwasm -nologo -c -Cp -Sg -D?32BIT=1 $(AOPTD) -I$(INC32DIR) -Fl$* -Fo$* -D?MOVEGDT=0 -D?MOVEIDT=0 $<
 
 TARGET1=$(OUTSTD)\$(NAME).EXE 
 

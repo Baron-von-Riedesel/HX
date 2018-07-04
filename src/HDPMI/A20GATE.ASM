@@ -13,8 +13,6 @@
 ?GETA20PUBLIC	equ 0	;1=make _GetA20State() public
 ?VCPI_NOA20HOOK	equ 0	;1=ignore A20 stuff in VCPI mode
 
-@seg _DATA16
-@seg _TEXT16
 if ?ENABLEONCE
 @seg _ITEXT16
 endif
@@ -35,8 +33,6 @@ oldxms  dd 0
 _DATA16 ENDS
 
 if 0
-
-@seg _TEXT32
 
 _TEXT32 SEGMENT
 

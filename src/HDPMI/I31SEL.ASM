@@ -8,8 +8,6 @@
 
 	option proc:private
 
-@seg _TEXT32
-
 ?CACHERMSEL = 1
 
 _TEXT32 segment

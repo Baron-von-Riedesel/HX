@@ -25,13 +25,7 @@
 ?SETCOPYPTE    = 0	;std 0, 1=support set+copy PTEs
 ?XMSBLOCKCNT   = 1	;std 1, 1=count XMS blocks to improve alloc strategy
 
-@seg _TEXT32
-@seg _TEXT16
-@seg _DATA16
-@seg VDATA16
-@seg CDATA16
 @seg _ITEXT16
-@seg SEG16
 
 ifndef ?USEINVLPG
 ?USEINVLPG = 1 		;use invlpg opcode (80486+)
@@ -90,7 +84,7 @@ endif
 _XMSFLAG_		= 4h	;page src xms (+i15 +dos)
 _VCPIFLAG_		= 8h	;page src vcpi
 
-?SYSTEMSPACE	= 0FF8h ;offset in page dir for system area (std FF8=0xFF800000)	
+?SYSTEMSPACE	= 0FF8h ;offset in page dir for system area (std FF8=0xFF800000)   
 ?SYSPGDIRAREA	= 2*4	;2 system page tables (sys pagetab 0+1)
 
 ; memory structure as implemented by page manager:
@@ -415,11 +409,12 @@ getavailxmspages proc uses ebx
 	jz error
 	@strout <"#pm, getavailxmspages:: calling realmode XMS at %X:%X, RMS=%X:%X",lf>,\
 		word ptr ss:xmsaddr+2, word ptr ss:xmsaddr+0, tskstate.rmSS, tskstate.rmSP
+;	@waitesckey
 	push ecx
 	mov ah, fXMSQuery
 	mov bl,0
-	@pushproc callxms
-	call dormprocintern
+	pushd offset callxms
+	call callrmprocintern
 	pop ecx
 
 ;--- largest free block in E/AX
@@ -674,8 +669,8 @@ found:
 	jz @F
 	mov dx,[eax].PHYSBLK.wHandle
 	@strout <"#pm: calling XMS host to free handle=%X",lf>, dx
-	@pushproc freexms
-	call dormprocintern
+	pushd offset freexms
+	call callrmprocintern
 if ?XMSBLOCKCNT
 	dec [bXMSBlocks]
 endif
@@ -755,15 +750,15 @@ getxmspage proc near
 	test fHost,FH_XMS		;XMS host present?
 	jz getxmspage_err
 
-	@strout <"#pm: try to alloc XMS mem (real mode), ecx=%lX",lf>,ecx
+	@strout <"#getxmspage: try to alloc XMS mem (real mode), ecx=%lX",lf>,ecx
 	call getavailxmspages
 	cmp eax, 1
 	jc getxmspage_err		;XMS is out of memory
 	call getbestxmssize		;return best size
 	push ecx
 	mov ecx,eax
-	@pushproc allocxms
-	call dormprocintern
+	pushd offset allocxms
+	call callrmprocintern
 	pop ecx
 	jc getxmspage_err		;XMS is out of memory
 	call setphyshandle
@@ -774,7 +769,7 @@ if ?XMSBLOCKCNT
 endif
 	jmp getblockpage
 getxmspage_err:
-	@strout <"#pm: getxmspage memory alloc failed, ax=%X",lf>,ax
+	@strout <"#getxmspage: memory alloc failed, ax=%X",lf>,ax
 	stc
 	ret
 	align 4
@@ -799,7 +794,7 @@ getdospage proc
 
 	mov ax, PhysBlk.wHandle
 	mov ebx,PhysBlk.dwSize
-	mov [v86iret.rES],ax
+	mov v86iret.rES,ax
 	neg al
 	movzx eax, al
 	shl ebx,8				;pages -> paragraphs
@@ -954,7 +949,7 @@ getphyspage proc
 	call scanpagepool
 	jc @F
 	dec [dwPagePool]
-	@strout <"#pm: page pool decremented [%lX], Entry=%lX",lf>,\
+	@strout <"#getphyspage: page pool decremented [%lX], Entry=%lX",lf>,\
 		[dwPagePool], eax
 	ret
 @@:
@@ -963,7 +958,7 @@ getphyspage proc
 
 	call getblockpage		;get page from current phys mem block
 	jnc exit
-	@strout <"#pm: get page thru XMS",lf>
+	@strout <"#getphyspage: get page thru XMS",lf>
 	call getxmspage
 	jnc exit
 if ?VCPIALLOC
@@ -973,7 +968,7 @@ if ?NOVCPIANDXMS
 	test [fHost],FH_XMS	;using VCPI when XMS exists but fails
 	jnz novcpimem		;seems to be unstable for many VCPI hosts
 endif
-	@strout <"#pm: try VCPI alloc",lf>
+	@strout <"#getphyspage: try VCPI alloc",lf>
 
 	@ResetTrace
 
@@ -982,14 +977,13 @@ endif
 	and ah,ah				   ;ok?
 	jnz @F
 	inc [dwVCPIPages]
-	@strout <"#pm: page %lX allocated thru VCPI, total=%lX",lf>, edx, dwVCPIPages
-;	@waitesckey
+	@strout <"#getphyspage: page %lX allocated thru VCPI, total=%lX",lf>, edx, dwVCPIPages
 	mov eax,edx
 	and ax,0F000h
 	or ax,PTF_NORMAL + (_VCPIFLAG_*100h)
 	ret
 @@:
-	@strout <"#pm: VCPI alloc failed, ax=%X",lf>, ax
+	@strout <"#getphyspage: VCPI alloc failed, ax=%X",lf>, ax
 
 	@ResetTrace
 
@@ -997,8 +991,7 @@ novcpimem:
 endif
 	call getdospage
 exit:
-	@strout <"#pm, exit getphyspage, eax=%lX",lf>, eax
-;	@waitesckey
+	@strout <"#getphyspage: exit, eax=%lX",lf>, eax
 	ret
 	align 4
 getphyspage endp
@@ -2071,9 +2064,9 @@ _ClonePage proc public
 	pop ebx
 	pop edx
 	jc @F
-	@strout <"#pm, _CopyPage: addr=%lX, new PTE=%lX",lf>, edx, eax
+	@strout <"#ClonePage: addr=%lX, new PTE=%lX",lf>, edx, eax
 	call CopyPageContent
-	@strout <"#pm, _CopyPage: old PTE=%lX",lf>, eax
+	@strout <"#ClonePage: old PTE=%lX",lf>, eax
 @@:
 	ret
 	align 4
@@ -2517,8 +2510,8 @@ nextitem2:
 	pop dx
 	@strout <"#pm: free xms block %X, rm ss:sp=%X:%X",lf>,dx,ss:[tskstate.rmSS],cs:[tskstate.rmSP]
 
-	@pushproc freexms
-	call dormprocintern
+	pushd offset freexms
+	call callrmprocintern
 	jmp nextitem2
 @@:
 endif
@@ -2600,7 +2593,7 @@ endif
 pm_CloneGroup32 proc public
 
 	mov ecx, offset endoftext32
-	@strout <"#pm, clone group32: alloc %lX bytes 32bit code",lf>, ecx
+	@strout <"#pm_CloneGroup32: alloc %lX bytes 32bit code",lf>, ecx
 	mov edx, ecx
 	shr ecx, 12
 	test dx,0FFFh
@@ -2612,22 +2605,22 @@ pm_CloneGroup32 proc public
 	mov edi, eax
 ;;	mov edx, ?SYSTEMSPACE * 100000h + 1000h
 	mov edx, SysAddrSpace
-	@strout <"#pm, clone group32: source %lX, dest=%lX, pg=%lX",lf>, edx, edi, ecx
+	@strout <"#pm_CloneGroup32: source %lX, dest=%lX, pg=%lX",lf>, edx, edi, ecx
 @@:
 	call _ClonePage
 	jc error
-	@strout <"#pm %lX cloned, PTE=%lX", lf>, edx, eax
+	@strout <"#pm_CloneGroup32: %lX cloned, PTE=%lX", lf>, edx, eax
 	stosd
 	add edx,1000h
 	dec SysAddrSize
 	mov SysAddrSpace, edx
 	loopnz @B
-	@strout <"#pm, clone group32 done, last PTE=%lX, ppt=%lX",lf>, eax, edi
+	@strout <"#pm_CloneGroup32 done, last PTE=%lX, ppt=%lX",lf>, eax, edi
 	ret
 isfirst:
 	call _AllocSysPagesRo
 	jc error
-	@strout <"#pm, clone group32: copying code to extended memory",lf>
+	@strout <"#pm_CloneGroup32: copying code to extended memory",lf>
 	mov edi, eax
 	push ds
 	push cs
@@ -2888,10 +2881,9 @@ endif
 
 ;--- the new tables are set, CR3 can be reloaded now
 
-;;	@strout <"#pm: will set CR3 to %lX",lf>,eax
+	@strout <"#pm_createvm: will set CR3 to %lX",lf>,eax
 	mov cr3,eax
 	@strout <"#pm_createvm: new value for CR3 set",lf>
-;	@waitesckey
 
 ;--- new page dir is set and mapped, but the address space isn't reserved yet
 
@@ -3196,7 +3188,7 @@ freexms proc near
 	mov ah,0Dh					;unlock EMB
 	call cs:[xmsaddr]
 	mov ah,0Ah					;free EMB
-callxms::        
+callxms::
 	@stroutrm <"-pm, callxms: AX=%X",lf>,ax
 	call cs:[xmsaddr]
 	ret

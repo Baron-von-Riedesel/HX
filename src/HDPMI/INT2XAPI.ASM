@@ -17,8 +17,6 @@
 ?EXITWITH4C   = 1	;when terminating on int 23h, terminate with an int 21, 4Ch
 ?INT24FAIL	  = 1	;always return FAIL on INT 24h
 
-@seg _TEXT32
-
 ;--- extended disk io structure in protected mode
 ;--- for 16-bit protected mode, it's the same as in real-mode
 

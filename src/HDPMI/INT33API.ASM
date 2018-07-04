@@ -11,22 +11,17 @@
         
 ?SAVERESTORE	equ 1	;std 1, 1=support save/restore driver state        
 
-@seg VDATA16
-@seg CDATA32
-@seg _TEXT32
-@seg _TEXT16
-
 ;--- mouse flags
 MF_RMEVTSET equ 1	;real-mode init happened for int 33, eventproc functions 
 MF_RMEVTSETB equ 0	;bit number
 
-VDATA16	segment
+VDATA16 segment
 ;oldrmproc dd 0		;int 33h, old real mode event proc value
 oldrmmask dw 0		;int 33h, old real mode event mask
 fMouse    db 0		;mouse flags (global)
-VDATA16	ends
+VDATA16 ends
 
-CDATA32	segment
+CDATA32 segment
 mevntvec R3PROC <0,0>	;mouse event proc
 moumask	dw 0			;mouse event mask
 CDATA32 ends
@@ -217,12 +212,12 @@ endif
 	bts [wIntRmCb], ax
 	mov ax, [wHostSeg]		  
 	mov dx,offset mouintrm
-	mov [v86iret.rES], ax
+	mov v86iret.rES, ax
 	jmp setresetproc
 resetrm:
 	btr [wIntRmCb], ax
 	xor edx, edx
-	mov [v86iret.rES], dx
+	mov v86iret.rES, dx
 setresetproc:
 	@strout <"I33: set real mode event proc to %X:%X, mask=%X [wIntRmCb=%lX]",lf>,v86iret.rES,dx,cx,\
 			<dword ptr wIntRmCb>
@@ -231,7 +226,7 @@ setresetproc:
 	@strout <"I33: previous values es:dx=%X:%X, cx=%X",lf>,v86iret.rES,dx,cx
 	bts dword ptr [fMouse], MF_RMEVTSETB
 	jc exit
-	mov ax,[v86iret.rES]
+	mov ax,v86iret.rES
 	@strout <"I33: original values (%X:%X, %X) stored in INTRMCB",lf>, ax, dx, cx
 	mov [oldrmmask],cx
 	mov word ptr [intrmcbs + ?RMCBMOUSE * sizeof INTRMCB].rm_vec+0,dx
@@ -293,7 +288,7 @@ mouse33_exit proc
 	jnc @F
 	mov ax,word ptr [intrmcbs + ?RMCBMOUSE * sizeof INTRMCB].rm_vec+2
 	mov dx,word ptr [intrmcbs + ?RMCBMOUSE * sizeof INTRMCB].rm_vec+0
-	mov [v86iret.rES],ax
+	mov v86iret.rES,ax
 	mov cx,[oldrmmask]
 	@strout <"I33: int 33, ax=0014, es:dx=%X:%X cx=%X",lf>,ax,dx,cx
 	mov ax,0014h	;use ax=000Ch instead?

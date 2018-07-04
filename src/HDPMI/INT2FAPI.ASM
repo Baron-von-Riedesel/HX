@@ -26,13 +26,10 @@ endif
 
 ?32RTMSUPP	   = 1	;"VIRTUAL SUPPORT" is queried both in real/prot mode
 
-@seg _TEXT32
-
 if ?IDLEFILTER
-@seg _DATA16
-_DATA16	segment	
+_DATA16 segment
 i2FRefl   db 0		;reflect int 2F (ax=0x1689) into real mode
-_DATA16	ends
+_DATA16 ends
 endif
 
 

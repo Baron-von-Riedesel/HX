@@ -16,8 +16,6 @@ else
 _SHFACTOR_ equ 3
 endif
 
-@seg _TEXT32
-
 _TEXT32  segment
 
 ;*** get/set interrupt vectors RM

@@ -18,28 +18,29 @@ _TEXT16 segment
 ;--- - raw jump to protected mode
 ;--- - adjust TSS:ESP0
 ;--- - restore protected mode segment registers (PMSTATE)
+;--- - flags not touched
 
 	@ResetTrace
 
-_gotopmEx proc near public
+_jmp_pmX proc near public
 	@rm2pmbreak
-_gotopmEx endp		;fall through
+_jmp_pmX endp		;fall through
 
-_gotopm proc near public
+_jmp_pm proc near public
 
-;	@stroutrm <"entry gotopm",lf>
+;	@stroutrm <"entry jmp_pm",lf>
 
 	pop word ptr cs:[dwRetAdr]
-	@rawjmp_pm _gotopm_pm,1
+	@rawjmp_pm _jmp_pm_pm,1
 	align 4
 
-_gotopm endp
+_jmp_pm endp
 
 _TEXT16 ends
 
 _TEXT32 segment
 
-_gotopm_pm proc
+_jmp_pm_pm proc
 
 ;------------------------------ pop value for wHostStack + set wHostStackExc		
 if ?FIXTSSESP
@@ -59,7 +60,7 @@ else
 endif
 
 	push ss:[dwRetAdr]
-_gotopm_pm endp	;fall throu!
+_jmp_pm_pm endp	;fall throu!
 
 load_pmsegs proc public
 	mov ds,ss:tskstate.rDS
@@ -110,6 +111,7 @@ _rawjmp_pm_savesegm proc public
 _rawjmp_pm_savesegm endp	;fall throu
 
 ;*** raw jump to pm, segment registers undefined
+;--- flags saved
 
 _rawjmp_pm proc near public
 
@@ -262,19 +264,19 @@ vcpi_pmentry endp
 ;--- - restore real-mode segment registers
 ;--- - jmp to wRetAdrRm
 
-_gotorm proc public
-;	pop ss:[wRetAdrRm]
+_jmp_rm proc public
+;	pop ss:[wRetAdrRm]	;this has been done in macro @jmp_rm already
 
-;--- save segments and ring3 stack in tskstate
+;--- save segregs and ring3 stack in tskstate
 	@savepmstate
 
-;--- push wHostStack + set new value for TSS:ESP0
-;--- this is restored where???
+;--- save ring0 esp on host stack, then set new value for it
+;--- the old value is restored in _gotopm_pm
 if ?FIXTSSESP
 	push ss:[dwHostStack]
 	mov ss:[dwHostStack],esp
 else
-	push ss:[taskseg._Esp0]		;now a DWORD is pushed
+	push ss:[taskseg._Esp0]
 	mov ss:[taskseg._Esp0], esp
  if ?SETEXCHS
 	lea esp,[esp-sizeof R3FAULT32]
@@ -282,18 +284,22 @@ else
  endif
 endif
 
-	@rawjmp_rm _gotorm_rm	;rawjmp rm, no stack switch
+	@rawjmp_rm _jmp_rm_rm	;rawjmp rm, no stack switch
 	align 4
-_gotorm endp
+_jmp_rm endp
 
 _TEXT32 ends
 
 _TEXT16 segment
 
-_gotorm_rm proc
+_jmp_rm_rm proc
 	lss sp,cs:tskstate.rmSSSP
+if ?WDEB386
+kdpatch2::		;if no debugger present, this code is disabled
+	call kdinit2_rm
+endif
 	push cs:[wRetAdrRm]
-_gotorm_rm endp	;fall through
+_jmp_rm_rm endp	;fall through
 
 load_rmsegs proc public
 	mov es,cs:[v86iret.rES]   ;do it in this order!
@@ -309,7 +315,7 @@ _TEXT16 ends
 _TEXT32 segment
 
 ;--- raw jump to real-mode
-;--- no stack switch and no segment register save
+;--- no stack switch to tskstate.rmSSSP, no segment register save
 ;--- all general registers preserved
 ;--- real-mode segment registers undefined
 ;--- real-mode dest in wRetAdrRm2
@@ -346,9 +352,11 @@ rawjmp_rm_vcpi_2::
 	clts							;clear task switched flag
 	mov ax,_FLATSEL_
 	mov ds,eax
-ife ?HSINEXTMEM
-	mov ss:[v86iret.rESP],esp		;SS:ESP -> dq ?,V86IRET
-endif
+;if ?HSINEXTMEM
+;	mov ss:[v86iret.rESP],20h
+;else
+;	mov ss:[v86iret.rESP],esp		;SS:ESP -> dq ?,V86IRET
+;endif
 	mov esp,offset v86iret
 	mov ax,0DE0Ch
 	call fword ptr ss:[vcpicall]	;changes eax
@@ -411,6 +419,9 @@ _TEXT32 ends
 
 _TEXT16 segment
 
+;--- final part of raw jump to real-mode for
+;--- both xms and vcpi.
+
 rawjmp_rm_xms proc
 
 if ?MOVEHIGHHLP
@@ -424,11 +435,14 @@ wPatchDgrp1 dw 0	;seg rawjmp_rm_xms_1	PATCH with GROUP16
 
 rawjmp_rm_xms_1:
 endif
-	mov ax,cs
-	mov ss,ax
-if ?HSINEXTMEM
-	mov sp,40h
-endif
+;--- v3.18: no need to set a stack, since
+;--- all code that uses the rawjmp will set
+;--- the rm stack as its first step.
+;	mov ax,cs
+;	mov ss,ax
+;if ?HSINEXTMEM
+;	mov sp,20h
+;endif
 if ?SAVERMGDTR
 	@lgdt cs:[rmgdt]
 endif
@@ -436,14 +450,10 @@ if ?SAVERMCR3
 	mov eax,cs:[dwOldCR3]
 	mov cr3,eax
 endif
-if ?WDEB386
-kdpatch2::		;if no debugger present, this code is disabled
-	call kdinit2_rm
-endif
 vcpi_rmentry::	; v86-mode entry if running as VCPI client
-	push word ptr cs:[taskseg._Efl]
+	mov ax, word ptr cs:[taskseg._Efl]
+	sahf
 	mov eax, cs:[taskseg._Eax]
-	popf
 	jmp cs:[wRetAdrRm2]
 rawjmp_rm_xms endp
 

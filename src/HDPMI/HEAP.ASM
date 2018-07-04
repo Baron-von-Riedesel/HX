@@ -11,9 +11,6 @@
 
 	option proc:private
 
-@seg VDATA16
-@seg _TEXT32
-
 VDATA16 segment
 
 heap    db 36 dup (0)

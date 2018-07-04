@@ -8,9 +8,6 @@
 
 if ?ENHANCED
 
-@seg _DATA16
-@seg _TEXT32
-
 ?CLRI2F1684	= 1	;int 2f,ax=1684: set ES:E/DI to 0:0 
 ?LOG		= 1	;log unsupported int 2f,ah=1684 calls
 ?DBGSTOP	= 1 ;
@@ -18,7 +15,6 @@ if ?ENHANCED
 PR_PRIVATE	equ 80000400h
 PR_SHARED	equ 80060000h
 PR_SYSTEM	equ 80080000h
-
 
 @dbgbreak macro
 if ?DBGSTOP

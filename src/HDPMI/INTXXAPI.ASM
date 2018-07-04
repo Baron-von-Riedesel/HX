@@ -15,10 +15,6 @@
 ?INT10MAPPING = 1
 ?SUPI15C207   = 1
 
-@seg CDATA32
-@seg _TEXT32
-@seg _DATA16
-
 	assume DS:GROUP16
 
 if ?SUPI15C207
@@ -198,7 +194,7 @@ endif
 ;	jz iret_with_CF_mod	;no, done
 	jz exit				;no, done
 	@strout <"deinstall int 15h mouse event proc",lf>
-	mov ss:[v86iret.rES],0
+	mov ss:v86iret.rES,0
 	@simrmint 15h				;deinstall event proc
 	pushad
 	xor ecx, ecx
@@ -255,7 +251,7 @@ done1:
 	push ebx
 	@strout <"install int 15h mouse event proc",lf>
 	mov bx,word ptr [mouse15_rmcb+2]
-	mov ss:[v86iret.rES],bx
+	mov ss:v86iret.rES,bx
 	mov bx,word ptr [mouse15_rmcb+0]
 	@simrmint 15h					;set the event proc (ax=C207)
 	pop ebx
@@ -321,7 +317,7 @@ mouse15_reset proc public
 	jz @F
 	mov bx,word ptr cs:[mouse15_rmcb+0]
 	mov ax,word ptr cs:[mouse15_rmcb+2]
-	mov ss:[v86iret.rES],ax
+	mov ss:v86iret.rES,ax
 	mov ax,0C207h
 	@simrmint 15h					;set the event proc (ax=C207)
 @@:

@@ -10,9 +10,6 @@
 
 	option proc:private
 
-@seg	SEG16
-@seg	_TEXT16
-
 ?MONOOUT = 0
 
 ife ?DOSOUTPUT

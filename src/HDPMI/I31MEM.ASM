@@ -11,8 +11,6 @@
 ?ADDRISHANDLE	equ 1		;std=1, 1=handle is address of block
 ?NEVERFREEMEM	equ 0		;std=0, 1=never free a memory block
 
-@seg _TEXT32
-
 _TEXT32  segment
 
 	@ResetTrace

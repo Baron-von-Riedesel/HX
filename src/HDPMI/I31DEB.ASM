@@ -8,9 +8,7 @@
 
 	option proc:private
 
-?ENABLEWP	equ 1	;1=enable hardware breakpoints
-
-@seg _TEXT32
+?ENABLEWP equ 1	;1=enable hardware breakpoints
 
 _TEXT32 segment
 

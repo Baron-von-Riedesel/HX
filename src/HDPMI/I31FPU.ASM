@@ -9,8 +9,6 @@
 
 	option proc:private
 
-@seg _TEXT32
-
 _TEXT32 segment
 
 ;*** coprocessor functions 0Exxh ***

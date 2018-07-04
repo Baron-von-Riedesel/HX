@@ -1,37 +1,37 @@
 
-@proto pm_createvm				;create a virtual machine
-@proto pm_exit_pm				;page mgr server exit protected-mode
-@proto pm_exitclient			;client termination cleanup
-@proto pm_CloneGroup32 			;copy GROUP32 to new address context
-@proto _CommitRegion			;commit region EAX, size ECX
-@proto _UncommitRegion 			;uncommit region EAX, size ECX
-@proto _CommitRegionZeroFill	;commit region EAX, size ECX and clear it
-@proto _Linear2PT				;get page table addr of linear addr
-@proto _getpageattributes		;get page flags for a region
-@proto _setpageattributes		;set page flags for a region
-@proto _MovePTEs				;move PTEs between address spaces
-@proto _AllocUserPages			;alloc memory in user address region
-@proto _AllocSysPages			;alloc memory in system region 1 (U)
-@proto _AllocSysPagesX			;alloc memory in system region 1 (S)
-@proto _AllocSysPagesRo			;alloc memory in system region 1 (R)
-@proto _AllocSysPages2			;alloc memory in system region 2
-@proto _FreeSysPages2			;free memory in system region 2
-@proto _GetNumPhysPages			;get free/total physical pages
-@proto _freeI15mem				;free some mem for Int 15h in raw mode
-@proto _restoreI15mem			;restore the mem in raw mode
-@proto _AllocUserSpace			;allocate user address space
-@proto _FreeUserSpace			;free user address space
-@proto _AllocSysAddrSpace		;allocate system address space
-@proto _getaddrspace			;get free/total user address space
-@proto _searchphysregion     	;search a mapped physical region
-@proto _mapphysregion  	    	;map physical address to user space
-@proto _ClonePage				;clone a page
-@proto _SetPage					;set PTE for a linear address
-@proto _setregionattributes		;set PTE bits for a region
+pm_createvm proto near			;create a virtual machine
+pm_exit_pm proto near			;page mgr server exit protected-mode
+pm_exitclient proto near		;client termination cleanup
+pm_CloneGroup32 proto near		;copy GROUP32 to new address context
+_CommitRegion proto near		;commit region EAX, size ECX
+_UncommitRegion proto near		;uncommit region EAX, size ECX
+_CommitRegionZeroFill proto near;commit region EAX, size ECX and clear it
+_Linear2PT proto near			;get page table addr of linear addr
+_getpageattributes proto near	;get page flags for a region
+_setpageattributes proto near	;set page flags for a region
+_MovePTEs proto near			;move PTEs between address spaces
+_AllocUserPages proto near		;alloc memory in user address region
+_AllocSysPages proto near		;alloc memory in system region 1 (U)
+_AllocSysPagesX proto near		;alloc memory in system region 1 (S)
+_AllocSysPagesRo proto near		;alloc memory in system region 1 (R)
+_AllocSysPages2 proto near		;alloc memory in system region 2
+_FreeSysPages2 proto near		;free memory in system region 2
+_GetNumPhysPages proto near		;get free/total physical pages
+_freeI15mem proto near			;free some mem for Int 15h in raw mode
+_restoreI15mem proto near		;restore the mem in raw mode
+_AllocUserSpace proto near		;allocate user address space
+_FreeUserSpace proto near		;free user address space
+_AllocSysAddrSpace proto near	;allocate system address space
+_getaddrspace proto near		;get free/total user address space
+_searchphysregion proto near	;search a mapped physical region
+_mapphysregion proto near		;map physical address to user space
+_ClonePage proto near			;clone a page
+_SetPage proto near				;set PTE for a linear address
+_setregionattributes proto near	;set PTE bits for a region
 
-;@proto seti15pages, near16
-@proto pm_init_rm, near16 ;page mgr server init real-mode
-@proto pm_init2_rm, near16;page mgr cleanup after prot-mode init
-@proto pm_exit_rm, near16	;page mgr server exit real-mode
-@proto pm_int15rm, near16
+pm_init_rm proto near16		;page mgr server init real-mode
+pm_init2_rm proto near16	;page mgr cleanup after prot-mode init
+pm_exit_rm proto near16		;page mgr server exit real-mode
+pm_int15rm proto near16		;Int 15h, ah=88h and ax=e801h handler
+;seti15pages proto near16
 

@@ -134,9 +134,6 @@ $(LCMDS1)
 	@..\..\BIN\SETMZHDR.EXE -q $*.EXE
 !if $(DEBUG)==0
 	@copy $*.EXE ..\..\Bin\*.* >NUL
-!ifdef TOOLSDIR     
-	@copy $*.EXE $(TOOLSDIR)\$(NAME).EXE >NUL
-!endif     
 !endif
 
 $(OUTSTD)\$(NAME).lib: $(OBJMODS) $(NAME).mak

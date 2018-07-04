@@ -8,8 +8,6 @@
 
 	option proc:private
 
-@seg	_TEXT32
-
 ?SAVEHOSTSP equ 1	;std=1, 1=save ring 0 ESP from TSS for client
 ifndef ?SAVEIVT
 ?SAVEIVT	equ 0	;std=0, 1=save/restore IVT

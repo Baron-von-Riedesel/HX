@@ -8,8 +8,6 @@
 
 	option proc:private
 
-@seg _TEXT32
-
 @getdrvparms macro
 	mov ah,08h
 	call intr13_ok
@@ -63,7 +61,7 @@ endif
 	test eax,0FFF00000h
 	jnz @F					;address in conv mem?
 	shr eax,4
-	mov ss:[v86iret.rES],ax
+	mov ss:v86iret.rES,ax
 	pop eax
 	jmp intr13_xx
 @@:

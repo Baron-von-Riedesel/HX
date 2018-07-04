@@ -49,13 +49,17 @@ endif
                         
 ?LOGINT30		equ 0	;std=0, 1=log last int 30h call
 ?LOGINT31		equ 0	;std=0, 1=log last int 31h call
+ifndef ?MOVEGDT
 ?MOVEGDT		equ 1	;std 1: 1=move GDT into extended memory
+endif
+ifndef ?MOVEIDT
 ?MOVEIDT		equ 1	;std=1, 1=move IDT into extended memory on startup
+endif
 ?DYNBREAKTAB	equ 1	;std=1, 1=create pm break table dynamically
 ?CHECKIRQRM		equ 1	;std=1, 1=get/set the fake real-mode ints with
-						; functions 31h, ax=0200/0201 for std realmode cbs
+						; functions 31h, ax=0200/0201 for internal rm cbs
 ?ALLOCRMS		equ 0	;std=0, 0=RMS is allocated by client
-						;       1=RMS is allocated by server
+						;       1=RMS is allocated by dpmi host
 ?INTRM2PM		equ 1	;std=1, use a real-mode int to protect switch to
 						;protected mode (int 96h)
 ?XRM2PM 		equ 96h	;std=96h, real-mode to prot-mode int no
@@ -75,7 +79,9 @@ if ?WDEB386
 else                        
 ?USEDEBUGOUTPUT equ 0
 endif                        
+ifndef ?DOSOUTPUT
 ?DOSOUTPUT		equ 1	;std=1, use DOS for output if inDOS flag not set
+endif
 ?DPMI10			equ 1	;std=1, support some DPMI 1.0 functions (0504-0507)
 ?DPMI10EX		equ 1	;std=1, support more DPMI 1.0 functions (0508-050B)
 ?DPMI10EXX		equ 1	;std=1, support even more DPMI 1.0 functions (0210-0213)
@@ -125,7 +131,7 @@ endif
 
 if ?MOVEHIGH
 ?MOVEHIGHHLP	equ 1	;std 1: a helper code selector is required for CS
-;								because paging cannot be disabled on _TEXT32
+						;		because paging cannot be disabled on _TEXT32
 else
 ?MOVEHIGHHLP	equ 0
 endif
@@ -251,7 +257,7 @@ ifndef ?HSINEXTMEM
                         ;       to a weak cpu design.
 endif                        
 ?LPMSSIZE     = 1000h	;std 1000h: size of LPMS
-?PATCHCODE    = 0		;std 0: 1=???
+?PATCHCODE    = 0		;std 0: 1=patch low level switch code
 ?DBGSUPP      = 1		;std 1: 1=set TF on client's switch to pmode
 ?EXC10FRAME   = 0		;std 0: 1=always set dpmi v1 exc frame if host
 						;       is to be a v1 host (doesnt work yet)
@@ -265,20 +271,11 @@ endif
 ?FIXTSSESP    = 0		;std 0: change SS:ESP in TSS for R0
 
 if ?HSINEXTMEM
-;?CHECKSSIS32 = 1		;test if client SS is 32bit
-?FIXTSSESP	  = 1
+?CHECKSSIS32	= 1		;test if client SS is 32bit
+;?FIXTSSESP		= 1
 endif
 
-if ?MOVEIDT
-  if ?HSINEXTMEM
-?RING0STACK = 200h-4
-  else
-?RING0STACK = 440h-4	;alloc a smaller stack (IDT space will be reused)
-  endif
-else
-?RING0STACK = 600h-4
-endif
-?TRAPI15E801	equ 1	;std 0: trap int 15h, ax=e801h in raw mode
+?TRAPI15E801	equ 1	;std 1: trap int 15h, ax=e801h in raw mode
 						;this may be required if HDPMI=32 is set
 
 ?PREDEFIDTGATES equ 78h	;number of predefined IDT gates
@@ -293,7 +290,7 @@ if ?32BIT
 endm
 
 @retf macro x
-	retf  x
+	retf x
 endm
 
 else
@@ -1162,22 +1159,8 @@ endm
 	elseifidn <segname>,<ENDTEXT16>
 	  @defseg segname, <para>, <use16>, <GROUP16>
 	else
-	  @defseg segname, <byte>, <use16>, <GROUP16>
+%	  .err <unknown segment segname in macro @seg>
 	endif
-endm
-
-@checkssattr macro x,y
-local xxxx
-if ?32BIT
-	ifnb <x>
-		mov ax,x
-	endif
-		lar eax,eax
-		bt eax,22
-		jc xxxx
-		movzx e&y,y
-endif
-xxxx:
 endm
 
 CStr macro xx:VARARG
@@ -1313,18 +1296,8 @@ endm
 ;--- esp -> IRET32
 
 @simintpms macro xx
-	db 68h
-	dd offset GROUP32:r3vect&xx
+	pushd offset GROUP32:r3vect&xx
 	jmp pms_call_int
-	align 4
-endm
-
-;--- switch to LPMS, then call ring 3 protected mode int xx
-
-@simintlpms macro xx
-	db 68h
-	dd offset GROUP32:r3vect&xx
-	jmp lpms_call_int
 	align 4
 endm
 
@@ -1403,7 +1376,7 @@ endm
 ;--- save protected-mode state in tskstate.
 ;--- this macro is used before a jump to real-mode
 ;--- 1. in raw mode switch to real-mode
-;--- 2. in function _gotorm
+;--- 2. in function _jmp_rm
 ;--- saves current protected-mode segment registers and ring 3 ss:esp
 ;--- assumes value in taskseg._Esp0 points BEHIND an IRET32 struct
 
@@ -1519,7 +1492,7 @@ endm
 
 @jmp_rm macro xx
 	mov ss:[wRetAdrRm], xx
-	jmp _gotorm
+	jmp _jmp_rm
 endm
 
 @rawjmp_rm macro xx
@@ -1527,47 +1500,24 @@ endm
 	jmp _rawjmp_rm
 endm
 
-@exitserver_pm macro xx
-;	push offset xx
-	db 68h
-	dd offset xx
-	jmp _exitserver_pm
-endm
-
 ;-- switches to protected-mode
 
 @jmp_pm macro xx
-	push word ptr LOWWORD(offset xx)
-	jmp _gotopm
+	pushw LOWWORD(offset xx)
+	jmp _jmp_pm
 endm
 
 @jmp_pmX macro xx
-	push word ptr LOWWORD(offset xx)
-	jmp _gotopmEx
+	pushw LOWWORD(offset xx)
+	jmp _jmp_pmX
 endm
 
 @rawjmp_pm macro xx, bSaveSegm
-	push word ptr LOWWORD(offset xx)
+	pushw LOWWORD(offset xx)
 ifb <bSaveSegm>        
 	jmp _rawjmp_pm
 else
 	jmp _rawjmp_pm_savesegm	;save segment regs in v86iret before switch
 endif
-endm
-
-;--- push offset of a real-mode proc (inside hdpmi) as dword
-
-@pushproc macro procaddr
-;; masm doesn't like "push dword ptr seg procaddr shl 16 + offset procaddr"
-	db 68h
-	dd offset procaddr
-endm
-
-@proto macro name, type
-  ifb <type>
-name proto near
-  else
-name proto type
-  endif
 endm
 

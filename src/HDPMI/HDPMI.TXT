@@ -417,8 +417,9 @@
      protected mode as current real-mode stack.
 
    þ the ring 0 stack. This stack is invisible to the client, it is
-     used by the dpmi host. For HDPMI this stack is 2 kB in size, and
-     it is located in conventional memory. The host uses this stack
+     used by the dpmi host. Since HDPMI v3.18, this stack is 4 kB in size and
+     is located in a protected system region; previously, this stack was 2 kB
+     in size and was located in conventional memory. The host uses this stack
      for it's normal processing and to save the client's segment register
      values.
 

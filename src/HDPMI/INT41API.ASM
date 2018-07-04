@@ -8,8 +8,6 @@
 
 	option proc:private
 
-@seg _TEXT32
-
 _TEXT32 segment
 
 _LTRACE_ = 0
