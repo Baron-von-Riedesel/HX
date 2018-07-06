@@ -243,7 +243,6 @@ endif
 ?CALLPREVHOST = 1		;std 1: route to a previously installed 16bit host
 ?GLOBALTLBUSAGE = 1		;std 1: share one TLB between HDPMI instances
 ?LOADHIGH     = 0		;std 0: move resident part into upper memory (not yet)
-?LPMSCNT      = 0		;std 0: 0=LPMS counter is a flag only
 ?CLEARDR6     = 0		;std 0: 1=clear DR6 on client init
 ?LATELGDT     = 0		;std 0: 1=load GDTR *after* switch to protected-mode
 ?CLEARHIWORDS = 1		;std 1: 1=opt. clear hiword of esi,edi on init. entry

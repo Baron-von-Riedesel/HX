@@ -339,7 +339,7 @@ externdef bTrap:byte			;serial input Ctrl-D received
 externdef bFPUAnd:byte
 externdef bFPUOr:byte
 externdef cApps:byte			;cnt active clients
-externdef cLPMSused:byte		;flag LPMS used
+externdef bLPMSused:byte		;flag LPMS used
 externdef cRMCB:word			;count open real-mode callbacks
 externdef cIntRMCB:word			;count open internal real-mode callbacks
 externdef dwHostBase:dword		;linear address host CS/DS (GROUP16)

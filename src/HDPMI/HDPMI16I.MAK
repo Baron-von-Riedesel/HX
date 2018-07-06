@@ -1,12 +1,9 @@
 
-# nmake makefile, creates a version of HDPMI32.EXE where clients run in IOPL0.
-# tools used:
-#  - JWasm | Masm
-#  - JWLib | WLib (Open Watcom) | MS OMF LIB (lib16.exe)
-#  - JWLink v1.8x
-#  - setmzhdr.exe, modifies exe so:
-#      - dos will load the 16-bit part only
-#      - stack size will be 200h
+# nmake makefile, creates HDPMI16.EXE that runs in IOPL0.
+# tools:
+# - JWasm | Masm
+# - WLib (Open Watcom) | MS OMF lib (lib16.exe)
+# - JWLink (modified WLink v1.8)
 
 !include <..\dirs>
 
@@ -27,17 +24,16 @@ SRCMODS = \
 !include modules.inc
 OBJNAMES = $(SRCMODS:.ASM=.OBJ)
 !if $(DEBUG)
-OBJMODS = $(OBJNAMES:.\=IOPL032D\)
+OBJMODS = $(OBJNAMES:.\=IOPL016D\)
 !else
-OBJMODS = $(OBJNAMES:.\=IOPL032\)
+OBJMODS = $(OBJNAMES:.\=IOPL016\)
 !endif
 
 LINK  = jwlink.exe
 LOPT  = format DOS
 
 LCMDS1=$(LOPT) file $(OUTIOPL0)\$(SRC).obj name $*.EXE lib $(OUTIOPL0)\$(NAME).lib op q, map=$*.MAP, stack=0 
-
-AOPT= -nologo -c -Cp -Sg -D?32BIT=1 -D?PMIOPL=00 $(AOPTD) -I$(INC32DIR) -Fl$* -Fo$*
+AOPT= -nologo -c -Cp -Sg -D?32BIT=0 -D?PMIOPL=00 $(AOPTD) -I$(INC32DIR) -Fl$* -Fo$*
 
 !if $(MASM)
 ASM=@ml.exe
@@ -45,15 +41,15 @@ ASM=@ml.exe
 ASM=@jwasm.exe
 !endif
 
-NAME  = HDPMI32
+NAME  = HDPMI16
 SRC   = hdpmi
 
 DEPS0 = hdpmi.inc external.inc version.inc
 
 !if $(DEBUG)
-OUTIOPL0=IOPL032D
+OUTIOPL0=IOPL016D
 !else
-OUTIOPL0=IOPL032
+OUTIOPL0=IOPL016
 !endif
 
 .SUFFIXES: .asm .obj

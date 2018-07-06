@@ -1,5 +1,7 @@
 
-# nmake makefile, creates a "stub" HDPMI32.EXE.
+# nmake makefile, creates a "stub" HDPMI32.BIN and an
+# assembly include file which is then used by a DPMILD32 
+# stub version.
 # tools used:
 #  - JWasm | Masm
 #  - JWLib | WLib (Open Watcom) | MS OMF LIB (lib16.exe)
@@ -8,7 +10,6 @@
 #  - setmzhdr.exe, modifies exe so:
 #       - dos will load the 16-bit part only
 #       - stack size will be 200h
-#  - shrmzhdr.exe, shrinks MZ header, used only if MS link is used.
 
 !include <..\dirs>
 
@@ -42,7 +43,7 @@ OBJMODS = $(OBJNAMES:.\=STUB32\)
 LINK  = jwlink.exe
 LOPT  = format DOS
 
-LCMDS=$(LOPT) file {$(OUTSTUB)\$(SRC).obj $(OUTSTUB)\init.obj} name $*.BIN op q, map=$*.MAP, stack=0x200 lib $(OUTSTD)\$(NAME).lib
+LCMDS=$(LOPT) file $(OUTSTUB)\$(SRC).obj name $*.BIN lib $(OUTSTUB)\$(NAME).lib op q, map=$*.MAP, stack=0x200
 
 AOPT= -nologo -c -Cp -Sg -D?32BIT=1 -D?STUB=1 $(AOPTD) -I$(INC32DIR) -Fl$* -Fo$*
 
@@ -89,7 +90,7 @@ $(OUTSTUB)\$(NAME).BIN: $(OUTSTUB)\$(SRC).obj $(OUTSTUB)\$(NAME).lib $(NAME).mak
 	@$(LINK) @<<
 $(LCMDS)
 <<
-	@..\..\BIN\SETMZHDR.EXE -q $*.EXE
+	@..\..\BIN\SETMZHDR.EXE -q $*.BIN
 
 $(OUTSTUB)\$(NAME).lib: $(OBJMODS) $(NAME).mak
 	@cd $(OUTSTUB)

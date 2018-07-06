@@ -20,21 +20,21 @@ SRCMODS = \
 OBJNAMES = $(SRCMODS:.ASM=.OBJ)
 
 !if $(DEBUG)
-OBJMODS = $(OBJNAMES:.\=HSEXT32D\)
+OBJMODS = $(OBJNAMES:.\=STD32D\)
 AOPTD=-D_DEBUG
-OUTHSEXT=HSEXT32D
+OUTSTD=STD32D
 !else
-OBJMODS = $(OBJNAMES:.\=HSEXT32\)
-OUTHSEXT=HSEXT32
+OBJMODS = $(OBJNAMES:.\=STD32\)
+OUTSTD=STD32
 !endif
 
 LINK  = jwlink.exe
 LOPT  = format DOS
 
-LCMDS3=$(LOPT) file {$(OBJMODS)} name $*.EXE op q, map=$*.MAP, stack=0 lib $(OUTHSEXT)\$(NAME).lib
+LCMDS3=$(LOPT) file {$(OBJMODS)} name $*.EXE op q, map=$*.MAP, stack=0 lib $(OUTSTD)\$(NAME).lib
 
 AOPT= -nologo -c -Cp -Sg -D?32BIT=1 -D?HSINEXTMEM=1 $(AOPTD) -I$(INC32DIR) -Fl$* -Fo$*
-ASM=@jwasm.exe
+ASM = jwasm.exe
 
 NAME  = HDPMI32
 SRC   = hdpmi
@@ -43,25 +43,20 @@ DEPS0 = hdpmi.inc external.inc version.inc
 
 .SUFFIXES: .asm .obj
 
-.asm{$(OUTHSEXT)}.obj:
-	$(ASM) $(AOPT) $<
+.asm{$(OUTSTD)}.obj:
+	@$(ASM) $(AOPT) $<
 
-# the following versions are created:
-# HSEXT32: version with host stack in extended memory [Hiword(ESP) != 0]
-#          which requires very little DOS ram, but will not work with some
-#          clients (DOS4G!)
+TARGET3=$(OUTSTD)\$(NAME).EXE 
 
-TARGET3=$(OUTHSEXT)\$(NAME).EXE 
+ALL: $(OUTSTD) $(TARGET3)
 
-ALL: $(OUTHSEXT) $(TARGET3)
-
-$(OUTHSEXT):
-	@mkdir $(OUTHSEXT)
+$(OUTSTD):
+	@mkdir $(OUTSTD)
 
 $(OBJMODS): $(DEPS0)
 
-$(OUTHSEXT)\$(NAME).EXE: $(OBJMODS) $(OUTHSEXT)\$(NAME).lib
-	@$(LINK) @<<
+$(OUTSTD)\$(NAME).EXE: $(OBJMODS) $(OUTSTD)\$(NAME).lib
+	$(LINK) @<<
 $(LCMDS3)
 <<
 	@..\..\BIN\SETMZHDR.EXE -q $*.EXE
@@ -69,14 +64,14 @@ $(LCMDS3)
 	@copy $*.EXE ..\..\BIN\*.* >NUL
 !endif     
 
-$(OUTHSEXT)\$(NAME).lib: $(OBJMODS)
-	@cd $(OUTHSEXT)
+$(OUTSTD)\$(NAME).lib: $(OBJMODS)
+	@cd $(OUTSTD)
 	@$(LIB16BIN) $(NAME).lib $(OBJNAMES:.\=+)
 	@jwlib -q $(NAME).lib -$(SRC).OBJ
 	@cd ..
 
 clean:
-	@del $(OUTHSEXT)\*.obj
-	@del $(OUTHSEXT)\*.exe
-	@del $(OUTHSEXT)\*.lst
-	@del $(OUTHSEXT)\*.map
+	@del $(OUTSTD)\*.obj
+	@del $(OUTSTD)\*.exe
+	@del $(OUTSTD)\*.lst
+	@del $(OUTSTD)\*.map

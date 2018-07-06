@@ -1,5 +1,7 @@
 
-# nmake makefile, creates HDPMI32.EXE.
+# nmake makefile, creates 2 HDPMI32.EXE versions:
+#  - the "old" standard version with host stack in conventional memory.
+#  - the "nolfn" version with LFN API translation disabled.
 # tools used:
 #  - JWasm | Masm
 #  - JWLib | WLib (Open Watcom) | MS OMF LIB (lib16.exe)
@@ -38,10 +40,10 @@ SRCMODS = \
 OBJNAMES = $(SRCMODS:.ASM=.OBJ)
 !if $(DEBUG)
 #CP = 0	;what's that?
-OBJMODS = $(OBJNAMES:.\=STD32D\)
+OBJMODS = $(OBJNAMES:.\=HSCM32D\)
 !else
 #CP = 1
-OBJMODS = $(OBJNAMES:.\=STD32\)
+OBJMODS = $(OBJNAMES:.\=HSCM32\)
 !endif
 
 !if $(DEBUG)
@@ -78,19 +80,19 @@ HSMODS=$(OUTHSEXT)\$(SRC).obj $(OUTHSEXT)\init.obj $(OUTHSEXT)\switch.obj $(OUTH
 
 # JWLink has a somewhat strange cmdline syntax
 !if $(LINKER)==1
-LCMDS1=$(LOPT) file $(OUTSTD)\$(SRC).obj name $*.EXE op q, map=$*.MAP, stack=0 lib $(OUTSTD)\$(NAME).lib
-LCMDS2=$(LOPT) file {$(OUTSTD)\$(SRC).obj $(OUTNOLFN)\INT21API.obj} name $*.EXE op q, map=$*.MAP, stack=0 lib $(OUTSTD)\$(NAME).lib
+LCMDS1=$(LOPT) file $(OUTHSCM)\$(SRC).obj name $*.EXE op q, map=$*.MAP, stack=0 lib $(OUTHSCM)\$(NAME).lib
+LCMDS2=$(LOPT) file {$(OUTHSCM)\$(SRC).obj $(OUTNOLFN)\INT21API.obj} name $*.EXE op q, map=$*.MAP, stack=0 lib $(OUTHSCM)\$(NAME).lib
 !else
-LCMDS1=$(LOPT) $(OUTSTD)\$(SRC).obj, $*.EXE, $*.MAP, $(OUTSTD)\$(NAME).lib;
-LCMDS2=$(LOPT) $(OUTSTD)\$(SRC).obj $(OUTNOLFN)\INT21API.obj, $*.EXE, $*.MAP, $(OUTSTD)\$(NAME).lib;
+LCMDS1=$(LOPT) $(OUTHSCM)\$(SRC).obj, $*.EXE, $*.MAP, $(OUTHSCM)\$(NAME).lib;
+LCMDS2=$(LOPT) $(OUTHSCM)\$(SRC).obj $(OUTNOLFN)\INT21API.obj, $*.EXE, $*.MAP, $(OUTHSCM)\$(NAME).lib;
 !endif
 
 AOPT= -nologo -c -Cp -Sg -D?32BIT=1 $(AOPTD) -I$(INC32DIR) -Fl$* -Fo$*
 
 !if $(MASM)
-ASM=@ml.exe
+ASM = ml.exe
 !else
-ASM=@jwasm.exe
+ASM = jwasm.exe
 !endif
 
 NAME  = HDPMI32
@@ -99,29 +101,29 @@ SRC   = hdpmi
 DEPS0 = hdpmi.inc external.inc version.inc
 
 !if $(DEBUG)
-OUTSTD=STD32D
+OUTHSCM=HSCM32D
 OUTNOLFN=NOLFN32D
 !else
-OUTSTD=STD32
+OUTHSCM=HSCM32
 OUTNOLFN=NOLFN32
 !endif
 
 .SUFFIXES: .asm .obj
 
-.asm{$(OUTSTD)}.obj:
-	$(ASM) $(AOPT) $<
+.asm{$(OUTHSCM)}.obj:
+	@$(ASM) $(AOPT) $<
 
 # the following versions are created:
-# 1. STD32:   standard version with LFN support
+# 1. HSCM32:  "old" standard version with host stack in conv. memory
 # 2. NOLFN32: non-LFN version
 
-TARGET1=$(OUTSTD)\$(NAME).EXE 
+TARGET1=$(OUTHSCM)\$(NAME).EXE 
 TARGET2=$(OUTNOLFN)\$(NAME).EXE 
 
-ALL: $(OUTSTD) $(OUTNOLFN) $(TARGET1) $(TARGET2)
+ALL: $(OUTHSCM) $(OUTNOLFN) $(TARGET1) $(TARGET2)
 
-$(OUTSTD):
-	@mkdir $(OUTSTD)
+$(OUTHSCM):
+	@mkdir $(OUTHSCM)
 
 $(OUTNOLFN):
 	@mkdir $(OUTNOLFN)
@@ -130,8 +132,8 @@ $(OBJMODS): $(DEPS0)
 
 # create the standard version
 
-$(OUTSTD)\$(NAME).EXE: $(OUTSTD)\$(SRC).obj $(OUTSTD)\$(NAME).lib $(NAME).mak
-	@$(LINK) @<<
+$(OUTHSCM)\$(NAME).EXE: $(OUTHSCM)\$(SRC).obj $(OUTHSCM)\$(NAME).lib $(NAME).mak
+	$(LINK) @<<
 $(LCMDS1)
 <<
 !if $(LINKER)==2
@@ -139,19 +141,19 @@ $(LCMDS1)
 !endif
 	@..\..\BIN\SETMZHDR.EXE -q $*.EXE
 #!if $(DEBUG)==0
-#	@copy $*.EXE ..\..\BIN\*.* >NUL
+	@copy $*.EXE ..\..\UNSUPP\*.* >NUL
 #!endif     
 
-$(OUTSTD)\$(NAME).lib: $(OBJMODS) $(NAME).mak
-	@cd $(OUTSTD)
+$(OUTHSCM)\$(NAME).lib: $(OBJMODS) $(NAME).mak
+	@cd $(OUTHSCM)
 	@$(LIB16BIN) $(NAME).lib $(OBJNAMES:.\=+)
 	@jwlib -q $(NAME).lib -$(SRC).OBJ
 	@cd ..
 
 # create the "no LFN" version
 
-$(OUTNOLFN)\$(NAME).EXE: $(OUTSTD)\$(SRC).obj $(OUTNOLFN)\INT21API.obj $(OUTSTD)\$(NAME).lib $(NAME).mak
-	@$(LINK) @<<
+$(OUTNOLFN)\$(NAME).EXE: $(OUTHSCM)\$(SRC).obj $(OUTNOLFN)\INT21API.obj $(OUTHSCM)\$(NAME).lib $(NAME).mak
+	$(LINK) @<<
 $(LCMDS2)
 <<
 !if $(LINKER)==2
@@ -163,11 +165,11 @@ $(OUTNOLFN)\INT21API.obj: INT21API.asm $(DEPS0)
 	$(ASM) $(AOPT) -D?LFNSUPPORT=0 INT21API.asm
 
 clean:
-	@del $(OUTSTD)\*.obj
-	@del $(OUTSTD)\*.lib
-	@del $(OUTSTD)\*.exe
-	@del $(OUTSTD)\*.lst
-	@del $(OUTSTD)\*.map
+	@del $(OUTHSCM)\*.obj
+	@del $(OUTHSCM)\*.lib
+	@del $(OUTHSCM)\*.exe
+	@del $(OUTHSCM)\*.lst
+	@del $(OUTHSCM)\*.map
 	@del $(OUTNOLFN)\*.obj
 	@del $(OUTNOLFN)\*.exe
 	@del $(OUTNOLFN)\*.lst

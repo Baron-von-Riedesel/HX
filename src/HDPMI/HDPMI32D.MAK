@@ -1,5 +1,6 @@
 
 # nmake makefile, creates a HDPMI32 which may work with WDeb386.
+# currently untested.
 # tools used:
 #  - JWasm | Masm
 #  - JWLib | WLib (Open Watcom) | MS OMF LIB (lib16.exe)

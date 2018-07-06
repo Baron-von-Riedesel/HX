@@ -25,7 +25,7 @@ endif
 if ?STUB
 ?STACKLAST = 1
 else
-?STACKLAST = 0		;std 0:	1=stack is last segment (behind GROUP32)
+?STACKLAST = 0		;std 0: 1=stack is last segment (behind GROUP32)
 endif
 
 ;--- GROUP16
@@ -254,16 +254,16 @@ endm
 
 @checkssattr macro x,y
 local xxxx
-if ?32BIT
-  ifnb <x>
-	mov ax,x
-  endif
+if ?CHECKSSIS32
+ifnb <x>
+	mov eax,x
+endif
 	lar eax,eax
 	bt eax,22
 	jc xxxx
 	movzx e&y,y
-endif
 xxxx:
+endif
 endm
 
 ;--- switch to LPMS, then call ring 3 protected mode int xx
@@ -1067,7 +1067,7 @@ spPMS		dq 0		;saved PMS (SS:ESP)
 cIntRMCB 	dw 0		;number of open internal rmcbs
 cRMCB		dw 0		;number of open rmcbs (not finished with IRET yet)
 wLDTLimit 	dw 0		;limit of LDT
-cLPMSused	db 0		;count LPMS usage (is just a flag now)
+bLPMSused	db 0		;count LPMS usage (is just a flag now)
             db 0
 if ?CR0COPY
 bCR0		db 0		;value of LowByte(CR0)
@@ -1224,7 +1224,7 @@ _TEXT32 segment
 ;--- + copy E/IP,CS,E/FL to PMS
 ;--- + switch stack back to PMS
 
-;--- since rpmstacke() isnt called decrement cLPMSused here!
+;--- since rpmstacke() isnt called reset bLPMSused here!
 
 ;--- ERRC is removed already!
 
@@ -1238,9 +1238,9 @@ rEsi	dd ?
 rEbx	dd ?
 rEax	dd ?
 rDs		dd ?
-n   	IRET32 <>
+n		IRET32 <>
 dwExc	dd ?
-o   	IRET32 <>
+o		IRET32 <>
 EXC2INT ends
 
 exc2int proc
@@ -1265,7 +1265,7 @@ endif
 if _LTRACE_
 	push ebp
 	mov ebp, esp
-	@strout <"entry exc_to_int: cs:ip=%X:%lX fl=%lX ss:sp=%X:%lX proc=%lX:%lX",lf>,\
+	@strout <"entry exc_to_int: cs:ip=%X:%lX fl=%lX ss:sp=%X:%lX proc=%X:%lX",lf>,\
 		[ebp+4].EXC2INT.o.rCS, [ebp+4].EXC2INT.o.rIP,\
 		[ebp+4].EXC2INT.o.rFL,\
 		[ebp+4].EXC2INT.o.rSS, [ebp+4].EXC2INT.o.rSP,\
@@ -1274,17 +1274,13 @@ if _LTRACE_
 endif
 
 	lds esi,[esp].EXC2INT.o.rSSSP
-if ?LPMSCNT
-	dec ss:[cLPMSused]
-else
 	mov eax, ds
 	cmp ax,_LPMSSEL_
 	jnz @F
 	cmp si,?LPMSSIZE - sizeof IRETS
 	jnz @F
-	mov ss:cLPMSused,0
+	mov ss:bLPMSused,0
 @@:
-endif
 
 if ?32BIT
 	mov edi,[esi].IRET32.rIP 		;original EIP
@@ -1292,6 +1288,7 @@ if ?32BIT
 	mov eax,[esi].IRET32.rFL 		;original Flags
 	lds esi,[esi].IRET32.rSSSP		;original SS:ESP
 else
+	@checkssattr ds,si
 	movzx edi,[esi].IRET16.rIP
 	movzx ebx,[esi].IRET16.rCS
 	movzx eax,[esi].IRET16.rFL
@@ -1347,9 +1344,7 @@ PCIFR ends
 	mov ebx, [esp].PCIFR.pR3Proc
 	lds edi, [esp].PCIFR.rSSSP
 	mov [esp].PCIFR.pR3Proc, eax	;save content of EAX
-if ?HSINEXTMEM
 	@checkssattr ds,di
-endif
 	sub edi,sizeof IRETSPM
 	mov [esp].PCIFR.rSP,edi
 if ?32BIT
@@ -1442,13 +1437,16 @@ endif
 	mov [esp].IRQFRAME.retfs.rIP,eax
 	mov [esp].IRQFRAME.retfs.rCSd,edx
 
-	cmp ss:[cLPMSused],0			;LPMS free?
+	cmp ss:bLPMSused,0			;LPMS free?
 	jz lpms_ci_21
 
 	lds edi, [esp].IRQFRAME.iret32.rSSSP
 	sub edi,sizeof IRETSPM
 	mov [esp].IRQFRAME.retfs.rSP, edi
 	mov [esp].IRQFRAME.retfs.rSS, ds
+ife ?32BIT
+	@checkssattr ds,di
+endif
 
 	mov eax, [esp].IRQFRAME.iret32.rIP
 	mov edx, [esp].IRQFRAME.iret32.rCSd
@@ -1489,9 +1487,9 @@ lpms_ci_21:
 	mov dword ptr ss:spPMS+0,eax
 	mov dword ptr ss:spPMS+4,edx
 
-	mov ss:[cLPMSused],1
+	mov ss:bLPMSused,1
 
-	mov edi,?LPMSSIZE- (2*4 + sizeof IRETSPM)   ;initialwert LPMS
+	mov edi,?LPMSSIZE- (2*4 + sizeof IRETSPM)	;initial value LPMS
 	mov eax,_LPMSSEL_
 	mov ds,eax
 	mov [esp].IRQFRAME.retfs.rSP, edi
@@ -1610,7 +1608,7 @@ RPMIFR ends
 
 rpmstacki proc
 	push ds
-	mov ss:[cLPMSused],0
+	mov ss:bLPMSused,0
 ife ?CSIPFROMTOP
 	push ebx
 	lds ebx,[esp].RPMIFR.rSSSP		;get the LPMS
@@ -1668,15 +1666,9 @@ lpms_call_exc proc
 	push edi
 	push ds
 
-if ?LPMSCNT
-	cmp ss:[cLPMSused],0	;LPMS free?
-else
-	cmp ss:[cLPMSused],0
-endif
+	cmp ss:bLPMSused,0	;LPMS free?
 	jnz @F
-ife ?LPMSCNT
-        mov ss:[cLPMSused],1
-endif
+	mov ss:bLPMSused,1
 	mov ax,_LPMSSEL_
 	mov edi,?LPMSSIZE - sizeof DPMIEXC
 	jmp lpms_ce_2
@@ -1692,9 +1684,6 @@ endif
 
 lpms_ce_2:
 	mov ds,eax
-if ?LPMSCNT
-	inc ss:[cLPMSused]
-endif
 if _LTRACE_
 	mov esi,[ebp+4].LCEFR.dwExc
 	@strout <"entexc: exc=%X errc=%lX cs:ip=%X:%lX ss:sp=%X:%lX",lf>,si,\
@@ -2066,21 +2055,16 @@ if _LTRACE_
 	pop ebp
 endif
 	lds esi,[esp].RPMEFR.rSSSP
-if ?LPMSCNT
-	dec ss:[cLPMSused]
-else
 	mov eax, ds
 	cmp ax,_LPMSSEL_
 	jnz @F
 	cmp si,?LPMSSIZE - 2 * ?RSIZE
 	jnz @F
-	mov byte ptr ss:cLPMSused,0
+	mov ss:bLPMSused,0
 @@:
-endif
+
+	@checkssattr ds,si
 if ?32BIT
-  if ?HSINEXTMEM
-	@checkssattr ds,bx
-  endif
 	mov eax,[esi+ 0 * ?RSIZE]
 	mov esi,[esi+ 1 * ?RSIZE]
 else
@@ -2870,7 +2854,7 @@ if 0;_LTRACE_
 	in al,20h
 	@stroutrm <"-intrmcb:%X ISR=%X callr=%X:%X fl=%X RMF=%X cLP=%X old=%X:%X",lf>,\
 		cs:[_irq], ax, [bp+2].IRETSRM.rCS,[bp+2].IRETSRM.rIP,\
-		cs:tmpFLReg, cs:[bx].INTRMCB.flags, cs:[cLPMSused],\
+		cs:tmpFLReg, cs:[bx].INTRMCB.flags, word ptr cs:bLPMSused,\
 		word ptr cs:[bx].INTRMCB.rm_vec+2, word ptr cs:[bx].INTRMCB.rm_vec+0
 	@stroutrm <"-intrmcb: ds=%X es=%X fs=%X gs=%X",lf>, ds, es, fs, gs
 @@:

@@ -444,7 +444,7 @@ endif
 ;--- dump some host variables (LPMS, RMS, RMCB, ...)
 
 	@printf <"LPMS Sel/Cnt=%X/%X RMS=%X:%X open RMCBs=%X/%X ">,\
-		word ptr _LPMSSEL_, word ptr [cLPMSused],\
+		word ptr _LPMSSEL_, word ptr [bLPMSused],\
 		[tskstate.rmSS], [tskstate.rmSP], [cIntRMCB], [cRMCB]
 ;--- clear dr7 to avoid I/O watchpoints                
 	xor eax, eax
