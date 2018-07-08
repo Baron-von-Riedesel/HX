@@ -1,7 +1,6 @@
 
 # nmake makefile, creates the version of HDPMI16.EXE with the
-# the host stack in extended memory. Since v3.18, this is the
-# "standard".
+# host stack in extended memory. Since v3.18, this is the "standard".
 # tools:
 # - JWasm | Masm
 # - WLib (Open Watcom) | MS OMF lib (lib16.exe)

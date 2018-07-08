@@ -244,7 +244,7 @@ intr214C:
 ;*** is set to an address which returns to protected mode. In real-mode
 ;*** an int 21h, ah=4Ch function is executed.
 
-	@SetTrace
+	@ResetTrace
 
 	assume es:SEG16
 

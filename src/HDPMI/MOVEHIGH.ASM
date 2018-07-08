@@ -115,7 +115,7 @@ endif
   endif
 
 nogdtmove:
-endif
+endif	;?MOVEGDT
 
 if ?MOVEIDT
 	mov ecx,1
@@ -139,7 +139,7 @@ alloc_done:
 
 ;--- copy IDT from conventional to extended memory (vectors 00-77h)
 
-if ?VM
+  if ?VM
 
 	mov pdIDT.dwBase, edi
 	test fMode, FM_CLONE
@@ -154,13 +154,13 @@ if ?VM
 	push ss
 	pop ds
 	@strout <"#movehigh_pm: IDT copied, pdIDT=%X:%lX, pdGDT=%X:%lX",lf>, pdIDT.wLimit, pdIDT.dwBase, pdGDT.wLimit, pdGDT.dwBase
-  if _LTRACE_
+   if _LTRACE_
 	mov edi, pdIDT.dwBase
-  endif
+   endif
 	lidt pdIDT
 	jmp exit
 @@:
-endif	;?VM
+  endif	;?VM
 	mov esi, offset curIDT
 
 ;--- the predefined IDT contains just 78h entries
@@ -186,22 +186,27 @@ endif	;?VM
 
 idtcopied:
 
+	lidt pdIDT
+
 ;--- the memory where the IDT was stored in conv memory will now be
 ;--- used as host stack. initialize it with "STAC"
+;--- if host stack is in extended memory, the IDT had it's own segment
+;--- and won't become host stack area.
 
-	lidt pdIDT
+  ife ?HSINEXTMEM
+	mov edi,esp
 	mov eax,"CATS"
 	mov ecx,esp
 	sub ecx,offset stacktop
 	shr ecx,2
-	mov edi,esp
 @@:
 	push eax
 	loop @B
 	mov esp,edi
-endif
+  endif
+endif ;?MOVEIDT
 
-endif
+endif ;?DYNBREAKTAB
 exit:
 	@strout <"#movehigh_pm exit, esp=%lX",lf>, esp
 	clc

@@ -87,7 +87,7 @@ LCMDS1=$(LOPT) $(OUTHSCM)\$(SRC).obj, $*.EXE, $*.MAP, $(OUTHSCM)\$(NAME).lib;
 LCMDS2=$(LOPT) $(OUTHSCM)\$(SRC).obj $(OUTNOLFN)\INT21API.obj, $*.EXE, $*.MAP, $(OUTHSCM)\$(NAME).lib;
 !endif
 
-AOPT= -nologo -c -Cp -Sg -D?32BIT=1 $(AOPTD) -I$(INC32DIR) -Fl$* -Fo$*
+AOPT= -nologo -c -Cp -Sg -D?32BIT=1 -D?HSINEXTMEM=0 $(AOPTD) -I$(INC32DIR) -Fl$* -Fo$*
 
 !if $(MASM)
 ASM = ml.exe

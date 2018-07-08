@@ -124,7 +124,7 @@ handleenvflags endp
 ;--- called by _initsvr_rm
 ;--- DS=GROUP16
 ;--- out: if C, then error (fatal)
-;--- modifies si,di
+;--- modifies si,di,es
 
 	@ResetTrace
 
@@ -220,6 +220,22 @@ settlb_1:
 	shl eax,4
 	@stroutrm <"-TLB will be at linear address %lX, size %X",lf>,eax,?TLBSIZE
 ;	mov [atlb],eax			;not used currently
+if ?HSINEXTMEM
+	push eax
+	xor edx,edx	
+	mov dx, ds				;GROUP16
+	shl edx,4
+	sub eax, edx
+	add eax, ?TLBSIZE
+ if ?FIXTSSESP
+	mov [dwHostStack], eax
+ else
+	mov taskseg._Esp0, eax
+	sub eax, sizeof R3FAULT32
+	mov [dwHostStackExc], eax
+ endif
+	pop eax 
+endif
 	mov bx,_TLBSEL_
 	and bx,not 7
 	mov [curGDT+bx].A0015,ax
@@ -750,7 +766,7 @@ if ?DELAYLOAD
 ;--- the protected mode code still is not loaded. load it now *after*
 ;--- the permanent TLB has been allocated
 
-	mov bx,LOWWORD(offset endof32bit)
+	mov bx,LOWWORD offset endof32bit
 	shr bx,4
 	mov ah,48h
 	int 21h
@@ -803,6 +819,25 @@ if ?WDEB386
 	call initdebugger_rm	;modifies ax,bx,cx,dx,si,di,es!
 endif
 
+;--- if hdpmi was started with option -b
+;--- there is no host stack currently
+;--- allocate a temporary one now.
+if ?HSINEXTMEM
+	cmp taskseg._Esp0,0
+	jnz @F
+	mov bx,40h
+	mov ah,48h
+	int 21h
+	jc nodosmem
+	mov word ptr taskseg._Esp, ax
+	movzx eax,ax
+	shl eax,4
+	sub eax, dwHostBase
+	add eax, 400h
+	mov taskseg._Esp0, eax
+@@:
+endif
+
 ;--- now do call protected-mode the first time
 ;--- to initialize paging
 
@@ -838,13 +873,14 @@ _initsvr_pm proc
 	xor eax,eax				;make sure all seg regs are valid
 	mov fs,eax
 	mov gs,eax
-	@strout <"#initsvr_pm: start, current rmStack: %X:%X",lf>, tskstate.rmSS, tskstate.rmSP
+	@strout <"#initsvr_pm: start, current rmSS:SP=%X:%X, esp=%lX",lf>, tskstate.rmSS, tskstate.rmSP, esp
 if ?WDEB386
 	call initwdeb386_pm
 endif
 	@strout <"#initsvr_pm: call pm_createvm",lf>
 	call pm_createvm			;preserves all registers
 	jc pmfirst_done
+
 if ?MOVEHIGH
 	@strout <"#initsvr_pm: call pm_CloneGroup32",lf>
 	xor eax, eax
@@ -852,9 +888,6 @@ if ?MOVEHIGH
 	mov taskseg._Ebp, eax
 	jc initsvr_pm_failed
 endif
-	@strout <"#initsvr_pm: call _movehigh",lf>
-	call _movehigh_pm		;allocates+inits CD30s + IDT
-	jc initsvr_pm_failed
 
 if ?HSINEXTMEM
 	@strout <"#initsvr_pm: alloc memory for host stack",lf>
@@ -874,6 +907,10 @@ if ?HSINEXTMEM
 	mov [dwHostStackExc], eax
  endif
 endif
+
+	@strout <"#initsvr_pm: call _movehigh",lf>
+	call _movehigh_pm		;allocates+inits CD30s + IDT
+	jc initsvr_pm_failed
 
 if ?MOVEHIGH
 ;--- move code32 in extended memory.
@@ -928,6 +965,22 @@ _initsvr_rm2 proc
 	jc nodosmem3
 
 	@stroutrm <"-initsvr_rm2: back in real mode, ss:sp=%X:%X",lf>,ss,sp
+if ?HSINEXTMEM
+;--- if hdpmi was installed with option -b
+;--- there was no TLB allocated and a 1 kB
+;--- dos memory block has been allocated temporarily.
+;--- this block can now be released.
+	xor ax,ax
+	xchg ax, word ptr taskseg._Esp
+	and ax, ax
+	jz @F
+	push es
+	mov es,ax
+	mov ah,49h
+	int 21h
+	pop es
+@@:
+endif
 	mov al,EXIT_HDPMI_IN_VCPIMODE
 	test byte ptr [fHost], FH_VCPI
 	jnz initsvr_ex
@@ -1333,7 +1386,8 @@ load32bit proc uses ds
 	int 21h
 	jc error_2
 
-	mov cx,LOWWORD(offset endof32bit)
+	@stroutrm <"-load32bit: loading GROUP32 part of hdpmi at %X, size=%X",lf>, cs:wHostSeg32, lowword offset endof32bit
+	mov cx,LOWWORD offset endof32bit
 	xor dx,dx
 	mov ah,3Fh
 	int 21h

@@ -21,7 +21,7 @@
   þ if option -a is used ( or HDPMI=32 is set ), the first client won't 
     need additional DOS memory for a "cloned host".
   þ the standard version of HDPMI will now allocate the host stack in
-    extended memory. The size of the stack is now 4 kB instead of 2 kB.
+    extended memory. The host stack size has been increased from 2 to 4 kB.
 
   09.10.2013, version 3.17
 

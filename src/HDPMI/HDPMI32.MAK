@@ -22,6 +22,7 @@ OBJNAMES = $(SRCMODS:.ASM=.OBJ)
 !if $(DEBUG)
 OBJMODS = $(OBJNAMES:.\=STD32D\)
 AOPTD=-D_DEBUG
+#AOPTD=-D_DEBUG -D?DOSOUTPUT=0 -D?VIODIROUT=1
 OUTSTD=STD32D
 !else
 OBJMODS = $(OBJNAMES:.\=STD32\)
@@ -33,7 +34,7 @@ LOPT  = format DOS
 
 LCMDS3=$(LOPT) file {$(OBJMODS)} name $*.EXE op q, map=$*.MAP, stack=0 lib $(OUTSTD)\$(NAME).lib
 
-AOPT= -nologo -c -Cp -Sg -D?32BIT=1 -D?HSINEXTMEM=1 $(AOPTD) -I$(INC32DIR) -Fl$* -Fo$*
+AOPT= -nologo -c -Cp -Sg -D?32BIT=1 $(AOPTD) -I$(INC32DIR) -Fl$* -Fo$*
 ASM = jwasm.exe
 
 NAME  = HDPMI32

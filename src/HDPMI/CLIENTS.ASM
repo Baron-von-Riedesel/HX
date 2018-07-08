@@ -88,7 +88,7 @@ _getcldata32 endp
 endif
 
 ;*** a new client is starting, save state of the previous one
-;*** inp: ax=RMS segment, DS=GROUP16, ES=FLAT
+;*** inp: DS=GROUP16, ES=FLAT
 ;*** in detail:
 ;*** 1. CDATA segment
 ;*** 2. CDATA32 segment
@@ -106,7 +106,6 @@ _saveclientstate proc public
 	push es
 	pushad
 
-	@strout <"#saveclientstate: ax=%X",lf>, ax
 if ?SAVELDTPTE
 	@strout <"#saveclientstate: calling _ClonePage for 1. LDT page",lf>
 	mov edx,[dwLDTAddr]
@@ -130,6 +129,7 @@ else
 	inc ecx
 	call _AllocSysPages2
 	jc exit2
+	@strout <"#saveclientstate: AllocSysPages2()=%lX",lf>, eax
 	mov edi, eax
 endif
 	inc byte ptr [cApps]

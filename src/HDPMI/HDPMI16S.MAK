@@ -1,15 +1,10 @@
 
-# nmake makefile, creates a "stub" HDPMI32.BIN and an
-# assembly include file which is then used by a DPMILD32 
-# stub version.
-# tools used:
-#  - JWasm | Masm
-#  - JWLib | WLib (Open Watcom) | MS OMF LIB (lib16.exe)
-#  - JWLink v1.8x
-#  - extrsect.exe, converts stub binary to assembly include file 
-#  - setmzhdr.exe, modifies exe so:
-#       - dos will load the 16-bit part only
-#       - stack size will be 200h
+# nmake makefile, creates the "stub" HDPMI16.EXE version, which 
+# may be used to create a stub that is attached to the client binary.
+# tools:
+# - JWasm | Masm
+# - WLib (Open Watcom) | MS OMF lib (lib16.exe)
+# - JWLink (modified WLink v1.8)
 
 !include <..\dirs>
 
@@ -24,18 +19,15 @@ MASM=0
 !if $(DEBUG)
 AOPTD=-Zi -D_DEBUG
 LOPTD=/LI
-!ifdef 386SWAT
-AOPTD=$(AOPTD) -D?386SWAT=1
-!endif
 !endif
 
 SRCMODS = \
 !include modules.inc
 OBJNAMES = $(SRCMODS:.ASM=.OBJ)
 !if $(DEBUG)
-OBJMODS = $(OBJNAMES:.\=STUB32D\)
+OBJMODS = $(OBJNAMES:.\=STUB16D\)
 !else
-OBJMODS = $(OBJNAMES:.\=STUB32\)
+OBJMODS = $(OBJNAMES:.\=STUB16\)
 !endif
 
 LINK  = jwlink.exe
@@ -43,7 +35,7 @@ LOPT  = format DOS
 
 LCMDS=$(LOPT) file $(OUTSTUB)\$(SRC).obj name $*.BIN lib $(OUTSTUB)\$(NAME).lib op q, map=$*.MAP, stack=0x200
 
-AOPT= -nologo -c -Cp -Sg -D?32BIT=1 -D?STUB=1 $(AOPTD) -I$(INC32DIR) -Fl$* -Fo$*
+AOPT= -nologo -c -Cp -Sg -D?32BIT=0 -D?STUB=1 $(AOPTD) -I$(INC32DIR) -Fl$* -Fo$*
 
 !if $(MASM)
 ASM=@ml.exe
@@ -51,15 +43,15 @@ ASM=@ml.exe
 ASM=@jwasm.exe
 !endif
 
-NAME  = HDPMI32
+NAME  = HDPMI16
 SRC   = hdpmi
 
 DEPS0 = hdpmi.inc external.inc version.inc
 
 !if $(DEBUG)
-OUTSTUB=STUB32D
+OUTSTUB=STUB16D
 !else
-OUTSTUB=STUB32
+OUTSTUB=STUB16
 !endif
 
 .SUFFIXES: .asm .obj
@@ -67,7 +59,7 @@ OUTSTUB=STUB32
 .asm{$(OUTSTUB)}.obj:
 	$(ASM) $(AOPT) $<
 
-ALL: $(OUTSTUB) $(OUTSTUB)\$(NAME).INC 
+ALL: $(OUTSTUB) $(OUTSTUB)\$(NAME).INC
 
 $(OUTSTUB):
 	@mkdir $(OUTSTUB)

@@ -250,10 +250,10 @@ endif
 ?SAVEMSW      = 0		;std 0: 1=save/restore MSW on entry/exit
 ?SSED         = 0		;std 0: 1=host stack segment (GROUP16) is expand down
 ifndef ?HSINEXTMEM
-?HSINEXTMEM   = 0		;std 0: 1=host stack is in extended memory. this will
+?HSINEXTMEM   = 1		;std 1: 1=host stack is in extended memory. this will
 						;       make HIWORD(esp) != 0 for host stack, which
-                        ;       is a problem for 16-bit client stacks due
-                        ;       to a weak cpu design.
+                        ;       may be a problem if 16-bit stacks are used, 
+                        ;       due to a cpu design bug.
 endif                        
 ?LPMSSIZE     = 1000h	;std 1000h: size of LPMS
 ?PATCHCODE    = 0		;std 0: 1=patch low level switch code

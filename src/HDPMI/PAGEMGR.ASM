@@ -205,7 +205,7 @@ _Linear2PT proc public uses ecx
 	cmp ss:[pMaxPageTab],edi
 @@:
 	pop eax
-	@strout <"#pm: lin addr %lX - addr PTE %lX, max addr PTE %lX",lf>,eax,edi,ss:[pMaxPageTab]
+	@strout <"#Linear2PT: lin addr %lX - addr PTE %lX, max addr PTE %lX",lf>,eax,edi,ss:[pMaxPageTab]
 	ret
 	align 4
 _Linear2PT endp
@@ -253,7 +253,7 @@ PT2Linear endp
 checkpt proc
 
 	cld
-	@strout <"#pm: checking table at lin %lX",lf>,esi
+	@strout <"#checkpt: checking page table at lin %lX",lf>,esi
 nextentry:
 	cmp ecx,edi
 	jb error
@@ -285,7 +285,7 @@ found:
 	popad
 	lea eax, [esi-4];adjust esi so it points to 1. entry again
 	call PT2Linear
-	@strout <"#pm: mapping found for real addr %lX=%lX",lf>,edx,eax
+	@strout <"#checkpt: mapping found for real addr %lX=%lX",lf>,edx,eax
 	clc
 	ret
 	align 4
@@ -299,7 +299,7 @@ checkpt endp
 
 _searchphysregion proc public uses ds
 	pushad
-	@strout <"#pm: phys2lin: addr=%lX,pages=%lX",lf>,edx,eax
+	@strout <"#searchphysregion: addr=%lX,pages=%lX",lf>,edx,eax
 
 	mov edi,eax 			;search in spaces already mapped
 	push byte ptr _FLATSEL_
@@ -335,12 +335,12 @@ _mapphysregion proc public uses es
 
 	pushad
 
-	@strout <"#pm, mapphysregion: addr=%lX,size=%lX",lf>,edx,ecx
+	@strout <"#mapphysregion: addr=%lX,size=%lX",lf>,edx,ecx
 
 	push byte ptr _FLATSEL_
 	pop es
 	call _Linear2PT			;set EDI (ptr to PTE)
-	@strout <"#pm: adspace allocated, ^pagetab=%lX, addr=%lX",lf>,edi,eax
+	@strout <"#mapphysregion: adspace allocated, ^pagetab=%lX, addr=%lX",lf>,edi,eax
 	mov eax,edx
 	or al, PTF_PRESENT or PTF_WRITEABLE or PTF_USER
 	test bl,1
@@ -407,7 +407,7 @@ getavailxmspages proc uses ebx
 
 	test fHost, FH_XMS
 	jz error
-	@strout <"#pm, getavailxmspages:: calling realmode XMS at %X:%X, RMS=%X:%X",lf>,\
+	@strout <"#getavailxmspages: calling realmode XMS at %X:%X, RMS=%X:%X",lf>,\
 		word ptr ss:xmsaddr+2, word ptr ss:xmsaddr+0, tskstate.rmSS, tskstate.rmSP
 ;	@waitesckey
 	push ecx
@@ -450,24 +450,24 @@ _GetNumPhysPages proc public
 
 	assume ds:GROUP16
 
-	@strout <"#pm, GetNumPhysPages: free pages in cur block=%lX",lf>, PhysBlk.dwFree
+	@strout <"#GetNumPhysPages: free pages in cur block=%lX",lf>, PhysBlk.dwFree
 	call getavailxmspages	;get free XMS pages in EAX
-	@strout <"#pm, GetNumPhysPages: XMS pages=%lX",lf>, eax
+	@strout <"#GetNumPhysPages: XMS pages=%lX",lf>, eax
 	add eax,PhysBlk.dwFree	;add free pages cur block (XMS or I15)
 if ?VCPIALLOC
 	and eax, eax			;is XMS memory available?
 	jnz @F
 	call getavailvcpipages	;get VCPI pages
-	@strout <"#pm, GetNumPhysPages: VCPI pages=%lX",lf>, edx
+	@strout <"#GetNumPhysPages: VCPI pages=%lX",lf>, edx
 	mov eax, edx
 @@:
 endif
 	test [bEnvFlags],ENVF_INCLDOSMEM
 	jz @F
 	push eax
-	@strout <"#pm, GetNumPhysPages: calling getavaildospages",lf>
+	@strout <"#GetNumPhysPages: calling getavaildospages",lf>
 	call getavaildospages
-	@strout <"#pm, GetNumPhysPages: DOS pages=%X",lf>,ax
+	@strout <"#GetNumPhysPages: DOS pages=%X",lf>,ax
 	pop ecx
 	add eax,ecx
 @@:
@@ -476,7 +476,7 @@ endif
 if ?RESPAGES        
 	add ecx, ?RESPAGES
 endif
-	@strout <"#pm, GetNumPhysPages: subtract %lX pages for pagetables",lf>,ecx
+	@strout <"#GetNumPhysPages: subtract %lX pages for pagetables",lf>,ecx
 	cmp ecx,eax
 	jc @F
 	mov ecx,eax
@@ -500,7 +500,7 @@ nextitem:
 	add edx, [ecx].PHYSBLK.dwSize
 	sub edx, [ecx].PHYSBLK.dwFree	;free pages are in EAX already
 @@:
-	@strout <"#pm, GetNumPhysPages: block total=%lX, free=%lX",lf>,[ecx].PHYSBLK.dwSize, [ecx].PHYSBLK.dwFree
+	@strout <"#GetNumPhysPages: block total=%lX, free=%lX",lf>,[ecx].PHYSBLK.dwSize, [ecx].PHYSBLK.dwFree
 	mov ecx, [ecx].PHYSBLK.pNext
 	and ecx, ecx
 	jnz nextitem
@@ -518,7 +518,7 @@ if 0
 @@:
 norestrict:
 endif
-	@strout <"#pm, GetNumPhysPages: total=%lX, free=%lX, res=%lX",lf>,edx,eax,ecx
+	@strout <"#GetNumPhysPages: total=%lX, free=%lX, res=%lX",lf>,edx,eax,ecx
 	ret
 	align 4
 _GetNumPhysPages endp
@@ -566,7 +566,7 @@ if _LTRACE_
 	shl ecx, 12
 	add ecx, PhysBlk.dwBase
 	dec ecx
-	@strout <"#pm: page %lX from cur block %lX-%lX, free=%lX",lf>, eax, PhysBlk.dwBase, ecx, PhysBlk.dwFree
+	@strout <"#getblockpage: page %lX from cur block %lX-%lX, free=%lX",lf>, eax, PhysBlk.dwBase, ecx, PhysBlk.dwFree
 	pop ecx
 endif
 ;	@waitesckey
@@ -661,14 +661,14 @@ nextitem:
 	popad
 	ret
 found:
-	@strout <"#pm: phys handle %lX found, pNext=%lX, hdl=%lX, start=%X",lf>, eax, [eax].PHYSBLK.pNext, [eax].PHYSBLK.dwHandle, offset PhysBlk
+	@strout <"#freephyshandle: phys handle %lX found, pNext=%lX, hdl=%lX, start=%X",lf>, eax, [eax].PHYSBLK.pNext, [eax].PHYSBLK.dwHandle, offset PhysBlk
 @@:
 	mov dl, [eax].PHYSBLK.bFlags
 	mov [eax].PHYSBLK.bFlags, 0
 	test dl, PBF_XMS
 	jz @F
 	mov dx,[eax].PHYSBLK.wHandle
-	@strout <"#pm: calling XMS host to free handle=%X",lf>, dx
+	@strout <"#freephyshandle: calling XMS host to free handle=%X",lf>, dx
 	pushd offset freexms
 	call callrmprocintern
 if ?XMSBLOCKCNT
@@ -711,7 +711,7 @@ endif
 
 setphyshandle proc        
 
-;	@strout <"#pm: XMS/DOS memory allocated, addr=%lX, size=%lX",lf>,edx,eax
+;	@strout <"#setphyshandle: XMS/DOS memory allocated, addr=%lX, size=%lX",lf>,edx,eax
 
 							;set values so _heapalloc cannot fail
 	xchg edx,PhysBlk.dwBase	;save current physical address
@@ -730,8 +730,8 @@ setphyshandle proc
 	pop [eax].PHYSBLK.dwFree
 	pop [eax].PHYSBLK.dwSize
 	pop [eax].PHYSBLK.dwBase
-	@strout <"#pm: new phys mem obj %lX, base=%lX, size=%lX, free=%lX",lf>,eax,[eax].PHYSBLK.dwBase, [eax].PHYSBLK.dwSize, [eax].PHYSBLK.dwFree
-	@strout <"#pm: current: base=%lX, size=%lX, free=%lX",lf>, PhysBlk.dwBase, PhysBlk.dwSize, PhysBlk.dwFree
+	@strout <"#setphyshandle: new phys mem obj %lX, base=%lX, size=%lX, free=%lX",lf>,eax,[eax].PHYSBLK.dwBase, [eax].PHYSBLK.dwSize, [eax].PHYSBLK.dwFree
+	@strout <"#setphyshandle: current: base=%lX, size=%lX, free=%lX",lf>, PhysBlk.dwBase, PhysBlk.dwSize, PhysBlk.dwFree
 	ret
 	align 4
 setphyshandle endp
@@ -808,18 +808,18 @@ getdospage proc
 	jnz newdosblock
 	push ebx
 	mov ebx,edx
-	@strout <"#pm: try to enlarge DOS block %X to %X paras",lf>,v86iret.rES,bx
+	@strout <"#getdospage: try to enlarge DOS block %X to %X paras",lf>,v86iret.rES,bx
 	mov ah,4Ah
 	call rmdosintern
 	pop ebx
 	jc @F
-	@strout <"#pm: DOS block enlarged",lf>
+	@strout <"#getdospage: DOS block enlarged",lf>
 	add PhysBlk.dwSize,ecx
 	mov PhysBlk.dwFree,ecx
 	call setowner
 	jmp getblockpage
 @@:
-	@strout <"#pm: DOS block enlarge failed",lf>
+	@strout <"#getdospage: DOS block enlarge failed",lf>
 	mov ah,4Ah				;due to a bug in most DOSes the block
 	call rmdosintern		;has to be resized to its previous size
 	call setowner
@@ -827,11 +827,11 @@ newdosblock:
 	mov bh,cl				;nur angeforderte pages
 	inc bh					;1 mehr, da beginn nicht an pagegrenze
 	mov bl,00
-	@strout <"#pm: try to alloc a new DOS block, size=%X",lf>,bx
+	@strout <"#getdospage: try to alloc a new DOS block, size=%X",lf>,bx
 	mov ah,48h
 	call rmdosintern
 	jc error2
-	@strout <"#pm: new DOS block allocated, addr=%X, size=%X",lf>,ax,bx
+	@strout <"#getdospage: new DOS block allocated, addr=%X, size=%X",lf>,ax,bx
 	mov bx,ax		;handle
 	movzx edx,ax
 	shl edx,4
@@ -844,7 +844,7 @@ newdosblock:
 	call setowner
 	jmp getblockpage
 error2:
-	@strout <"#pm: alloc new dos block failed",lf>
+	@strout <"#getdospage: alloc new dos block failed",lf>
 error:
 	stc
 	ret
@@ -877,13 +877,13 @@ scanpagepool proc uses es esi ecx
 	mov esi,pPoolMax
 	mov ecx,pPageTables
 
-	@strout <"#pm, scanpagepool: %lX-%lX, pages=%lX",lf>, ecx, esi, dwPagePool
+	@strout <"#scanpagepool: %lX-%lX, pages=%lX",lf>, ecx, esi, dwPagePool
 
 ;	@SetTrace
 if _LTRACE_
 	and esi, esi
 	jnz @F
-	@strout <"#pm, scanpagepool: pPoolMax is NULL!, dwPagePool=%lX",lf>, dwPagePool
+	@strout <"#scanpagepool: pPoolMax is NULL!, dwPagePool=%lX",lf>, dwPagePool
 	@waitesckey
 @@:
 endif
@@ -902,7 +902,7 @@ nextitem:
 exit:
 	ret
 notfound:
-	@strout <"#pm, scanpagepool error: no page in page pool found",lf>
+	@strout <"#scanpagepool error: no page in page pool found",lf>
 	stc
 	jmp exit
 	align 4
@@ -934,7 +934,7 @@ getphyspagex proc
 	test ah,_XMSFLAG_	;is this a page from page pool?
 	jz getphyspage		;if no, alloc a new page
 	dec [dwPagePool]
-	@strout <"#pm: page pool decr [%lX], Entry=%lX, edi=%lX, caller=%lX",lf>, dwPagePool, eax, edi, <dword ptr [esp]>
+	@strout <"#getphyspageex: page pool decr [%lX], Entry=%lX, edi=%lX, caller=%lX",lf>, dwPagePool, eax, edi, <dword ptr [esp]>
 exit:
 	ret
 	align 4
@@ -1011,7 +1011,7 @@ freephyspage proc
 	jz noxmspage	        ;no (VCPI or mapped)
 	inc [dwPagePool]		;XMS/I15/DOS will be put in page pool
 	and al, not PTF_PRESENT
-	@strout <"#pm: Page Pool incremented [%lX], Entry=%lX, caller=%lX",lf>,[dwPagePool],eax,<dword ptr [esp]>
+	@strout <"#freephyspage: Page Pool incremented [%lX], Entry=%lX, caller=%lX",lf>,[dwPagePool],eax,<dword ptr [esp]>
 exit:
 	ret
 	align 4
@@ -1031,7 +1031,7 @@ if ?VCPIALLOC
 	jnz @F
 	dec [dwVCPIPages]
 @@:
-	@strout <"#pm: free VCPI page %lX returned ax=%X, remaining %lX",lf>, edx, ax, dwVCPIPages
+	@strout <"#freephyspage: free VCPI page %lX returned ax=%X, remaining %lX",lf>, edx, ax, dwVCPIPages
 	popad
 novcpipage:
 endif
@@ -1064,7 +1064,7 @@ mapPageTable proc near
 
 if _LTRACE_
 	lea edx, [edi+edx]
-	@strout <"#pm, mapPageTable: written %lX to %lX",lf>, eax, edx
+	@strout <"#mapPageTable: written %lX to %lX",lf>, eax, edx
 endif
 
 ;--- now clear new page table
@@ -1072,7 +1072,7 @@ endif
 	shl edi,10			;* 1024
 	add edi,[pPagesStart]
 
-	@strout <"#pm, mapPageTable: phys entry %lX mapped at %lX",lf>, eax, edi
+	@strout <"#mapPageTable: phys entry %lX mapped at %lX",lf>, eax, edi
 
 
 	push edi
@@ -1148,7 +1148,7 @@ if _LTRACE_
 	shl ecx, 10
 	add ecx, pPageTables
 	shl edx, 20
-	@strout <"#pm, freepagetab: rel. PTE %lX at %lX [reg %lX, mapped %lX",lf>, eax, edi, edx, ecx
+	@strout <"#freepagetab: rel. PTE %lX at %lX [reg %lX, mapped %lX",lf>, eax, edi, edx, ecx
 endif
 	call freephyspage
 	stosd
@@ -1173,8 +1173,8 @@ freepagetab endp
 FreeUserAddrSpace proc
 
 	pushad
-	@strout <"#pm, FreeUserAddrSpace: free space at %lX, %lX pages",lf>, eax, ecx
-	@strout <"#pm, FreeUserAddrSpace: pMaxPageTab=%lX pPoolMax=%lX",lf>, pMaxPageTab, pPoolMax
+	@strout <"#FreeUserAddrSpace: free space at %lX, %lX pages",lf>, eax, ecx
+	@strout <"#FreeUserAddrSpace: pMaxPageTab=%lX pPoolMax=%lX",lf>, pMaxPageTab, pPoolMax
 	mov edi, eax
 	shr edi, 10 			;400000h -> 1000h, 800000 -> 2000
 	add edi, [pPageTab0]
@@ -1229,7 +1229,7 @@ noclear:
 	and ax, 0F000h
 	sub edi, eax
 	shr edi, 2				;PTEs in last page table
-	@strout <"#pm, FreeUserAddrSpace: last page table entries: %lX %X %X",lf>, edi, dx, bx
+	@strout <"#FreeUserAddrSpace: last page table entries: %lX %X %X",lf>, edi, dx, bx
 	cmp edi, edx
 	jnz @F
 	cmp edx, ebx
@@ -1237,7 +1237,7 @@ noclear:
 	mov edx, eax
 	call freepagetab
 @@:
-	@strout <"#pm, FreeUserAddrSpace: %X pages for page tables freed",lf>, si
+	@strout <"#FreeUserAddrSpace: %X pages for page tables freed",lf>, si
 exit:
 	popad
 	ret
@@ -1260,7 +1260,7 @@ AllocUserAddrSpace proc near
 
 	assume ds:GROUP16
 
-	@strout <"#pm, AllocUserAddrSpace: alloc %lX pages",lf>,ecx
+	@strout <"#AllocUserAddrSpace: alloc %lX pages",lf>,ecx
 	mov edi,[pMaxPageTab]	;top used address space (may be 0!)
 ;	and edi, edi
 ;	jz error
@@ -1284,7 +1284,7 @@ nextpage:
 donenewpagetab:
 	mov eax,es:[edi]
 	mov al,PTF_NORMAL
-;	@strout <"#pm, AllocUserAddrSpace: mem page at %lX",lf>,edi
+;	@strout <"#AllocUserAddrSpace: mem page at %lX",lf>,edi
 	stosd							;save PTE in page table
 	dec ecx
 	jnz nextpage
@@ -1294,11 +1294,11 @@ donenewpagetab:
 									;page tables are stored so that
 									;it is very simple to get linear
 									;address from pointer to PTE
-	@strout <"#pm, AllocUserAddrSpace: : edx=%lX, pPageTab0=%lX",lf>,edx,pPageTab0
+	@strout <"#AllocUserAddrSpace: : edx=%lX, pPageTab0=%lX",lf>,edx,pPageTab0
 	sub edx,[pPageTab0]
 	shl edx,10					;* 1024 -> jetzt in edx die lin addr
 	mov eax, edx
-	@strout <"#pm, AllocUserAddrSpace: new addrspace generated: addr=%lX,size=%lX",lf>,eax,ecx
+	@strout <"#AllocUserAddrSpace: new addrspace generated: addr=%lX,size=%lX",lf>,eax,ecx
 	clc
 	ret
 newpagetab:
@@ -1330,7 +1330,7 @@ error2:
 	pop edi 					;get pMaxPageTab
 	mov eax, ecx
 	mov ecx,[esp]				;total size in pages
-	@strout <"#pm, AllocUserAddrSpace: alloc %lX pages failed at %lX",lf>, ecx, eax
+	@strout <"#AllocUserAddrSpace: alloc %lX pages failed at %lX",lf>, ecx, eax
 	sub ecx, eax				;subtract pages not allocated so far
 	mov eax, edi
 	sub eax,[pPageTab0]
@@ -1358,7 +1358,7 @@ if ?DPMI10
 ;--- bit 4: bit 5+6 valid (accessed+dirty)
 
 _getpageattributes proc public
-	@strout <"#pm, getpageattributes: lin addr %lX - copy %lX attr to %lX:%lX",lf>,ebx, ecx, es, edx
+	@strout <"#getpageattributes: lin addr %lX - copy %lX attr to %lX:%lX",lf>,ebx, ecx, es, edx
 	mov eax, ebx
 	call _Linear2PT
 	jc exit
@@ -1410,7 +1410,7 @@ _setregionattributes proc public
 	push si
 	push di
 	pop ecx		;size in ECX
-	@strout <"#pm, setregionattributes: addr %lX, size %lX",lf>, eax, ecx
+	@strout <"#setregionattributes: addr %lX, size %lX",lf>, eax, ecx
 	add ecx, eax
 	jc exit		;overflow
 	test dh,80h	;80h=1 -> include partial pages
@@ -1426,7 +1426,7 @@ noal1:
 	jbe exit
 	shr ecx, 12		;get no of pages in ecx
 
-	@strout <"#pm, setregionattributes, adjusted: addr %lX, size(pg) %lX",lf>, eax, ecx
+	@strout <"#setregionattributes, adjusted: addr %lX, size(pg) %lX",lf>, eax, ecx
 
 	call _Linear2PT	;get PTE address in EDI
 	jc exit
@@ -1496,7 +1496,7 @@ updatetlb endp
 	@ResetTrace
 
 _setpageattributes proc public
-	@strout <"#pm, setpageattr: lin addr %lX - copy %lX attr from %lX:%lX",lf>,ebx, ecx, es, edx
+	@strout <"#setpageattr: lin addr %lX - copy %lX attr from %lX:%lX",lf>,ebx, ecx, es, edx
 	mov eax, ebx
 	call _Linear2PT	;shouldn't fail since ebx was verified to be valid
 	jc exit
@@ -1527,7 +1527,7 @@ nextitem:
 	pop eax
 	pop ecx
 	jc error		;error, out of physical pages!
-	@strout <"#pm, setpageattr: page %lX [old=%lX] committed [pt=%lX]",lf>,eax, edx, edi
+	@strout <"#setpageattr: page %lX [old=%lX] committed [pt=%lX]",lf>,eax, edx, edi
 	or dl, PTF_PRESENT or PTF_USER
 	jmp step1
 @@:
@@ -1541,7 +1541,7 @@ if _LTRACE_
 	push ecx
 	call PT2Linear
 	pop ecx
-	@strout <"#pm, setpageattr: page %lX, lin addr=%lX uncommitted [pt=%lX]",lf>,edx, eax, edi
+	@strout <"#setpageattr: page %lX, lin addr=%lX uncommitted [pt=%lX]",lf>,edx, eax, edi
 endif
 	mov  eax, edx
 	call freephyspage
@@ -1685,7 +1685,7 @@ error:
 	mov es:[edi], eax
 	loopd @B
 error_done:
-	@strout <"#pm, CommitBlock: alloc failed, pPoolMax=%lX",lf>,ss:pPoolMax
+	@strout <"#commitblockx: alloc failed, pPoolMax=%lX",lf>,ss:pPoolMax
 	stc
 	jmp exit
 	align 4
@@ -1803,7 +1803,7 @@ _AllocSysAddrSpace proc public
 	sub [SysAddrSize],ecx
 	shl ecx,12
 	add [SysAddrSpace],ecx
-	@strout <"#pm, allocsysaddrspace: block %lX, remaining pages: %lX",lf>,eax, SysAddrSize
+	@strout <"#AllocSysAddrSpace: block %lX, remaining pages: %lX",lf>,eax, SysAddrSize
 error:
 	ret
 	align 4
@@ -1919,14 +1919,18 @@ nextitem:
 	jz skipitem
 	test ah,_VCPIFLAG_
 	jz skipitem
-	@strout <"#pm: free page %lX at %lX",lf>, eax, esi
+	@strout <"#freememblock: free page %lX at %lX",lf>, eax, esi
 	test bl,1
 	jz @F
 	call freephyspage
 	mov es:[esi],eax
 	jmp skipitem
 @@:
+if ?HSINEXTMEM
+	mov es:[edi+ebp], eax
+else
 	mov [edi], eax
+endif
 	add edi, 4
 skipitem:
 	add esi, 4
@@ -1948,7 +1952,7 @@ FreeVCPIPages proc uses esi
 	push byte ptr _FLATSEL_
 	pop es
 
-	@strout <"#pm: FreeVCPIPages entry, di=%X",lf>, di
+	@strout <"#FreeVCPIPages: entry, di=%X",lf>, di
 
 ;--- copy system region FF800000 pages to host stack
 
@@ -1957,7 +1961,7 @@ FreeVCPIPages proc uses esi
 	mov esi, [pPageTables]
 	add esi, 1000h
 	mov ecx, 400h
-	@strout <"#pm: free sys space=%lX, entries=%lX",lf>, esi, ecx
+	@strout <"#FreeVCPIPages: free sys space=%lX, entries=%lX",lf>, esi, ecx
 	call freememblock
 
 ;--- free mapped page tables FFC00000 pages 
@@ -1972,7 +1976,7 @@ else
 	lea esi, [esi+2*4]	
 	mov ecx, 400h-2
 endif
-	@strout <"#pm: free sys space=%lX, entries=%lX",lf>, esi, ecx
+	@strout <"#FreeVCPIPages: free sys space=%lX, entries=%lX",lf>, esi, ecx
 	call freememblock
 
 ;--- free anything from 004-FF8 in page dir
@@ -1980,7 +1984,7 @@ endif
 	mov esi, pPageDir			;linear address page dir
 	lea esi, [esi+4]
 	mov ecx,400h-3
-	@strout <"#pm: free page tables in page dir %lX, entries=%lX",lf>, esi, ecx
+	@strout <"#FreeVCPIPages: free page tables in page dir %lX, entries=%lX",lf>, esi, ecx
 	call freememblock
 
 ;--- copy the rest to host stack
@@ -1991,7 +1995,7 @@ endif
 	mov ecx,400h
 	call freememblock
 
-	@strout <"#pm: FreeVCPIPages exit, di=%X",lf>, di
+	@strout <"#FreeVCPIPages: exit, di=%X",lf>, di
 exit:
 	ret
 	align 4
@@ -2010,7 +2014,7 @@ if ?SETCOPYPTE
 
 _SetPage proc public
 	pushad
-	@strout <"#pm, SetPage: edx=%lX, eax=%lX",lf>, edx, eax
+	@strout <"#SetPage: edx=%lX, eax=%lX",lf>, edx, eax
 	mov eax, edx
 	call _Linear2PT
 	mov eax, [esp].PUSHADS.rEAX
@@ -2154,8 +2158,8 @@ if _LTRACE_
 	sub edx, PhysBlk.dwFree		;edx=pages allocated
 	shl edx, 12
 	add edx, PhysBlk.dwBase
-	@strout <"#pm, compress e: blk base=%lX, size=%lX, free=%lX, nxt free=%lX",lf>, PhysBlk.dwBase, PhysBlk.dwSize, PhysBlk.dwFree, edx
-	@strout <"#pm, compress e: pPoolMax=%lX, dwPagePool=%lX, pMaxPageTab=%lX",lf>,pPoolMax, dwPagePool, pMaxPageTab
+	@strout <"#compresspagepool: blk base=%lX, size=%lX, free=%lX, nxt free=%lX",lf>, PhysBlk.dwBase, PhysBlk.dwSize, PhysBlk.dwFree, edx
+	@strout <"#compresspagepool: pPoolMax=%lX, dwPagePool=%lX, pMaxPageTab=%lX",lf>,pPoolMax, dwPagePool, pMaxPageTab
 endif
 nextblock:
 	call compresspool
@@ -2181,7 +2185,7 @@ nextitem:
 	jnc nextitem
 ;--- the page is in use, but in may be just because of the page pool
 ;--- this could possibly be "ignored"
-	@strout <"#pm, compress: PTE %lX in use at %lX",lf>, eax, edi
+	@strout <"#compresspagepool: PTE %lX in use at %lX",lf>, eax, edi
 	mov esi, pPageTables
 	lea esi, [esi+1000h];check if page is an entry in mapping page
 	lea ebp, [edi-4]
@@ -2197,7 +2201,7 @@ nextitem:
 	jc scandone
 	call getpoolpage		;get a pool page, but not from current block!
 	jc scandone
-	@strout <"#pm, compress: weak usage %lX %lX",lf>, ebp, eax
+	@strout <"#compresspagepool: weak usage %lX %lX",lf>, ebp, eax
 	mov esi, eax
 	mov eax, ebp
 	push edx
@@ -2246,7 +2250,7 @@ nextitem2:
 	dec dwPagePool
 	jmp nextitem2
 blockdone:
-	@strout <"#pm, compress: release current PHYSBLK",lf>
+	@strout <"#compresspagepool: release current PHYSBLK",lf>
 	mov eax, offset PhysBlk
 	call freephyshandle
 	call setactivephyshandle
@@ -2258,8 +2262,8 @@ if _LTRACE_
 	sub edx, PhysBlk.dwFree		;edx=pages allocated
 	shl edx, 12
 	add edx, PhysBlk.dwBase
-	@strout <"#pm, compress x: blk base=%lX, size=%lX, free=%lX, nxt free=%lX",lf>, PhysBlk.dwBase, PhysBlk.dwSize, PhysBlk.dwFree, edx
-	@strout <"#pm, compress x: pPoolMax=%lX, dwPagePool=%lX, pMaxPageTab=%lX",lf>,pPoolMax, dwPagePool, pMaxPageTab
+	@strout <"#compresspagepool: blk base=%lX, size=%lX, free=%lX, nxt free=%lX",lf>, PhysBlk.dwBase, PhysBlk.dwSize, PhysBlk.dwFree, edx
+	@strout <"#compresspagepool: pPoolMax=%lX, dwPagePool=%lX, pMaxPageTab=%lX",lf>,pPoolMax, dwPagePool, pMaxPageTab
 endif
 	pop es
 	ret
@@ -2281,13 +2285,13 @@ compresspool:
 	add edi, 4
 	cmp edi, esi
 	jz @B
-	@strout <"#pm, pool entry %lX at %lX",lf>, eax, edi
+	@strout <"#compresspagepol: pool entry %lX at %lX",lf>, eax, edi
 	mov dword ptr es:[esi-4],PTF_NORMAL
 	mov es:[edi-4], eax
 	jmp @B
 @@:
 	mov pPoolMax, edi
-	@strout <"#pm, pPoolMax before/after compress %lX/%lX",lf>, ecx, edi
+	@strout <"#compresspagepool: pPoolMax before/after compress %lX/%lX",lf>, ecx, edi
 
 ;--- the top of the pool has been adjusted		  
 ;--- now free all PTEs in the mapping page (FFC00000)
@@ -2463,12 +2467,18 @@ pm_exitclient endp
 
 pm_exit_pm proc public
 	pushad
-	@strout <"#pm: exit_pm enter",lf>
-;------------------ save all XMS handles on stack *before* freeing memory		 
-	@strout <"#pm, start save xms handles on host stack",lf>
+	@strout <"#pm_exit_pm enter",lf>
+;------------------ save all XMS handles on stack *before* freeing memory
+	@strout <"#pm_exit_pm: start save xms handles on host stack",lf>
+if ?HSINEXTMEM
+	movzx ebp, [wHostPSP]
+	shl ebp,4
+	mov esi, 5ch
+else
+	mov esi, offset stacktop
+endif
 ;	mov ebx,[pPhysBlkList]
 	mov ebx, offset PhysBlk
-	mov esi, offset stacktop
 nextitem:
 	and ebx,ebx
 	jz xmsdone
@@ -2482,33 +2492,37 @@ endif
 	test [ebx].PHYSBLK.bFlags, PBF_XMS
 	jz skipitem
 	mov ax,[ebx].PHYSBLK.wHandle
+if ?HSINEXTMEM
+	mov es:[esi+ebp],ax
+else
 	mov [esi],ax
-	@strout <"#pm, xms handle %X saved",lf>,ax
+endif
+	@strout <"#pm_exit_pm: xms handle %X saved",lf>,ax
 	inc esi
 	inc esi
 skipitem:
 	mov ebx,[ebx].PHYSBLK.pNext
 	jmp nextitem
 xmsdone:
-	@strout <"#pm, done save xms handles on host stack",lf>
+	@strout <"#pm_exit_pm: done save xms handles on host stack",lf>
 if ?FREEXMSINRM
 	mov pXMSHdls,si
   if ?FREEVCPIPAGES
 ;---- VCPI pages have to be freed in real-mode as well
 ;---- because the pages are freed with XMS.
-	@strout <"#pm: call FreeVCPIPages",lf>
+	@strout <"#pm_exit_pm: call FreeVCPIPages",lf>
 	mov edi, esi
 	call FreeVCPIPages
 	mov pVCPIPages, di
   endif
 endif
 ife ?FREEXMSINRM
-	@strout <"#pm: free xms memory blocks",lf>
+	@strout <"#pm_exit_pm: free xms memory blocks",lf>
 nextitem2:
 	cmp esi,esp
 	jz @F
 	pop dx
-	@strout <"#pm: free xms block %X, rm ss:sp=%X:%X",lf>,dx,ss:[tskstate.rmSS],cs:[tskstate.rmSP]
+	@strout <"#pm_exit_pm: free xms block %X, rm ss:sp=%X:%X",lf>,dx,ss:[tskstate.rmSS],cs:[tskstate.rmSP]
 
 	pushd offset freexms
 	call callrmprocintern
@@ -2516,18 +2530,18 @@ nextitem2:
 @@:
 endif
 if ?FREEPDIRPM
-	@strout <"#pm: restore cr3",lf>
+	@strout <"#pm_exit_pm: restore cr3",lf>
 	mov eax,[orgcr3]
 	mov cr3,eax
 	xchg eax,[cs._cr3]
-	@strout <"#pm: free cr3 page",lf>
+	@strout <"#pm_exit_pm: free cr3 page",lf>
 	mov ax,[cr3flgs]
 	call freephyspage
 endif
 if ?VCPIALLOC
-	@strout <"#pm: VCPI pages allocated on pm exit=%lX",lf>,dwVCPIPages
+	@strout <"#pm_exit_pm: VCPI pages allocated on pm exit=%lX",lf>,dwVCPIPages
 endif
-	@strout <"#pm: exit_pm exit",lf>
+	@strout <"#pm_exit_pm: exit",lf>
 	popad
 	ret
 	align 4
@@ -3202,43 +3216,59 @@ pm_exit_rm proc public
 
 if _LTRACE_
 	nop
-	@stroutrm <"-pm: exit_rm enter",lf>
+	@stroutrm <"-pm_exit_rm enter",lf>
 ;	@waitesckey
 endif
 
-	@stroutrm <"-pm: pVCPIPages=%X, pXMSHdls=%X",lf>, pVCPIPages, pXMSHdls
+	@stroutrm <"-pm_exit_rm: pVCPIPages=%X, pXMSHdls=%X",lf>, pVCPIPages, pXMSHdls
 if ?FREEVCPIPAGES
+
+if ?HSINEXTMEM
+	mov es,wHostPSP
+endif
 
 	mov si, pVCPIPages
 nextitem:
 	cmp si, pXMSHdls
 	jz vcpidone
 	sub si, 4
+if ?HSINEXTMEM
+	mov edx,es:[si]
+else
 	mov edx,[si]
+endif
 	and dx,0F000h
 	mov ax,0DE05h
 	int 67h
 if _LTRACE_
 	and ah,ah
 	jz @F
-	@stroutrm <"-pm: free VCPI page %lX returned ax=%X",lf>, edx, ax
+	@stroutrm <"-pm_exit_rm: free VCPI page %lX returned ax=%X",lf>, edx, ax
 @@:
 endif
 	and ah,ah
 	jnz nextitem
 	dec dwVCPIPages
-	@stroutrm <"-pm: free VCPI page %lX returned ax=%X, remaining %lX",lf>, edx, ax, dwVCPIPages
+	@stroutrm <"-pm_exit_rm: free VCPI page %lX returned ax=%X, remaining %lX",lf>, edx, ax, dwVCPIPages
 	jmp nextitem
 vcpidone:
 else
 	mov si, pXMSHdls
 endif
 nextitem2:
+if ?HSINEXTMEM
+	cmp si, 5Ch
+else
 	cmp si, offset stacktop
+endif
 	jbe xmsdone
 	dec si
 	dec si
+if ?HSINEXTMEM
+	mov dx,es:[si]
+else
 	mov dx,[si]
+endif
 	@stroutrm <"-pm: free XMS handle %X",lf>, dx
 	call freexms
 	jmp nextitem2
@@ -3611,15 +3641,15 @@ initpagemgr_rm_1:
 	mov PhysBlk.dwFree, eax 	;pages free to allocate
 	mov PhysBlk.dwBase, edx		;phys. address
 initpagemgr_rm_2:
+
 	call allocpagetab0		;will set ES=page tab 0
 	jc error
-	mov [pPageTab0],eax 	;linear address page table 0
-	call getphysaddr		;phys. addr von eax nach edx
+	mov [pPageTab0],eax 	;save linaddr page table 0
+	call getphysaddr		;get physical address (PDE) of PT0 in edx
 	@stroutrm <"-pm: pPageTab0=%lX [PDE=%lX]",lf>, eax, edx
 	or dl,PTF_PRESENT or PTF_NORMAL
 	assume es:SEG16
 	mov es:[1000h+000],edx	;set PDE for pagetab0 in page dir
-
 	add eax,1000h
 	mov pPageDir, eax
 	call getphysaddr
@@ -3629,7 +3659,11 @@ initpagemgr_rm_2:
 	xor di,di				;es:di ^ pagetable 0
 	test [fHost],FH_VCPI
 	jz @F
-	mov si,offset vcpidesc	;ds:si ^ 3 descriptors in GDT
+
+;--- get VCPI protected-mode interface
+;--- ds:si = pointer to 3 descriptors in GDT
+;--- es:di = page table 0
+	mov si,offset vcpidesc
 	mov ax,0DE01h			;get protected mode interface
 	int 67h
 	cmp ah,00				;returns in DI=first free entry

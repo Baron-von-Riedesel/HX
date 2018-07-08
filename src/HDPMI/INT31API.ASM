@@ -56,7 +56,7 @@ if _LTRACE_
 @@:
 	@strout <"i31 exit C  ">
 intr31ex_1:
-	@strout <"a-d=%X %lX %lX %lX si=%lX edi=%lX",lf>,ax,ebx,ecx,edx,esi,edi
+	@strout <"a-d=%X %lX %lX %lX esi=%lX edi=%lX",lf>,ax,ebx,ecx,edx,esi,edi
 endif
 if ?FASTINT31
 	jmp iret_with_CF_mod

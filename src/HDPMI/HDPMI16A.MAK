@@ -3,7 +3,6 @@
 # - the (old) "standard" version with host stack in conv. memory
 # - the "nolfn" version with LFN API translation support disabled
 # - the "enhanced" version with some Win16 enhanced features enabled
-# - the "stub" version, which may be used to create a stub that is
 #   attached to the client binary.
 # tools:
 # - JWasm | Masm
@@ -66,12 +65,10 @@ LOPT  = format DOS
 LCMDS1=$(LOPT) file $(OUTSTD)\$(SRC).obj name $*.EXE op q, map=$*.MAP, stack=0 lib $(OUTSTD)\$(NAME).lib
 LCMDS2=$(LOPT) file {$(OUTSTD)\$(SRC).obj $(OUTNOLFN)\INT21API.obj} name $*.EXE op q, map=$*.MAP, stack=0 lib $(OUTSTD)\$(NAME).lib
 LCMDS3=$(LOPT) file {$(OUTENH)\$(SRC).obj $(OUTENH)\INT2FAPI.obj $(OUTENH)\INT31API.obj $(OUTENH)\vxd.obj} name $*.EXE op q, map=$*.MAP, stack=0 lib $(OUTSTD)\$(NAME).lib
-LCMDS4=$(LOPT) file {$(OUTSTUB)\$(SRC).obj $(OUTSTUB)\init.obj} name $*.BIN op q, map=$*.MAP, stack=0x200 lib $(OUTSTD)\$(NAME).lib
 !else
 LCMDS1=$(LOPT) $(OUTSTD)\$(SRC).obj, $*.EXE, $*.MAP, $(OUTSTD)\$(NAME).lib;
 LCMDS2=$(LOPT) $(OUTSTD)\$(SRC).obj $(OUTNOLFN)\INT21API.obj, $*.EXE, $*.MAP, $(OUTSTD)\$(NAME).lib;
 LCMDS3=$(LOPT) $(OUTENH)\hdpmi.obj $(OUTENH)\INT2FAPI.obj $(OUTENH)\INT31API.obj $(OUTENH)\vxd.obj , $*.EXE, $*.MAP, $(OUTSTD)\$(NAME).lib;
-LCMDS4=$(LOPT) $(OUTSTUB)\$(SRC).obj $(OUTSTUB)\init.obj, $*.BIN, $*.MAP, $(OUTSTD)\$(NAME).lib;
 !endif
 
 AOPT= -nologo -c -Cp -Sg -D?32BIT=0 $(AOPTD) -I$(INC32DIR) -Fl$* -Fo$*
@@ -91,12 +88,10 @@ DEPS0 = hdpmi.inc external.inc version.inc
 OUTSTD=HSCM16D
 OUTNOLFN=NOLFN16D
 OUTENH=ENH16D
-OUTSTUB=STUB16D
 !else
 OUTSTD=HSCM16
 OUTNOLFN=NOLFN16
 OUTENH=ENH16
-OUTSTUB=STUB16
 !endif
 
 .SUFFIXES: .asm .obj
@@ -104,7 +99,7 @@ OUTSTUB=STUB16
 .asm{$(OUTSTD)}.obj:
 	$(ASM) $(AOPT) $<
 
-ALL: $(OUTSTD) $(OUTNOLFN) $(OUTENH) $(OUTSTUB) $(OUTSTD)\$(NAME).EXE $(OUTNOLFN)\$(NAME).EXE $(OUTENH)\$(NAME).EXE $(OUTSTUB)\$(NAME).INC
+ALL: $(OUTSTD) $(OUTNOLFN) $(OUTENH) $(OUTSTD)\$(NAME).EXE $(OUTNOLFN)\$(NAME).EXE $(OUTENH)\$(NAME).EXE
 
 $(OBJMODS): $(DEPS0)
 
@@ -116,9 +111,6 @@ $(OUTNOLFN):
 
 $(OUTENH):
 	@mkdir $(OUTENH)
-
-$(OUTSTUB):
-	@mkdir $(OUTSTUB)
 
 # create the standard version
 
@@ -163,9 +155,9 @@ $(LCMDS3)
 	@..\..\BIN\SHRMZHDR.EXE $*.EXE
 !endif
 	@..\..\BIN\SETMZHDR.EXE -q $*.EXE
-!if $(DEBUG)==0    
+#!if $(DEBUG)==0    
 #	@copy $*.EXE ..\..\Unsupp
-!endif     
+#!endif     
 
 $(OUTENH)\hdpmi.obj: hdpmi.asm $(DEPS0)
 	$(ASM) $(AOPT) -D?ENHANCED=1 hdpmi.asm
@@ -178,25 +170,6 @@ $(OUTENH)\INT31API.obj: INT31API.asm $(DEPS0)
 
 $(OUTENH)\vxd.obj: vxd.asm $(DEPS0)
 	$(ASM) $(AOPT) -D?ENHANCED=1 vxd.asm
-
-# create the stub version
-# EXTRSECT: convert binary to asm include
-# -i: create include
-# -m: assume MZ binary
-
-$(OUTSTUB)\$(NAME).INC: $*.BIN $(NAME).mak
-	@..\..\TOOLS\EXTRSECT.EXE -q -m -i $*.BIN $*.INC
-
-$(OUTSTUB)\$(NAME).BIN: $(OUTSTUB)\$(SRC).obj $(OUTSTUB)\init.obj $(OUTSTD)\$(NAME).lib $(NAME).mak
-	@$(LINK) @<<
-$(LCMDS4)
-<<
-
-$(OUTSTUB)\$(SRC).obj: $(SRC).asm $(DEPS0)
-	$(ASM) $(AOPT) -D?STUB=1 $(SRC).asm
-
-$(OUTSTUB)\init.obj: init.asm $(DEPS0)
-	$(ASM) $(AOPT) -D?STUB=1 init.asm
 
 clean:
 	@del $(OUTSTD)\*.obj
