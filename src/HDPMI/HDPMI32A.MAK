@@ -132,7 +132,7 @@ $(OBJMODS): $(DEPS0)
 
 # create the standard version
 
-$(OUTHSCM)\$(NAME).EXE: $(OUTHSCM)\$(SRC).obj $(OUTHSCM)\$(NAME).lib $(NAME).mak
+$(OUTHSCM)\$(NAME).EXE: $(OUTHSCM)\$(SRC).obj $(OUTHSCM)\$(NAME).lib $(NAME)a.mak
 	$(LINK) @<<
 $(LCMDS1)
 <<
@@ -144,7 +144,7 @@ $(LCMDS1)
 	@copy $*.EXE ..\..\UNSUPP\*.* >NUL
 #!endif     
 
-$(OUTHSCM)\$(NAME).lib: $(OBJMODS) $(NAME).mak
+$(OUTHSCM)\$(NAME).lib: $(OBJMODS) $(NAME)a.mak
 	@cd $(OUTHSCM)
 	@$(LIB16BIN) $(NAME).lib $(OBJNAMES:.\=+)
 	@jwlib -q $(NAME).lib -$(SRC).OBJ
@@ -152,7 +152,7 @@ $(OUTHSCM)\$(NAME).lib: $(OBJMODS) $(NAME).mak
 
 # create the "no LFN" version
 
-$(OUTNOLFN)\$(NAME).EXE: $(OUTHSCM)\$(SRC).obj $(OUTNOLFN)\INT21API.obj $(OUTHSCM)\$(NAME).lib $(NAME).mak
+$(OUTNOLFN)\$(NAME).EXE: $(OUTHSCM)\$(SRC).obj $(OUTNOLFN)\INT21API.obj $(OUTHSCM)\$(NAME).lib $(NAME)a.mak
 	$(LINK) @<<
 $(LCMDS2)
 <<

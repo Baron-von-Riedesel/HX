@@ -4281,28 +4281,33 @@ endif
 ;--- reload client standard registers
 	mov esp, ebp
 	popad
-
 ;--- set DS to new GROUP16
 	push ss
 	pop ds
-
-;--- set SS to new GROUP16 base;
-;--- then recreate a INITCLPM struct on new stack
-;--- then readdress client standard registers with EBP
+;--- set SS to new GROUP16 base
 	push ss
 	pop ss
+;--- now base of SS is new host base, GROUP16 variables of clone
+;--- may be accessed from now on!
+
+;--- use the TLB temporarily as host stack
+if ?HSINEXTMEM
 	mov esp, dwSegTLB
+	shl esp, 4
 	add esp, ?TLBSIZE
-	sub esp, taskseg._Edi
+	sub esp, taskseg._Edi	;taskseg._Edi = new dwHostBase
 	mov taskseg._Esp0, esp
-ife ?HSINEXTMEM	;if hs will be in extended memory, this is not required
+endif
+;--- recreate a INITCLPM struct on new stack;
+;--- readdress client standard registers with EBP
+;--- if hs will be in extended memory, this will be
+;--- done below after a new hoststack has been allocated.
+ife ?HSINEXTMEM
 	sub esp, sizeof IRET32 + 4
 endif
 	pushad
 	mov ebp, esp
 
-;--- now base of SS is new host base, GROUP16 variables of clone
-;--- may be accessed from now on!
 ;--- re-access the client's stack with EDI
 
 	movzx edi, wCurSS
@@ -4311,16 +4316,15 @@ endif
 	add edi, eax
 
 	mov eax, taskseg._Edi
+	mov dwHostBase, eax
 	mov ecx, dwSegTLB
 	shl ecx, 4
-
 	test bEnvFlags2, ENVF2_LDTLOW
 	jz @F
 	lea ecx, [eax + curGDT]
 @@:
 	mov pdGDT.dwBase, ecx
 	mov pdGDT.wLimit, ?GDTLIMIT
-	mov dwHostBase, eax
 	mov ecx, eax
 	shr eax, 4
 
@@ -4343,6 +4347,7 @@ endif
 	or fMode, FM_CLONE
 
 ;--- some functions of filldesc must be reexecuted here
+;--- ecx=dwHostBase
 
 	lea eax,[ecx+ pdGDT]	 ;address GDT pseudo descriptor
 	mov v86topm._gdtr,eax
@@ -4370,9 +4375,8 @@ endif
 ;--- field in the tss.
 ;	mov pg0ptr, 8
 
-	call _initrms			;may fail if ?ALLOCRMS is set; so better dont activate this switch!
-
 if _LTRACE_
+	mov ecx, pdGDT.dwBase
 	mov dl,es:[ecx+(_TLBSEL_ and 0F8h)].DESCRPTR.A1623
 	mov dh,0
 	shl edx, 16
@@ -4382,6 +4386,7 @@ endif
 ife ?FIXTSSESP
 	@strout <"#CreateVM: taskseg.esp0=%lX, dwHostStackExc=%lX",lf>, taskseg._Esp0, dwHostStackExc
 endif
+	call _initrms			;may fail if ?ALLOCRMS is set; so better dont activate this switch!
 
 ;--- let the heap do its reinitialization
 	call hp_createvm

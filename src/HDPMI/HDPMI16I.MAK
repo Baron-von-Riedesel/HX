@@ -70,7 +70,7 @@ $(LCMDS1)
 <<
 	@..\..\BIN\SETMZHDR.EXE -q $*.EXE
 
-$(OUTIOPL0)\$(NAME).lib: $(OBJMODS) $(NAME).mak
+$(OUTIOPL0)\$(NAME).lib: $(OBJMODS) $(NAME)i.mak
 	@cd $(OUTIOPL0)
 	@$(LIB16BIN) $(NAME).lib $(OBJNAMES:.\=+)
 	@jwlib -q $(NAME).lib -$(SRC).OBJ

@@ -79,16 +79,16 @@ $(OBJMODS): $(DEPS0)
 # -i: create include
 # -m: assume MZ binary
 
-$(OUTSTUB)\$(NAME).INC: $*.BIN $(NAME).mak
+$(OUTSTUB)\$(NAME).INC: $*.BIN $(NAME)s.mak
 	@..\..\TOOLS\EXTRSECT.EXE -q -m -i $*.BIN $*.INC
 
-$(OUTSTUB)\$(NAME).BIN: $(OUTSTUB)\$(SRC).obj $(OUTSTUB)\$(NAME).lib $(NAME).mak
+$(OUTSTUB)\$(NAME).BIN: $(OUTSTUB)\$(SRC).obj $(OUTSTUB)\$(NAME).lib $(NAME)s.mak
 	@$(LINK) @<<
 $(LCMDS)
 <<
 	@..\..\BIN\SETMZHDR.EXE -q $*.BIN
 
-$(OUTSTUB)\$(NAME).lib: $(OBJMODS) $(NAME).mak
+$(OUTSTUB)\$(NAME).lib: $(OBJMODS) $(NAME)s.mak
 	@cd $(OUTSTUB)
 	@$(LIB16BIN) $(NAME).lib $(OBJNAMES:.\=+)
 	@jwlib -q $(NAME).lib -$(SRC).OBJ

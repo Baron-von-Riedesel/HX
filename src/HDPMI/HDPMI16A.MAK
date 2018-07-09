@@ -71,7 +71,7 @@ LCMDS2=$(LOPT) $(OUTSTD)\$(SRC).obj $(OUTNOLFN)\INT21API.obj, $*.EXE, $*.MAP, $(
 LCMDS3=$(LOPT) $(OUTENH)\hdpmi.obj $(OUTENH)\INT2FAPI.obj $(OUTENH)\INT31API.obj $(OUTENH)\vxd.obj , $*.EXE, $*.MAP, $(OUTSTD)\$(NAME).lib;
 !endif
 
-AOPT= -nologo -c -Cp -Sg -D?32BIT=0 $(AOPTD) -I$(INC32DIR) -Fl$* -Fo$*
+AOPT= -nologo -c -Cp -Sg -D?32BIT=0 -D?HSINEXTMEM=0 $(AOPTD) -I$(INC32DIR) -Fl$* -Fo$*
 
 !if $(MASM)
 ASM=@ml.exe
@@ -114,7 +114,7 @@ $(OUTENH):
 
 # create the standard version
 
-$(OUTSTD)\$(NAME).EXE: $(OUTSTD)\$(SRC).obj $(OUTSTD)\$(NAME).lib $(NAME).mak $(OUTNOLFN)\int21api.obj 
+$(OUTSTD)\$(NAME).EXE: $(OUTSTD)\$(SRC).obj $(OUTSTD)\$(NAME).lib $(NAME)a.mak $(OUTNOLFN)\int21api.obj 
 	$(LINK) @<<
 $(LCMDS1)
 <<
@@ -126,14 +126,14 @@ $(LCMDS1)
 #	@copy $*.EXE ..\..\Bin\*.* >NUL
 !endif
 
-$(OUTSTD)\$(NAME).lib: $(OBJMODS) $(NAME).mak
+$(OUTSTD)\$(NAME).lib: $(OBJMODS) $(NAME)a.mak
 	@cd $(OUTSTD)
 	@$(LIB16BIN) $(NAME).lib $(OBJNAMES:.\=+)
 	@cd ..
 
 # create the "no LFN" version
 
-$(OUTNOLFN)\$(NAME).EXE: $(OUTSTD)\$(SRC).obj $(OUTNOLFN)\INT21API.obj $(OUTSTD)\$(NAME).lib $(NAME).mak
+$(OUTNOLFN)\$(NAME).EXE: $(OUTSTD)\$(SRC).obj $(OUTNOLFN)\INT21API.obj $(OUTSTD)\$(NAME).lib $(NAME)a.mak
 	$(LINK) @<<
 $(LCMDS2)
 <<
@@ -147,7 +147,7 @@ $(OUTNOLFN)\INT21API.obj: INT21API.asm $(DEPS0)
 
 # create the "windows enhanced mode" version
 
-$(OUTENH)\$(NAME).exe: $(OUTENH)\hdpmi.obj $(OUTENH)\int2fapi.obj $(OUTENH)\int31api.obj $(OUTENH)\vxd.obj $(OUTSTD)\$(NAME).lib $(NAME).mak
+$(OUTENH)\$(NAME).exe: $(OUTENH)\hdpmi.obj $(OUTENH)\int2fapi.obj $(OUTENH)\int31api.obj $(OUTENH)\vxd.obj $(OUTSTD)\$(NAME).lib $(NAME)a.mak
 	$(LINK) @<<
 $(LCMDS3)
 <<

@@ -22,7 +22,6 @@ OBJNAMES = $(SRCMODS:.ASM=.OBJ)
 !if $(DEBUG)
 OBJMODS = $(OBJNAMES:.\=STD32D\)
 AOPTD=-D_DEBUG
-#AOPTD=-D_DEBUG -D?DOSOUTPUT=0 -D?VIODIROUT=1
 OUTSTD=STD32D
 !else
 OBJMODS = $(OBJNAMES:.\=STD32\)
@@ -47,9 +46,7 @@ DEPS0 = hdpmi.inc external.inc version.inc
 .asm{$(OUTSTD)}.obj:
 	@$(ASM) $(AOPT) $<
 
-TARGET3=$(OUTSTD)\$(NAME).EXE 
-
-ALL: $(OUTSTD) $(TARGET3)
+ALL: $(OUTSTD) $(OUTSTD)\$(NAME).EXE 
 
 $(OUTSTD):
 	@mkdir $(OUTSTD)

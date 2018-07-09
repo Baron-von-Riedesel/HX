@@ -220,22 +220,6 @@ settlb_1:
 	shl eax,4
 	@stroutrm <"-TLB will be at linear address %lX, size %X",lf>,eax,?TLBSIZE
 ;	mov [atlb],eax			;not used currently
-if ?HSINEXTMEM
-	push eax
-	xor edx,edx	
-	mov dx, ds				;GROUP16
-	shl edx,4
-	sub eax, edx
-	add eax, ?TLBSIZE
- if ?FIXTSSESP
-	mov [dwHostStack], eax
- else
-	mov taskseg._Esp0, eax
-	sub eax, sizeof R3FAULT32
-	mov [dwHostStackExc], eax
- endif
-	pop eax 
-endif
 	mov bx,_TLBSEL_
 	and bx,not 7
 	mov [curGDT+bx].A0015,ax
@@ -819,23 +803,26 @@ if ?WDEB386
 	call initdebugger_rm	;modifies ax,bx,cx,dx,si,di,es!
 endif
 
-;--- if hdpmi was started with option -b
-;--- there is no host stack currently
-;--- allocate a temporary one now.
 if ?HSINEXTMEM
-	cmp taskseg._Esp0,0
-	jnz @F
+;--- if host stack is supposed to be extended memory,
+;--- a temporary one is needed now for the first switch
+;--- to protected-mode.
 	mov bx,40h
 	mov ah,48h
 	int 21h
 	jc nodosmem
-	mov word ptr taskseg._Esp, ax
+	mov word ptr taskseg._Esp, ax	;save the segment value in an unused field 
 	movzx eax,ax
 	shl eax,4
 	sub eax, dwHostBase
 	add eax, 400h
+ if ?FIXTSSESP
+	mov [dwHostStack], eax
+ else
 	mov taskseg._Esp0, eax
-@@:
+	sub eax, sizeof R3FAULT32
+	mov [dwHostStackExc], eax
+ endif
 endif
 
 ;--- now do call protected-mode the first time
@@ -960,27 +947,20 @@ _initsvr_rm2 proc
 	pop ds
 	sti
 	pushf
+if ?HSINEXTMEM
+;--- release the dos memory that was temporarily used
+;--- as host stack
+	push es
+	mov es, word ptr taskseg._Esp
+	mov ah,49h
+	int 21h
+	pop es
+endif
 	call pm_init2_rm
 	popf
 	jc nodosmem3
 
 	@stroutrm <"-initsvr_rm2: back in real mode, ss:sp=%X:%X",lf>,ss,sp
-if ?HSINEXTMEM
-;--- if hdpmi was installed with option -b
-;--- there was no TLB allocated and a 1 kB
-;--- dos memory block has been allocated temporarily.
-;--- this block can now be released.
-	xor ax,ax
-	xchg ax, word ptr taskseg._Esp
-	and ax, ax
-	jz @F
-	push es
-	mov es,ax
-	mov ah,49h
-	int 21h
-	pop es
-@@:
-endif
 	mov al,EXIT_HDPMI_IN_VCPIMODE
 	test byte ptr [fHost], FH_VCPI
 	jnz initsvr_ex

@@ -51,15 +51,13 @@ $(OUTSTD):
 
 $(OBJMODS): $(DEPS0)
 
-# create the standard version
-
-$(OUTSTD)\$(NAME).EXE: $(OUTSTD)\$(SRC).obj $(OUTSTD)\$(NAME).lib $(NAME).mak
+$(OUTSTD)\$(NAME).EXE: $(OUTSTD)\$(SRC).obj $(OUTSTD)\$(NAME).lib $(NAME)d.mak
 	@jwlink @<<
 format DOS file $(OUTSTD)\$(SRC).obj name $*.EXE op q, map=$*.MAP, stack=0 lib $(OUTSTD)\$(NAME).lib
 <<
 	@..\..\BIN\SETMZHDR.EXE -q $*.EXE
 
-$(OUTSTD)\$(NAME).lib: $(OBJMODS) $(NAME).mak
+$(OUTSTD)\$(NAME).lib: $(OBJMODS) $(NAME)d.mak
 	@cd $(OUTSTD)
 	@$(LIB16BIN) $(NAME).lib $(OBJNAMES:.\=+)
 	@jwlib -q $(NAME).lib -$(SRC).OBJ
