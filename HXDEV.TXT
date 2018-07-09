@@ -1,0 +1,349 @@
+
+ 1. About
+
+  This package is intended to support development of 32-bit DOS extended
+  applications with HX (support for 16-bit is contained in the HXDV16
+  package). It contains:
+
+   þ libraries with HX's Win32 emulation in COFF format
+   þ samples in assembly, C, Pascal, Basic, Cobol
+   þ support files for debugging with Open Watcom's WD
+   þ some helper tools
+
+  Due to HX's Win32 emulation approach it is very well possible to create
+  binaries running under HX without using any of the things mentioned above.
+  See 4. for more details.
+
+
+ 2. Installation
+
+  First make sure the HX runtime (HXRT) is already installed (it can be found
+  at http://www.japheth.de/Download/hxrt.zip). Then extract HXDEV.ZIP in the 
+  same directory where the HX runtime has been unpacked.
+
+
+ 3. Compatible Compilers and Assemblers
+
+  The following compilers/assemblers for 32-bit have been tested to create
+  binaries compatible with HX:
+
+                       Compiler + Linker may
+   Name                run under HX as well
+   -----------------------------------------------
+   JWasm, Masm, PoAsm     yes
+   Fasm                   yes
+   Nasm, Yasm (Win32)     yes
+   Wasm                   yes
+   Tasm                   yes
+   LZAsm (Win32)          yes
+   Visual C++ (MS)        yes
+   Borland C++            yes
+   Digital Mars C++       yes
+   MinGW C++              yes
+   Pelles C               yes
+   CC386 (Win32)          yes
+   LCC-Win32              no
+   Open Watcom (Win32)    yes
+   Delphi                 yes
+   Virtual Pascal (Win32) yes
+   Free Pascal (Win32)    yes
+   Pascal Pro             yes
+   PowerBasic             no (?) 
+   Free Basic (Win32)     yes
+   MF Object Cobol        no
+   XDS Modula 2           yes
+
+
+ 4. How to make Binaries running with HX
+
+  The following file formats are/were supported by HX:
+
+  HX Name    Type  API     Loader   supp. Dlls Comment
+ ----------------------------------------------------------------------
+  Win32-PE   PE    Win32   DPMILD32  yes       standard Win32 console
+  DOS-PE     PE    DOS     DPMILD32  yes
+  DOS-PEt    PE    DOS     DOS       no        with stub LOADPE.BIN
+
+  DOS-MZ     MZ    DOS     DOS       no        (virtually) obsolete
+  DOS-NE     NE    DOS     DPMILD32  yes       obsolete
+ (Win32-MZ   MZ    Win32   DOS       no        abandoned)
+ (Win32-NE   NE    Win32   DPMILD32  yes       abandoned)
+
+  a) Win32-PE
+
+   The easiest way to make HX binaries is to create Win32 console applications.
+  This format is natively supported by many development tools. As far as HX
+  is concerned all one has to ensure is that only Win32 functions emulated
+  by HX are used. 
+   A possible disadvantage may be that to be loaded in DOS it will need at
+  least DKRNL32.DLL, HX's Kernel32 emulation, and very often additional dlls.
+  HX's PE loader DPMILD32 might also be needed as external binary, but
+  optionally it can be linked statically into the binary as MZ stub.
+
+  b) DOS-PE and DOS-PEt
+
+   These binaries will always be loaded as DOS applications, since the "PE"
+  signature is hidden from the OS. Besides that it is pretty much up to the
+  developer what is linked into the binary or what is kept in external
+  modules. See "Comparison of Stubs" below for details about the stubs
+  available in HXDEV for the DOS PE format.
+   HX's Win32 emulation can optionally be used by DOS-PEs. If dynamic
+  linking is supported (true for all stubs except LOADPEx.BIN), DKRNL32.DLL
+  can be loaded at runtime. But usually it's a better idea to create a
+  stand-alone binary with the Win32 emulation code linked statically.
+
+  c) DOS-MZ
+
+   The DOS-MZ format is still supported, but compared to DOS-PEt there is
+  virtually no advantage anymore. To create such binaries the 
+  compiler/assembler must support the OMF object format. This limits the 
+  working set of tools significantly. Most assemblers will do, as will 
+  Digital Mars C/C++, LADSoft CC386 and Open Watcom C/C++. 
+
+  d) DOS-NE
+
+  The DOS-NE format is obsolete, because it has no advantages compared to
+  the other formats.
+
+  e) Win32-MZ/Win32-NE
+
+  These formats are no longer supported, the OMF libraries containing the 
+  Win32 emulation for the segmented memory model have been removed. The
+  DOS-PEt format can fully replace these formats and it has some significant 
+  advantages.
+
+
+ 5. Comparison of Stubs supplied with HX
+
+ The linker will usually add a MZ stub to HX PE binaries. There are five
+ available, and each has its pros and cons:
+
+               size   supports  PE-loader    HDPMI     cwsdpmi
+  Name         in kB    dlls?   included?  included?  compatible?
+ ----------------------------------------------------------------------
+  DPMIST32.BIN  0.5      yes       no         no         no
+  LOADPE.BIN    1.25      no      yes         no         yes
+  LOADPEX.BIN   35        no      yes        yes         yes
+  DPMILD32.BIN  14       yes      yes         no         no
+  HDLD32.BIN    48       yes      yes        yes         no
+
+  DPMIST32.BIN: this is HX's standard stub, supplied with HXRT. It's tiny,
+  but will need to load external binaries, DPMILD32.EXE and - if no DPMI
+  host is found - HDPMI32.EXE. 
+
+  LOADPE.BIN: this is a simple PE loader. The application will run in a
+  zero-based flat memory model, but dynamic linking (dlls) isn't supported,
+  and the binary must not contain references to external modules (imports).
+  HDPMI32.EXE is loaded if no DPMI host is found.
+
+  LOADPEX.BIN: this is LOADPE.BIN with HDPMI included, allowing to create
+  stand-alone DOS-PE binaries - without support for dynamic linking.
+
+  DPMILD32.BIN: this virtually is HX's PE loader DPMILD32. Compared with
+  DPMIST32.BIN load time will be reduced since the loader hasn't to be
+  searched and is available at once. HDPMI32.EXE is loaded if no DPMI host
+  is found.
+
+  HDLD32.BIN: this stub contains HX's DPMI host and PE loader (HDPMI32
+  and DPMILD32), so a stand-alone DOS-PE binary will be the result -
+  with support for dynamic linking.
+
+
+ 6. Debugging
+
+  DPMILD32 offers some options to support debugging of PE binaries. View 
+  Doc\DPMILD32.TXT for details. Especially useful IMO is the protection of
+  address range 0-3FFh, which may allow to detect NULL pointer usage.
+  This protection is achieved by using "expand down" segments. Regretably
+  the MS Windows 9x DPMI hosts are *not* compatible with such segments.
+
+  Since HX V1.30 Open Watcom's debugger WD may be used to debug all types
+  of HX binaries, at least on assembly level. View OWSupp\Readme.txt for
+  details.
+
+
+ 7. Hints
+
+  Since HX V2 all functions required by Turbo Vision 32 are available,
+  so Win32 TUA applications written with this library should run with HX.
+  Tested with TV version 2.0.3 from http://tvision.sourceforge.net/.
+
+
+ 8. Files OverView
+
+  þ Bin\PatchPE.EXE: tool to change PE apps to PX apps. View PatchPE.txt
+    for more details. PatchPE is a 16-bit DOS application. If there's no
+    possibility to run such binaries, tool PESTUB ( with cmdline option
+    -x ) provides the same functionality and may be used instead. PESTUB
+    is contained in HXRT.
+
+  þ Bin\PatchNE.EXE: tool to set the application type of NE applications.
+    View PatchNE.txt for more details.
+
+  þ Bin\NTLFNHLP.DLL: implements LFN translation service for NT platforms.
+    Not required for Win32 emulation, since this code is statically 
+    linked into DKRNL32.DLL. But it may be useful for applications using
+    the DOS API only.
+
+  þ Bin\SHDPMI.EXE: tool to protect parts of DOS memory and system tables
+    in protected mode. This may detect programming errors, since Win32
+    apps will find a similiar environment when running on NT platforms.
+    Should be used together with environment variable DPMILDR=2048, which
+    additionally protects linear memory 0-3FFh. Works with HDPMI only.
+
+  þ Bin\SHDPMIR.EXE: DOS tsr program. Only required if SHDPMI is to 
+    be called with option -d. Allows DOS memory 1000h-FFFFh to be
+    protected by SHDPMI.
+
+  þ Bin\*.BIN: MZ stubs to be added to PE binaries.
+
+  þ OWSUPP subdirectory: trap files to support creating and debugging
+    32bit extended DOS apps with Open Watcom. View readme.txt in this
+    subdirectory for more details.
+
+  þ Samples subdirectory: source code samples showing how to create
+    apps with HX DOS extender in ASM, C, Pascal, PowerBasic and Object 
+    Cobol. View readme.txt in this subdirectory for more details.
+
+  þ Include subdirectory: some ASM includes for Win32 API and DPMI.
+    They are sufficient for creating the samples and assembling HX itself.
+    For a full set of Win32 includes get Win32Inc or MASM32.
+
+  þ LIB subdirectory: Libraries in MS-COFF format. These may be used
+    to link PE binaries.
+
+    - dkrnl32.lib, dadvapi.lib, dgdi32.lib, duser32.lib: import libraries
+      for references to KERNEL32, ADVAPI32, GDI32 and USER32 dlls. Using 
+      these libraries is optional, the standard Win32 libs (kernel32.lib,
+      user32.lib, ...) will do as well. They have just one advantage: if a
+      function not emulated by HX's Win32 layer is used, a linker error will
+      occur.
+    - dkrnl32s.lib, dadvapis.lib, dgdi32s.lib, duser32s.lib: libraries
+      containing HX's Win32 emulation as static code. Feeding the linker
+      with those libs will result in a (stand-alone) DOS-PE, not a Win32-PE.
+    - imphlp.lib: this helper library is needed if the Win32 emulation is
+      linked statically to the binary. It emulates the PE IAT entries
+      (__imp__xxx) for kernel32 and user32. Some linkers are capable to add
+      such entries automatically, then this lib is superfluous.
+    - libc32s.lib: a static, simple CRT library. Might create very small
+      binaries. MS VC compatible.
+    - crtdll.lib: library to dynamically link with CRTDLL.DLL. CRTDLL.DLL
+      is a C runtime dll included in all versions of MS Windows.
+    - vesa32s.lib: statically link VESA functions.
+    - vesa32.lib: link to VESA32.DLL.
+
+  þ LIBOMF subdirectory: Libraries and modules in OMF format. These are
+    intended to be used by OMF linkers when creating 32bit MZ binaries.
+
+    - jmppm32.obj, jmppm32.lib, dmysrvr.obj, dmymove.obj, loadsrvr.obj: 
+      object modules for MZ file format support.
+
+  þ DOC subdirectory: some help texts for various files: 
+
+    - MZSupp.txt:   description of HX's MZ file format support.
+    - DpmiLd16.txt: description of the 16-bit NE file loader.
+    - PatchPE.txt:  description of tool PatchPE.
+    - PatchNE.txt:  description of tool PatchNE.
+
+
+ 9. History
+
+  12/18/2012, V2.17: OW WD trap helper file HXHELP.EXE updated to v1.3.
+  11/16/2009, V2.16: InitW32x.obj added.
+  01/20/2009, V2.15: All samples for Masm changed to use JWasm instead of
+                     Masm. Masm can be used optionally.
+  03/02/2008, V2.14: Added stubs LOADPE.BIN/LOADPEX.BIN.
+                     Removed several libraries for segmented memory model
+                     in OMF format: static Win32 emulation and libc32.
+                     Samples rearranged and extended to show usage of
+                     LOADPE(X).BIN stubs and how to link the Win32 emulation
+                     code statically to the binary.
+                     Support for Open Watcom updated.
+  01/11/2008, V2.13: stand-alone binaries supported, for both PE and MZ.
+  07/15/2007, V2.12: DPMILD32 no longer makes assumptions about the FS
+                     register, it is not used. Be sure there is no mix
+                     of HXRT and HXDEV. They must both be either < v2.12
+                     or >= v2.12.
+                     THREAD sample added.
+  03/15/2007, V2.11: HX's PE loader DPMILD32 included as a MZ stub.
+                     Support for DJGPP added (crt0hx.o, djgpp.ld, ldfix.exe,
+                     Src/djgpp and Sample/djgpp).
+                     lib\dcrt32s.lib renamed to lib\libc32s.lib.
+  12/14/2006, V2.10: -
+  10/15/2006, V2.9:  -
+  09/14/2006, V2.8:  -
+  08/15/2006, V2.7:  -
+  07/17/2006, V2.6.1:bugfix: writing to the console did not work for
+                     non-flat code (HX MZ binaries)
+  07/15/2006, V2.6:  The samples in OWSUPP have been moved to Samples
+                     subdirectory (where they logically belong).
+  06/14/2006, V2.5:  creating NE applications simplified.
+                     LADSoft linker VALX added to TestOMF.
+                     bugfix: previous version contained a nonworking HX.TRP
+                     for Open Watcom WD.
+  05/15/2006, V2.4:  -
+  05/02/2006, V2.3:  -
+  04/21/2006, V2.2:  -
+  04/04/2006, V2.1:  -
+  03/18/2006, V2.0:  tools SHDPMI.EXE/SHDPMIR.EXE added.
+                     TestOMF moved to subdirectory SRC.
+  02/06/2006, V1.43: -
+  01/22/2006, V1.42: CRT startup modules for Open Watcom V1.4 added.
+  01/02/2006, V1.41: -
+  12/20/2005, V1.40: -
+  12/07/2005, V1.39: -
+  11/24/2005, V1.38: -
+  11/18/2005, V1.37: -
+  11/07/2005, V1.36: -
+  10/24/2005, V1.35: Vesa32.dll moved to HXRT.
+  09/29/2005, V1.34: Samples ShowBMP and TextOut added. DDDRAW.DLL moved to
+                     HXRT.
+  09/19/2005, V1.33: -
+  09/05/2005, V1.32: -
+  08/28/2005, V1.31: Support for Open Watcom improved. Source level 
+                     debugging for HX MZ binaries with WD now possible.
+                     Bin\DPMIST32.EXE deleted.
+  08/14/2005, V1.30: HX Trap file for Open Watcom's WD extended so it may
+                     now be used to debug all types of HX binaries.
+                     New option for DPMILD32 to protect linear address range
+                     0-3FFh to detect NULL pointer usage.
+  08/06/2005, V1.29: Open Watcom support has been extended so the OW Dos386
+                     CRT modules may be used for HX binaries. This makes HX
+                     compatible with WAT-TCP, which simplifies creating
+                     internet applications with HX ;-). 
+  08/01/2005, V1.28: -
+  07/06/2005, V1.23: sample dynload.mak added
+                     hellone.mak added to show how to create a 32bit
+                     NE application. 
+                     Tool patchNE.exe added.
+  06/23/2005, V1.21: NTLFNHLP.DLL added
+  06/14/2005, V1.20: C++ sample using VESA32 added.
+                     VESA32 V1.2, DDDRAW V1.1.
+                     Libraries split into Lib and LibOMF.
+  06/07/2005, V1.19: PLASMAxx dual-mode 2D-graphics samples added.
+                     DDDRAW.DLL added.
+  06/06/2005, V1.18: VESA32.DLL + samples using VESA graphics added.
+  05/22/2005, V1.16: -
+  02/06/2005, V1.13: -
+  10/27/2004, V1.10.1: Bugfix: dkrnl32s.lib had a bug causing MZ executables
+                     using Win32 API to crash on NT platforms.
+  10/24/2004, V1.10: DPMI TSR sample added.
+                     Sample for Pascal Pro added.
+                     Sample for LZAsm added.
+  10/06/2004, V1.8:  MicroFocus Object Cobol sample added.
+  10/03/2004, V1.7:  Delphi, NASM and PowerBasic samples added.
+  09/11/2004, V1.3:  Adjustments required because HDPMI now scans the
+                     command line. 
+  09/03/2004, V1.2:  C runtime libraries added.
+  08/31/2004, V1.1:  MZSupp directory deleted, is now in HXSRC package.
+  08/27/2004, V1.0:  first version. Previously this was in DPMILDXX package.
+
+
+ 10. License
+
+  The HX DOS extender is freeware. Copyright Japheth 1996-2010. HX can be 
+  used for any purpose. The HX development package can be freely distributed
+  for non-commercial purposes.
+
+  Japheth ( http://www.japheth.de )
+
