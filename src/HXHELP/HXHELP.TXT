@@ -1,0 +1,64 @@
+
+ About
+ 
+ HXHELP is a trap file for Open Watcom's debugger WD. Two versions
+ are created, HXHELP.EXE and HXHP16.EXE, the first for 32bit HX binaries,
+ the latter for 16bit binaries.
+
+ 
+ Files
+ 
+ HX.TRP: DOS overlay which will load HXHELP.EXE. This binary is loaded
+     by WD.EXE when debugging locally or by WINSERV.EXE/VDMSERV.EXE when
+     debugging remotely.
+ HX16.TRP: same as HX.TRP for 16bit clients, will load HXHP16.EXE.
+ HXHELP.EXE: the trap file for 32bit clients.
+ HXHP16.EXE: the trap file for 16bit clients.
+ RMDBGHLP.BIN: file which will be loaded by HXHELP.EXE/HXHP16.EXE on
+     startup. Will trap real-mode exceptions. Will be searched in the
+     directory where HXHELP.EXE/HXHP16.EXE was loaded from.
+ HXHELP.CFG: configuration file for HXHELP.EXE. Will be searched in current
+     directory and then in directory where HXHELP.EXE was loaded from.
+ HXHP16.CFG: configuration file for HXHP16.EXE
+ HXHELP.LOG: a log file which will be created if option Debug=1 is set
+     in HXHELP.CFG/HXHP16.CFG.
+ 
+ 
+ History
+
+ 07/15/2018, V1.4  
+
+ - added a few error checks.
+ - bugfix: HXHELP does modify the DPMILDxx flags to ensure the loader won't
+   start another instance of itself (DPMILDR=8). However, HXHELP didn't reset
+   this value after the debuggee has been loaded; this caused the debuggee
+   to behave differently if it launched another program.
+ - bugfix: the 16-bit trap file HXHP16.EXE assumed hiword of ESP to be
+   zeroed when loading XMM register values, causing a crash.
+
+ 12/16/2012, V1.3  
+
+ - will allow the debugger to get and set XMM registers.
+ - bugfix: section mapping didn't work reliably.
+ - linked with stub dpmildxx.bin (contains the HX DPMI loader)
+
+ 06/30/2006, V1.2.2
+ 
+ - previous version had a bug which may have caused a GPF on some conditions
+
+ 06/14/2006, V1.2.1
+
+ - trap helper was changed to a PE dll and then changed back to HXHELP.EXE
+ - symbolic debugging didn't work for 32bit MZ binaries if
+   debuggee's real-mode startup code was debugged.
+             
+ 08/28/2005: V1.2:
+ 
+ - bugfix: symbolic debugging with 32bit MZ format made the disassembler
+   to show code in 16bit.
+ - HXHELP now displays error msg if RMDBGHLP.BIN cannot be opened.
+ 
+ 08/14/2005, V1.1:
+
+ 08/26/2004, V1.0:
+
