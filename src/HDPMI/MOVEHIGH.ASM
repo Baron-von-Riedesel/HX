@@ -41,12 +41,12 @@ _TEXT32  segment
 _movehigh_pm proc public
 
 	pushad
-	@strout <"#movehigh_pm enter, bEnvFlags=%X",lf>, <word ptr bEnvFlags>
+	@strout <"#movehigh_pm enter, bEnvFlags=%X",lf>, word ptr bEnvFlags
 if ?DYNBREAKTAB
-	mov ebp,offset _AllocSysPages
-	test bEnvFlags2, ENVF2_SYSPROT
-	jz @F
-	mov ebp,offset _AllocSysPagesRo
+	mov ebp,offset _AllocSysPages	;alloc PM break table
+;	test bEnvFlags2, ENVF2_SYSPROT
+;	jz @F
+;	mov ebp,offset _AllocSysPagesRo	;alloc PM break table
 @@:
 	mov ecx,1		;alloc PM BREAK table
 	call ebp		;doesnt modify ES
@@ -83,7 +83,7 @@ endif
 	@strout <"#movehigh_pm: move GDT to %lX, src=%lX",lf>, edi, esi
 	mov pdGDT.dwBase,edi
 	lea eax, [edi+_TSSSEL_]
-	sub eax, [dwHostBase]
+	sub eax, [dwSSBase]
 	mov [dwTSSdesc],eax		;update TSS descriptor linear address
   if ?KDSUPP
 	mov eax, edi
@@ -145,7 +145,7 @@ alloc_done:
 	test fMode, FM_CLONE
 	jz @F
 	call _getidtaddr
-	mov esi, 0FFBFD000h
+	mov esi, 0FFBFD000h	;???
 	add esi, eax
 	push es
 	pop ds

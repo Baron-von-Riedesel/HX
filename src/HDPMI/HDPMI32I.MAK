@@ -32,17 +32,17 @@ OBJMODS = $(OBJNAMES:.\=IOPL032D\)
 OBJMODS = $(OBJNAMES:.\=IOPL032\)
 !endif
 
-LINK  = jwlink.exe
-LOPT  = format DOS
+LINK = jwlink.exe
+LOPT = format DOS
 
 LCMDS1=$(LOPT) file $(OUTIOPL0)\$(SRC).obj name $*.EXE lib $(OUTIOPL0)\$(NAME).lib op q, map=$*.MAP, stack=0 
 
 AOPT= -nologo -c -Cp -Sg -D?32BIT=1 -D?PMIOPL=00 $(AOPTD) -I$(INC32DIR) -Fl$* -Fo$*
 
 !if $(MASM)
-ASM=@ml.exe
+ASM = ml.exe
 !else
-ASM=@jwasm.exe
+ASM = jwasm.exe
 !endif
 
 NAME  = HDPMI32
@@ -59,7 +59,7 @@ OUTIOPL0=IOPL032
 .SUFFIXES: .asm .obj
 
 .asm{$(OUTIOPL0)}.obj:
-	$(ASM) $(AOPT) $<
+	@$(ASM) $(AOPT) $<
 
 ALL: $(OUTIOPL0) $(OUTIOPL0)\$(NAME).EXE
 
@@ -69,7 +69,7 @@ $(OUTIOPL0):
 	@mkdir $(OUTIOPL0)
 
 $(OUTIOPL0)\$(NAME).EXE: $(OUTIOPL0)\$(SRC).obj $(OUTIOPL0)\$(NAME).lib
-	@$(LINK) @<<
+	$(LINK) @<<
 $(LCMDS1)
 <<
 	@..\..\BIN\SETMZHDR.EXE -q $*.EXE

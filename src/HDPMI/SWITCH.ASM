@@ -28,10 +28,8 @@ _jmp_pmX endp		;fall through
 
 _jmp_pm proc near public
 
-;	@stroutrm <"entry jmp_pm",lf>
-
-	pop word ptr cs:[dwRetAdr]
-	@rawjmp_pm _jmp_pm_pm,1
+	pop word ptr cs:[dwPmDest]
+	@rawjmp_pm_savesegm _jmp_pm_pm
 	align 4
 
 _jmp_pm endp
@@ -42,8 +40,8 @@ _TEXT32 segment
 
 _jmp_pm_pm proc
 
-;------------------------------ pop value for wHostStack + set wHostStackExc		
 if ?FIXTSSESP
+;--- pop value for wHostStack + set wHostStackExc
 	xchg ebx,[esp]
 	mov ss:[dwHostStack],ebx
 	pop ebx
@@ -59,7 +57,7 @@ else
  endif
 endif
 
-	push ss:[dwRetAdr]
+	push ss:[dwPmDest]
 _jmp_pm_pm endp	;fall throu!
 
 load_pmsegs proc public
@@ -77,6 +75,8 @@ _TEXT16 segment
 
 if ?WDEB386
 
+;--- called by switch to protected-mode
+
 kdinit_rm proc
 	pusha
 	mov ax,D386_Reinit * 100h + 0
@@ -89,7 +89,7 @@ kdinit_rm proc
 	align 4
 kdinit_rm endp
 
-;--- called for each switch to real-mode
+;--- called by switch to real-mode
 
 kdinit2_rm proc
 	mov ah,D386_Real_Mode_Init
@@ -97,6 +97,13 @@ kdinit2_rm proc
 	ret
 	align 4
 kdinit2_rm endp
+
+if ?WDEB386
+;--- if no debugger present, this code is disabled
+;--- currently moved to a dead location, since
+;--- wdeb386 doesn't work
+kdpatch1::call kdinit_rm
+endif
 
 endif
 
@@ -115,7 +122,7 @@ _rawjmp_pm_savesegm endp	;fall throu
 
 _rawjmp_pm proc near public
 
-	pop word ptr cs:[dwRetAdr2]
+	pop word ptr cs:[dwPmDest2]
 	mov cs:[taskseg._Eax],eax
 ;	@stroutrm <"entry rawjmp_pm",lf>
 	pushf
@@ -124,6 +131,8 @@ _rawjmp_pm proc near public
 	or ah,?PMIOPL
 	mov word ptr cs:[taskseg._Efl],ax
 rawjmp_pm_patch::
+;--- if there's no VCPI host, this location will be patched
+;--- with a jump to _diff_pm
 	mov cs:[taskseg._Esi],esi
 ;	mov esi,cs:[avs]
 	mov esi,0
@@ -135,10 +144,8 @@ _diff_pm = $ - offset rawjmp_pm_patch
 
 RAWJMP_PM_PATCHVALUE = 0EBh+100h*(_diff_pm - 2)
 
-if ?WDEB386
-kdpatch1::
-	call kdinit_rm
-endif
+;--- here's the XMS and "raw" mode version for pm switching
+
 if ?SAVERMCR3
 	mov eax,cr3
 	mov cs:[dwOldCR3],eax
@@ -173,11 +180,11 @@ if ?LATELGDT
 	@lgdt cs:[pdGDT]
 endif
 if 0
-	db 66h, 0eah
+	db 66h, 0eah	;jmp far32
 	dd offset xms_pmentry
 else
-	db 0eah
-	dw LOWWORD(offset xms_pmentry)
+	db 0eah	;jmp far16
+	dw LOWWORD offset xms_pmentry
 endif
 	dw _CSSEL_
 	align 4
@@ -205,38 +212,12 @@ xms_pmentry proc
 	push ss:[taskseg._Efl]
 	mov eax,ss:[taskseg._Eax]
 	popfd
-	jmp ss:[dwRetAdr2]
+	jmp ss:[dwPmDest2]
 	align 4
 
 xms_pmentry endp
 
-;--- protected mode entry if running as VCPI client and HDPMI=1
-
-if ?GUARDPAGE0
-
-	assume DS:GROUP16
-
-vcpi_pmentry2 proc public
-	mov ax,_SSSEL_
-	mov ds,eax
-	mov ss,eax
-	mov esp,[taskseg._Esp0]
-	mov esi,[taskseg._Esi]
-ife ?CR0COPY
-	mov eax,dwCR0
-	mov cr0, eax
-endif
-	mov eax,[pg0ptr]
-	and byte ptr [eax],not ?GPBIT	;reset PTE 'user' bit
-	push [taskseg._Efl]
-	mov eax,[taskseg._Eax]
-	popfd
-	jmp [dwRetAdr2]
-	align 4
-vcpi_pmentry2 endp
-endif
-
-;--- protected mode entry if running as VCPI client and not HDPMI=1
+;--- protected mode entry if running as VCPI client
 
 vcpi_pmentry proc public
 	mov ax,_SSSEL_
@@ -250,7 +231,7 @@ endif
 	push ss:[taskseg._Efl]
 	mov eax,ss:[taskseg._Eax]
 	popfd
-	jmp ss:[dwRetAdr2]
+	jmp ss:[dwPmDest2]
 	align 4
 vcpi_pmentry endp
 
@@ -262,16 +243,15 @@ vcpi_pmentry endp
 ;--- - raw jump to real mode
 ;--- - switch to real mode stack
 ;--- - restore real-mode segment registers
-;--- - jmp to wRetAdrRm
+;--- - jmp to wRmDest
 
 _jmp_rm proc public
-;	pop ss:[wRetAdrRm]	;this has been done in macro @jmp_rm already
 
 ;--- save segregs and ring3 stack in tskstate
 	@savepmstate
 
 ;--- save ring0 esp on host stack, then set new value for it
-;--- the old value is restored in _gotopm_pm
+;--- the old value is restored in _jmp_pm_pm
 if ?FIXTSSESP
 	push ss:[dwHostStack]
 	mov ss:[dwHostStack],esp
@@ -292,13 +272,16 @@ _TEXT32 ends
 
 _TEXT16 segment
 
+if ?WDEB386
+;--- if no debugger present, this code is disabled
+;--- currently moved to a dead location, since wdeb386
+;--- doesn't work
+kdpatch2:: call kdinit2_rm
+endif
+
 _jmp_rm_rm proc
 	lss sp,cs:tskstate.rmSSSP
-if ?WDEB386
-kdpatch2::		;if no debugger present, this code is disabled
-	call kdinit2_rm
-endif
-	push cs:[wRetAdrRm]
+	push cs:[wRmDest]
 _jmp_rm_rm endp	;fall through
 
 load_rmsegs proc public
@@ -318,10 +301,9 @@ _TEXT32 segment
 ;--- no stack switch to tskstate.rmSSSP, no segment register save
 ;--- all general registers preserved
 ;--- real-mode segment registers undefined
-;--- real-mode dest in wRetAdrRm2
+;--- real-mode dest in wRmDest2
 
 _rawjmp_rm proc public
-;	@strout <"entry rawjmp_rm, ss:sp=%X:%X",lf>,ss,sp
 	pushfd
 	mov ss:[taskseg._Eax],eax
 if ?SETRMIOPL
@@ -341,31 +323,26 @@ else
 rawjmp_rm_patch::					;might be patched!
 endif
 
-rawjmp_rm_vcpi_1::
-
-if ?GUARDPAGE0
-	mov eax,ss:[pg0ptr]
-	or byte ptr ss:[eax],?GPBIT	;set page to user
-endif
-
-rawjmp_rm_vcpi_2::
-	clts							;clear task switched flag
+rawjmp_rm_vcpi::
 	mov ax,_FLATSEL_
-	mov ds,eax
-;if ?HSINEXTMEM
-;	mov ss:[v86iret.rESP],20h
-;else
-;	mov ss:[v86iret.rESP],esp		;SS:ESP -> dq ?,V86IRET
-;endif
+if ?HSINEXTMEM and ?MAPDOSHIGH
+;--- the v86iret struct in the clone of GROUP16
+;--- which is mapped high cannot be used, it must
+;--- be the original one located in conv. memory!
+	mov esp,ss:v86iretesp
+else
 	mov esp,offset v86iret
+endif
+	mov ds,eax
+	clts				;clear task switched flag
 	mov ax,0DE0Ch
-	call fword ptr ss:[vcpicall]	;changes eax
-	int 3							;should never return
+	call ss:[vcpicall]	;modifies eax
+	int 3				;should never return
 	align 4
 
 nullidt PDESCR <3FFh,0>			;pseudo descriptor IDT real mode
 
-rawjmp_rm_novcpi::	;the true real-mode jump
+rawjmp_rm_novcpi::	;the label if no vcpi host was detected (xms or raw)
 
 if ?PATCHCODE
 
@@ -397,15 +374,17 @@ endif
 ;--- to conventional memory, then disable paging and protected mode
 
 if ?MOVEHIGHHLP
+	db 066h
 	db 0eah
-	dd offset rawjmp_rm_xms
+	dw offset rawjmp_rm_xms
 	dw _CSGROUP16_
 else
 	mov eax,cr0
 	and eax,not (CR0_PE or CR0_TS or CR0_PG)
 	mov cr0,eax
+	db 66h
 	db 0eah
-	dd offset rawjmp_rm_xms
+	dw offset rawjmp_rm_xms_1
 	dw seg rawjmp_rm_xms
 endif
 
@@ -454,7 +433,7 @@ vcpi_rmentry::	; v86-mode entry if running as VCPI client
 	mov ax, word ptr cs:[taskseg._Efl]
 	sahf
 	mov eax, cs:[taskseg._Eax]
-	jmp cs:[wRetAdrRm2]
+	jmp cs:[wRmDest2]
 rawjmp_rm_xms endp
 
 _TEXT16 ends

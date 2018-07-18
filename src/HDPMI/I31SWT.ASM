@@ -60,10 +60,11 @@ CDATA32 segment
 
 ;--- client real mode callbacks
 
-clrmcbs label RMCB
-	rept ?RMCBMAX
-	RMCB {{0,0},0}
-endm
+;clrmcbs label RMCB
+;	rept ?RMCBMAX
+;	RMCB {{0,0},0}
+;endm
+clrmcbs RMCB ?RMCBMAX dup ({{0,0},0})
 
 CDATA32 ends
 
@@ -74,6 +75,8 @@ _TEXT16 segment
 ;******************************************************************
 ;*** real mode call back - jump in PM with switch to LPMS
 ;******************************************************************
+
+?RMCBLOG equ 0
 
 RMCBSF struct
 dwESDS	dd ?
@@ -110,7 +113,7 @@ endif
 	push fs
 	push ds
 	push es
-if _LTRACE_
+if _LTRACE_ and ?RMCBLOG
 	push bp
 	mov bp,sp
 	@stroutrm <"-rm cb rmSS:SP=%X:%X, Fl=%X, old RMS=%X:%X ds=%X es=%X fs=%X gs=%X",lf>,\
@@ -134,9 +137,20 @@ _TEXT16 ends
 _TEXT32 segment
 
 rmcb_pm proc
-	inc ss:[cRMCB]
 ;--- save values in tskstate on host stack
 	@pushstate	;save client state, without rm DS/ES/FS/GS
+
+;--- set an IRET32 frame below taskseg.esp0
+;--- after this is done, real-mode code can be called again
+;--- i.e. trace output to dos or bios.
+	push ss:tskstate.rSS	;SS
+	push ss:tskstate.rESP	;ESP
+;	push ss:tmpFLRegD		;EFL
+	pushfd					;EFL
+	push _INTSEL_			;CS
+	push _RETCB_			;EIP
+
+	inc ss:[cRMCB]
 
 	push edi
 	mov fs,ss:tskstate.rFS
@@ -161,23 +175,15 @@ rmcb_pm proc
 	mov ax,ss:[MyRMCS.rFlags]
 	mov es:[edi].RMCS.rCS,cx
 	mov es:[edi].RMCS.rFlags,ax
-if ?CLEARDIR
+if 0
+ if ?CLEARDIR
 	and ah,08Bh					;NT+IOPL+D reset
-else
+ else
 	and ah,08Fh 				;NT+IOPL reset
-endif
+ endif
 	or ah,?PMIOPL				;set IOPL
 	mov ss:[tmpFLReg],ax
-
-;--- set an IRET32 frame below taskseg.esp0
-;--- after this is done, real-mode code can be called again
-;--- i.e. trace output to dos or bios.
-	push ss:tskstate.rSS	;SS
-	push ss:tskstate.rESP	;ESP
-	push ss:tmpFLRegD		;EFL
-	push _INTSEL_			;CS
-	push _RETCB_			;EIP
-
+endif
 ;--- on entry to a real-mode callback, DS:E/SI is
 ;--- supposed to point to real-mode SS:SP.
 ;--- if ?RMCBSTATICSS is 1 (standard), such a descriptor
@@ -232,8 +238,9 @@ endif
 	mov dword ptr es:[edi].RMCS.rFS,ecx
 	mov es:[edi].RMCS.rSP,si
 
+if _LTRACE_ and ?RMCBLOG
 	@strout <"#rmcb, rm ES-DS-FS-GS=%X %X %X %X",lf>, eax, ecx
-
+endif
 
 if ?CHECKHOSTSTACK
   if ?HSINEXTMEM
@@ -243,8 +250,10 @@ if ?CHECKHOSTSTACK
   endif
 	jc _exitclientEx5
 endif
+if _LTRACE_ and ?RMCBLOG
 	@strout <"#rmcb, taskstate ss:esp=%X:%lX",lf>,\
 		word ptr ss:tskstate.rSS, ss:tskstate.rESP
+endif
 
 	mov ax, es:[edi].RMCS.rCS
 	sub ax, ss:[wHostSeg]			;seg RMSwitch
@@ -252,24 +261,24 @@ endif
 	mov cx,ax						;handle nach cx
 	neg ax
 	add ax,offset RMSwitch
-	mov es:[edi].RMCS.rIP,ax		;IP wird aus CS ermittelt
-
+	mov es:[edi].RMCS.rIP,ax		;IP is calculated from CS
 
 	movzx eax,cx						;callback handle
 	add eax,offset GROUP32:clrmcbs
 
+if _LTRACE_ and ?RMCBLOG
 	@strout <"#rmcb, frame for lpms_call_int: %lX %lX %lX %lX %lX",lf>,\
 		dword ptr _RETCB_, dword ptr _INTSEL_, dword ptr ss:tmpFLRegD,\
 		ss:tskstate.rESP, dword ptr ss:tskstate.rSS
 
-if ?32BIT
+ if ?32BIT
 	@strout <"#rmcb, jmp to pm proc=%X:%lX, EDI=%lX:%lX, ESI=%lX:%lX, HS=%lX",lf>,\
 		word ptr cs:[eax].R3PROC._Cs,cs:[eax].R3PROC._Eip,es,edi,ds,esi,ss:[taskseg._Esp0]
-else
+ else
 	@strout <"#rmcb, jmp to pm proc=%X:%X,ES:DI=%lX:%X,DS:SI=%lX:%X,HS=%lX",lf>,\
 		cs:[eax].R3PROC._Cs,cs:[eax].R3PROC._Eip,es,di,ds,si,ss:[taskseg._Esp0]
+ endif
 endif
-;	@waitesckey
 	push eax
 	jmp lpms_call_int		;switch to LPMS
 	align 4
@@ -287,19 +296,18 @@ rmcb_pm endp
 ;--- in the RMCS pointed to by es:e/di
 
 _retcb proc public						;stack irrelevant?
-if _LTRACE_
+if _LTRACE_ and ?RMCBLOG
 	mov ebp,esp
 	@strout <"#ret rmcb: [esp]=%lX,%lX,%lX,%lX,%lX",lf>,\
 		[ebp+0],[ebp+4],[ebp+8],[ebp+12],[ebp+16]
-endif
-if ?32BIT
+ if ?32BIT
 	@strout <"#ret rmcb %X: ES:EDI=%lX:%lX,HS=%lX",lf>,\
 		ss:[cRMCB],es,edi,ss:[taskseg._Esp0]
-else
+ else
 	@strout <"rm cb ret: ES:DI=%lX:%X,HS=%lX",lf>,\
 		es,di,ss:[taskseg._Esp0]
+ endif
 endif
-;	@waitesckey
 	dec ss:[cRMCB]
 
 ife ?32BIT        
@@ -347,12 +355,11 @@ _retcb_rm proc
 	@restorermstk		;load rm ss:sp
 	call load_rmsegs	;load DS/ES/FS/GS from v86iret
 
-if _LTRACE_
+if _LTRACE_ and ?RMCBLOG
 	push bp
 	mov bp,sp
 	@stroutrm <"-ret rmcb: SS:SP=%X:%X FL=%X IP=%X:%X DS=%X ES=%X tskstate.rmSS:SP=%X:%X",lf>,\
 		ss , bp, cs:[MyRMCS.rFlags], cs:[MyRMCS.rCS], cs:[MyRMCS.rIP], ds, es, cs:tskstate.rmSS, cs:tskstate.rmSP
-;	@waitesckey
 	pop bp
 endif
 if ?STI@RETRMCB
@@ -468,13 +475,13 @@ callrmiret endp	;fall through
 
 callrmproc proc
 if ?32BIT
-	@strout <"rm call, ax=%X bx=%X RNS=%X:%X rmcs: a-d=%X %X %X %X, d-e=%X %X",lf>, ax, bx,\
-		ss:tskstate.rmSS, ss:tskstate.rmSP, es:[edi].RMCS.rAX, es:[edi].RMCS.rBX, es:[edi].RMCS.rCX, es:[edi].RMCS.rDX,\
-		es:[edi].RMCS.rDS, es:[edi].RMCS.rES
+	@strout <"call rm RMS=%X:%X rmcs: a-d=%X %X %X %X, d-e=%X %X, stk=%X:%X",lf>, ss:tskstate.rmSS, ss:tskstate.rmSP,\
+		es:[edi].RMCS.rAX, es:[edi].RMCS.rBX, es:[edi].RMCS.rCX, es:[edi].RMCS.rDX,\
+		es:[edi].RMCS.rDS, es:[edi].RMCS.rES, es:[edi].RMCS.rSS, es:[edi].RMCS.rSP
 else
-	@strout <"rm call, ax=%X bx=%X RMS=%X:%X rmcs: a-d=%X %X %X %X, d-e=%X %X",lf>, ax, bx,\
-		ss:tskstate.rmSS, ss:tskstate.rmSP, es:[di].RMCS.rAX, es:[di].RMCS.rBX, es:[di].RMCS.rCX, es:[di].RMCS.rDX,\
-		es:[di].RMCS.rDS, es:[di].RMCS.rES
+	@strout <"rm call, RMS=%X:%X rmcs: a-d=%X %X %X %X, d-e=%X %X, stk=%X:%X",lf>, ss:tskstate.rmSS, ss:tskstate.rmSP,\
+		es:[di].RMCS.rAX, es:[di].RMCS.rBX, es:[di].RMCS.rCX, es:[di].RMCS.rDX,\
+		es:[di].RMCS.rDS, es:[di].RMCS.rES, es:[di].RMCS.rSS, es:[di].RMCS.rSP
 endif
 	pushad
 	push ds

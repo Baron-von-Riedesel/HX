@@ -57,7 +57,7 @@ if ?EXITONCTRLC
 else
 	@printf <"^C">
 	@strout <"an int 23 in pm occured",lf>
-;	@iret	;IRETD???
+;	@iret	;IRETD in 32bit, IRETW in 16-bit
 	iretd
 endif
 	align 4

@@ -19,18 +19,18 @@
 
 if ?SUPI15C207
 
-_DATA16	segment
+_DATA16 segment
 mouse_rmcs RMCS <>
-_DATA16	ends
+_DATA16 ends
 
-CDATA32	segment
+CDATA32 segment
 mouse15_rmcb dd 0		; real mode callback for int15, ax=c207h
 if ?32BIT
 mouse_evntproc	PF32 0	; mouse event proc for int 15, ax=c207h
 else
 mouse_evntproc	PF16 0
 endif
-CDATA32	ends
+CDATA32 ends
 
 endif
 
@@ -60,21 +60,21 @@ intr10_ endp
 if ?INT10MAPPING
 intr104E:
 intr104F:
-		popfd
-		cmp al,00h
-		jz @F
-		cmp al,01h
-		jz @F
-		cmp al,09h
-		jz @F
-		cmp al,0Ah
-		jnz nomappcall
+	popfd
+	cmp al,00h
+	jz @F
+	cmp al,01h
+	jz @F
+	cmp al,09h
+	jz @F
+	cmp al,0Ah
+	jnz nomappcall
 @@:
-		push 10h
-		call unsupp
-		stc
-		ret
-		align 4
+	push 10h
+	call unsupp
+	stc
+	ret
+	align 4
 
 ;--- int 10h, ah=10h
 
@@ -235,8 +235,8 @@ if ?32BIT
 	mov esi,offset mouse_eventproc
 	mov edi,offset mouse_rmcs
 else
-	mov si,LOWWORD(offset mouse_eventproc)
-	mov di,LOWWORD(offset mouse_rmcs)
+	mov si,LOWWORD offset mouse_eventproc
+	mov di,LOWWORD offset mouse_rmcs
 endif
 	call allocrmcb		;ds:esi -> pm proc, es:edi -> rmcs
 	pop es
@@ -267,42 +267,41 @@ installc207handler endp
 ;--- which should remain there!
 ;--- DS:E/SI = real mode SS:SP
 ;--- ES:E/DI = rmcs
-;--- SS:E/SP = LPMS?
+;--- SS:E/SP = LPMS
 ;--- to access GROUP32 use CS here (should have value _CSR3SEL_)
 ;--- displays are possible because the video output should work in ring 3
-;--- this is a real-mode callback proc, registers may be modified
-;--- es:edi point to rmcs
+;--- this is a real-mode callback proc, registers may be modified.
 
 	@ResetTrace
 
 mouse_eventproc proc
 	cld
 if ?32BIT
-	@strout <"mouse event (C207) in pm, SS:ESP=%lX:%lX,DS:ESI=%lX:%lX",lf>,ss,esp,ds,esi
+	@strout <"#mouse_eventproc (C207): SS:ESP=%lX:%lX,DS:ESI=%lX:%lX",lf>,ss,esp,ds,esi
 ;--- pop CS:IP from real-mode stack and adjust real mode SP
 	lodsd
 	mov es:[edi].RMCS.rCSIP, eax
-	mov es:[edi].RMCS.rSP, si
+	add es:[edi].RMCS.rSP, 4
 ;--- transfer 4 WORDs from real-mode to protected mode stack
 	push dword ptr [esi+4]
 	push dword ptr [esi+0]
-	@strout <"calling %X:%lX",lf>,<word ptr cs:mouse_evntproc+4>,<dword ptr cs:mouse_evntproc+0>
+	@strout <"#mouse_eventproc: calling %X:%lX",lf>, word ptr cs:mouse_evntproc+4, dword ptr cs:mouse_evntproc+0
 	call cs:[mouse_evntproc]
 	add esp,4*2
 else
-	@strout <"mouse event (C207) in pm, SS:SP=%lX:%X,DS:SI=%lX:%X",lf>,ss,sp,ds,si
-	@useext
+	@strout <"#mouse_eventproc (C207): SS:SP=%lX:%X,DS:SI=%lX:%X",lf>,ss,sp,ds,si
+	db 67h	;use DS:SI, not DS:ESI here!
 	lodsd
 	mov es:[di].RMCS.rCSIP, eax
-	mov es:[di].RMCS.rSP, si
+	add es:[di].RMCS.rSP, 4
 	push dword ptr [si+4]
 	push dword ptr [si+0]
-	@strout <"calling %X:%X",lf>,<word ptr cs:mouse_evntproc+2>,<word ptr cs:mouse_evntproc+0>
+	@strout <"#mouse_eventproc: calling %X:%X",lf>, word ptr cs:mouse_evntproc+2, word ptr cs:mouse_evntproc+0
 	call cs:[mouse_evntproc]
 	add sp,4*2
 endif
-	@strout <"mouse event (C207), return to rm",lf>
-	@iret
+	@strout <"#mouse_eventproc: exit callback",lf>
+	@iret	;IRETD in 32-bit, IRETW in 16-bit
 	align 4
 mouse_eventproc endp
 
@@ -333,7 +332,7 @@ endif	;?SUPI15C207
 
 ;--- DDS, used by 03-04, 07-08, 09-0A
 
-DDS struc
+DDS struct
 dwSize	dd ?	;size of region
 dwOfs	dd ?	;offset virtual start address
 wSeg	dw ?	;segment/selector virtual start address (or 0000)

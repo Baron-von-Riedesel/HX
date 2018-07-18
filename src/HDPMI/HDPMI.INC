@@ -19,21 +19,26 @@ endif
 ifndef ?386SWAT
 ?386SWAT		equ 0	;std=0, 1=support 386SWAT
 endif
-?WDEB386		equ 1 - ?386SWAT;support either swat or wdeb
-?KDSUPP			equ ?WDEB386+?386SWAT
+ifndef ?WDEB386
+?WDEB386		equ 0
+endif
+?KDSUPP			equ ?WDEB386 or ?386SWAT
 ?WINDBG			equ 0	;std=0, 1=support Win386 pm int 22h debug API
+
 ifndef ?ENHANCED
 ?ENHANCED		equ 0	;std=0, 1=simulate Win386 (enhanced mode)
 endif
+
 if ?ENHANCED
 ?SUPI2F1600		equ 1	;int 2F,ax=1600 support (win enh mode) - real mode
 ?SUPI2F160A		equ 1	;int 2F,ax=160A support (get version) - real mode
 ?WINMODE		equ 3	;3=enhanced mode (Pharlab TNT has problems with this)
 else
 ?SUPI2F1600		equ 0
-?SUPI2F160A		equ 1	;used by win.com to detect if windows is running
-?WINMODE		equ 2	;2=standard mode
+?SUPI2F160A		equ 0	;used by win.com to detect if windows is running
+;?WINMODE		equ 2	;2=standard mode
 endif
+
 if ?SUPI2F1600
 ifndef ?2F1600VER
 ?2F1600VER		equ 0A03h
@@ -47,8 +52,8 @@ ifndef ?2F160AVER
 endif
 endif
                         
-?LOGINT30		equ 0	;std=0, 1=log last int 30h call
-?LOGINT31		equ 0	;std=0, 1=log last int 31h call
+?LOGINT30		equ 0	;std=0, 1=log last int 30h call if exc occurs
+?LOGINT31		equ 0	;std=0, 1=log last int 31h call if exc occurs
 ifndef ?MOVEGDT
 ?MOVEGDT		equ 1	;std 1: 1=move GDT into extended memory
 endif
@@ -63,10 +68,7 @@ endif
 ?INTRM2PM		equ 1	;std=1, use a real-mode int to protect switch to
 						;protected mode (int 96h)
 ?XRM2PM 		equ 96h	;std=96h, real-mode to prot-mode int no
-?USEINTS		equ 0	;std=0, 1=use true INT opcode for client rm INT
-						;       0=use IVT vector directly
-?GUARDPAGE0		equ 1	;std=1, optionally guard page 0 (HDPMI=1)
-						;       required to watch IRQs in real-mode (DOS4GW?)
+?GUARDPAGE0		equ 1	;std=1, optionally guard page 0 access (HDPMI=1);
 ?DYNTLBALLOC	equ 1	;std=1, 1=alloc a temp 64 kB TLB for int 21, ah=3f/40
 ?SETRMIOPL		equ 0	;std=0, 1=set IOPL for real mode (not needed)
 ?SCRATCHSEL		equ 0	;std=0, scratch selector required?
@@ -74,8 +76,7 @@ endif
 ?I15MEMMGR		equ 0	;std=0, int 15 memory management (no longer needed)
 ?WATCHDOG		equ 0	;std=0, 1=deactivate watchdog timer
 if ?WDEB386
-?USEDEBUGOUTPUT equ 1	;std=1, send trace msgs in debug mode to KD
-						;       if one is active
+?USEDEBUGOUTPUT equ 1	;std=1, send trace msgs in dbg mode to KD if detected
 else                        
 ?USEDEBUGOUTPUT equ 0
 endif                        
@@ -98,7 +99,7 @@ endif
 ?CR0COPY		equ 1   ;std 1: 1=copy cr0 to/from real-mode                        
 ?FASTINT31		equ 1	;std 1: 1=direct int 31h, 0=call by int 30h dispatcher
 ifndef ?MOVEHIGH
-?MOVEHIGH		equ 1	;std 1: 1=move _TEXT32 in extended memory
+?MOVEHIGH		equ 1	;std 1: 1=move GROUP32 into extended memory
 endif
 ?FASTINT21		equ 0	;std 0: 1=direct int 21h, 0=call by int 30h dispatcher
 ?I41SUPPORT		equ 0	;std 0: 1=support some Int 41h codes
@@ -159,8 +160,6 @@ else
 ?SUPI2F16840442	equ 0	;std=0, support int 2f,ax=1684,bx=442 (vtdapi)
 endif
 
-?GPBIT			equ 04h	;set USER (04) (if ?GUARDPAGE0 = 1)
-
 ifndef ?PMIOPL
 ?PMIOPL 		equ 30h	;value for IOPL bits in flags in protected mode
 endif
@@ -183,15 +182,8 @@ endif
 ?FASTJUMPS	 = 1		;std 1: fast handling of intr30 jumps (gains 10%)
 ?I2FINITEXIT = 0		;std 0; int 2F, ax=1605/1606 broadcast
 ?TLBINUMB	 = 1		;std 1: TLB allocated in UMB if possible
-?CHECKSSIS32 = 0		;std 0: 1=check if client SS is 32bit
 ?SINGLESETCR3 = 0		;std 0; 1 only for test purposes!
 ?RING0FLATCS  = 1		;std 1; supply a ring 0 flat CS in GDT (for wdeb386)   
-
-?IRQ00VAL	  = 0		;std 0: 0=route IRQ 00 to PM
-?IRQ05VAL	  = 0		;std 0: 0=route IRQ 05 to PM
-?IRQ06VAL	  = 0		;std 0: 0=route IRQ 06 to PM
-?IRQ14VAL	  = 0		;std 0: 0=route IRQ 14 to PM
-?IRQ15VAL	  = 0		;std 0: 0=route IRQ 15 to PM
 
 ?TRAPINT06RM  = 0		;std 0: watch int 06h real-mode
 ?TRAPINT21RM  = 0		;std 0: watch int 21h real-mode
@@ -199,8 +191,8 @@ endif
 ?INT11SUPP    = 1		;std 1: support exception 11h
 ?TRANSFL	  = 1		;std 1: copy flags when returning from internal rmcbs
 ?COPYTF 	  = 0		;std 0: copy TF when returning from internal rmcbs
-						;       2005/07/30: std changed to 0 
-						;       it was nonsense to copy the TF flag 
+                        ;       2005/07/30: std changed to 0 
+                        ;       it was nonsense to copy the TF flag 
                         ;       because at best we get an int 01 in real-mode.
                         ;       it is "impossible" to transfer this flag
                         ;       back to the protected-mode execution path.
@@ -254,7 +246,14 @@ ifndef ?HSINEXTMEM
 						;       make HIWORD(esp) != 0 for host stack, which
                         ;       may be a problem if 16-bit stacks are used, 
                         ;       due to a cpu design bug.
+ ifndef ?MAPDOSHIGH
+?MAPDOSHIGH   = 1		;std 1: map the 16-bit part of the host in high memory   
+ endif
 endif                        
+ife ?HSINEXTMEM
+?MAPDOSHIGH   = 0
+endif
+
 ?LPMSSIZE     = 1000h	;std 1000h: size of LPMS
 ?PATCHCODE    = 0		;std 0: 1=patch low level switch code
 ?DBGSUPP      = 1		;std 1: 1=set TF on client's switch to pmode
@@ -264,18 +263,26 @@ endif
 if ?GUARDPAGE0
 ?CHECKIFINRMIVT = 0		;check if host owns the ivt IRQ vector
 else
-?CHECKIFINRMIVT = 1		;why
+?CHECKIFINRMIVT = 1		;why? Currently, this switch is dead
 endif
 
 ?FIXTSSESP    = 0		;std 0: change SS:ESP in TSS for R0
 
 if ?HSINEXTMEM
-?CHECKSSIS32	= 1		;test if client SS is 32bit
-;?FIXTSSESP		= 1
+;?FIXTSSESP		= 1		;obsolete
+ if ?MAPDOSHIGH
+?CHECKSSIS32	= 0		;std 0   
+ else
+?CHECKSSIS32	= 1		;std 1: 1=check if client SS is 32bit
+ endif
+else
+?CHECKSSIS32 = 0		;std 0
 endif
 
 ?TRAPI15E801	equ 1	;std 1: trap int 15h, ax=e801h in raw mode
 						;this may be required if HDPMI=32 is set
+?SAVELDTPTE		equ 0	;std=0, 1=save LDT PTEs only in saveclientstate
+						;(may not work with dosbox)
 
 ?PREDEFIDTGATES equ 78h	;number of predefined IDT gates
 
@@ -288,10 +295,6 @@ if ?32BIT
 	iretd
 endm
 
-@retf macro x
-	retf x
-endm
-
 else
 
 ?RSIZE equ 2
@@ -299,27 +302,26 @@ else
 	iret
 endm
 
-@retf macro x
-	db 66h
-	retf x
-endm
-
 endif
 
 ;--- paging flags
 
-PTF_PRESENT 	= 01h
-PTF_WRITEABLE	= 02h
-PTF_USER		= 04h
-PTF_PWT 		= 08h
-PTF_PCD 		= 10h
-PTF_ACCESSED	= 20h
-PTF_DIRTY		= 40h
-PTF_NORMAL		= PTF_WRITEABLE + PTF_USER
+PTF_PRESENT 	equ 01h	;1=present,0=not present
+PTF_WRITEABLE	equ 02h	;1=writeable,0=readonly
+PTF_USER		equ 04h	;1=user,0=system
+PTF_PWT 		equ 08h	;1=write throu
+PTF_PCD 		equ 10h	;1=cache disabled
+PTF_ACCESSED	equ 20h	;1=accessed, 0=not accessed
+PTF_DIRTY		equ 40h	;1=dirty, 0=clean
+PTF_PAT			equ 80h	;1=page attribute table
+PTF_GLOBAL		equ 100h;1=global
+PTF_NORMAL		equ PTF_WRITEABLE + PTF_USER
 
+?GPBIT			equ PTF_USER	;if ?GUARDPAGE0 = 1
 
 ;------------------------------- GDT selectors
 
+externdef _VCPICS_:abs
 externdef _CSSEL_:abs
 externdef _SSSEL_:abs
 externdef _TSSSEL_:abs
@@ -408,13 +410,13 @@ lf		equ 10
 
 FM_TLBMCB	equ 1		;TLB is extra dos memory block
 FM_RESIDENT	equ 2		;-r: HDPMI is resident
-FM_RMVECS	equ 4		;real-mode irqs vectors are set
+FM_IVTVECS	equ 4		;real-mode IVT vectors are set
 FM_DISABLED equ 8		;server disabled
 if ?CANTEXIT
 FM_CANTEXIT	equ 10h		;cannot exit (rm vecs not restorable)
 endif
 FM_CLONE    equ 20h		;this instance is a clone
-FM_CPUID	equ 40h		;cpuid + cr4 is valid
+;FM_CPUID	equ 40h		;cpuid + cr4 is valid
 FM_INIT 	equ 80h		;1=server initialized
 
 ;--- fMode2 flags
@@ -451,7 +453,7 @@ ENVF2_NOMEM10	equ 04h ;  1024 disable DPMI 1.0 memory functions
 ENVF2_CLRHIWORD equ 08h ;  2048 clear hiword of esi/edi
 ENVF2_SYSPROT	equ 10h ;  4096 alloc pages for GDT/IDT/LDT readonly
 ENVF2_DEBUG  	equ 20h ;  8192 assume a (kernel) debugger is present
-ENVF2_NOI2F160A	equ 40h	; 16384 don't respond to int 2fh, ax=160Ah
+;ENVF2_NOI2F160A	equ 40h	; 16384 don't respond to int 2fh, ax=160Ah
 ENVF2_NOCR0NE  	equ 80h	; 32768 don't touch CR0 NE bit
 
 ;------------------------ flags in fDebug
@@ -648,23 +650,29 @@ CR0_MP	equ 02h			;math present
 CR0_EM	equ 04h			;emulate FPU
 CR0_TS	equ 08h			;task switch
 CR0_NE	equ 20h			;numeric exception (exc 10h instead of int 75h)
+CR0_WP	equ 10000h		;write to r/o pages not allowed in ring 0 (486+)
 CR0_PG	equ 80000000h   ;paging
 
 ;--- internal real-mode callbacks
-;--- this table contains no client-specific data
+;--- the structure is splitted in 2, one
+;--- that has to be accessed in rm (INTRMCBr)
+;--- and another that is accessed in pm only (INTRMCB).
 
-INTRMCB struct			;size must be 16!
-rm_vec	 dd ?			;current real mode vector (must be first!)
-orgvec	 dd ?			;saved (original) real mode vector
-myproc	 dw ?			;near16 offset host handler (curr IP value in ivt)
-flags	 dw ?			;see RMVFL_xxx
-pmvec	 dw ?			;near16 pointer to a R3PROC (current client vector)
-wIvtOfs  dw ?			;offset IVT
+INTRMCBr struct
+rm_vec	 dd ?	;current IVT entry
+INTRMCBr ends
+
+INTRMCB struct
+orgvec	dd ?	;saved (original) real mode vector, access in protmode only
+pmvec	dw ?	;near16 ptr to a R3PROC, r/o, access in protmode only 
+bFlags	db ?	;see RMVFL_xxx, r/o
+bIntNo	db ?	;Int number, r/o, access in protmode only
 INTRMCB ends
 
-?RMCBMOUSE	equ 13h		;the int 33h mouse std rm callback index
+?RMCBMOUSE	equ 13h		;index of internal rmcb for int 33h mouse event proc
 
 ;--- values of flags in INTRMCB.flags (global, not client specific)
+;--- all flags are read-only
 
 RMVFL_IGN		equ 01h		;don't touch this INT's vector in IVT
 RMVFL_IDT		equ 02h		;field pmvec point directly in IDT
@@ -691,7 +699,7 @@ RMCB struct
 ife ?32BIT
 		dd ?
 endif
-rmcs	df ?			;address of real mode call structure
+rmcs	df ?		;far32 address of real mode call structure
 if ?RMCBSTATICSS
 wSS		dw ?
 else
@@ -1074,58 +1082,6 @@ IVTHOOK ends
 
 ;-------------------------------- macros
 
-@useext macro
-	db 67h
-endm
-
-@movsd macro
-ife ?32BIT
-	@useext
-endif
-	movsd
-endm
-
-@stosw macro
-ife ?32BIT
-	@useext
-endif
-	stosw
-endm
-
-@stosb macro
-ife ?32BIT
-	@useext
-endif
-	stosb
-endm
-
-@lodsw macro
-ife ?32BIT
-	@useext
-endif
-	lodsw
-endm
-
-@lodsb macro
-ife ?32BIT
-	@useext
-endif
-	lodsb
-endm
-
-@inctrace equ <_LTRACE_ = _LTRACE_ + 1>
-@dectrace equ <_LTRACE_ = _LTRACE_ - 1>
-
-@ResetTrace macro
-ifndef _DEBUG
-_LTRACE_ = 0
-endif
-endm
-        
-@SetTrace macro
-_LTRACE_ = 1
-endm
-
 @defseg macro name_, align_, use_, group_
 name_ segment align_ use_ public 'CODE'
 name_ ends
@@ -1213,6 +1169,16 @@ endm
 	call _stroutx
 	dw CStr(<xx>)
 endm
+
+;--- trace macros for debug version
+
+@ResetTrace macro
+ifndef _DEBUG
+_LTRACE_ = 0
+endif
+endm
+        
+;--- formatted output in protected-mode
 
 @strout macro strg:REQ, xx:VARARG
 if _LTRACE_
@@ -1417,11 +1383,13 @@ sm:
 endif
 endm
 
-@waitesckey macro
+@waitesckey macro bNoPush
 local sm1
 if _LTRACE_
+ifb <bNoPush>
 	pushfd
 	push eax
+endif
 sm1:
 	in al,64h		;key from keyboard arrived?
 	test al,1
@@ -1429,8 +1397,10 @@ sm1:
 	in al,60h
 	cmp al,81h		;wait for ESC released
 	jnz sm1
+ifb <bNoPush>
 	pop eax
 	popfd
+endif
 endif
 endm
 
@@ -1487,36 +1457,38 @@ else
 endif
 endm
 
-;-- switches real-mode
+;-- switches to real-mode
 
-@jmp_rm macro xx
-	mov ss:[wRetAdrRm], xx
+@jmp_rm macro dest
+	mov ss:[wRmDest], offset dest
 	jmp _jmp_rm
 endm
 
-@rawjmp_rm macro xx
-	mov ss:[wRetAdrRm2], offset xx
+@rawjmp_rm macro dest
+	mov ss:[wRmDest2], offset dest
 	jmp _rawjmp_rm
 endm
 
 ;-- switches to protected-mode
 
-@jmp_pm macro xx
-	pushw LOWWORD(offset xx)
+@jmp_pm macro dest
+	pushw LOWWORD offset dest
 	jmp _jmp_pm
 endm
 
-@jmp_pmX macro xx
-	pushw LOWWORD(offset xx)
+@jmp_pmX macro dest
+	pushw LOWWORD offset dest
 	jmp _jmp_pmX
 endm
 
-@rawjmp_pm macro xx, bSaveSegm
-	pushw LOWWORD(offset xx)
-ifb <bSaveSegm>        
+@rawjmp_pm macro dest
+	pushw LOWWORD offset dest
 	jmp _rawjmp_pm
-else
-	jmp _rawjmp_pm_savesegm	;save segment regs in v86iret before switch
-endif
+endm
+
+@rawjmp_pm_savesegm macro dest
+	pushw LOWWORD offset dest
+;--- save segment regs in v86iret before switch
+	jmp _rawjmp_pm_savesegm
 endm
 

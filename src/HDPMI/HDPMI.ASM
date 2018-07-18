@@ -32,14 +32,14 @@ endif
 
 BEGTEXT16 segment para use16 public 'CODE'
 BEGTEXT16 ends
+_DATA16 segment dword use16 public 'CODE'
+_DATA16 ends
 _TEXT16 segment dword use16 public 'CODE'
 _TEXT16 ends
 _TEXT16X segment dword use16 public 'CODE'
 _TEXT16X ends
 CONST16 segment byte use16 public 'CODE'
 CONST16 ends
-_DATA16 segment dword use16 public 'CODE'
-_DATA16 ends
 VDATA16 segment dword use16 public 'CODE'
 _StartOfVMData label near
 VDATA16 ends
@@ -50,8 +50,8 @@ GDTSEG segment para use16 public 'CODE'
 _EndOfClientData label near
 GDTSEG ends
 IDTSEG segment para use16 public 'CODE'
-externdef startofidtseg:byte
-startofidtseg label byte
+externdef startofidtseg:near
+startofidtseg label near
 IDTSEG ends
 _ITEXT16 segment byte use16 public 'CODE'
 extern mystart:near					;use EXTERN to force include of mystart!
@@ -62,33 +62,31 @@ STACK segment use16 stack 'STACK'	;WLink needs 'STACK' to find the stack seg
 STACK ends
 endif
 ENDTEXT16 segment para use16 public 'CODE'
-endof16bit label byte
+endof16bit label near
 ENDTEXT16 ends
 
 ;--- GROUP32
 
-BEGTEXT32 segment para use32 public 'CODE'
-BEGTEXT32 ends
 _TEXT32 segment dword use32 public 'CODE'
 _TEXT32 ends
 CONST32 segment byte use32 public 'CODE'
 CONST32 ends
 CDATA32 segment dword use32 public 'CODE'
-cldata32 label byte
+cldata32 label near
 CDATA32 ends
 _ITEXT32 segment dword use32 public 'CODE'
-endcldata32 label byte
-endoftext32 label byte
+endcldata32 label near
+endoftext32 label near
 _ITEXT32 ends
 ENDTEXT32 segment para use32 public 'CODE'
-endof32bit label byte
+endof32bit label near
 ENDTEXT32 ends
 
 GROUP16  group BEGTEXT16, _TEXT16, _TEXT16X, CONST16, _DATA16, VDATA16, CDATA16, GDTSEG, IDTSEG, _ITEXT16, ENDTEXT16
-ife ?STACKLAST
-GROUP16 group STACK
-endif
-GROUP32 group BEGTEXT32, _TEXT32, CONST32, CDATA32, _ITEXT32, ENDTEXT32
+;ife ?STACKLAST
+;GROUP16 group STACK
+;endif
+GROUP32 group _TEXT32, CONST32, CDATA32, _ITEXT32, ENDTEXT32
 
 	include hdpmi.inc
 	include external.inc
@@ -293,7 +291,7 @@ llogo	equ $ - logo
 
 ;--- IDT (vectors 00-7F only)
 ;--- the IDT usually is moved to extended memory
-;--- then the space here is used for the host stack
+;--- then the space here may be used for the host stack
 
 	align 8
 
@@ -474,18 +472,13 @@ endif
 ;--- will be reused for the stack
 ;--- in case ?HSINEXTMEM is set, this space is free;
 
-if ?MOVEIDT
-  if ?HSINEXTMEM
-	?R0STACKSIZE = 0h
-  else
-	?R0STACKSIZE = 440h-4	;alloc a smaller stack (IDT space will be reused)
-  endif
-else
-	?R0STACKSIZE = 600h-4
-endif
-
-	db ?R0STACKSIZE dup (?)
 ife ?HSINEXTMEM
+  if ?MOVEIDT
+	?R0STACKSIZE = 440h-4	;alloc a smaller stack (IDT space will be reused)
+  else
+	?R0STACKSIZE = 600h-4
+  endif
+	db ?R0STACKSIZE dup (?)
 ring0stack label near
 endif
 
@@ -543,9 +536,9 @@ if ?SSED
 	@defdesc <7,0,0,96h,40h,0>,_SSSEL_			;28 SS (=GROUP16)
 else
   if ?HSINEXTMEM
-	@defdesc <0ffffh,0,0,92h,0CFh,0>,_SSSEL_
+	@defdesc <-1,0,0,92h,0CFh,0>,_SSSEL_
   else
-	@defdesc <0fffeh,0,0,92h,0CFh,0>,_SSSEL_
+	@defdesc <-2,0,0,92h,0CFh,0>,_SSSEL_
   endif
 endif    
 tssdesc label DESCRPTR
@@ -556,10 +549,10 @@ tssdesc label DESCRPTR
 
 	@defdesc <02ffh,0400h,0,92h or ?PLVL,0,0>
 
-;--- 48+3 FLAT data selector
+;--- 48 FLAT data selector
 
-	@defdesc <-1,0,0,92h or ?PLVL,0CFh,0>,_FLATSEL_, ?RING
-;	@defdesc <-1,0,0,92h,0CFh,0>,_FLATSEL_
+;	@defdesc <-1,0,0,92h or ?PLVL,0CFh,0>,_FLATSEL_, ?RING
+	@defdesc <-1,0,0,92h,0CFh,0>,_FLATSEL_
 
 ;--- 50+3 selector describing TLB
 
@@ -575,7 +568,7 @@ endif
 pmbrdesc label DESCRPTR    
 	@defdesc <_MAXCB_*2-1,0,0,9Ah or ?PLVL,0,0>,_INTSEL_, ?RING
 
-;--- 60 alias for CS (data)
+;--- 60 ring 0 data alias for GROUP32
 
 if 1;?MOVEHIGH
 	@defdesc <-1,0,0,92h,40h,0>,_CSALIAS_
@@ -589,17 +582,19 @@ endif
 
 	@defdesc <-1,0,0,9Ah or ?PLVL,40h,0>,_CSR3SEL_, ?RING
 
-;--- 78+3 ring 3 GROUP16 (GROUP32?) data selector (rarely used!)
+;--- 78+3 ring 3 GROUP16 data selector (rarely used!)
 
 	@defdesc <-1,0,0,92h or ?PLVL,00h,0>,_DSR3SEL_, ?RING
 
-;--- alias for GROUP16 (code) (used 2 times in hdpmi.asm)
+;--- alias for GROUP16 (code)
+;--- needed to disable paging in xms and raw mode (which
+;--- can't be done when CS=GROUP32).
 
 if ?MOVEHIGHHLP
 	@defdesc <-1,0,0,9Ah,0,0>,_CSGROUP16_
 endif
 
-;--- std 64 kB data selector to initialize segments (used 1 time in hdpmi.asm)
+;--- std 64 kB data selector to initialize segments (used in switch.asm)
 
 	@defdesc <-1,0,0,92h,0,0>,_STDSEL_
 
@@ -652,7 +647,7 @@ endif
 ?GDTLIMIT equ ?SIZEGDT - 1
 
 if ?MOVEGDT
-GDTSEG	ends
+GDTSEG ends
 endif
 
 CONST32 segment
@@ -846,7 +841,9 @@ wVersion	dw 005ah	;DPMI version 0.90
 vcpicall label PF32 	;VCPI far32 address to switch to v86-mode
 vcpiOfs		dd 0		;offset (got from VCPI host)
 vcpiSeg		dw _VCPICS_ ;selector for VCPI code segment
+
 wHostPSP	dw 0        ;PSP segment of host
+v86iretesp	dd offset v86iret
 
 	align 4
 
@@ -862,7 +859,7 @@ if ?CALLPREVHOST
 dwHost16	PF16 0				;previous DPMI host entry
 endif
 xmsaddr		PF16 0				;XMS driver entry
-dwHostBase  dd 0				;linear address host GROUP16
+dwSSBase	dd 0				;linear address base of SS in protected-mode (=GROUP16)
 wHostSeg	label word
 dwHostSeg	label dword
 			dd 0				;segment host (GROUP16)
@@ -942,12 +939,10 @@ rmsels		dd 0				;normalized start "real mode selector" list
 VDATA16 ends
 
 if ?GUARDPAGE0
-;pg0ptr	dd -1					;normalized address PTE for page 0
-pg0ptr	dd offset taskseg
-lastcr2 dd 0
-dwAddr	dd 0					;linear address write destination in page 0
+lastcr2	dd 0
+dwAddr	dd 0					;address INTRMCB which owns the Int
 dwOrgFL	dd 0
-myint01 GATE <LOWWORD(offset backtonormal) ,_CSSEL_,?IVAL, 0>
+myint01 GATE <LOWWORD offset backtonormal,_CSSEL_,?IVAL, 0>
 endif
 
 ;*** temporary variables
@@ -957,15 +952,15 @@ endif
 
 calladdr1 dd 0	;used to store a IVT vector value
 calladdr2 dd 0	;used to store a IVT vector value
-dwRetAdr  dd 0	;1. store for return address if SP cannot be used
-wRetAdrRm2 label word ;saved return address, used by _rawjmp_rm
-dwRetAdr2 dd 0	;saved return address, used by _rawjmp_pm
+wRmDest  label word ;real-mode destination offset, used by _jmp_rm
+dwPmDest  dd 0	;protected-mode destination offset, used by _jmp_pm
+wRmDest2 label word ;real-mode destination offset, used by _rawjmp_rm
+dwPmDest2 dd 0	;protected-mode destination offset, used by _rawjmp_pm
 tmpFLRegD label dword
 tmpFLReg  dw 0	;temporary storage for FL register
           dw 0
 
 calladdr3 dw 0	;used by callrmprocintern
-wRetAdrRm dw 0	;3. store ( used by @jmp_rm )
 tmpAXReg  dw 0	;temporary storage for AX
 tmpBXReg  dw 0	;temporary storage for BX
 
@@ -983,7 +978,6 @@ wrmSStmp	dw 0	;temp store for rmSS on protected-mode reentry
 ;--- unlike the client real-mode callbacks
 ;--- these callbacks have no real-mode call structure
 ;--- and DS:E/SI doesn't point to the real-mode stack on entry.
-;--- size of INTRMCB is 16 Bytes, this cannot be changed!
 
 ;--- for HDPMI < 3.0 this table was in client data
 ;--- then the "active" flag has been moved to the new wIntRmCb bitfield
@@ -995,13 +989,18 @@ wrmSStmp	dw 0	;temp store for rmSS on protected-mode reentry
 ;--- 8=RTC 9=VGA/free, 10=free, 11=free, 12=PS/2, 13=FPU exc
 ;--- 14=IDE1, 15=IDE2
 
+?IRQ00VAL equ 0
+?IRQ05VAL equ 0
+?IRQ06VAL equ 0
+?IRQ14VAL equ 0
+?IRQ15VAL equ 0
 ?INT1CVAL equ RMVFL_IDT
 ?INT23VAL equ RMVFL_IDT or RMVFL_SETALWAYS
 ?INT24VAL equ RMVFL_IDT or RMVFL_SETALWAYS
 ?MEVNTVAL equ RMVFL_FARPROC
 
 @defvec macro xx
-	exitm <LOWWORD(offset GROUP32:r3vect&xx)>
+	exitm <LOWWORD offset GROUP32:r3vect&xx>
 endm
 
 ;--- the table of internal realmode callbacks is now in client data again
@@ -1012,40 +1011,44 @@ endm
 ?INTRMCB_IN_CDATA	equ 1
 
 if ?INTRMCB_IN_CDATA
-CDATA16 segment
+CDATA32 segment
 endif
 
 intrmcbs label INTRMCB
-	INTRMCB <0,0, 0,?IRQ00VAL,@defvec(08),(?MPICBASE+0)*4>
-	INTRMCB <0,0, 1,0        ,@defvec(09),(?MPICBASE+1)*4>
-	INTRMCB <0,0, 2,0        ,@defvec(0A),(?MPICBASE+2)*4>
-	INTRMCB <0,0, 3,0        ,@defvec(0B),(?MPICBASE+3)*4>
-	INTRMCB <0,0, 4,0        ,@defvec(0C),(?MPICBASE+4)*4>
-	INTRMCB <0,0, 5,?IRQ05VAL,@defvec(0D),(?MPICBASE+5)*4>
-	INTRMCB <0,0, 6,?IRQ06VAL,@defvec(0E),(?MPICBASE+6)*4>
-	INTRMCB <0,0, 7,0        ,@defvec(0F),(?MPICBASE+7)*4>
-	INTRMCB <0,0, 8,0        ,@defvec(70),(?SPICBASE+0)*4>
-	INTRMCB <0,0, 9,0        ,@defvec(71),(?SPICBASE+1)*4>
-	INTRMCB <0,0,10,0        ,@defvec(72),(?SPICBASE+2)*4>
-	INTRMCB <0,0,11,0        ,@defvec(73),(?SPICBASE+3)*4>
-	INTRMCB <0,0,12,0        ,@defvec(74),(?SPICBASE+4)*4>
-	INTRMCB <0,0,13,0        ,@defvec(75),(?SPICBASE+5)*4>
-	INTRMCB <0,0,14,?IRQ14VAL,@defvec(76),(?SPICBASE+6)*4>
-	INTRMCB <0,0,15,?IRQ15VAL,@defvec(77),(?SPICBASE+7)*4>
-	INTRMCB <0,0,16,?INT1CVAL,1Ch*8          ,(1Ch)*4>
-	INTRMCB <0,0,17,?INT23VAL,23h*8          ,(23h)*4>
-	INTRMCB <0,0,18,?INT24VAL,24h*8          ,(24h)*4>
-	INTRMCB <0,0,19,?MEVNTVAL,LOWWORD(offset GROUP32:mevntvec),(0)*4>
+	INTRMCB <0,@defvec(08),?IRQ00VAL,?MPICBASE+0>
+	INTRMCB <0,@defvec(09),0,        ?MPICBASE+1>
+	INTRMCB <0,@defvec(0A),0,        ?MPICBASE+2>
+	INTRMCB <0,@defvec(0B),0,        ?MPICBASE+3>
+	INTRMCB <0,@defvec(0C),0,        ?MPICBASE+4>
+	INTRMCB <0,@defvec(0D),?IRQ05VAL,?MPICBASE+5>
+	INTRMCB <0,@defvec(0E),?IRQ06VAL,?MPICBASE+6>
+	INTRMCB <0,@defvec(0F),0,        ?MPICBASE+7>
+	INTRMCB <0,@defvec(70),0,        ?SPICBASE+0>
+	INTRMCB <0,@defvec(71),0,        ?SPICBASE+1>
+	INTRMCB <0,@defvec(72),0,        ?SPICBASE+2>
+	INTRMCB <0,@defvec(73),0,        ?SPICBASE+3>
+	INTRMCB <0,@defvec(74),0,        ?SPICBASE+4>
+	INTRMCB <0,@defvec(75),0,        ?SPICBASE+5>
+	INTRMCB <0,@defvec(76),?IRQ14VAL,?SPICBASE+6>
+	INTRMCB <0,@defvec(77),?IRQ15VAL,?SPICBASE+7>
+	INTRMCB <0,1Ch*8      ,?INT1CVAL,1Ch>
+	INTRMCB <0,23h*8      ,?INT23VAL,23h>
+	INTRMCB <0,24h*8      ,?INT24VAL,24h>
+	INTRMCB <0,LOWWORD offset GROUP32:mevntvec,?MEVNTVAL,0>
 SIZEINTRMCB equ ($ - intrmcbs) / sizeof INTRMCB
 
 TESTINTRMCB equ 17	;test IRQs + Int 1Ch
-;RMCBMOUSE   equ 13h	;index of mouse event callback
 
 RMCB1C	equ intrmcbs + 16 * sizeof INTRMCB
 RMCB24	equ intrmcbs + 18 * sizeof INTRMCB
 
 if ?INTRMCB_IN_CDATA
+CDATA32 ends
+
+CDATA16 segment
+intrmcbrs INTRMCBr 16+4 dup (<?>)
 CDATA16 ends
+
 endif
 
 if _LTRACE_
@@ -1796,7 +1799,6 @@ endif
 	@strout <"jmp handler: cs:ip=%X:%lX ss:sp=%X:%lX",lf>,\
 		[ebp+4].RETF32.rCS, [ebp+4].RETF32.rIP,\
 		[ebp+4].RETF32.rSS, [ebp+4].RETF32.rSP
-;	@waitesckey
 
 	pop ds
 	pop edi
@@ -1928,7 +1930,6 @@ endif
 @@:
 	popad
 	@strout <"frame for exc in ring 0 built, esp=%lX, jmp to lpms_call_exc",lf>,esp
-;	@waitesckey
 	jmp lpms_call_exc
 retexcr0::
 if _LTRACE_
@@ -1941,7 +1942,6 @@ if _LTRACE_
 endif
 	add esp, sizeof IRET32
 	@strout <"return from ring 0 exception handler, esp=%lX",lf>,esp
-;	@waitesckey
 	pop ss:[taskseg._Esp0]
 ife ?FIXTSSESP
 if ?SETEXCHS
@@ -1999,7 +1999,6 @@ else
 
 	@strout <"ring 0 exc at %X:%lX",lf>,[ebp+4].LCEFR0.f.rCS,\
 		[ebp+4].LCEFR0.f.rIP
-;	@waitesckey
 
 	sub esp,sizeof R3FAULT32
 	push eax						;wExcNo
@@ -2018,7 +2017,6 @@ else
 	mov eax,[ebp-4]
 	mov ebp,[ebp+0]
 	@strout <"ring 0 exc jmp to _exceptZ",lf>
-;	@waitesckey
 	jmp _exceptZ
 endif
 
@@ -2158,7 +2156,6 @@ if _LTRACE_
 	mov ebp,esp
 	@strout <"int30 simint ip=%X:%lX %lX sp=%X:%lX",lf>,[ebp+8].I30FR.rCS,\
 		 [ebp+8].I30FR.rIP, [ebp+8].I30FR.rFL, [ebp+8].I30FR.rSS, [ebp+8].I30FR.rSP
-;	@waitesckey
 	pop ebp
 endif
 
@@ -2204,7 +2201,6 @@ intr30_jmps:
 	mov ebp,esp
 	@strout <"int30 jmps ip=%X:%lX %lX sp=%X:%lX",lf>,[ebp+4].IRET32.rCS,\
 		 [ebp+4].IRET32.rIP, [ebp+4].IRET32.rFL, [ebp+4].IRET32.rSS, [ebp+4].IRET32.rSP
-;	@waitesckey
 	pop ebp
   endif
 	push ebx
@@ -2226,7 +2222,6 @@ if _LTRACE_
 	@strout <"int30 special ip=%X:%lX %lX sp=%X:%lX",lf>,[ebp+4].I30FR.rCS,\
 		[ebp+4].I30FR.rIP, [ebp+4].I30FR.rFL, [ebp+4].I30FR.rSS, [ebp+4].I30FR.rSP
 	pop ebp
-;	@waitesckey
 endif
 	mov eax,dword ptr cs:[ebx*2+offset spectab-400h]
 	mov [esp].I30FR.dwRes,eax	;function address
@@ -2344,69 +2339,85 @@ endif
 
 if ?GUARDPAGE0
 
+?PG0PTE equ 0FFC02000h
+
+	assume ds:nothing
+
 ;*** run 1 client instruction 
 
 	@ResetTrace
 
 execclientinstr proc
-	push [esp+1*4].IRET32.rFL
-	pop ss:[dwOrgFL]
-	or byte ptr [esp+1*4].IRET32.rFL+1,1	 ;Set TF
-	and byte ptr [esp+1*4].IRET32.rFL+1,0FDh ;reset IF
-	call xchgint01
-	call checkrmivtread			  ;before client instruction
-if _LTRACE_
-	push eax
-	push ecx
-	mov cx,[esp+3*4].IRET32.rCS
-	mov eax,[esp+3*4].IRET32.rIP
-	@strout <"now executing client code at %X:%lX",lf>,cx,eax
-	pop ecx
-	pop eax
-endif
 	add esp,4		  ;skip error code
+	push eax
+
+	push ds
+	mov ax,_FLATSEL_
+	mov ds, eax
+	or byte ptr ds:[?PG0PTE],?GPBIT  ;set page 0 to "user"
+	pop ds
+
+	mov eax, [esp+4].IRET32.rFL
+	mov ss:[dwOrgFL], eax
+	and ah,0FDh		;reset IF
+	or ah,1			;set TF
+	mov [esp+4].IRET32.rFL,eax
+	push esi
+	call xchgint01
+	call checkivtread			;before client instruction
+if 0;_LTRACE_
+;--- output now is critical if DOS or BIOS is used!
+ if ?VIODIROUT
+	mov si,[esp+2*4].IRET32.rCS
+	mov eax,[esp+2*4].IRET32.rIP
+	@strout <"execclientinstr: now executing client code at %X:%lX",lf>,si,eax
+ endif
+endif
+	pop esi
+	pop eax
 	iretd
 	align 4
 execclientinstr endp
 
 backtonormal proc
 	push eax
+	push esi
 	mov eax,ss:[dwOrgFL]
 	and ah,03
-	and byte ptr [esp+4].IRET32.rFL+1,0FCh
-	or byte ptr [esp+4].IRET32.rFL+1,ah ;restore TF + IF
+	and byte ptr [esp+2*4].IRET32.rFL+1,0FCh
+	or byte ptr [esp+2*4].IRET32.rFL+1,ah ;restore TF + IF
 
-	mov eax,ss:[pg0ptr]
-	and byte ptr ss:[eax],not ?GPBIT ;set PTE system reset
+	push ds
+	mov ax,_FLATSEL_
+	mov ds,eax
+	and byte ptr ds:[?PG0PTE], not ?GPBIT ;set page 0 to "system"
+	pop ds
 
 	call xchgint01
 	cmp ss:[dwAddr],0			;address irrelevant, exit
 	jz @F
-	call checkrmivtwrite 		;after client instruction
+	call checkivtwrite			;after client instruction
 @@:
-	mov eax,ss:[dwHostBase] 	;base of host CS
+	mov eax,ss:[dwSSBase] 		;base of host SS
 	neg eax
 	invlpg ss:[eax]				;works on 80486+ only!
 	mov eax,ss:[lastcr2]
 	mov cr2,eax
+	pop esi
 	pop eax
 	iretd
 	align 4
 backtonormal endp
 
 xchgint01 proc near
-	push esi
-	push eax
 	mov esi,ss:[pdIDT.dwBase]
-	sub esi,ss:[dwHostBase]
+	sub esi,ss:[dwSSBase]
 	mov eax,dword ptr ss:[myint01+0]
 	xchg eax,ss:[esi+0+8]
 	mov dword ptr ss:[myint01+0],eax
 	mov eax,dword ptr ss:[myint01+4]
 	xchg eax,ss:[esi+4+8]
 	mov dword ptr ss:[myint01+4],eax
-	pop eax
-	pop esi
 	ret
 	align 4
 xchgint01 endp
@@ -2594,8 +2605,6 @@ if ?GUARDPAGE0
 	mov eax,cr2
 	cmp eax,1000h
 	jnb @F
-	mov eax,ss:[pg0ptr]
-	or byte ptr ss:[eax],?GPBIT  ;set user bit
 	pop eax
 	jmp execclientinstr
 @@:
@@ -2738,29 +2747,29 @@ if ?MAPINT07
 else
 	@termint 07		;terminate client
 endif
-	@callrmproc 08,<ss:[intrmcbs+00*size INTRMCB].rm_vec>
+	@callrmproc 08,<ss:[intrmcbrs+00*size INTRMCBr].rm_vec>
 if 0;?CATCHREBOOT
-	@callrmproc 09,<ss:[intrmcbs+01*size INTRMCB].rm_vec>,myint09proc
+	@callrmproc 09,<ss:[intrmcbrs+01*size INTRMCBr].rm_vec>,myint09proc
 else
-	@callrmproc 09,<ss:[intrmcbs+01*size INTRMCB].rm_vec>
+	@callrmproc 09,<ss:[intrmcbrs+01*size INTRMCBr].rm_vec>
 endif
-	@callrmproc 0A,<ss:[intrmcbs+02*size INTRMCB].rm_vec>
-	@callrmproc 0B,<ss:[intrmcbs+03*size INTRMCB].rm_vec>
-	@callrmproc 0C,<ss:[intrmcbs+04*size INTRMCB].rm_vec>
-	@callrmproc 0D,<ss:[intrmcbs+05*size INTRMCB].rm_vec>
-	@callrmproc 0E,<ss:[intrmcbs+06*size INTRMCB].rm_vec>
-	@callrmproc 0F,<ss:[intrmcbs+07*size INTRMCB].rm_vec>
+	@callrmproc 0A,<ss:[intrmcbrs+02*size INTRMCBr].rm_vec>
+	@callrmproc 0B,<ss:[intrmcbrs+03*size INTRMCBr].rm_vec>
+	@callrmproc 0C,<ss:[intrmcbrs+04*size INTRMCBr].rm_vec>
+	@callrmproc 0D,<ss:[intrmcbrs+05*size INTRMCBr].rm_vec>
+	@callrmproc 0E,<ss:[intrmcbrs+06*size INTRMCBr].rm_vec>
+	@callrmproc 0F,<ss:[intrmcbrs+07*size INTRMCBr].rm_vec>
 
-	@callrmproc 70,<ss:[intrmcbs+08*size INTRMCB].rm_vec>
-	@callrmproc 71,<ss:[intrmcbs+09*size INTRMCB].rm_vec>
-	@callrmproc 72,<ss:[intrmcbs+10*size INTRMCB].rm_vec>
-	@callrmproc 73,<ss:[intrmcbs+11*size INTRMCB].rm_vec>
-	@callrmproc 74,<ss:[intrmcbs+12*size INTRMCB].rm_vec>
-	@callrmproc 75,<ss:[intrmcbs+13*size INTRMCB].rm_vec>
-	@callrmproc 76,<ss:[intrmcbs+14*size INTRMCB].rm_vec>
-	@callrmproc 77,<ss:[intrmcbs+15*size INTRMCB].rm_vec>
-	@callrmproc 1C,<ss:[intrmcbs+16*size INTRMCB].rm_vec>
-;	@callrmproc 23,<ss:[intrmcbs+17*size INTRMCB].rm_vec>
+	@callrmproc 70,<ss:[intrmcbrs+08*size INTRMCBr].rm_vec>
+	@callrmproc 71,<ss:[intrmcbrs+09*size INTRMCBr].rm_vec>
+	@callrmproc 72,<ss:[intrmcbrs+10*size INTRMCBr].rm_vec>
+	@callrmproc 73,<ss:[intrmcbrs+11*size INTRMCBr].rm_vec>
+	@callrmproc 74,<ss:[intrmcbrs+12*size INTRMCBr].rm_vec>
+	@callrmproc 75,<ss:[intrmcbrs+13*size INTRMCBr].rm_vec>
+	@callrmproc 76,<ss:[intrmcbrs+14*size INTRMCBr].rm_vec>
+	@callrmproc 77,<ss:[intrmcbrs+15*size INTRMCBr].rm_vec>
+	@callrmproc 1C,<ss:[intrmcbrs+16*size INTRMCBr].rm_vec>
+;	@callrmproc 23,<ss:[intrmcbrs+17*size INTRMCBr].rm_vec>
 
 _TEXT32 ends
 
@@ -2768,20 +2777,37 @@ _TEXT16X segment
 
 ;--- common entry for internal real-mode callbacks;
 ;--- used to route IRQs from real-mode to protected-mode;
-;--- also used for int 1ch, 23h, 24h and mouse-event proc
+;--- also used for int 1ch, 23h, 24h and mouse-event proc.
 ;--- switch to protected mode only if client has modified pm vectors!
 
 ;--- NOTE: label 'intrmcb_rm' must be beyond 19*16 (0x130), so that there
 ;--- won't be an overflow of the calculated offset. That's why it is placed
 ;--- in segment _TEXT16X.
 
-;--- the mouse event proc is somewhat different because it is no int;
-;--- however, the true real-mode mouse event code in INT33API.ASM
-;--- provides for a proper real-mode IRET frame.
+;--- the mouse event proc is somewhat different because it's expected to exit
+;--- with RETF instead of IRET. That's why entry intrmcb_rm_retf exists, which
+;--- supplies a proper IRET frame.
 
 	align 4
 
+IRQLOG	equ 0	;set to 1 if irqs are to be logged
+
 	@ResetTrace
+
+intrmcb_rm_retf proc public
+;--- entry for mouse event proc, creates a IRET frame.
+	push bp
+	mov bp,sp
+	push eax
+	pushf
+	mov eax,[bp+2]		;get cs:ip into eax
+	pop word ptr [bp+4]	;store flags at the final location
+	xchg eax,[bp+0]		;store cs:ip at the final location, get bp into ax
+	mov bp,ax
+	pop eax
+intrmcb_rm_retf endp	;fall thru'
+
+	align 4
 
 intrmcb_rm proc public
 
@@ -2796,21 +2822,21 @@ wPatchDgrp3 dw 0	;will be patched with GROUP16
 	bt cs:wIntRmCb,bp
 	jc callbackisactive
 irqrm2pm_3:
-	shl bp,4				;sizeof INTRMCB == 16!
+	shl bp,2				;sizeof INTRMCBr == 4!
 irqrm2pm_31:
 if 0;_LTRACE_
 ;--- dont display int 08h/1Ch, this spoils the log
-	cmp bp,00h*sizeof INTRMCB	;int 8?
+	cmp bp,00h*sizeof INTRMCBr	;int 8?
 	jz @F
-	cmp bp,10h*sizeof INTRMCB	;int 1C?
+	cmp bp,10h*sizeof INTRMCBr	;int 1C?
 	jz @F
 	@stroutrm <"-intrmcb %X: calling old rm handler %X:%X [bits=%X.%X]",lf>, bp,\
-		word ptr cs:[bp+offset intrmcbs].INTRMCB.rm_vec+2,\
-		word ptr cs:[bp+offset intrmcbs].INTRMCB.rm_vec+0,\
+		word ptr cs:[bp+offset intrmcbrs].INTRMCBr.rm_vec+2,\
+		word ptr cs:[bp+offset intrmcbrs].INTRMCBr.rm_vec+0,\
 		word ptr cs:[wIntRmCb+2], word ptr cs:[wIntRmCb+0]
 @@:
 endif
-	push dword ptr cs:[bp+intrmcbs].INTRMCB.rm_vec
+	pushd cs:[bp+intrmcbrs].INTRMCBr.rm_vec
 	mov bp,sp
 	mov bp,[bp+4]
 	retf 2	;skip bp on stack
@@ -2819,17 +2845,18 @@ callbackisactive:
 
 	cmp cs:[bExcEntry],-1	;host entry possible?
 	jnz irqrm2pm_3			;if no, jump to previous handler
-	shl bp,4				;sizeof INTRMCB == 16!
+	shl bp,3				;sizeof INTRMCB == 8!
 
-if 0; ?CHECKIFINRMIVT wont work currently
-	test byte ptr cs:[bp+offset intrmcbs].INTRMCB.flags, RMVFL_FARPROC
+if 0; ?CHECKIFINRMIVT wont work currently, no access of intrmcbs in rm
+	test cs:[bp+offset intrmcbs].INTRMCB.bFlags, RMVFL_FARPROC
 	jnz @F
 	push bx
-	mov bx,cs:[bp+offset intrmcbs].INTRMCB.wIvtOfs
+	movzx bx,cs:[bp+offset intrmcbs].INTRMCB.bIntNo
+	shl bx,2
 	push ds
 	push 0
 	pop ds
-	cmp word ptr [bx+2],GROUP16
+	cmp word ptr [bx+2],GROUP16	;this check is now more complex
 	@stroutrm <"-intrmcb: rm-vec %X=%X:%X",lf>,bx,[bx+2],[bx+0]
 	pop ds
 	pop bx
@@ -2841,7 +2868,7 @@ endif
 	mov cs:[tmpAXReg],ax
 	mov bx,bp
 	mov bp,sp
-	add bx, offset intrmcbs
+	add bx, lowword offset intrmcbs
 	mov ax,[bp+2].IRETSRM.rFL
 	pop bp
 
@@ -2854,30 +2881,17 @@ if ?DISINT@RM2PM
 endif
 	mov cs:[tmpFLReg],ax
 
-if 0;_LTRACE_
+if _LTRACE_ and IRQLOG
 	push bp
 	mov bp,sp
-	cmp bx,offset intrmcbs	 ;int 8?
+	cmp bx,lowword offset intrmcbs	 ;int 8?
 	jz @F
-	cmp bx,offset RMCB1C	 ;int 1C?
+	cmp bx,lowword offset RMCB1C	 ;int 1C?
 	jz @F
 	mov ax,bx
-	sub ax,offset intrmcbs
-	shr ax,4
-	mov cs:[_irq],ax
-
-	mov al,0Bh
-	out 0A0h,al
-	in al,0A0h
-	mov ah,al
-	mov al,0Bh
-	out 20h,al
-	in al,20h
-	@stroutrm <"-intrmcb:%X ISR=%X callr=%X:%X fl=%X RMF=%X cLP=%X old=%X:%X",lf>,\
-		cs:[_irq], ax, [bp+2].IRETSRM.rCS,[bp+2].IRETSRM.rIP,\
-		cs:tmpFLReg, cs:[bx].INTRMCB.flags, word ptr cs:bLPMSused,\
-		word ptr cs:[bx].INTRMCB.rm_vec+2, word ptr cs:[bx].INTRMCB.rm_vec+0
-	@stroutrm <"-intrmcb: ds=%X es=%X fs=%X gs=%X",lf>, ds, es, fs, gs
+	sub ax,lowword offset intrmcbs
+	@stroutrm <"-intrmcb_rm: #=%X cs:ip=%X:%X fl=%X ds=%X es=%X ss:sp=%X:%X",lf>,\
+		ax, [bp+2].IRETSRM.rCS, [bp+2].IRETSRM.rIP, [bp+2].IRETSRM.rFL, ds, es, ss, sp
 @@:
 	pop bp
 endif
@@ -2887,7 +2901,7 @@ endif
 ;--- raw jump in pm, ss:sp=hoststack
 ;--- ds,es,fs,gs undefined 
 
-	@rawjmp_pm intrmcb_pm,1	;store real-mode segment registers in v86iret
+	@rawjmp_pm_savesegm intrmcb_pm
 
 if _LTRACE_
 _irq	dw 0
@@ -2922,10 +2936,10 @@ intrmcb_pm proc
 
 	inc ss:[cIntRMCB]
 
-	mov ax,ss:[bx].INTRMCB.pmvec
-	test byte ptr ss:[bx].INTRMCB.flags,RMVFL_IDT ;is pmvec a IDT offset?
+	mov ax,cs:[bx].INTRMCB.pmvec
+	test cs:[bx].INTRMCB.bFlags,RMVFL_IDT ;is pmvec a IDT offset?
 	jz irqrm2pm_1
-	cmp bx,offset RMCB24		;for Int 24 BP must be translated
+	cmp bx,LOWWORD offset RMCB24	;for Int 24 BP must be translated
 	mov bx,ax
 	jnz @F						;in a selector
 	call load_pmsegs			;load client ds,es,fs,gs
@@ -2957,7 +2971,7 @@ else
 	mov dword ptr ds:[r3vectmp+0],ebx
 endif
 	pop ebx
-	mov ax,LOWWORD(offset GROUP32:r3vectmp)
+	mov ax,LOWWORD offset GROUP32:r3vectmp
 irqrm2pm_1:
 	mov [esp], ax			;set lowword of 32-bit offset of R3PROC
 	call load_pmsegs		;load client ds,es,fs,gs
@@ -2971,7 +2985,7 @@ if ?CHECKHOSTSTACK
 	jc _exitclientEx5
 endif
 
-if _LTRACE_
+if _LTRACE_ and IRQLOG
 	push eax
 	movzx eax,ax
 if ?32BIT
@@ -3005,10 +3019,11 @@ if ?COPYTF
 	mov ss:[tmpAXReg],ax
 endif
 	dec ss:[cIntRMCB]
-
-	@strout <"#intrmcb exit: fl=%X, HSTK=%lX, ss:esp=%lX:%lX",lf>,ss:[tmpFLReg],ss:[taskseg._Esp0], ss, esp
-
+if _LTRACE_ and IRQLOG
+	@strout <"#rpmstackr: fl=%X, HSTK=%lX, esp=%lX rms=%X:%X",lf>,ss:[tmpFLReg],ss:[taskseg._Esp0], esp, ss:tskstate.rmSS, ss:tskstate.rmSP
+endif
 	lea esp, [esp + sizeof IRET32]	;skip the IRET32 frame
+
 	@popstate 1						;restore client state
 	@rawjmp_rm rpmstackr_rm
 	align 4
@@ -3042,7 +3057,7 @@ if ?TRANSFL
 	or byte ptr ss:[bx].IRETSRM.rFL+1,ah
 	mov ax,cs:[tmpAXReg]
   else
-	test byte ptr cs:[bx].INTRMCB.flags,RMVFL_IDT  ;INT 1C, 23, 24?
+	test cs:[bx].INTRMCB.bFlags,RMVFL_IDT  ;INT 1C, 23, 24?
 	jz @F					;if it's a true irq, do nothing
 	mov bx,sp
 	push ax
@@ -3053,10 +3068,10 @@ if ?TRANSFL
   endif
 endif
 
-if _LTRACE_
+if _LTRACE_ and IRQLOG
 	mov bx,sp
-	@stroutrm <"-intrmcb exit ds=%X es=%X stk: cs:ip=%X:%X fl=%X stk=%X:%X",lf>,\
-		ds,es,ss:[bx+2],ss:[bx+0],ss:[bx+4],ss,sp
+	@stroutrm <"-intrmcb exit, stk: cs:ip=%X:%X fl=%X ss:sp=%X:%X",lf>,\
+		ss:[bx+2],ss:[bx+0],ss:[bx+4],ss,sp
 endif
 	mov bx,cs:[tmpBXReg]
 	iret					;real mode iret!
@@ -3464,7 +3479,6 @@ emuspecregmove:
 	@strout <"emulate 'mov eax, crx', eax=%lX", lf>, eax
 	pop eax
 	add [esp].SIMINFR.rIP,2
-;	@waitesckey
 
 	push cs
 	push offset tmpCode
@@ -3742,6 +3756,7 @@ endif
 ;*** this routine is called with new PM-IRQ-Vektor in CX:(E)DX
 ;*** from functions 31h,0205 (set pm vektor), BL=int
 ;--- dont change any register here
+;--- DS=FLAT
 
 installirqhandler proc near public
 
@@ -3783,49 +3798,44 @@ iirqxx:
 	push ss
 	pop ds
 	assume ds:GROUP16
-	movzx ax,bl
 	movzx ebx,bl
-	shl ebx,4					;16 bytes/int (size INTRMCB!!!)
-	add ebx,offset intrmcbs
-	test byte ptr [ebx].INTRMCB.flags,RMVFL_IGN;don't route this IRQ?
+	mov ax,bx
+	test cs:[ebx*8+offset intrmcbs].INTRMCB.bFlags,RMVFL_IGN;don't route this IRQ?
 	jnz done
-	test byte ptr [ebx].INTRMCB.flags,RMVFL_IDT;if [bx+6] points in IDT,
+	test cs:[ebx*8+offset intrmcbs].INTRMCB.bFlags,RMVFL_IDT;if [bx+6] points in IDT,
 									;no restauration is possible
 	jnz @F
 	test cl,4						;is it a LDT selector?
 	jnz @F
-	btr [wIntRmCb],ax
-	mov eax,[ebx].INTRMCB.orgvec		;then restore rm-vector
-	mov [ebx].INTRMCB.rm_vec, eax		;as well
+	btr [wIntRmCb],bx
+	mov eax,cs:[ebx*8+offset intrmcbs].INTRMCB.orgvec		;then restore rm-vector
+	mov [ebx*4+offset intrmcbrs].INTRMCBr.rm_vec, eax		;as well
 	@strout <"#internal callback %X deactivated, restored to %lX, cx:edx=%X:%lX",lf>,ss:iirq,eax,cx,edx
 	jmp done
 @@: 									;pm-vector will be set
 	@strout <"#internal callback %X activated, cx:edx=%X:%lX",lf>,ss:iirq, cx, edx
 	bts [wIntRmCb],ax
-	test byte ptr [ebx].INTRMCB.flags, RMVFL_SETALWAYS
+	test cs:[ebx*8+offset intrmcbs].INTRMCB.bFlags, RMVFL_SETALWAYS
 	jz done
 
 ;--- there's just one entry for all internal callbacks
 ;--- they are distinguished by the segment value of the far call
 
 	push ecx
-	mov ax, wHostSeg				;GROUP16
-	mov cx, [ebx].INTRMCB.myproc	;contains now just a number 0-19
 
-	add ax, cx
-
-	shl eax,16
-	shl cx,4
+	mov cx, ax
+	add ax, wHostSeg				;GROUP16
+	shl cx, 4
+	shl eax, 16
 	mov ax, offset intrmcb_rm
-
 	sub ax, cx
 
 	pop ecx
 
-	movzx ebx,[ebx].INTRMCB.wIvtOfs
+	movzx ebx,cs:[ebx*8+offset intrmcbs].INTRMCB.bIntNo
 	push byte ptr _FLATSEL_
 	pop ds
-	mov [ebx], eax		;set value in IVT
+	mov [ebx*4], eax		;set value in IVT
 
 done:
 	pop ds
@@ -3843,67 +3853,78 @@ if ?GUARDPAGE0
 
 	@ResetTrace
 
-@watchentry macro wAddr, wSize, wOffs
-	dw wAddr, wAddr+wSize, wOffs
+@watchentry macro wAddr, wSize, wIdx
+	dw wAddr, wAddr+wSize, wIdx
 endm
 
 watchtab label word
-	@watchentry ?SPICBASE*4, 8*4, 8*sizeof INTRMCB
-	@watchentry 23h*4, 2*4, 11h*sizeof INTRMCB
-	@watchentry 1Ch*4, 1*4, 10h*sizeof INTRMCB
-	@watchentry ?MPICBASE*4, 8*4, 0*sizeof INTRMCB
+	@watchentry ?SPICBASE*4, 8*4,  8h
+	@watchentry 23h*4,       2*4, 11h
+	@watchentry 1Ch*4,       1*4, 10h
+	@watchentry ?MPICBASE*4, 8*4,  0h
+watchtab_end label near
 
 ;*** client wants to read RM-IVT directly (address in CR2)
-;--- calc intrmcb offset in EAX
+;--- in: CR2
+;--- out: actual intrmcb in dwAddr?
 
-checkrmivtread proc
-	pushad
-	mov ss:[dwAddr],0
+checkivtread proc
+	push edi
+	push edx
 	mov eax,cr2
 	and al,0FCh
 	mov esi, offset watchtab
-	mov cl,4
 	xor edi, edi
 	xor edx, edx
 nextitem:
-	mov dx, cs:[esi+0]
-	mov di, cs:[esi+2]
+	mov dx, cs:[esi+0]	;get offset in ivt, may be 70h*4, 23h*4, 1ch*4, 8*4
+	mov di, cs:[esi+2]	;get end offset
 	cmp eax, edi
 	jnb exit
 	cmp eax, edx
 	jnb found
-	add esi, 6
-	dec cl
+	add esi, 2*3	;size of watchentry
+	cmp esi, watchtab_end
 	jnz nextitem
 exit:
-	popad
+	pop edx
+	pop edi
 	ret
 found:
-	mov ebx,eax
-	@strout <"#checkrmivtread: direct ivt read trapped %X",lf>,bx
+if 0;?VIODIROUT
+;--- output is critical if DOS or BIOS is used!
+	@strout <"#checkivtread: direct ivt read at %X trapped",lf>,ax
+endif
 	sub eax,edx	;0,4,8,...
-	shl eax,2	;0,16,32,... (sizeof INTRMCB)
-	add ax, word ptr cs:[esi+4]
-	lea esi,[eax + intrmcbs]
-	test byte ptr ss:[esi.INTRMCB.flags],RMVFL_IGN
+	shr eax,2	;0,1,2,3,4
+	add ax, word ptr cs:[esi+4]	;add start offset within intrmcbs table
+	;now eax =  0 ..  7 for mpic
+	;           8 .. 15 for spic
+	;          16,17,18 for 1Ch,23h,24h
+	lea esi,[eax*8 + intrmcbs]
+	test cs:[esi].INTRMCB.bFlags,RMVFL_IGN
 	jnz @F
 	push ds
 	mov ss:[dwAddr],esi
 	push byte ptr _FLATSEL_
 	pop ds
-	mov eax,ss:[esi].INTRMCB.rm_vec
-	mov ds:[ebx],eax	;store value in IVT
+	mov eax,ss:[eax*4 + intrmcbrs].INTRMCBr.rm_vec
+	movzx edi,cs:[esi].INTRMCB.bIntNo
+	mov ds:[edi*4],eax	;store value in IVT
 	pop ds
 @@:
-	popad
+	pop edx
+	pop edi
 	ret
 	align 4
-checkrmivtread endp
+checkivtread endp
 
 ;*** client has modified RM-IVT (address in CR2)
+;--- dwAddr=ptr INTRMCB
 
-checkrmivtwrite proc
-	pushad					;determine if it was a read or write
+checkivtwrite proc
+	push ebx					;determine if it was a read or write
+	push ecx
 	push ds
 	mov eax,cr2
 	and al,0FCh
@@ -3913,24 +3934,26 @@ checkrmivtwrite proc
 	mov ecx, ds:[ebx]		;get modified CS:IP in IVT
 
 	mov esi, ss:[dwAddr]		;get pointer to INTRMCB
+	mov ss:[dwAddr],0
 
-	mov ax, ss:[wHostSeg]		;GROUP16
-	mov dx, ss:[esi].INTRMCB.myproc		;contains now just a number
-	add ax, dx
+	sub esi, offset intrmcbs	;esi now 0,8,16,24,32,...
+	mov eax, esi
+	shr eax, 3					;eax now 0,1,2,3,...
+	add ax, ss:[wHostSeg]		;GROUP16
 	shl eax,16
-	shl dx,4
 	mov ax, offset intrmcb_rm
-	sub ax, dx
+	sub ax, si					;subtract 2* idx*8
+	sub ax, si
 	mov ds:[ebx+0],eax		;store our value in IVT
-
-	mov ss:[esi].INTRMCB.rm_vec,ecx	;store modified CS:IP
-;	or byte ptr ss:[esi.INTRMCB.flags],RMVFL_ACTIVE
-	@strout <"#checkrmivtwrite: ivt change trapped %X",lf>,bx
+	shr esi,1
+	mov ss:[esi+intrmcbrs].INTRMCBr.rm_vec,ecx	;store modified CS:IP
+	@strout <"#checkivtwrite: ivt write access trapped at %X",lf>,bx
 	pop ds
-	popad
+	pop ecx
+	pop ebx
 	ret
 	align 4
-checkrmivtwrite endp
+checkivtwrite endp
 
 endif
 
@@ -3942,15 +3965,16 @@ endif
 
 ;*** server initialization when first client starts
 ;--- DS=GROUP16, ES=FLAT
+;--- C=error (out of memory)
 
 	@ResetTrace
 
-_init2server_pm proc near
+_initfirstclient proc near
 
 	pushad
 	assume ds:GROUP16
 
-	@strout <"#init2server_pm enter",lf>
+	@strout <"#initfirstclient enter",lf>
 if ?CR0COPY
 	mov eax,cr0				;use CR0, lmsw cannot set NE bit!
 	and al, bFPUAnd
@@ -3977,7 +4001,6 @@ endif
 	jc exit
 	mov [dwLDTAddr],eax
 	@strout <"#space for LDT is allocated: %lX",lf>, eax
-;	@waitesckey
 
 ;---- commit 1. page for LDT
 
@@ -3985,43 +4008,33 @@ endif
 	jc exit
 
 	@strout <"#LDT is initialized, allocating LPMS",lf>
-;	@waitesckey
 							;alloc memory for LPMS
 	mov ecx,1
-	call _AllocSysPages
+	call _AllocSysPages		;LPMS
 	jc exit
 	@strout <"#LPMS allocated",lf>
 
 if ?LPMSINGDT
 	mov ecx, pdGDT.dwBase
-	push ds
-	push byte ptr _FLATSEL_
-	pop ds
-	mov [ecx+(_LPMSSEL_ and 0F8h].DESCRPTR.A0015,ax
+	mov es:[ecx+(_LPMSSEL_ and 0F8h].DESCRPTR.A0015,ax
 	shr eax,16
-	mov [ecx+(_LPMSSEL_ and 0F8h].DESCRPTR.A1623,al
-	mov [ecx+(_LPMSSEL_ and 0F8h].DESCRPTR.A2431,ah
-	pop ds
+	mov es:[ecx+(_LPMSSEL_ and 0F8h].DESCRPTR.A1623,al
+	mov es:[ecx+(_LPMSSEL_ and 0F8h].DESCRPTR.A2431,ah
 else
-	push ds
-	push byte ptr _SELLDT_
-	pop ds
 	mov esi,80h
-	mov [esi].DESCRPTR.A0015,ax
+	add esi,dwLDTAddr
+	mov es:[esi].DESCRPTR.A0015,ax
 	shr eax,16
-	mov [esi].DESCRPTR.A1623,al
-	mov [esi].DESCRPTR.A2431,ah
-	mov [esi].DESCRPTR.limit,0FFFh
+	mov es:[esi].DESCRPTR.A1623,al
+	mov es:[esi].DESCRPTR.A2431,ah
+	mov es:[esi].DESCRPTR.limit,0FFFh
 if ?32BIT
-	mov word ptr [esi].DESCRPTR.attrib,92h or ?PLVL + 4000h
+	mov word ptr es:[esi].DESCRPTR.attrib,92h or ?PLVL + 4000h
 else
-	mov [esi].DESCRPTR.attrib,92h or ?PLVL
+	mov es:[esi].DESCRPTR.attrib,92h or ?PLVL
 endif
-	pop ds
 endif
 if ?INT1D1E1F
-	push byte ptr _FLATSEL_
-	pop es
 	mov esi,[pdIDT.dwBase]
 	mov ecx,1Dh
 @@:
@@ -4035,8 +4048,6 @@ if ?INT1D1E1F
 	cmp cl,1Fh+1
 	jnz @B
 else					;int 1E immer umsetzen
-	push byte ptr _FLATSEL_
-	pop es
 
 	assume es:SEG16		;make sure it is 16bit
 	movzx eax,word ptr es:[1Eh*4+2]
@@ -4070,13 +4081,13 @@ endif
 	@int_31
 endif
 	clc
-	@strout <"#init2server_pm exit",lf>
+	@strout <"#initfirstclient exit",lf>
 exit:
 	popad
 	ret
 	align 4
 
-_init2server_pm endp
+_initfirstclient endp
 
 if ?TLBLATE
 
@@ -4157,6 +4168,84 @@ settlb_pm endp
 
 endif
 
+setcr0wpbit proc
+	cmp _cpu,4
+	jb @F
+	mov eax,cr0
+	or eax, CR0_WP	;set write protect bit
+	mov cr0,eax
+@@:
+	ret
+setcr0wpbit endp
+
+if ?HSINEXTMEM
+
+;--- DS=GROUP16, ES=FLAT
+;--- modifies eax,ebx,ecx,edx
+
+setuphoststack proc public
+	@strout <"#setuphoststack: reserve 3 pages for host stack",lf>
+if ?MAPDOSHIGH
+	mov ecx,3				;reserve 3 pages
+	call _AllocSysAddrSpace
+	jc error
+	mov edx, eax
+	mov ecx,2
+	mov eax,dwSSBase
+	call CopyPTEs
+	lea eax,[edx + 2 * 1000h]
+	mov ecx,1
+	push edx
+	mov dl,PTF_PRESENT or PTF_WRITEABLE
+	call _CommitRegionZeroFill
+	pop edx
+	jc error
+	mov eax, dwSSBase
+	and eax, 0FFFh
+	lea eax, [edx+eax]
+
+	lea ebx,[edx+3000h]
+	sub ebx, eax
+
+	mov edx, eax
+	neg edx
+	add edx,dwSSBase
+	add edx,offset v86iret
+	@strout <"#setuphoststack: old/new HS base=%lX/%lX, new v86iret esp=%lX",lf>, dwSSBase, eax, edx
+	mov v86iretesp, edx
+	mov dwSSBase, eax
+	mov ecx, pdGDT.dwBase
+	mov es:[ecx+_SSSEL_].DESCRPTR.A0015, ax
+	shr eax,16
+	mov es:[ecx+_SSSEL_].DESCRPTR.A1623, al
+	mov es:[ecx+_SSSEL_].DESCRPTR.A2431, ah
+else
+	mov ecx,1
+	call _AllocSysPagesX
+	jc error
+	lea ebx, [eax+1000h]
+	sub ebx, dwSSBase
+endif
+	mov eax,ebx
+	sub ebx, 0F80h
+	mov dwStackTop, ebx
+ if ?FIXTSSESP
+	mov [dwHostStack], eax
+ else
+	mov taskseg._Esp0, eax
+	push eax
+	lea eax, [eax-sizeof R3FAULT32]
+	mov [dwHostStackExc], eax
+	pop eax
+ endif
+;--- no displays until SS has been reset!
+;	@strout <"#setuphoststack: new host stack top=%lX, bottom=%lX",lf>, dwStackTop, eax
+error:
+	ret
+setuphoststack endp
+endif
+
+
 INITCLRM struct	;real mode stack frame
 wGS		dw ?
 wFS		dw ?
@@ -4209,7 +4298,7 @@ if 0
 else
 	lea edi, [eax+?RMSTKSIZE]
 endif
-	push edi				;new dwHostBase
+	push edi				;may become new dwSSBase
 	mov taskseg._Edi, edi	;save new base here temporarily
 	xor esi, esi
 	mov ecx, offset _StartOfVMData
@@ -4224,7 +4313,7 @@ endif
 	push es
 	pop ds
 	rep movsd
-	@strout <"#CreateVM: client + VM data copied",lf>
+	@strout <"#CreateVM: client + VM data copied, edi=%lX",lf>,edi
 
 	mov ecx,(?GDTLIMIT+1)/4
 if ?MOVEGDT
@@ -4251,10 +4340,10 @@ endif
 	mov edx, edi		;EDX = new GDT address
 	mov esi, ss:pdGDT.dwBase
 	rep movsd
-	@strout <"#CreateVM: GDT copied to %lX (temp location in TLB)",lf>, edx
+	@strout <"#CreateVM: GDT copied to %lX (temp location in TLB), ds=%lX",lf>, edx, ds
 gdtok:
 
-	mov eax, [esp]		;get new dwHostBase
+	mov eax, [esp]		;get new dwSSBase
 	mov [edx+_SSSEL_].DESCRPTR.A0015,ax
 	mov [edx+(_DSR3SEL_ and 0F8h)].DESCRPTR.A0015,ax
 if ?MOVEHIGHHLP
@@ -4262,11 +4351,14 @@ if ?MOVEHIGHHLP
 endif
 	shr eax,16
 	mov [edx+_SSSEL_].DESCRPTR.A1623,al
+	mov [edx+_SSSEL_].DESCRPTR.A2431,ah
 	mov [edx+(_DSR3SEL_ and 0F8h)].DESCRPTR.A1623,al
+	mov [edx+(_DSR3SEL_ and 0F8h)].DESCRPTR.A2431,ah
 if ?MOVEHIGHHLP        
 	mov [edx+_CSGROUP16_].DESCRPTR.A1623,al
+	mov [edx+_CSGROUP16_].DESCRPTR.A2431,ah
 endif
-	pop eax		;get new dwHostBase
+	pop eax		;get new dwSSBase
 	add eax, offset taskseg
 	mov [edx+_TSSSEL_].DESCRPTR.A0015,ax
 	shr eax,16
@@ -4284,6 +4376,7 @@ endif
 ;--- set DS to new GROUP16
 	push ss
 	pop ds
+
 ;--- set SS to new GROUP16 base
 	push ss
 	pop ss
@@ -4295,9 +4388,13 @@ if ?HSINEXTMEM
 	mov esp, dwSegTLB
 	shl esp, 4
 	add esp, ?TLBSIZE
-	sub esp, taskseg._Edi	;taskseg._Edi = new dwHostBase
+	sub esp, taskseg._Edi	;taskseg._Edi = new dwSSBase
 	mov taskseg._Esp0, esp
+ if ?MAPDOSHIGH
+	mov v86iretesp, offset v86iret
+ endif
 endif
+
 ;--- recreate a INITCLPM struct on new stack;
 ;--- readdress client standard registers with EBP
 ;--- if hs will be in extended memory, this will be
@@ -4316,7 +4413,7 @@ endif
 	add edi, eax
 
 	mov eax, taskseg._Edi
-	mov dwHostBase, eax
+	mov dwSSBase, eax
 	mov ecx, dwSegTLB
 	shl ecx, 4
 	test bEnvFlags2, ENVF2_LDTLOW
@@ -4339,15 +4436,16 @@ endif
 	mov wPatchDgrp2, ax	;GROUP16
 	mov wPatchDgrp3, ax	;GROUP16
 
+
 ;--- reset FM_RESIDENT and FM_TLBMCB (we use the TLB of the parent)
 ;--- also, don't assume the real-mode vectors have been saved!
 ;--- they must be resaved. 
 
-	and fMode, not (FM_RMVECS or FM_RESIDENT or FM_TLBMCB)
+	and fMode, not (FM_IVTVECS or FM_RESIDENT or FM_TLBMCB)
 	or fMode, FM_CLONE
 
 ;--- some functions of filldesc must be reexecuted here
-;--- ecx=dwHostBase
+;--- ecx=dwSSBase
 
 	lea eax,[ecx+ pdGDT]	 ;address GDT pseudo descriptor
 	mov v86topm._gdtr,eax
@@ -4365,15 +4463,8 @@ endif
 	mov int2Fhk.bInt, al	
 	mov eax, pdGDT.dwBase
 	add eax, _TSSSEL_
-	sub eax, dwHostBase
+	sub eax, dwSSBase
 	mov dwTSSdesc, eax		;this var must be init for real-mode
-
-;--- pg0ptr will be set later in pm_createvm
-;--- but it must be valid now if option -i is set
-;--- 8 is not the right value, but is a valid address which doesn't crash
-;--- update: no longer required, pg0ptr initialized to point to an unused
-;--- field in the tss.
-;	mov pg0ptr, 8
 
 if _LTRACE_
 	mov ecx, pdGDT.dwBase
@@ -4382,7 +4473,7 @@ if _LTRACE_
 	shl edx, 16
 	mov dx,es:[ecx+(_TLBSEL_ and 0F8h)].DESCRPTR.A0015
 endif
-	@strout <"#CreateVM: GDT.base=%lX, dwHostBase=%lX, wSegTLB=%X, TLB=%lX",lf>, pdGDT.dwBase, dwHostBase, wSegTLB, edx
+	@strout <"#CreateVM: GDT.base=%lX, dwSSBase=%lX, wSegTLB=%X, TLB=%lX",lf>, pdGDT.dwBase, dwSSBase, wSegTLB, edx
 ife ?FIXTSSESP
 	@strout <"#CreateVM: taskseg.esp0=%lX, dwHostStackExc=%lX",lf>, taskseg._Esp0, dwHostStackExc
 endif
@@ -4399,21 +4490,18 @@ endif
 	@strout <"#CreateVM: pm_createvm called",lf>
 
 if ?HSINEXTMEM
-	mov ecx,1
-	call _AllocSysPages		;alloc ECX pages
+	call setuphoststack
 	jc error
-	sub eax, [dwHostBase]
-	lea ecx, [eax+80h]
-	mov dwStackTop, ecx		;this is stack top
-	add eax, 1000h
-	mov taskseg._Esp0, eax
 	mov esp, ebp
 	popad
+	push ds
+	pop ds
+	push ss
+	pop ss
 	mov esp, taskseg._Esp0
 	sub esp, sizeof IRET32 + 4
 	pushad
 	mov ebp, esp
-	@strout <"#CreateVM: new host stack=%lX",lf>, taskseg._Esp0
 endif
 
 ;--- since the return address has been lost,
@@ -4468,10 +4556,11 @@ endif
 	movzx eax, wCurSP
 	add edi, eax
 
-	call _init2server_pm		;host initialization on first client
-	@strout <"#CreateVM: init2server_pm called",lf>
+	call _initfirstclient		;host initialization on first client
+	jc error
+	@strout <"#CreateVM: initfirstclient called",lf>
 
-	call savermvecs			;clears CF
+	call saveivtvecs			;clears CF
 	@strout <"#CreateVM: real-mode vectors saved for internal rmcbs",lf>
 	mov ltaskaddr, 0		;avoid to restore task state
 	@strout <"#CreateVM exit",lf>
@@ -4535,15 +4624,15 @@ _initclient_pm proc
 	@strout <"#initclient_pm: hdpmi instance=%X, RMS=%X:%X tss.esp0=%lX",lf>,\
 		ss:wHostSeg, ss:tskstate.rmSS, ss:tskstate.rmSP, ss:taskseg._Esp0
 
-	test byte ptr [fMode],FM_INIT
+	test fMode, FM_INIT
 	jnz @F
-	call _init2server_pm		;host initialization on first client
+	call _initfirstclient		;host initialization on first client
 	jc initclerr1
-	@strout <"#initclient_pm: initserver_pm returned",lf>
-	or byte ptr [fMode],FM_INIT
+	@strout <"#initclient_pm: initfirstclient returned",lf>
+	or fMode, FM_INIT
 @@:
 					;save all rm IRQ vectors to intrmcbs
-	call savermvecs	;if not done already. remains in prot-mode
+	call saveivtvecs	;if not done already. remains in prot-mode
 
 	movzx edi, wCurSS
 	shl edi, 4
@@ -4576,6 +4665,10 @@ if 0;?CR0COPY	;now done for first client only
 	or al, bFPUOr
 	mov cr0,eax
 endif
+	test bEnvFlags2,ENVF2_SYSPROT
+	jz @F
+	call setcr0wpbit
+@@:
 if ?CLEARDR6
 	xor eax, eax
 	mov dr6, eax
@@ -4636,7 +4729,6 @@ endif
 @@:
 if 0
 	@strout <"#first dos call, disp '#'",lf>
-;	@waitesckey
 	mov ah,02h
 	mov dl,'#'
 	call rmdosintern
@@ -4645,16 +4737,13 @@ if ?SAVEPSP
 	mov eax,[dwSDA]
 	mov bx,es:[eax].DOSSDA.wPSP
 	@strout <"#initclient_pm: PSP from real-mode dos=%X",lf>,bx
-;	@waitesckey
 	mov [wPSPSegm],bx
 	call getpspsel
 else
 	@strout <"#initclient_pm: first dos call, get PSP",lf>
-;	@waitesckey
 	mov ah,51h
 	@int_21
 	@strout <"#initclient_pm: protected mode PSP=%X",lf>,bx
-;	@waitesckey
 endif
 	mov es,ebx
 	assume es:SEG16
@@ -4670,9 +4759,14 @@ endif
 if ?GUARDPAGE0
 	test [bEnvFlags],ENVF_GUARDPAGE0 	;should page0 be guarded?
 	jz @F
-	mov v86topm._Eip, offset vcpi_pmentry2
-	mov eax,[pg0ptr]
-	and byte ptr [eax],not ?GPBIT ;page 0 auf "system"
+;	mov v86topm._Eip, offset vcpi_pmentry2
+	push ds
+	push _FLATSEL_
+	pop ds
+	assume ds:nothing
+	and byte ptr ds:[?PG0PTE],not ?GPBIT		;set page 0 to "system"
+	pop ds
+	assume ds:GROUP16
 @@:
 endif
 if ?INT21API
@@ -4761,7 +4855,10 @@ initclerr1:						;error global init PM
 	mov al,13h
 	jmp termserver
 initclerr10:
-	@strout <"#init err10: createvm failed",lf>
+;--- there was most likely memory allocated, which should now be released,
+;--- but there's currently no way to properly terminate the clone host
+;--- without an int 21h, ax=4c00h.
+	@strout <"#init err10: createvm failed, cApps=%X",lf>, word ptr ss:cApps
 if _LTRACE_
 	jmp initclerr1x
 endif
@@ -4777,7 +4874,7 @@ if _LTRACE_
 endif
 initclerr1x:
 	mov al,14h
-	test [fMode],FM_RESIDENT
+	test fMode, FM_RESIDENT
 	jnz termclient2
 	cmp [cApps],0
 	je termserver
@@ -4802,7 +4899,7 @@ initclerr5:						;cant alloc ENV/PSP sel
 @@:
 	mov al,11h
 initclerr:
-	test [fMode],FM_RESIDENT
+	test fMode, FM_RESIDENT
 	jnz termclient
 	cmp [cApps],1
 	jbe termserver
@@ -4827,7 +4924,7 @@ termserver:
 
 	push byte ptr _FLATSEL_
 	pop es
-	call resetrmvecs
+	call restoreivtvecs
 
 	pushd offset _initclienterr_rm
 	jmp _exitserver_pm 	;preserves ax, back in real mode
@@ -4887,6 +4984,8 @@ if ?CHECKHOSTSTACK
 _exitclientEx5 proc public
 	mov ax,_EAERR5_
 if ?HSINEXTMEM
+	cmp esp,ss:dwStackTop
+	jnc _exitclientEx
 	mov esp,ss:dwStackTop
 	lea esp, [esp+0F80h]
 else
@@ -4914,7 +5013,11 @@ endif
 _exitclientEx proc near public
 
 ife ?DOSOUTPUT
+ifdef ?VIODIROUT
+if ?VIODIROUT
 	call forcetextmode
+endif
+endif
 endif
 	@printf <lf,"hdpmi: fatal exit %X",lf,lf>,ax
 
@@ -4991,8 +5094,8 @@ endif
 if ?TLBLATE
 	call resettlb_pm
 endif
-	@strout <"#no more clients, call resetrmvecs (can server terminate?)",lf>
-	call resetrmvecs 		;check rm IVT
+	@strout <"#no more clients, call restoreivtvecs (can server terminate?)",lf>
+	call restoreivtvecs 		;check IVT
 	jc exitclient_2		;keep resident on errors
 	@strout <"#server termination would be ok",lf>
 if ?RESIDENT
@@ -5017,9 +5120,9 @@ if ?TLBLATE
 resettlb_pm proc
 
 	@strout <"#resettlb_pm, tlbseg=%X",lf>, wSegTLB
-	test fMode2,FM2_TLBLATE
+	test fMode2, FM2_TLBLATE
 	jz exit
-	test fMode,FM_TLBMCB
+	test fMode, FM_TLBMCB
 	jz exit
 	cmp wSegTLB,0
 	jz exit
@@ -5049,40 +5152,43 @@ endif
 ;--- DS=GROUP16, ES=FLAT!
 ;--- preserve EDI, EBP!
 
-savermvecs proc
+saveivtvecs proc
 
-	assume DS:GROUP16
-
-	test byte ptr [fMode],FM_RMVECS
+	test fMode, FM_IVTVECS
 	jnz exit
-	or byte ptr [fMode],FM_RMVECS
-	mov cl,SIZEINTRMCB
+	or fMode, FM_IVTVECS
+	push ds
+	push byte ptr _CSALIAS_
+	pop ds
+	assume ds:GROUP32
+	xor ecx, ecx
 	mov ebx,offset intrmcbs
 nextvec:
-	test byte ptr [ebx].INTRMCB.flags, RMVFL_IGN or RMVFL_FARPROC
+	test [ebx].INTRMCB.bFlags, RMVFL_IGN or RMVFL_FARPROC
 	jnz @F
-	movzx esi, [ebx].INTRMCB.wIvtOfs
-	mov eax,es:[esi]
-	mov [ebx].INTRMCB.rm_vec, eax
+	movzx esi, [ebx].INTRMCB.bIntNo
+	mov eax,es:[esi*4]
+	mov ss:[ecx*4 + intrmcbrs].INTRMCBr.rm_vec, eax
 	mov [ebx].INTRMCB.orgvec, eax
 
-	mov ax, wHostSeg				;GROUP16
-	mov dx,[ebx].INTRMCB.myproc		;contains now just a number
-	add ax,dx
+	mov ax, cx
+	add ax, ss:wHostSeg				;GROUP16
 	shl eax, 16
-	shl dx,4
+	mov dx, cx
+	shl dx, 4
 	mov ax, offset intrmcb_rm
 	sub ax, dx
-	mov es:[esi+0],eax				;set CS:IP in IVT
-
+	mov es:[esi*4],eax				;set CS:IP in IVT
 @@:
 	add ebx,sizeof INTRMCB
-	dec cl
+	inc ecx
+	cmp ecx,SIZEINTRMCB
 	jnz nextvec
+	pop ds
 exit:
 	ret
 	align 4
-savermvecs endp
+saveivtvecs endp
 
 ;--- this proc will first check all vectors if they can be restored
 ;--- if yes, they will be restored
@@ -5091,56 +5197,55 @@ savermvecs endp
 
 	@ResetTrace
 
-resetrmvecs proc 
+restoreivtvecs proc 
 
 	assume DS:GROUP16
 
 	pushad
-	@strout <"#resetrmvecs: try to restore rm vectors",lf>
+	@strout <"#restoreivtvecs: try to restore ivt vectors",lf>
 	mov ah, 00
-	test fMode,FM_RMVECS				;IRQ vectors modified by HDPMI?
+	test fMode, FM_IVTVECS			;IRQ vectors modified by HDPMI?
 	jz exit
 	mov di, wHostSeg				;GROUP16
 	mov cl,TESTINTRMCB				;check IRQs and i1c
 
-	test fMode,FM_CLONE
+	test fMode, FM_CLONE
 	jnz l2
 	cmp es:[2Fh*4+2], di			;check vector 2Fh in IVT
 	jz l2
-	@strout <"#resetrmvecs: rm int 2Fh cannot be restored",lf>
+	@strout <"#restoreivtvecs: rm int 2Fh cannot be restored",lf>
 	mov ah,2
 	jmp exit
 truereset:
 	mov cl,SIZEINTRMCB
 	mov ah,01
-	and byte ptr [fMode],not FM_RMVECS
+	and fMode, not FM_IVTVECS
 l2:
 	mov di, wHostSeg				;GROUP16
-	mov esi,offset intrmcbs
+	mov esi,0
 nextvec:
-	test byte ptr [esi].INTRMCB.flags,RMVFL_IGN or RMVFL_FARPROC
+	test cs:[esi*8+intrmcbs].INTRMCB.bFlags,RMVFL_IGN or RMVFL_FARPROC
 	jnz l1
-;;	and byte ptr [esi].INTRMCB.flags,not RMVFL_ACTIVE
-	mov edx,[esi].INTRMCB.orgvec	;restore rm vectors in table
-	mov [esi].INTRMCB.rm_vec, edx
-	movzx ebx,[esi].INTRMCB.wIvtOfs	;that's harmless, since table
+	mov edx,cs:[esi*8+intrmcbs].INTRMCB.orgvec		;restore rm vectors in table
+	mov [esi*4+intrmcbrs].INTRMCBr.rm_vec, edx	;that's harmless, since table
 									;will be restored immediately
 									;if there is another client
+	movzx ebx,cs:[esi*8+intrmcbs].INTRMCB.bIntNo
 	test ah,01h						;test mode?
 	jnz @F
-	cmp es:[ebx+2], di				;there might be the case
+	cmp es:[ebx*4+2], di			;there might be the case
 	jz l1							;that the app itself has restored
 									;the IVT vector
-	cmp edx,es:[ebx]
+	cmp edx,es:[ebx*4]
 	jz l1
-	@strout <"#resetrmvecs: rm int %X cannot be restored",lf>,[esi].INTRMCB.myproc
+	@strout <"#restoreivtvecs: rm int %X cannot be restored",lf>, bx
 	or ah,2							;save this in AH
 	jmp l1
 @@:
-	mov es:[ebx],edx
+	mov es:[ebx*4],edx
 l1:
 	inc di
-	add esi,sizeof INTRMCB
+	inc esi
 	dec cl
 	jnz nextvec
 	cmp ah, cl
@@ -5150,7 +5255,7 @@ exit:
 	popad
 	ret
 	align 4
-resetrmvecs endp
+restoreivtvecs endp
 
 ;--- exit the dpmi server
 ;--- this routine is actually never called without an active client;
@@ -5158,7 +5263,7 @@ resetrmvecs endp
 ;--- DS=GROUP16, ES=FLAT
 ;--- [esp]=routine to jump to (offset32) after switch to real-mode.
 
-	@ResetTrace	;@SetTrace may require to set ?USEBIOS=0 in putchr.asm
+	@ResetTrace
 
 _exitserver_pm proc
 
@@ -5171,13 +5276,12 @@ if ?WDEB386
 @@:
 endif
 	@strout <"#exitserver enter, ds=%lX es=%lX esp=%lX",lf>, ds, es, esp
-	or [fMode],FM_DISABLED		;disable int 2Fh real-mode interface
+	or fMode, FM_DISABLED		;disable int 2Fh real-mode interface
 ;	@strout <"#call mouse33_exit, esp=%lX",lf>, esp
 ;	call mouse33_exit
 	@strout <"#call pm_exit_pm, ds=%lX es=%lX esp=%lX",lf>, ds, es, esp
 	call pm_exit_pm				;modifies no general purpose register
 	@strout <"#final jump to real-mode, ds=%lX es=%lX esp=%lX",lf>, ds, es, esp
-;	@waitesckey
 	pop eax
 	pop ss:[taskseg._Esi]
 	@rawjmp_rm _exitserver_rm		;jmp rm, rm stack "undefined"
@@ -5203,7 +5307,7 @@ _TEXT16 segment
 _exitserver_rm proc
 	lss sp, cs:tskstate.rmSSSP
 	call load_rmsegs			;restore FS, GS
-	@stroutrm <"-now permanently in real-mode, ss:sp=%X:%X",lf>, ss, sp
+	@stroutrm <"-exitserver_rm: final switch to real-mode, ss:sp=%X:%X",lf>, ss, sp
 	push cs
 	pop ds
 	push word ptr [taskseg._Esi]	;push the final real-mode dest
@@ -5213,22 +5317,22 @@ if ?SAVEMSW
 	test al,1		;VM86?
 	jnz @F
 	mov ax,wMSW
-	@stroutrm <"-restoring old MSW=%X",lf>,ax
+	@stroutrm <"-exitserver_rm: restoring old MSW=%X",lf>,ax
 	lmsw ax
 @@:
 endif
-	@stroutrm <"-call pm_exit_rm",lf>
+	@stroutrm <"-exitserver_rm: call pm_exit_rm",lf>
 	call pm_exit_rm
-	@stroutrm <"-call unhookivtvecs",lf>
+	@stroutrm <"-exitserver_rm: call unhookivtvecs",lf>
 	call unhookIVTvecs		;reset IVT 2F,15 and 96 vectors
 if ?CANTEXIT
-	test fMode,FM_CANTEXIT	;could host be terminated?
+	test fMode, FM_CANTEXIT	;could host be terminated?
 	jnz @F
 endif
-	@stroutrm <"-call unlinkserver",lf>
+	@stroutrm <"-exitserver_rm: call unlinkserver",lf>
 	call unlinkserver
 @@:
-	@stroutrm <"-call disablea20",lf>
+	@stroutrm <"-exitserver_rm: call disablea20",lf>
 	call _disablea20
 if ?I2FINITEXIT
 	mov ax,1606h
@@ -5236,7 +5340,7 @@ if ?I2FINITEXIT
 	int 2Fh
 endif
 	pop ax
-	@stroutrm <"-exitserver exit, ax=%X, sp=%X",lf>, ax, sp
+	@stroutrm <"-exitserver_rm: exit, ax=%X, sp=%X",lf>, ax, sp
 	ret
 	align 4
 
@@ -5248,7 +5352,7 @@ _exitserver_rm endp
 unlinkserver proc
 	pusha
 if ?VM
-	test [fMode], FM_CLONE	;nothing to be done if this is a clone
+	test fMode, FM_CLONE	;nothing to be done if this is a clone
 	jnz @exit
 endif
 	mov dx,[wEMShandle]
@@ -5258,15 +5362,15 @@ endif
 	int 67h
 @@:
 ife ?STUB
-	@stroutrm <"-calling int 21h, ah=51h [sp=%X]",lf>,sp
+	@stroutrm <"-unlinkserver: calling int 21h, ah=51h [sp=%X]",lf>,sp
 	mov ah,51h				;get current psp in BX
 	int 21h
 	mov ax,[wHostPSP]
 	dec ax
 	mov es,ax
 	mov es:[1],bx				;set owner of host segment to cur psp
-	@stroutrm <"-set psp of mcb %X to %X",lf>,ax,bx
-	test [fMode], FM_TLBMCB		;is TLB an extra MCB?
+	@stroutrm <"-unlinkserver: set psp of mcb %X to %X",lf>,ax,bx
+	test fMode, FM_TLBMCB		;is TLB an extra MCB?
 	jz @exit
 	mov ax,[wSegTLB]
 if ?TLBLATE
@@ -5276,7 +5380,7 @@ endif
 	dec ax
 	mov es,ax
 	mov es:[1],bx
-	@stroutrm <"-set psp of mcb %X to %X",lf>,ax,bx
+	@stroutrm <"-unlinkserver: set psp of mcb %X to %X",lf>,ax,bx
 endif
 @exit:
 	popa
@@ -5305,15 +5409,15 @@ nextitem:
 	cmp es:[bx+2], dx	;is GROUP16?
 	jz @F
 if ?CANTEXIT
-	or fMode,FM_CANTEXIT
+	or fMode, FM_CANTEXIT
 endif
 	or cl,1
-	@stroutrm <"-cannot restore rm vec at %X [%X %X]",lf>, bx, ax, di
+	@stroutrm <"-unhookIVTvecs: cannot restore rm vec at %X [%X %X]",lf>, bx, ax, di
 	jmp nextitem
 @@:
 	push dword ptr [di]
 	pop dword ptr es:[bx]
-	@stroutrm <"-restored rm vec at 0000:%X",lf>, bx
+	@stroutrm <"-unhookIVTvecs: restored rm vec at 0000:%X",lf>, bx
 	mov byte ptr [si-5],-2
 	jmp nextitem
 exit:
@@ -5415,7 +5519,7 @@ endif
 	@stroutrm <"-initclient_rm: new client starting, host=%X, es=%X, ss:sp=%X:%X",lf>,cs,es,ss,sp
 
 if ?I2FINITEXIT        
-	test byte ptr [fMode],FM_INIT
+	test fMode, FM_INIT
 	jnz @F
 	call _init2server_rm		;server initialization on first client
 ;;  jc initclerrx
@@ -5423,8 +5527,7 @@ if ?I2FINITEXIT
 @@:
 endif
 
-;	@rawjmp_pm _initclient_pm, 1;save real-mode segments, SP unchanged
-	@rawjmp_pm _initclient_pm	;do no save real-mode segments
+	@rawjmp_pm _initclient_pm	;no need to save real-mode segregs
 
 _initclient_rm endp
 
@@ -5443,9 +5546,8 @@ endif
 	pop ds
 	popf
 	stc
-	@stroutrm <"client init failed, ss:sp=%X:%X, ds-gs=%X %X %X %X, ax=%X",lf>,\
-		ss, sp, ds, es, fs, gs, ax
-;	@waitesckey
+	@stroutrm <"-initclient_rm: init failed, ds-gs=%X %X %X %X, ax=%X, ss:sp=%X:%X",lf>,\
+		ds, es, fs, gs, ax, ss, sp
 	retf
 _initclienterr_rm endp
 
@@ -5529,7 +5631,7 @@ endif
 int2Frm proc far
 	pushf
 if ?CANTEXIT
-	test cs:fMode,FM_CANTEXIT
+	test cs:fMode, FM_CANTEXIT
 	jnz tryexitnow
 endif
 	cmp ah,16h
@@ -5539,7 +5641,7 @@ noint2f16:
 int2f_default:
 	@jmpoldvec 2F
 int2f16:
-	test cs:[fMode],FM_DISABLED
+	test cs:fMode, FM_DISABLED
 	jnz noint2f16
 	popf
 	cmp al,87h
@@ -5568,8 +5670,9 @@ endif
 if ?SUPI2F160A
 	cmp al,0Ah			  ;160A?
 	jnz @F
-	test cs:[bEnvFlags2],ENVF2_NOI2F160A
-	jnz @F
+;--- v3.18: removed
+;	test cs:[bEnvFlags2],ENVF2_NOI2F160A
+;	jnz @F
 	xor ax,ax
 	mov bx,?2F160AVER 	  ;get windows version
 	mov cx,?WINMODE 	  ;mode (2=standard/3=enhanced)
@@ -5689,6 +5792,7 @@ if ?WATCHDOG
 	cmp ax,0C301h				 ;enable watchdog timer?
 	jz iretwithC
 endif
+;--- respond to ah=88 and ax=e801 in "raw" mode only
 	test cs:fHost, FH_XMS or FH_VCPI
 	jnz stdint15rm
 	cmp ah,88h
@@ -5708,7 +5812,7 @@ iretwithNC:
 	mov bp,sp
 	and byte ptr [bp+6],not _CY
 	pop bp
-	iret            ;real-mode int ret!
+	iret			;real-mode iret!
 if ?WATCHDOG
 iretwithC:
 	popf
@@ -5716,11 +5820,11 @@ iretwithC:
 	mov bp,sp
 	or byte ptr [bp+6],_CY
 	pop bp
-	iret            ;real-mode int ret!
+	iret            ;real-mode iret!
 endif
 if ?CATCHREBOOT
 int154f53:
-	cmp cs:[cApps],0
+	cmp cs:[cApps],0	;hdpmi idle?
 	jz stdint15rm
 	push ds
 	push ax
@@ -5804,7 +5908,7 @@ specialint21_2:
 	mov al,ah
 specialint21_3:
 	mov ah,00
-	shl ax,4					;assume size INTRMCB == 16!!!
+	shl ax,2		;size INTRMCBr == 4!
 	add ax,offset intrmcbs
 	movzx esp,sp
 	xchg ax,[esp]
@@ -5815,19 +5919,19 @@ specialint21_3:
 	push dword ptr cs:[bx]
 	pop bx
 	pop es
-	iret            ;real-mode int ret!
+	iret			;real-mode int ret!
 setint:
 	xchg bx,[esp]
 	@stroutrm <"rm set int %X %X %X %X",lf>,ax,bx,ds,dx
 	mov cs:[bx+0],dx
 	mov cs:[bx+2],ds
 	pop bx
-	iret            ;real-mode int ret!
+	iret			;real-mode int ret!
 endif
 
 int21rm endp
 
-endif
+endif ;?TRAPINT21RM
 
 _TEXT16 ends
 

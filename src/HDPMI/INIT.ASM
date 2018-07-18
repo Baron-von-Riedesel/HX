@@ -26,7 +26,7 @@ endif
 	@seg _ITEXT32
 
 IDTSEG segment para use16 public 'CODE'
-externdef startofidtseg:byte
+externdef startofidtseg:near
 IDTSEG ends
 GROUP16 group IDTSEG
 
@@ -153,7 +153,7 @@ if ?GLOBALTLBUSAGE				;get TLB of a previously installed instance
 nohdpmi:
 endif
 if ?TLBLATE
-	test [fMode2],FM2_TLBLATE	;hdpmi started with option -b?
+	test fMode2, FM2_TLBLATE	;hdpmi started with option -b?
 	jnz exit
 endif
 	test bEnvFlags, ENVF_TLBLOW	;must TLB be in low memory?
@@ -245,15 +245,21 @@ endif
 settlb_rm endp
 
 	@ResetTrace
+
+;--- DS=GROUP16
+;--- modifies all std registers except bp
         
 filldesc proc near
 
 	assume ds:GROUP16
 
-	xor eax,eax	
+	xor eax, eax	
 	mov ax, ds				;GROUP16
 	shl eax,4
-	mov dwHostBase,eax
+	mov dwSSBase,eax
+if ?HSINEXTMEM and ?MAPDOSHIGH
+;	add v86iretesp, eax
+endif
 	mov ecx,eax
 	mov bx,_SSSEL_
 	mov si,_DSR3SEL_
@@ -274,15 +280,16 @@ endif
 	mov ax, wHostSeg32		;GROUP32
 	shl eax,4
 	mov bx,_CSSEL_
+	mov di,_CSALIAS_
 	mov si,_CSR3SEL_
 	and si,not 7
 	mov [curGDT+bx].A0015,ax
+	mov [curGDT+di].A0015,ax
 	mov [curGDT+si].A0015,ax
-;	mov [curGDT+(_DSR3SEL_ and 0F8h)].A0015,ax
 	shr eax,16
 	mov [curGDT+bx].A1623,al
+	mov [curGDT+di].A1623,al
 	mov [curGDT+si].A1623,al
-;	mov [curGDT+(_DSR3SEL_ and 0F8h)].A1623,al
 
 ife ?DYNBREAKTAB
 	mov ax,offset inttable
@@ -349,11 +356,7 @@ externdef rm2pm_brk:near
 endif
 endif
 ife ?PATCHCODE
-	mov rawjmp_rm_vector, offset rawjmp_rm_vcpi_2
-	test [bEnvFlags], ENVF_GUARDPAGE0
-	jz @F
-	mov rawjmp_rm_vector, offset rawjmp_rm_vcpi_1
-@@:
+	mov rawjmp_rm_vector, offset rawjmp_rm_vcpi
 endif
 patch_done:
 	clc
@@ -399,7 +402,7 @@ getcpu proc near
 	mov [_cpu],cl
 	cmp cl,4
 	jnc @F
-	or [fMode2],FM2_NOINVLPG
+	or fMode2, FM2_NOINVLPG
 @@:
 	ret
 getcpu endp
@@ -595,7 +598,7 @@ else
 	jb _ret2
 endif
 
-;--- set field dsSDA
+;--- set field dwSDA
 	push ds
 	mov ax,5D06h		;returns SDA in DS:SI
 	int 21h
@@ -634,17 +637,17 @@ endif
 	mov cx,llogo
 	repz cmpsb
 	jnz nohdpmi
-	or fHost,FH_HDPMI
 	assume es:GROUP16
 	@stroutrm <"-initsvr_rm: instance of HDPMI found, inst=%X, flags=%X",lf>,es, es:[wEnvFlags]
 	cmpsb				;is it the same mode (16/32)?
 	jnz @F
+	or fHost,FH_HDPMI
 	mov al, EXIT_DPMIHOST_RUNNING
 	jmp initsvr_ex		;then it can be used
 	assume es:nothing
 @@:
-	@stroutrm <"but mode is different",lf>
-	and fHost,not FH_DPMI	;make previous instance invisible
+	@stroutrm <"-but mode is different",lf>
+;	and fHost,not FH_DPMI	;make previous instance invisible
 nohdpmi:
 nodpmi:
 	mov ax,4300h		;check for XMS host
@@ -655,7 +658,7 @@ nodpmi:
 	int 2fh
 	mov word ptr [xmsaddr+0],bx
 	mov word ptr [xmsaddr+2],es
-	or [fHost], FH_XMS
+	or fHost, FH_XMS
 	test bEnvFlags, ENVF_NOXMS30
 	jnz @F
 	mov ah,00
@@ -761,6 +764,7 @@ if ?DELAYLOAD
 endif
 	cmp _cpu,4
 	jb @F
+;--- cpu > 80386, no need to check for exception 09
 	mov es,wHostSeg32
 	assume es:GROUP32
 	mov word ptr es:[intr09], PATCHVALUE2
@@ -804,17 +808,17 @@ if ?WDEB386
 endif
 
 if ?HSINEXTMEM
-;--- if host stack is supposed to be extended memory,
+;--- if host stack is supposed to be in extended memory,
 ;--- a temporary one is needed now for the first switch
 ;--- to protected-mode.
-	mov bx,40h
+	mov bx,40h	;1 kB will do
 	mov ah,48h
 	int 21h
 	jc nodosmem
 	mov word ptr taskseg._Esp, ax	;save the segment value in an unused field 
 	movzx eax,ax
 	shl eax,4
-	sub eax, dwHostBase
+	sub eax, dwSSBase
 	add eax, 400h
  if ?FIXTSSESP
 	mov [dwHostStack], eax
@@ -822,6 +826,7 @@ if ?HSINEXTMEM
 	mov taskseg._Esp0, eax
 	sub eax, sizeof R3FAULT32
 	mov [dwHostStackExc], eax
+	@stroutrm <"-initsvr_rm: temp. host stack allocated (%lX), size 1kB",lf>, taskseg._Esp0
  endif
 endif
 
@@ -850,9 +855,9 @@ _ITEXT32 segment
 	@ResetTrace
 
 _initsvr_pm proc
+
 	push ss
 	pop ds
-
 	assume ds:GROUP16
 
 	push byte ptr _FLATSEL_
@@ -860,6 +865,7 @@ _initsvr_pm proc
 	xor eax,eax				;make sure all seg regs are valid
 	mov fs,eax
 	mov gs,eax
+
 	@strout <"#initsvr_pm: start, current rmSS:SP=%X:%X, esp=%lX",lf>, tskstate.rmSS, tskstate.rmSP, esp
 if ?WDEB386
 	call initwdeb386_pm
@@ -877,22 +883,12 @@ if ?MOVEHIGH
 endif
 
 if ?HSINEXTMEM
-	@strout <"#initsvr_pm: alloc memory for host stack",lf>
-	mov ecx,1
-	call _AllocSysPages		;alloc ECX pages
+	call setuphoststack
 	jc initsvr_pm_failed
-	sub eax, [dwHostBase]
-	lea ecx, [eax+80h]
-	mov dwStackTop, ecx
-	add eax, 1000h
-	@strout <"#initsvr_pm: new host stack bottom %lX",lf>, eax
- if ?FIXTSSESP
-	mov [dwHostStack], eax
- else
-	mov taskseg._Esp0, eax
-	sub eax, sizeof R3FAULT32
-	mov [dwHostStackExc], eax
- endif
+	push ss
+	pop ss
+	mov esp, eax
+	@strout <"#initsvr_pm: new host stack bottom=%lX, top=%lX",lf>, eax, dwStackTop
 endif
 
 	@strout <"#initsvr_pm: call _movehigh",lf>
@@ -908,21 +904,25 @@ if ?MOVEHIGH
 	pop ds
 	shld ebx,eax,16
 	shl eax,16
-	mov ax, LOWWORD(offset endoftext32)-1
-	mov dword ptr [edx+_CSSEL_].DESCRPTR.limit,eax
-	mov [edx+_CSSEL_].DESCRPTR.A1623,bl
-	mov [edx+_CSSEL_].DESCRPTR.A2431,bh
-	mov dword ptr [edx+_CSALIAS_].DESCRPTR.limit,eax
-	mov [edx+_CSALIAS_].DESCRPTR.A1623,bl
-	mov [edx+_CSALIAS_].DESCRPTR.A2431,bh
+	mov ax, (LOWWORD offset endoftext32) - 1
 	mov ecx,_CSR3SEL_
+	and ecx,not 7
+	mov dword ptr [edx + _CSSEL_  ].DESCRPTR.limit,eax
+	mov dword ptr [edx + _CSALIAS_].DESCRPTR.limit,eax
+	mov dword ptr [edx + ecx      ].DESCRPTR.limit,eax
+	mov [edx + _CSSEL_  ].DESCRPTR.A1623,bl
+	mov [edx + _CSALIAS_].DESCRPTR.A1623,bl
+	mov [edx + ecx      ].DESCRPTR.A1623,bl
+	mov [edx + _CSSEL_  ].DESCRPTR.A2431,bh
+	mov [edx + _CSALIAS_].DESCRPTR.A2431,bh
+	mov [edx + ecx      ].DESCRPTR.A2431,bh
+if 0
+	mov ecx,_DSR3SEL_
 	and ecx,not 7
 	mov dword ptr [edx+ecx].DESCRPTR.limit,eax
 	mov [edx+ecx].DESCRPTR.A1623,bl
 	mov [edx+ecx].DESCRPTR.A2431,bh
-;	mov dword ptr [edx+(_DSR3SEL_ and 0F8h)].DESCRPTR.limit,eax
-;	mov [edx+(_DSR3SEL_ and 0F8h)].DESCRPTR.A1623,bl
-;	mov [edx+(_DSR3SEL_ and 0F8h)].DESCRPTR.A2431,bh
+endif
 ;	@strout <"initsvr_pm: copy done",lf>
 endif
 
@@ -1001,7 +1001,6 @@ nopmhost::						;neither VCPI nor DPMI, but in v86-mode
 
 _initsvr_rm2 endp
 
-;*** set memory strategy, then call initsvr_rm 
 ;--- out (overlay): AX=server instance (=CS)
 ;---                BX=size in paragraphs
 ;--- si,di preserved
@@ -1452,7 +1451,7 @@ mystart proc
 if _LTRACE_
 ;	int 3
 endif
-	@stroutrm <"hdpmi startup code, CS=%X, SS:SP=%X:%X",lf>,cs,ss,sp
+	@stroutrm <"-hdpmi startup code, CS=%X, SS:SP=%X:%X",lf>,cs,ss,sp
 	cld
 	push cs
 	pop ds
@@ -1503,7 +1502,7 @@ endif
 if ?STUB
 	mov word ptr ds:[0],"DH"
 	mov byte ptr ds:[2],"P"
-	or [fMode2],FM2_TLBLATE
+	or fMode2, FM2_TLBLATE
 endif
 	push es
 	call scanforhdpmistring	;assumes es=PSP
@@ -1780,7 +1779,7 @@ disableserver:
 	jc errorexit
 	mov es, ax					;set ES to running instance
 	assume es:GROUP16
-	or es:[fMode],FM_DISABLED
+	or es:fMode, FM_DISABLED
 	mov dx, offset error9
 	jmp errorexit	
 enableserver:
@@ -1789,7 +1788,7 @@ enableserver:
 	jc errorexit
 	mov es, ax					;set ES to running instance
 	assume es:GROUP16
-	and es:[fMode],not FM_DISABLED
+	and es:fMode, not FM_DISABLED
 	mov dx, offset error11
 	jmp errorexit
   endif
@@ -1819,7 +1818,7 @@ endif
 	pop ds
 	mov dx,offset error7
 	jnz errorexit
-	and es:[fMode], not FM_RESIDENT
+	and es:fMode, not FM_RESIDENT
 	mov ax,1687h
 	int 2fh						;get PM entry
 	push es
@@ -1836,7 +1835,7 @@ else
 	push ds				;just use GROUP16 for RMS here!
 	pop es				;this should still work for all cases
 endif
-	@stroutrm <"launching a client to terminate HDPMI, client seg=%X",lf>,es
+	@stroutrm <"-launching a client to terminate HDPMI, client seg=%X",lf>,es
 	assume es:nothing
 	mov ax,?32BIT
 	call dword ptr [bp]
@@ -1869,43 +1868,35 @@ if ?STUB
 else
 	mov ah,4Ch
 	jc done
-	@stroutrm <"start: _initserver_rm returned ok, ax=%X",lf>, ax
+	@stroutrm <"-start: _initserver_rm returned ok, ax=%X",lf>, ax
 
 	push ax	;save exit code
-	test [fMode],FM_RESIDENT
+	test fMode, FM_RESIDENT
 	jz @F
 	mov dx,offset error6	;"HDPMI now resident"
 	call display_string
 @@:
-
-;--- close files above 1 before going resident.
-;--- 1 may be used for displays.
-
-	mov es,wHostPSP
-
-	mov tskstate.rmSP, 100h	;used on next initial switch to pm;
-	mov tskstate.rmSS, es	;the current stack isnt valid anymore
-
-	assume es:SEG16
-	mov bx,2
-@@:
-	mov ah,3Eh
-	int 21h
-	inc bx
-	cmp bx,word ptr es:[32h]	;size file handle table
-	jc @B
-
-	xor cx, cx
-	xchg cx, es:[2Ch]
-	mov es, cx
-	mov ah,49h				;release environment
-	int 21h
 
   if ?DELAYLOAD
 	mov es, wHostSeg32
 	mov ah,49h
 	int 21h
   endif
+
+;--- release environment
+	mov es,wHostPSP
+	mov tskstate.rmSP, 100h	;used on next initial switch to pm;
+	mov tskstate.rmSS, es	;the current stack isnt valid anymore
+	assume es:SEG16
+	xor cx, cx
+	xchg cx, es:[2Ch]
+	push es
+	mov es, cx
+	mov ah,49h
+	int 21h
+	pop es
+
+;--- calculate resident size
 
 	call getendpara
 	mov ax,cs
@@ -1916,7 +1907,17 @@ else
 	add dx,?TLBSIZE/16
 @@:
 	add dx,10h	;16 paragraphs for the PSP
-	@stroutrm <"start: going resident, memory block size=%X, RMS=%X:%X",lf>, dx, tskstate.rmSS, tskstate.rmSP
+	@stroutrm <"-start: going resident, memory block size=%X, RMS=%X:%X",lf>, dx, tskstate.rmSS, tskstate.rmSP
+
+;--- close files before going resident.
+	mov bx,0
+@@:
+	mov ah,3Eh
+	int 21h
+	inc bx
+	cmp bx,5
+	jb @B
+
 	pop ax				;restore exit code
 	mov ah,31h
 done:

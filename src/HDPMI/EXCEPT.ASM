@@ -18,6 +18,20 @@
 ?RESETMOUSE		= 1 ;std 1, 1=reset mouse before getting a key
 ?SAFERMSTACK	= 0 ;std 0, 1=ensure real-mode stack is usable
 
+@checkssattr macro x,y
+local xxxx
+if ?CHECKSSIS32
+ifnb <x>
+	mov eax,x
+endif
+	lar eax,eax
+	bt eax,22
+	jc xxxx
+	movzx e&y,y
+xxxx:
+endif
+endm
+
 CONST32 segment byte use32 public 'CODE'
 CONST32 ends
 
@@ -95,9 +109,14 @@ mygetbase endp
 
 ife ?DOSOUTPUT
 
+ifndef ?VIODIROUT
+?VIODIROUT equ 0
+endif
+if ?VIODIROUT
+
 forcetextmode proc public
 if ?FORCETEXTMODE
-	test ss:[fMode2],FM2_FORCETEXT
+	test ss:fMode2, FM2_FORCETEXT
 	jz exit
 endif
 	call IsTextMode
@@ -116,6 +135,7 @@ endif
 exit:
 	ret
 forcetextmode endp
+endif
 endif
 
 	assume ds:nothing
@@ -170,7 +190,6 @@ rSSSP	df ?
 ends
 EXCFRX ends
 
-
 _exceptX proc public
 	cld
 	sub esp, 3*4	;12		;make room for a R3FAULT32 item
@@ -187,8 +206,9 @@ _exceptX proc public
 	push eax
 	mov ax,[ebp+16].EXCFRX.wExcNo
 	mov [ebp+4],ax
-	mov eax,[ebp+16].EXCFRX.rErr
 	lds esi,[ebp+16].EXCFRX.rSSSP
+	@checkssattr ds,si
+	mov eax,[ebp+16].EXCFRX.rErr
 	mov [ebp+8].R3FAULT32.rErr,eax
 if 0
 	@strout <"#sp=%X %X %X %X %X %X",lf>,\
@@ -287,14 +307,18 @@ if ?SAFERMSTACK
 	pop [tskstate.rmSSSP]
 endif
 if ?FORCETEXTMODE
+if ?VIODIROUT
 	call forcetextmode
+endif
 endif
 
 ;	test [fDebug],FDEBUG_KDPRESENT
 ;	jnz @F
 ifdef _DEBUG
+if ?KDSUPP
 	mov al, fDebug
 	mov savedfDebug, al
+endif
 	and fMode2, not FM2_NOLOG	;enable displays in case they were suppressed
 endif
 ;--- dump exception number
@@ -526,8 +550,10 @@ if ?LOGINT30
 endif
 
 ifdef _DEBUG
+if ?KDSUPP
 	mov al,[savedfDebug]
 	mov [fDebug], al
+endif
 endif
 
 ;--- dump is done
@@ -541,7 +567,7 @@ if ?WDEB386
 	jnz calldebugger
 endif
 if ?DOSOUTPUT
-	test [fMode],FM_RESIDENT
+	test fMode, FM_RESIDENT
 	mov dl,'s'
 	jz @F
 	mov dl,'c'

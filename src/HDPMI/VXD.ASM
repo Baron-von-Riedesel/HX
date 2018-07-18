@@ -10,7 +10,7 @@ if ?ENHANCED
 
 ?CLRI2F1684	= 1	;int 2f,ax=1684: set ES:E/DI to 0:0 
 ?LOG		= 1	;log unsupported int 2f,ah=1684 calls
-?DBGSTOP	= 1 ;
+?DBGSTOP	= 0 ;
 
 PR_PRIVATE	equ 80000400h
 PR_SHARED	equ 80060000h
@@ -19,7 +19,7 @@ PR_SYSTEM	equ 80080000h
 @dbgbreak macro
 if ?DBGSTOP
 if 1
-	or byte ptr [esp+2].IRETS.rFL+1,1	;set trace flag
+	or byte ptr [esp+4].IRETS.rFL+1,1	;set trace flag
 else
 	int 3
 endif
@@ -34,26 +34,27 @@ _DATA16 ends
 _TEXT32 segment
 
 vxdtab label word
-if ?SUPI2F16840001
+if ?SUPI2F16840001	;VMM
 	dw 0001h, _I2F1684_0001_
 endif
-if ?SUPI2F16840009
+if ?SUPI2F16840009	;reboot
 	dw 0009h, _I2F1684_0009_
 endif
-if ?SUPI2F16840017
+if ?SUPI2F16840017	;shell
 	dw 0017h, _I2F1684_0017_
 endif
-if ?SUPI2F16840021
+if ?SUPI2F16840021	;pagefile
 	dw 0021h, _I2F1684_0021_
 endif
-if ?SUPI2F1684002A
+if ?SUPI2F1684002A	;vwin32
 	dw 002Ah, _I2F1684_002A_
 endif
-if ?SUPI2F16840442
+if ?SUPI2F16840442	;vtdapi
 	dw 0442h, _I2F1684_0442_
 endif
 	dw 0
 
+;--- check if vxd in BX is known
 ;--- return with a near RET!
 
 checkvxd proc public
@@ -108,9 +109,7 @@ _vxd_0001 proc public
 	cmp ah,02
 	jz getdebugoptions
 if ?LOG
-	@inctrace
-	@strout <"vmm: ">
-	@dectrace
+	@printf <"vmm: ">
 	call unsuppcallx
 	@dbgbreak
 endif
@@ -145,9 +144,7 @@ if ?SUPI2F16840009
 _vxd_0009 proc public
 	push offset iret_with_CF_mod
 if ?LOG
-	@inctrace
-	@strout <"reboot: ">
-	@dectrace
+	@printf <"reboot: ">
 	call unsuppcallx
 	@dbgbreak
 endif
@@ -164,9 +161,7 @@ if ?SUPI2F16840017
 _vxd_0017 proc public
 	push offset iret_with_CF_mod
 if ?LOG
-	@inctrace
-	@strout <"shell: ">
-	@dectrace
+	@printf <"shell: ">
 	call unsuppcallx
 endif
 	xor ax,ax
@@ -182,9 +177,7 @@ if ?SUPI2F16840021
 _vxd_0021 proc public
 	push offset iret_with_CF_mod
 if ?LOG
-	@inctrace
-	@strout <"pagefile: ">
-	@dectrace
+	@printf <"pagefile: ">
 	call unsuppcallx
 endif
 	xor ax,ax
@@ -207,9 +200,7 @@ _vxd_002A proc public
 	cmp ah,3
 	jz mmgr
 if ?LOG
-	@inctrace
-	@strout <"vwin32: ">
-	@dectrace
+	@printf <"vwin32: ">
 	call unsuppcallx
 	@dbgbreak
 endif
@@ -278,10 +269,8 @@ endif
 	.elseif (al == 1)		;_PageCommit(page, nPages, x, x, flags)
 		mov eax,edx
 		shl eax,12
-		push es
 		mov dl,?PF_PRESENT or ?PF_WRITEABLE or ?PF_USER
 		call _CommitRegionZeroFill ;ecx pages at eax
-		pop es
 		.if (CARRY?)
 			xor eax,eax
 		.else

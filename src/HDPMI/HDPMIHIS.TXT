@@ -7,6 +7,8 @@
     if nesting level was > 1.
   þ bugfix: TLB was not allocated in an UMB if HDPMI itself was loaded
     low.
+  þ bugfix: options -a and -i were incompatible and caused a crash if 
+    nested execution of two clients occured.
   þ HDPMI will now use DOS for its output if an exception occurs.
     There is no longer any query if the client or the server is to
     be terminated; also, video mode is never altered by the host, making
@@ -22,6 +24,8 @@
     need additional DOS memory for a "cloned host".
   þ the standard version of HDPMI will now allocate the host stack in
     extended memory. The host stack size has been increased from 2 to 4 kB.
+  þ HDPMI does no longer respond to int 2Fh, ax=160Ah. So emvironment switch
+    HDPMI=16384 is obsolete and has been removed.
 
   09.10.2013, version 3.17
 

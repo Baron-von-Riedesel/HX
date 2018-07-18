@@ -11,6 +11,14 @@
 	include external.inc
 	include debugsys.inc
 
+?SLOWDOWN equ 1
+
+@slowdown macro
+if _LTRACE_ and ?SLOWDOWN
+	call slowdown
+endif
+endm
+
 if ?DOSOUTPUT
 ?VIODIROUT equ 0
 elseifndef ?VIODIROUT
@@ -208,6 +216,22 @@ endif
 
 endif	;?VIODIROUT
 
+if _LTRACE_ and ?SLOWDOWN
+slowdown proc
+	push ecx
+	mov ecx, 700
+@@:
+	in al,61h
+	and al,10h
+	cmp al,ah
+	mov ah,al
+	jz @B
+	loop @B
+	pop ecx
+	ret
+slowdown endp
+endif
+
 ;--- display a char in AL
 ;--- do not assume SS == GROUP16 here!
 ;--- no registers modified
@@ -319,6 +343,7 @@ if ?DOSOUTPUT
 	mov dl,al
 	mov ah,2
 	@simrmint 21h
+	@slowdown
 	jmp putchrex
 endif
 if ?BIOSOUT
@@ -336,6 +361,7 @@ usebios:
 @@:
 	mov ah,0Eh		;for graphics mode, use BIOS output routine
 	@simrmint 10h
+	@slowdown
 ;	pop ds
 endif
 putchrex:

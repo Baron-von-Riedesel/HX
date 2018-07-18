@@ -71,11 +71,11 @@ tryagain:
 heapalloc_1:
 	@strout <"#heapalloc: try to alloc a new page for heap",lf>
 	pushad
-	mov ecx,1			  ;alloc 1 page
-	call _AllocSysPagesX	  ;returns linear address in EAX
+	mov ecx,1				;1 page
+	call _AllocSysPagesX	;alloc host heap space
 	jc @F
 	@strout <"#heapalloc: new page for heap allocated: %lX",lf>,eax
-	sub eax,[dwHostBase]  ;since no FLAT model, normalize address
+	sub eax,[dwSSBase]  ;since no FLAT model, normalize address
 	mov [dwCurPg],eax
 	mov [dwCurOfs], 0
 	mov [dwMaxOfs], 1000h

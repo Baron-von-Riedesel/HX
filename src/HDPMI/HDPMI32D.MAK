@@ -1,6 +1,6 @@
 
 # nmake makefile, creates a HDPMI32 which may work with WDeb386.
-# currently untested.
+# however, currently it won't work.
 # tools used:
 #  - JWasm | Masm
 #  - JWLib | WLib (Open Watcom) | MS OMF LIB (lib16.exe)
@@ -40,7 +40,7 @@ DEPS0 = hdpmi.inc external.inc version.inc
 .SUFFIXES: .asm .obj
 
 .asm{$(OUTSTD)}.obj:
-	@jwasm -nologo -c -Cp -Sg -D?32BIT=1 $(AOPTD) -I$(INC32DIR) -Fl$* -Fo$* -D?MOVEGDT=0 -D?MOVEIDT=0 $<
+	@jwasm -nologo -c -Cp -Sg -D?32BIT=1 $(AOPTD) -I$(INC32DIR) -Fl$* -Fo$* -D?WDEB386=1 $<
 
 TARGET1=$(OUTSTD)\$(NAME).EXE 
 
@@ -52,8 +52,8 @@ $(OUTSTD):
 $(OBJMODS): $(DEPS0)
 
 $(OUTSTD)\$(NAME).EXE: $(OUTSTD)\$(SRC).obj $(OUTSTD)\$(NAME).lib $(NAME)d.mak
-	@jwlink @<<
-format DOS file $(OUTSTD)\$(SRC).obj name $*.EXE op q, map=$*.MAP, stack=0 lib $(OUTSTD)\$(NAME).lib
+	jwlink @<<
+format DOS file $(OUTSTD)\$(SRC).obj name $*.EXE lib $(OUTSTD)\$(NAME).lib op q, map=$*.MAP, stack=0
 <<
 	@..\..\BIN\SETMZHDR.EXE -q $*.EXE
 

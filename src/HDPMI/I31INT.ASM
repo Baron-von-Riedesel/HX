@@ -57,9 +57,9 @@ cirq24:
 int080f:
 	sub bl,?MPICBASE
 cirqxx:
-	shl ebx,4		   ;* 16 (assume size INTRMCB == 16)
+	shl ebx,3		   ;* 8 (assume size INTRMCB == 8)
 	add ebx,offset intrmcbs
-	push ss
+	push _CSALIAS_
 	pop ds
 	ret
 exit:
@@ -262,12 +262,12 @@ getpmivec proc public
 	@strout <"getpmintvec: int %X",lf>,bx
 	call getpmptr
 	jc getpmivec_1 	   ;C if vector in IDT is ring 0
-	mov cx,[ebx.GATE.sel]
+	mov cx,[ebx].GATE.sel
 if ?32BIT
-	mov dx,[ebx.GATE.ofs32]
+	mov dx,[ebx].GATE.ofs32
 	shl edx,16
 endif
-	mov dx,[ebx.GATE.ofs]
+	mov dx,[ebx].GATE.ofs
 	clc
 	ret
 getpmivec_1:
@@ -303,12 +303,12 @@ endif
 	@strout <"setpmintvec: return from installirqhandler %X:%lX",lf>, cx, edx
 	call getpmptr
 	jc setpmivec_1
-	mov [ebx.GATE.ofs],dx
-	mov [ebx.GATE.sel],cx
+	mov [ebx].GATE.ofs,dx
+	mov [ebx].GATE.sel,cx
 if ?32BIT
 	push edx
 	shr edx,16
-	mov [ebx.GATE.ofs32],dx
+	mov [ebx].GATE.ofs32,dx
 	pop edx
 endif
 	clc

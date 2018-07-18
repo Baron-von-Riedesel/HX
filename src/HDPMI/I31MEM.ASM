@@ -1070,8 +1070,8 @@ if ?DPMI10EX
 	@ResetTrace
 
 mapphysx proc public
-	cmp  edx, 0A0000h
-	jnc  mapx
+	cmp edx, 0A0000h
+	jnc mapx
 	mov ax,8003h
 	stc
 	ret
@@ -1093,45 +1093,51 @@ mapdos proc public
 	align 4
 mapdos endp        
 
+;*** map a physical address space
+;--- ESI=memory handle
+;--- EBX=offset within block
+;--- ECX=no of pages (0 is allowed)
+;--- EDX=linear address of memory to map
+
 mapx proc
 	pushad
 	@strout <"mapx (%X): esi=%lX, ebx=%lX, ecx=%lX, edx=%lX",lf>,ax,esi,ebx,ecx,edx
-	mov 	ebx, esi
-	call	searchhandle	;sets DS=GROUP16
-	jc		error8023
-	mov		esi, ebx
-	mov		ebx, [esp].PUSHADS.rEBX
-	test	bx,0FFFh
-	jnz		error8025
-	test	dx,0FFFh
-	jnz		error8025
-	shr		ebx, 12
-	mov		eax, [esi].MEMITEM.dwSize
-	sub		eax, ebx
-	jc		error8025
-	cmp		eax, ecx
-	jc		error8025
-	shl		ebx, 12
-	mov		eax, [esi].MEMITEM.dwBase
-	add		eax, ebx
+	mov ebx, esi
+	call searchhandle	;sets DS=GROUP16
+	jc error8023
+	mov esi, ebx
+	mov ebx, [esp].PUSHADS.rEBX
+	test bx,0FFFh
+	jnz error8025
+	test dx,0FFFh
+	jnz error8025
+	shr ebx, 12
+	mov eax, [esi].MEMITEM.dwSize
+	sub eax, ebx
+	jc error8025
+	cmp eax, ecx
+	jc error8025
+	shl ebx, 12
+	mov eax, [esi].MEMITEM.dwBase
+	add eax, ebx
 	pushad
-	call	_UncommitRegion
+	call _UncommitRegion
 	popad
-	or		[esi].MEMITEM.flags, HDLF_MAPPED
-	cmp		[esp].PUSHADS._AL,08
-	setz	bl		  
-	call	_mapphysregion			;cannot fail
+	or [esi].MEMITEM.flags, HDLF_MAPPED
+	cmp [esp].PUSHADS._AL,08
+	setz bl
+	call _mapphysregion			;cannot fail
 	popad
 	clc
 	ret
 error8023:
 	popad
-	mov		ax,8023h
+	mov ax,8023h
 	stc
 	ret
 error8025:
 	popad
-	mov		ax,8025h
+	mov ax,8025h
 	stc
 	ret
 	align 4
@@ -1152,15 +1158,15 @@ getmemsize proc public
 	pop  ebx
 	call searchhandle	;sets DS=GROUP16
 	jc error8023
-	mov  eax, [ebx].MEMITEM.dwBase
-	mov  [esp].PUSHADS.rCX, ax
-	shr  eax, 16
-	mov  [esp].PUSHADS.rBX, ax
-	mov  eax, [ebx].MEMITEM.dwSize
-	shl  eax, 12				;pages -> bytes
-	mov  [esp].PUSHADS.rDI, ax
-	shr  eax, 16
-	mov  [esp].PUSHADS.rSI, ax
+	mov eax, [ebx].MEMITEM.dwBase
+	mov [esp].PUSHADS.rCX, ax
+	shr eax, 16
+	mov [esp].PUSHADS.rBX, ax
+	mov eax, [ebx].MEMITEM.dwSize
+	shl eax, 12				;pages -> bytes
+	mov [esp].PUSHADS.rDI, ax
+	shr eax, 16
+	mov [esp].PUSHADS.rSI, ax
 	@strout <"#getmemsize (%X): returnes si:di=%lX, bx:cx=%lX",lf>,ax,si,di,bx,cx
 	clc
 	popad

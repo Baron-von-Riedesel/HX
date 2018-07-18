@@ -12,9 +12,9 @@
 ifndef ?SAVEIVT
 ?SAVEIVT	equ 0	;std=0, 1=save/restore IVT
 endif
-
 ?SAVEDR7	equ 1	;std=1, 1=save DR7 register
-?SAVELDTPTE	equ 0	;std=0, 1=save LDT PTEs only (doesnt work with dosbox!)
+
+SIZEINTRMCB	equ 19	;must match value in hdpmi.asm!
 
 if ?SAVEHOSTSP
 ?X1		equ 4
@@ -87,7 +87,7 @@ _getcldata32 endp
 
 endif
 
-;*** a new client is starting, save state of the previous one
+;*** a new client is starting, save current state
 ;*** inp: DS=GROUP16, ES=FLAT
 ;*** in detail:
 ;*** 1. CDATA segment
@@ -96,6 +96,9 @@ endif
 ;*** 4. IDT (800h)
 ;*** 5. LDT (first page) (?X4)
 ;*** 6. IVT (optionally) (?X2)
+;--- out: C = error
+;--- if a client is started by cloning the host (CreateVM called),
+;--- then saveclientstate isn't called at all.
 
 	@ResetTrace
 
@@ -109,13 +112,15 @@ _saveclientstate proc public
 if ?SAVELDTPTE
 	@strout <"#saveclientstate: calling _ClonePage for 1. LDT page",lf>
 	mov edx,[dwLDTAddr]
+	mov ecx,1
 	call _ClonePage
-	jc exit
-	@strout <"#saveclientstate: _ClonePage returned %lX",lf>, eax
-	mov ebp, eax
+	jc exit		;out of memory?
+	@strout <"#saveclientstate: 1. LDT page copied, old PTE=%lX",lf>, ecx
+	mov ebp, ecx
+	call _SetPage
 endif
 	call _getsavelength
-	@strout <"#saveclientstate: length=%lX",lf>,ecx
+	@strout <"#saveclientstate: total size of data to save=%lX",lf>, ecx
 ife ?USESYSSPACE2
 	mov edx, ecx
 	shr edx,12			;bytes -> pages
@@ -123,13 +128,13 @@ ife ?USESYSSPACE2
 	mov cl, HDLF_COMMIT
 	call _AllocMem
 	jc exit2
-	mov edi,[ebx.HDLELM.dwBase]
+	mov edi,[ebx].HDLELM.dwBase
 else
 	shr ecx,12			;bytes -> pages
 	inc ecx
-	call _AllocSysPages2
+	call _AllocSysPagesDn	;alloc space for client state
 	jc exit2
-	@strout <"#saveclientstate: AllocSysPages2()=%lX",lf>, eax
+	@strout <"#saveclientstate: AllocSysPagesDn()=%lX",lf>, eax
 	mov edi, eax
 endif
 	inc byte ptr [cApps]
@@ -248,13 +253,13 @@ endif
 	pop es					;ES=GROUP16
 
 if _LTRACE_
-	mov  bx,offset intrmcbs
-	mov  cx,0
+	mov bx,offset intrmcbrs
+	mov cx,0
 @@:
-	@strout <"#restoreclientstate: rmcb %X rmvec:%lX",lf>, cx, ss:[bx].INTRMCB.rm_vec
-	add  bx,sizeof INTRMCB
+	@strout <"#restoreclientstate: rmcb %X rmvec:%lX",lf>, cx, ss:[bx].INTRMCBr.rm_vec
+	add bx,sizeof INTRMCBr
 	inc cl
-	cmp cl,16+3
+	cmp cl,SIZEINTRMCB
 	jnz @B
 endif
 
@@ -319,9 +324,11 @@ if ?SAVELDTPTE
 	push ds
 	push ss
 	pop ds
-	mov  edx,ds:[dwLDTAddr]
+	assume ds:GROUP16
+	mov edx,[dwLDTAddr]
 	call _SetPage
 	pop ds
+	assume ds:nothing
 else
 	mov edi,ss:[dwLDTAddr] 	;restore LDT (1. page)
 	@strout <"#restoreclientstate: load LDT, dst=%lX, src=%lX",lf>,edi, esi
@@ -350,7 +357,7 @@ else
 	shr ecx, 12
 	inc ecx
 	pop eax
-	call _FreeSysPages2
+	call _FreeSysPagesDn
 endif
 
 if _LTRACE_
@@ -447,6 +454,8 @@ endif
 	align 4
 setldtinfos endp
 
+;--- DS=GROUP16, ES=FLAT
+
 EnlargeLDT proc near public
 
 	push es
@@ -464,13 +473,13 @@ EnlargeLDT proc near public
 	add eax,ecx
 @@:
 	mov ecx,1				;1 page
-	mov dl,PTF_PRESENT or PTF_USER
+	mov dl,PTF_PRESENT or PTF_WRITEABLE
 	test bEnvFlags2, ENVF2_SYSPROT
 	jnz @F
-	or dl,PTF_WRITEABLE
+	or dl,PTF_USER
 @@:
 	call _CommitRegionZeroFill
-	jc exit				;jetzt ES=FLATSEL
+	jc exit
 
 	cmp wLDTLimit,1
 	cmc

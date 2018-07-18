@@ -46,9 +46,9 @@ LCMDS=$(LOPT) file $(OUTSTUB)\$(SRC).obj name $*.BIN lib $(OUTSTUB)\$(NAME).lib 
 AOPT= -nologo -c -Cp -Sg -D?32BIT=1 -D?STUB=1 $(AOPTD) -I$(INC32DIR) -Fl$* -Fo$*
 
 !if $(MASM)
-ASM=@ml.exe
+ASM= ml.exe
 !else
-ASM=@jwasm.exe
+ASM= jwasm.exe
 !endif
 
 NAME  = HDPMI32
@@ -65,7 +65,7 @@ OUTSTUB=STUB32
 .SUFFIXES: .asm .obj
 
 .asm{$(OUTSTUB)}.obj:
-	$(ASM) $(AOPT) $<
+	@$(ASM) $(AOPT) $<
 
 ALL: $(OUTSTUB) $(OUTSTUB)\$(NAME).INC 
 
@@ -83,7 +83,7 @@ $(OUTSTUB)\$(NAME).INC: $*.BIN $(NAME)s.mak
 	@..\..\TOOLS\EXTRSECT.EXE -q -m -i $*.BIN $*.INC
 
 $(OUTSTUB)\$(NAME).BIN: $(OUTSTUB)\$(SRC).obj $(OUTSTUB)\$(NAME).lib $(NAME)s.mak
-	@$(LINK) @<<
+	$(LINK) @<<
 $(LCMDS)
 <<
 	@..\..\BIN\SETMZHDR.EXE -q $*.BIN

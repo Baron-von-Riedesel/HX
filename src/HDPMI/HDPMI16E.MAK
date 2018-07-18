@@ -1,6 +1,6 @@
 
-# nmake makefile, creates the version of HDPMI16.EXE with the
-# host stack in extended memory. Since v3.18, this is the "standard".
+# nmake makefile, creates an "enhanced" HDPMI16.EXE version
+# with some Win16 enhanced features enabled.
 # tools:
 # - JWasm | Masm
 # - WLib (Open Watcom) | MS OMF lib (lib16.exe)
@@ -18,6 +18,7 @@ MASM=0
 
 !if $(DEBUG)
 AOPTD=-Zi -D_DEBUG
+LOPTD=/LI
 !endif
 
 NAME  = HDPMI16
@@ -26,29 +27,29 @@ SRCMODS = \
 !include modules.inc
 OBJNAMES = $(SRCMODS:.ASM=.OBJ)
 !if $(DEBUG)
-OBJMODS = $(OBJNAMES:.\=STD16D\)
+OBJMODS = $(OBJNAMES:.\=ENH16D\)
 !else
-OBJMODS = $(OBJNAMES:.\=STD16\)
+OBJMODS = $(OBJNAMES:.\=ENH16\)
 !endif
 
 !if $(MASM)
-ASM = ml.exe
+ASM= ml.exe
 !else
-ASM = jwasm.exe
+ASM= jwasm.exe
 !endif
 LINK  = jwlink.exe
 
-AOPT= -nologo -c -Cp -Sg -D?32BIT=0 $(AOPTD) -I$(INC32DIR) -Fl$* -Fo$*
-LCMDS1=format DOS file $(OUTD)\$(SRC).obj name $*.EXE lib $(OUTD)\$(NAME).lib op q, map=$*.MAP, stack=0
+AOPT= -nologo -c -Cp -Sg -D?32BIT=0 -D?ENHANCED=1 $(AOPTD) -I$(INC32DIR) -Fl$* -Fo$*
+LCMDS = format DOS file $(OUTD)\$(SRC).obj name $*.EXE lib $(OUTD)\$(NAME).lib op q, map=$*.MAP, stack=0
 
-SRC = hdpmi
+SRC   = hdpmi
 
-DEPS0 = hdpmi.inc external.inc version.inc $(NAME).mak
+DEPS0 = hdpmi.inc external.inc version.inc $(NAME)e.mak
 
 !if $(DEBUG)
-OUTD=STD16D
+OUTD=ENH16D
 !else
-OUTD=STD16
+OUTD=ENH16
 !endif
 
 .SUFFIXES: .asm .obj
@@ -56,25 +57,20 @@ OUTD=STD16
 .asm{$(OUTD)}.obj:
 	@$(ASM) $(AOPT) $<
 
-ALL: $(OUTD) $(OUTD)\$(NAME).EXE 
+ALL: $(OUTD) $(OUTD)\$(NAME).EXE
 
 $(OBJMODS): $(DEPS0)
 
 $(OUTD):
 	@mkdir $(OUTD)
 
-# create the standard version
-
-$(OUTD)\$(NAME).EXE: $(OUTD)\$(SRC).obj $(OUTD)\$(NAME).lib $(NAME).mak 
+$(OUTD)\$(NAME).EXE: $(OUTD)\$(SRC).obj $(OUTD)\$(NAME).lib $(NAME)e.mak
 	$(LINK) @<<
-$(LCMDS1)
+$(LCMDS)
 <<
 	@..\..\BIN\SETMZHDR.EXE -q $*.EXE
-!if $(DEBUG)==0
-	@copy $*.EXE ..\..\Bin\*.* >NUL
-!endif
 
-$(OUTD)\$(NAME).lib: $(OBJMODS) $(NAME).mak
+$(OUTD)\$(NAME).lib: $(OBJMODS) $(NAME)e.mak
 	@cd $(OUTD)
 	@$(LIB16BIN) $(NAME).lib $(OBJNAMES:.\=+)
 	@cd ..

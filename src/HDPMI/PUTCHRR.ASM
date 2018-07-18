@@ -10,6 +10,8 @@
 
 	option proc:private
 
+?SLOWDOWN equ 1
+
 ?MONOOUT = 0
 
 ife ?DOSOUTPUT
@@ -34,6 +36,12 @@ BIOSCRT		equ 463h
 BIOSROWS	equ 484h
 
 endif	;?DOSOUTPUT
+
+@slowdown macro
+if _LTRACE_ and ?SLOWDOWN
+	call slowdown
+endif
+endm
 
 ;*** video output in real mode ***
 
@@ -79,6 +87,22 @@ else
 endif
 	ret
 _$VioSetCurPosDir endp
+endif
+
+if _LTRACE_ and ?SLOWDOWN
+slowdown proc
+	push cx
+	mov cx, 700
+@@:
+	in al,61h
+	and al,10h
+	cmp al,ah
+	mov ah,al
+	jz @B
+	loop @B
+	pop cx
+	ret
+slowdown endp
 endif
 
 ;--- $putchrx: display character in AL
@@ -136,6 +160,7 @@ ok:
 	mov dl,al
 	mov ah,2
 	int 21h
+	@slowdown
 done:
 	pop ebx
 	pop ax

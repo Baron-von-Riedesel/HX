@@ -8,13 +8,13 @@
 
 	option proc:private
 
-
 ?IDLEFILTER    = 0	;std=0, 1=dont route all int 2Fh, ax=1689 to real-mode 
-?SUPI2F1683    = 1	;std=1, 1=support int 2F,ax=1683 (get vm id)
 if ?ENHANCED
-?SUPI2F1684    = 1	;1=support int 2F,ax=1684 (vxds)
+?SUPI2F1683    = 1	;std=1, 1=support int 2F,ax=1683 (get vm id)
+?SUPI2F1684    = 1	;std=1, 1=support int 2F,ax=1684 (vxds)
 else
-?SUPI2F1684    = 0	;0=dont support int 2F,ax=1684 (vxds)
+?SUPI2F1683    = 0	;std=0
+?SUPI2F1684    = 0	;std=0
 endif
 ?SUPI2F168A    = 1	;std=1, support int 2F,ax=168A
 ?SUPI2F168A100 = 1	;std=1, int 2f,ax=168A,bx=100 ("Get LDT Selector")
@@ -32,8 +32,7 @@ i2FRefl   db 0		;reflect int 2F (ax=0x1689) into real mode
 _DATA16 ends
 endif
 
-
-_TEXT32  segment
+_TEXT32 segment
 
 _LTRACE_ = 0
 
@@ -196,8 +195,8 @@ endif
 intr2F endp
 
 
-;*** callback fuer 32-Bit DPMI extensions ***
-;*** adresse wird ueber int 2f erfragt ***
+;*** callback for 32bit DPMI extensions
+;*** address was returned via int 2F, ax=168ah
 
 _LTRACE_ = 0
 

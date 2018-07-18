@@ -80,8 +80,8 @@ HSMODS=$(OUTHSEXT)\$(SRC).obj $(OUTHSEXT)\init.obj $(OUTHSEXT)\switch.obj $(OUTH
 
 # JWLink has a somewhat strange cmdline syntax
 !if $(LINKER)==1
-LCMDS1=$(LOPT) file $(OUTHSCM)\$(SRC).obj name $*.EXE op q, map=$*.MAP, stack=0 lib $(OUTHSCM)\$(NAME).lib
-LCMDS2=$(LOPT) file {$(OUTHSCM)\$(SRC).obj $(OUTNOLFN)\INT21API.obj} name $*.EXE op q, map=$*.MAP, stack=0 lib $(OUTHSCM)\$(NAME).lib
+LCMDS1=$(LOPT) file $(OUTHSCM)\$(SRC).obj name $*.EXE lib $(OUTHSCM)\$(NAME).lib op q, map=$*.MAP, stack=0 
+LCMDS2=$(LOPT) file {$(OUTHSCM)\$(SRC).obj $(OUTNOLFN)\INT21API.obj} name $*.EXE lib $(OUTHSCM)\$(NAME).lib op q, map=$*.MAP, stack=0
 !else
 LCMDS1=$(LOPT) $(OUTHSCM)\$(SRC).obj, $*.EXE, $*.MAP, $(OUTHSCM)\$(NAME).lib;
 LCMDS2=$(LOPT) $(OUTHSCM)\$(SRC).obj $(OUTNOLFN)\INT21API.obj, $*.EXE, $*.MAP, $(OUTHSCM)\$(NAME).lib;
@@ -141,7 +141,7 @@ $(LCMDS1)
 !endif
 	@..\..\BIN\SETMZHDR.EXE -q $*.EXE
 #!if $(DEBUG)==0
-	@copy $*.EXE ..\..\UNSUPP\*.* >NUL
+#	@copy $*.EXE ..\..\UNSUPP\*.* >NUL
 #!endif     
 
 $(OUTHSCM)\$(NAME).lib: $(OBJMODS) $(NAME)a.mak

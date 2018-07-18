@@ -97,19 +97,20 @@
    HDPMI accepts the following commandline options:
 
      -a: run clients in separate address contexts. This is similar to
-         environment switch HDPMI=32.
+         environment switch HDPMI=32. Using this option is recommended.
      -b: keep the TLB only when at least 1 client is running. This
          option is useful only in conjunction with -r and will result
          in conventional memory usage of just 5 kB when HDPMI is idle. But
          be aware that this constellation may not work with all clients!
      -d: disable the last installed instance of HDPMI
      -e: reenable a disabled instance of HDPMI
-     -h: display HDPMI help screen. It will not install as TSR.
-     -i: watch direct access to the IVT to ensure hardware interrupts are
+     -h: display help only; HDPMI will not install.
+     -i: trap direct access to the IVT to ensure hardware interrupts are
          always routed to protected mode. This is similar to environment
          switch HDPMI=1.
-     -k: if a register dump is to be displayed, make sure that the screen
-         is in text mode. Versions prior to 3.13 did this in any case.
+     -k: abandoned since v3.18. ( in previous versions, this option was
+         used to ensure that the screen is in text mode if a register dump
+         was to be displayed ).
      -l: TLB will be allocated in low DOS memory. Useful if DOS UMBs
          are slow or not accessible by DMA.
      -m: disables support for DPMI 1.0 memory functions (AX >= 0504h).
@@ -160,7 +161,7 @@
    this variable one may modify HDPMI's behavior. It is interpreted as bit
    values, so one may set any combination of the following values:
 
-   HDPMI=1:  this option makes the host aware of direct IVT access
+   HDPMI=1:  this option makes the host trap direct IVT access
              (read/writes to linear address range 0-3FFh) in protected mode.
              Thus it can ensure that IRQs are always handled in protected mode 
              first. If the option is set, opcode INVLPG is used, which is
@@ -180,10 +181,11 @@
    HDPMI=32: run clients in separate address contexts. This option may be
              needed to allow nested execution of clients which cannot share
              an address space. The conventional memory region 0-10FFFFh
-             is still shared, though. Furthermore, setting this switch will
-             increase the client's DOS memory consumtion, since most parts
-             of the host's DOS memory usage must then be client specific.
-             Same effect as command line option -a.
+             is still shared, though. Setting this switch will increase the
+             second (and further ) client's DOS memory footprint by about 
+             2 kB. OTOH, the system is more stable, an abnormal termination of
+             a client should leave the other clients unaffected. Same effect
+             as command line option -a.
    HDPMI=64: don't use XMS v3+ functions. This should make HDPMI compatible
              with XMS hookers which aren't aware of XMS v3 (WSWAP.EXE). It
              will also restrict the amount of free memory the host reports.
@@ -206,8 +208,9 @@
    HDPMI=4096: 'safe' mode. Don't allow client to write to GDT, IDT and LDT.
    HDPMI=8192: stop in debugger after client's initial switch to protected
              mode.
-   HDPMI=16384: causes HDPMI to not respond to int 2Fh, ax=160Ah. This allows
-             to start Windows 3.1 WIN.COM while HDPMI is loaded resident.
+   HDPMI=16384: obsolete since HDPMI v3.18. Previously, it caused HDPMI not
+             to respond to int 2Fh, ax=160Ah. This allowed to start Windows
+             3.1 WIN.COM while HDPMI was loaded resident.
    HDPMI=32768: prevents HDPMI from modifying CR0 NE bit. Same effect as
              command line option -t.
 
@@ -247,6 +250,18 @@
      restore the old value. Most likely this is interrupt 2Fh.
    - "no disabled instance of HDPMI found": may occur when starting HDPMI
      with option "-e". 
+
+   There are also a few runtime error messages:
+   
+   - "hdpmi: cannot initialize", means that the conditions required by
+     hdpmi to start ( memory, DOS version,... ) were not met.
+   - "hdpmi: fatal exit nnnn", where <nnnn> may be:
+      þ 0005: host stack exhausted due to too many nested mode switches.
+      þ 0006: no more descriptors available for translation services.
+   - "hdpmi: ctrl-alt-delete detected, app terminated", if the user
+     pressed the Ctrl-Alt-Del key combination while a client was active.
+     Note that a DPMI-TSR cannot be removed from memory by this way,
+     because it isn't regarded as "active".
 
 
  6. Implementation Details
@@ -655,6 +670,11 @@
 
    a) Support in Protected Mode
 
+   Since v3.18, debug support is disabled in the standard version. 
+   There are Makefiles supplied to generate a version that has 
+   debug support enabled. The following is valid for those versions
+   only.
+
    HDPMI supports Int 41h processing in protected mode. HDPMI provides
    that ring 0 Int 41h calls are not reflected in ring 3. It's also
    ensured that no Int 41h call will be reflected to real mode.
@@ -844,10 +864,11 @@
    - Qualitas 386Max (V6.02, V7.02)
 
 
- 10. License
+ 10. License & Contact
 
    HDPMI is part of the HX DOS extender runtime, which is freeware. It may
-   be used for any purpose. Copyright Japheth 1993-2009.
+   be used for any purpose. Copyright Japheth 1993-2018. 
+   Email: japhethx@googlemail.com.
 
-   Japheth ( http://www.japheth.de )
+   Japheth ( Andreas Grech )
 

@@ -83,7 +83,7 @@ myxmshandler proc
 	nop
 @@:
 if 0
-	test cs:[fMode], FM_DISABLED
+	test cs:fMode, FM_DISABLED
 	jnz @F
 endif
 	cmp ah,?ENABLE
@@ -287,10 +287,10 @@ endif
 	call _GetA20State
 	ret
 @@:
-	@stroutrm <"-calling XMS enable A20",lf>
+	@stroutrm <"-enablea20: calling XMS enable A20",lf>
 	mov ah,?ENABLE
 	call [xmsaddr]
-	@stroutrm <"-install XMS hook",lf>
+	@stroutrm <"-enablea20: install XMS hook",lf>
 	call setmyxmshandler
 exit:
 	ret
@@ -305,13 +305,13 @@ endif
 
 _disablea20 proc public
 
-	@stroutrm <"-disable a20 enter",lf>
+	@stroutrm <"-disablea20: enter",lf>
 	push di
 	les di,[oldxms]	;dont test FH_XMS here, may have been cleared
 	mov ax,es
 	or ax,di
 	jz @F
-	@stroutrm <"-uninstall XMS hook, previous addr=%X:%X",lf>,es,bx
+	@stroutrm <"-disablea20: uninstall XMS hook, previous addr=%X:%X",lf>,es,bx
 	cld
 	push si
 	mov si,offset myxmshandler
@@ -319,11 +319,11 @@ _disablea20 proc public
 	sub di,cx
 	rep movsb
 	pop si
-	@stroutrm <"-calling XMS disable A20",lf>
+	@stroutrm <"-disablea20: calling XMS disable A20",lf>
 	mov ah,?DISABLE
 	call [xmsaddr]
 @@:
-	@stroutrm <"-disable A20 exit",lf>
+	@stroutrm <"-disablea20: exit",lf>
 	pop di
 	ret
 _disablea20 endp

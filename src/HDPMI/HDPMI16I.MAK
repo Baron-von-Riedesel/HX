@@ -20,6 +20,8 @@ AOPTD=-Zi -D_DEBUG
 LOPTD=
 !endif
 
+NAME  = HDPMI16
+
 SRCMODS = \
 !include modules.inc
 OBJNAMES = $(SRCMODS:.ASM=.OBJ)
@@ -29,19 +31,16 @@ OBJMODS = $(OBJNAMES:.\=IOPL016D\)
 OBJMODS = $(OBJNAMES:.\=IOPL016\)
 !endif
 
-LINK  = jwlink.exe
-LOPT  = format DOS
-
-LCMDS1=$(LOPT) file $(OUTIOPL0)\$(SRC).obj name $*.EXE lib $(OUTIOPL0)\$(NAME).lib op q, map=$*.MAP, stack=0 
-AOPT= -nologo -c -Cp -Sg -D?32BIT=0 -D?PMIOPL=00 $(AOPTD) -I$(INC32DIR) -Fl$* -Fo$*
-
 !if $(MASM)
-ASM=@ml.exe
+ASM = ml.exe
 !else
-ASM=@jwasm.exe
+ASM = jwasm.exe
 !endif
+LINK  = jwlink.exe
 
-NAME  = HDPMI16
+AOPT   = -nologo -c -Cp -Sg -D?32BIT=0 -D?PMIOPL=00 $(AOPTD) -I$(INC32DIR) -Fl$* -Fo$*
+LCMDS1 = format DOS file $(OUTIOPL0)\$(SRC).obj name $*.EXE lib $(OUTIOPL0)\$(NAME).lib op q, map=$*.MAP, stack=0 
+
 SRC   = hdpmi
 
 DEPS0 = hdpmi.inc external.inc version.inc
@@ -55,7 +54,7 @@ OUTIOPL0=IOPL016
 .SUFFIXES: .asm .obj
 
 .asm{$(OUTIOPL0)}.obj:
-	$(ASM) $(AOPT) $<
+	@$(ASM) $(AOPT) $<
 
 ALL: $(OUTIOPL0) $(OUTIOPL0)\$(NAME).EXE
 
@@ -65,7 +64,7 @@ $(OUTIOPL0):
 	@mkdir $(OUTIOPL0)
 
 $(OUTIOPL0)\$(NAME).EXE: $(OUTIOPL0)\$(SRC).obj $(OUTIOPL0)\$(NAME).lib
-	@$(LINK) @<<
+	$(LINK) @<<
 $(LCMDS1)
 <<
 	@..\..\BIN\SETMZHDR.EXE -q $*.EXE

@@ -1,9 +1,7 @@
 
-# nmake makefile, creates various HDPMI16.EXE versions:
+# nmake makefile, creates 2 HDPMI16.EXE versions:
 # - the (old) "standard" version with host stack in conv. memory
 # - the "nolfn" version with LFN API translation support disabled
-# - the "enhanced" version with some Win16 enhanced features enabled
-#   attached to the client binary.
 # tools:
 # - JWasm | Masm
 # - WLib (Open Watcom) | MS OMF lib (lib16.exe)
@@ -62,13 +60,11 @@ LOPT  = format DOS
 !endif
 
 !if $(LINKER)==1
-LCMDS1=$(LOPT) file $(OUTSTD)\$(SRC).obj name $*.EXE op q, map=$*.MAP, stack=0 lib $(OUTSTD)\$(NAME).lib
-LCMDS2=$(LOPT) file {$(OUTSTD)\$(SRC).obj $(OUTNOLFN)\INT21API.obj} name $*.EXE op q, map=$*.MAP, stack=0 lib $(OUTSTD)\$(NAME).lib
-LCMDS3=$(LOPT) file {$(OUTENH)\$(SRC).obj $(OUTENH)\INT2FAPI.obj $(OUTENH)\INT31API.obj $(OUTENH)\vxd.obj} name $*.EXE op q, map=$*.MAP, stack=0 lib $(OUTSTD)\$(NAME).lib
+LCMDS1=$(LOPT) file $(OUTD)\$(SRC).obj name $*.EXE lib $(OUTD)\$(NAME).lib op q, map=$*.MAP, stack=0
+LCMDS2=$(LOPT) file {$(OUTD)\$(SRC).obj $(OUTNOLFN)\INT21API.obj} name $*.EXE lib $(OUTD)\$(NAME).lib op q, map=$*.MAP, stack=0
 !else
-LCMDS1=$(LOPT) $(OUTSTD)\$(SRC).obj, $*.EXE, $*.MAP, $(OUTSTD)\$(NAME).lib;
-LCMDS2=$(LOPT) $(OUTSTD)\$(SRC).obj $(OUTNOLFN)\INT21API.obj, $*.EXE, $*.MAP, $(OUTSTD)\$(NAME).lib;
-LCMDS3=$(LOPT) $(OUTENH)\hdpmi.obj $(OUTENH)\INT2FAPI.obj $(OUTENH)\INT31API.obj $(OUTENH)\vxd.obj , $*.EXE, $*.MAP, $(OUTSTD)\$(NAME).lib;
+LCMDS1=$(LOPT) $(OUTD)\$(SRC).obj, $*.EXE, $*.MAP, $(OUTD)\$(NAME).lib;
+LCMDS2=$(LOPT) $(OUTD)\$(SRC).obj $(OUTNOLFN)\INT21API.obj, $*.EXE, $*.MAP, $(OUTD)\$(NAME).lib;
 !endif
 
 AOPT= -nologo -c -Cp -Sg -D?32BIT=0 -D?HSINEXTMEM=0 $(AOPTD) -I$(INC32DIR) -Fl$* -Fo$*
@@ -85,36 +81,31 @@ SRC   = hdpmi
 DEPS0 = hdpmi.inc external.inc version.inc
 
 !if $(DEBUG)
-OUTSTD=HSCM16D
+OUTD=HSCM16D
 OUTNOLFN=NOLFN16D
-OUTENH=ENH16D
 !else
-OUTSTD=HSCM16
+OUTD=HSCM16
 OUTNOLFN=NOLFN16
-OUTENH=ENH16
 !endif
 
 .SUFFIXES: .asm .obj
 
-.asm{$(OUTSTD)}.obj:
+.asm{$(OUTD)}.obj:
 	$(ASM) $(AOPT) $<
 
-ALL: $(OUTSTD) $(OUTNOLFN) $(OUTENH) $(OUTSTD)\$(NAME).EXE $(OUTNOLFN)\$(NAME).EXE $(OUTENH)\$(NAME).EXE
+ALL: $(OUTD) $(OUTNOLFN) $(OUTD)\$(NAME).EXE $(OUTNOLFN)\$(NAME).EXE
 
 $(OBJMODS): $(DEPS0)
 
-$(OUTSTD):
-	@mkdir $(OUTSTD)
+$(OUTD):
+	@mkdir $(OUTD)
 
 $(OUTNOLFN):
 	@mkdir $(OUTNOLFN)
 
-$(OUTENH):
-	@mkdir $(OUTENH)
+# create the old "standard" version
 
-# create the standard version
-
-$(OUTSTD)\$(NAME).EXE: $(OUTSTD)\$(SRC).obj $(OUTSTD)\$(NAME).lib $(NAME)a.mak $(OUTNOLFN)\int21api.obj 
+$(OUTD)\$(NAME).EXE: $(OUTD)\$(SRC).obj $(OUTD)\$(NAME).lib $(NAME)a.mak $(OUTNOLFN)\int21api.obj 
 	$(LINK) @<<
 $(LCMDS1)
 <<
@@ -122,18 +113,18 @@ $(LCMDS1)
 	@..\..\BIN\SHRMZHDR.EXE $*.exe
 !endif     
 	@..\..\BIN\SETMZHDR.EXE -q $*.EXE
-!if $(DEBUG)==0
+#!if $(DEBUG)==0
 #	@copy $*.EXE ..\..\Bin\*.* >NUL
-!endif
+#!endif
 
-$(OUTSTD)\$(NAME).lib: $(OBJMODS) $(NAME)a.mak
-	@cd $(OUTSTD)
+$(OUTD)\$(NAME).lib: $(OBJMODS) $(NAME)a.mak
+	@cd $(OUTD)
 	@$(LIB16BIN) $(NAME).lib $(OBJNAMES:.\=+)
 	@cd ..
 
 # create the "no LFN" version
 
-$(OUTNOLFN)\$(NAME).EXE: $(OUTSTD)\$(SRC).obj $(OUTNOLFN)\INT21API.obj $(OUTSTD)\$(NAME).lib $(NAME)a.mak
+$(OUTNOLFN)\$(NAME).EXE: $(OUTD)\$(SRC).obj $(OUTNOLFN)\INT21API.obj $(OUTD)\$(NAME).lib $(NAME)a.mak
 	$(LINK) @<<
 $(LCMDS2)
 <<
@@ -145,43 +136,13 @@ $(LCMDS2)
 $(OUTNOLFN)\INT21API.obj: INT21API.asm $(DEPS0)
 	$(ASM) $(AOPT) -D?LFNSUPPORT=0 INT21API.asm
 
-# create the "windows enhanced mode" version
-
-$(OUTENH)\$(NAME).exe: $(OUTENH)\hdpmi.obj $(OUTENH)\int2fapi.obj $(OUTENH)\int31api.obj $(OUTENH)\vxd.obj $(OUTSTD)\$(NAME).lib $(NAME)a.mak
-	$(LINK) @<<
-$(LCMDS3)
-<<
-!if $(LINKER)==2
-	@..\..\BIN\SHRMZHDR.EXE $*.EXE
-!endif
-	@..\..\BIN\SETMZHDR.EXE -q $*.EXE
-#!if $(DEBUG)==0    
-#	@copy $*.EXE ..\..\Unsupp
-#!endif     
-
-$(OUTENH)\hdpmi.obj: hdpmi.asm $(DEPS0)
-	$(ASM) $(AOPT) -D?ENHANCED=1 hdpmi.asm
-
-$(OUTENH)\INT2FAPI.obj: INT2FAPI.asm $(DEPS0)
-	$(ASM) $(AOPT) -D?ENHANCED=1 INT2FAPI.asm
-
-$(OUTENH)\INT31API.obj: INT31API.asm $(DEPS0)
-	$(ASM) $(AOPT) -D?ENHANCED=1 INT31API.asm
-
-$(OUTENH)\vxd.obj: vxd.asm $(DEPS0)
-	$(ASM) $(AOPT) -D?ENHANCED=1 vxd.asm
-
 clean:
-	@del $(OUTSTD)\*.obj
-	@del $(OUTSTD)\*.lib
-	@del $(OUTSTD)\*.exe
-	@del $(OUTSTD)\*.map
-	@del $(OUTSTD)\*.lst
+	@del $(OUTD)\*.obj
+	@del $(OUTD)\*.lib
+	@del $(OUTD)\*.exe
+	@del $(OUTD)\*.map
+	@del $(OUTD)\*.lst
 	@del $(OUTNOLFN)\*.exe
 	@del $(OUTNOLFN)\*.obj
 	@del $(OUTNOLFN)\*.lst
 	@del $(OUTNOLFN)\*.map
-	@del $(OUTENH)\*.obj
-	@del $(OUTENH)\*.exe
-	@del $(OUTENH)\*.map
-	@del $(OUTENH)\*.lst

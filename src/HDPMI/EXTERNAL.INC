@@ -34,18 +34,18 @@ unsuppcallx proto near
 
 ;--- heap
 
-_heapalloc proto near
-_allocmemhandle proto near
-_freememhandle proto near
-_addmemhandle proto near
-;_linkmemhandle proto near
+_heapalloc        proto near
+_allocmemhandle   proto near
+_freememhandle    proto near
+_addmemhandle     proto near
+;_linkmemhandle   proto near
 ;_unlinkmemhandle proto near
 
 ;--- output routines
 
 _stroutx proto near
 ife ?DOSOUTPUT
-IsTextMode proto near
+IsTextMode    proto near
 forcetextmode proto near
 endif
 ;_putchrx proto near 
@@ -82,7 +82,7 @@ copy_tlb_2_dsdx proto near    ;copy cx bytes from tlb:0 to DS:E/DX
 copy_esdi_2_tlb proto near    ;copy cx bytes from ES:E/DI to tlb:0, v86-ds=TLB
 copy_tlb_2_esdi proto near    ;copy cx bytes from tlb:0 to ES:E/DI
 
-copy_tlbxx_2_esdi proto near  ;copy xx bytes from tlb:yy to ES:E/DI
+copy_tlbxx_2_esdi  proto near ;copy xx bytes from tlb:yy to ES:E/DI
 copy_far32_2_tlbxx proto near ;copy xx bytes from far32 to tlb:xx
 
 copyz_far32_2_tlbxx proto near 
@@ -101,18 +101,18 @@ copyz_tlb_2_dssi proto near   ;copy asciiz form TLB:0 to DS:E/SI
 copyz_tlb_2_dsdx proto near   ;copy asciiz form TLB:0 to DS:E/DX
 
 _AllocDosMemory proto near
-_FreeDosMemory proto near
+_FreeDosMemory  proto near
 
-selector_alloc proto near
+selector_alloc  proto near
 selector_resize proto near
-selector_free proto near
-selector_avail proto near
+selector_free   proto near
+selector_avail  proto near
 
 bx_sel2segm proto near        
-sel2segm proto near        
+sel2segm    proto near        
 ds_segm2sel proto near        
 es_segm2sel proto near        
-segm2sel proto near           
+segm2sel    proto near           
 
 setdsreg2tlb proto near       
 setesreg2tlb proto near       
@@ -122,9 +122,9 @@ setpspsel proto near
 
 getlinaddr proto near         
 
-getmysel proto near           
+getmysel     proto near           
 getmyseldata proto near       
-getmyselx proto near          
+getmyselx    proto near          
 if ?32BIT
 getmyseldatabig proto near
 endif
@@ -135,9 +135,9 @@ intr23 proto near
 intr24 proto near            
 intr25 proto near            
 intr26 proto near            
-PrepareDiskIoRead proto near 
+PrepareDiskIoRead  proto near 
 PrepareDiskIoWrite proto near
-AfterDiskIoRead proto near   
+AfterDiskIoRead    proto near   
 
 ;--- clients
 
@@ -171,10 +171,10 @@ intr41_ proto near		;int 41 handler ring 3
 ;--- intxxapi.asm
 
 intr10_ proto near
-intr13 proto near	
-intr15 proto near	
+intr13  proto near	
+intr15  proto near	
 mouse15_reset proto near
-intr4B proto near	
+intr4B  proto near	
 
 ;--- hdpmi
 
@@ -190,6 +190,9 @@ callrmprocintern proto near	 ;call real-mode near proc from inside host
 _myinit proto near			 
 retf2exit proto near		 ;adjust all std flags, then perform IRETD
 iret_with_CF_mod proto near  ;adjust CF, then perform IRETD
+if ?HSINEXTMEM
+setuphoststack proto near
+endif
 
 _exitclient_pm proto near	 ;terminate client
 _exitclientEx proto near	 ;enter text mode, then terminate client
@@ -207,7 +210,6 @@ _rawjmp_rm proto near		;@rawjmp_rm, raw jump real-mode, sp unchanged
 _jmp_rm proto near			;@jmp_rm, full switch to real-mode, ss:sp=RMS
 
 vcpi_pmentry proto near
-vcpi_pmentry2 proto near
 
 externdef _RETCB_:abs
 externdef _RMSWT_:abs
@@ -238,11 +240,11 @@ externdef taskseg:TSSSEG
 BEGTEXT16 ends
 
 ENDTEXT16 segment
-externdef endof16bit:byte
+externdef endof16bit:near
 ENDTEXT16 ends
 
 ENDTEXT32 segment
-externdef endof32bit:byte
+externdef endof32bit:near
 ENDTEXT32 ends
 
 CDATA16 segment
@@ -252,8 +254,7 @@ CDATA16 ends
 _TEXT32 segment
 externdef intr09:near
 externdef rawjmp_rm_novcpi:near
-externdef rawjmp_rm_vcpi_1:near
-externdef rawjmp_rm_vcpi_2:near
+externdef rawjmp_rm_vcpi:near
 _TEXT32 ends
 
 _TEXT16 segment
@@ -291,6 +292,7 @@ externdef dbgpminit:fword
 externdef dwFeatures:dword
 externdef int15hk:IVTHOOK
 externdef wEMShandle:word
+externdef intrmcbrs:INTRMCBr
 
 if ?DYNBREAKTAB
 externdef _MAXCB_:abs
@@ -298,12 +300,6 @@ externdef pmbpdes:DESCRPTR
 endif
 
 externdef dtaadr:fword
-
-if ?USEINTS
-externdef intnr0:byte
-else
-externdef calladdr0:dword
-endif
 
 if ?LDTROSEL
 externdef selLDTsafe:word
@@ -314,8 +310,8 @@ externdef _StartOfClientData:near16
 externdef _EndOfClientData:near16
 externdef _cpu:byte
 
-externdef dwRetAdr:dword
-externdef dwRetAdr2:dword
+externdef dwPmDest:dword
+externdef dwPmDest2:dword
 
 externdef curIDT:near16			;address IDT (valid during startup only)
 externdef curGDT:DESCRPTR		;address GDT (valid during startup only)
@@ -344,7 +340,7 @@ externdef cApps:byte			;cnt active clients
 externdef bLPMSused:byte		;flag LPMS used
 externdef cRMCB:word			;count open real-mode callbacks
 externdef cIntRMCB:word			;count open internal real-mode callbacks
-externdef dwHostBase:dword		;linear address host CS/DS (GROUP16)
+externdef dwSSBase:dword		;linear address base of host stack
 externdef wHostSeg:word			;segment host CS/DS (==GROUP16)
 externdef dwHostSeg:dword		;segment host CS/DS (==GROUP16)
 externdef dwTSSdesc:DWORD		;normalized address TSS descriptor
@@ -361,15 +357,13 @@ externdef fXMSAlloc:byte		;XMS alloc command (v2/v3)
 externdef fXMSQuery:byte		;XMS query command (v2/v3)
 externdef ltaskaddr:dword		;linear address next client data
 externdef pMemItems:dword		;start list of memory items
-externdef pg0ptr:dword			;for page 0 access guard
 ;externdef rmcbs:RMCB			;start client real-mode callbacks
 externdef rmsels:dword			;start real-mode selector list
-externdef intrmcbs:INTRMCB		;start internal real-mode callbacks
 externdef szVirtual:byte		;string "VIRTUAL SUPPORT"
 externdef tskstate:TASKSTATE	;client task state
 externdef v86iret:V86IRET		;client v86/real-mode segments
 externdef vcpiOfs:dword			;offset VCPI host entry
-externdef vcpicall:PF32			;address VCPI host entry (pm)
+externdef vcpicall:PF32			;address VCPI host entry (used by pm)
 externdef v86topm:VCPIRM2PM		;contains CR3
 if ?FIXTSSESP
 externdef dwHostStack:dword		;current value of host stack
@@ -385,8 +379,8 @@ externdef wVersion:word			;DPMI version
 externdef xmsaddr:PF16			;XMS entry (RM)
 ;externdef rmpsp:word			;current real-mode PSP of active client
 externdef wPSPSegm:word			;initial real-mode PSP of active client
-externdef wRetAdrRm:word
-externdef wRetAdrRm2:word
+externdef wRmDest:word
+externdef wRmDest2:word
 externdef wIntRmCb:word
 externdef wHostPSP:word
 if ?DTAINHOSTPSP
@@ -401,12 +395,16 @@ if ?DPMI10EXX
 externdef wExcHdlr:word
 endif
 externdef wPatchDgrp2:word
+if ?HSINEXTMEM and ?MAPDOSHIGH
+externdef v86iretesp:dword
+endif
 
 _DATA16 ends
 
 ;--- CDATA32 publics
 
 CDATA32 segment
+externdef intrmcbs:INTRMCB		;start internal real-mode callbacks
 externdef r3vect00:R3PROC
 externdef r3vect20:R3PROC
   if ?FASTINT21
@@ -428,9 +426,9 @@ externdef excvec:R3PROC
 
 externdef mouse15_rmcb:dword
 
-externdef cldata32:byte
-externdef endcldata32:byte
-externdef endoftext32:byte
+externdef cldata32:near
+externdef endcldata32:near
+externdef endoftext32:near
 
 CDATA32 ends
 
