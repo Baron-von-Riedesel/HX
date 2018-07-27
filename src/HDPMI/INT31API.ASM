@@ -207,10 +207,10 @@ jmpvector9 label dword
 endif
 
 jmpvectorB label dword
-	dd @defl(allocwatch)
-	dd @defl(clearwatch)
-	dd @defl(getwatchstate)
-	dd @defl(resetwatchstate)
+	dd @defl(allocwatchp)
+	dd @defl(clearwatchp)
+	dd @defl(getwatchpstate)
+	dd @defl(resetwatchpstate)
 
 if 0
 jmpvectorE label dword

@@ -91,11 +91,12 @@ $(LCMDS)
 $(OUTSTUB)\$(NAME).lib: $(OBJMODS) $(NAME)s.mak
 	@cd $(OUTSTUB)
 	@$(LIB16BIN) $(NAME).lib $(OBJNAMES:.\=+)
-	@jwlib -q $(NAME).lib -$(SRC).OBJ
+	@jwlib -q -b $(NAME).lib -$(SRC).OBJ
 	@cd ..
 
 clean:
 	@del $(OUTSTUB)\*.obj
+	@del $(OUTSTUB)\*.lib
 	@del $(OUTSTUB)\*.bin
 	@del $(OUTSTUB)\*.lst
 	@del $(OUTSTUB)\*.map

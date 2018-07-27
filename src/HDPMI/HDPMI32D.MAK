@@ -60,7 +60,7 @@ format DOS file $(OUTSTD)\$(SRC).obj name $*.EXE lib $(OUTSTD)\$(NAME).lib op q,
 $(OUTSTD)\$(NAME).lib: $(OBJMODS) $(NAME)d.mak
 	@cd $(OUTSTD)
 	@$(LIB16BIN) $(NAME).lib $(OBJNAMES:.\=+)
-	@jwlib -q $(NAME).lib -$(SRC).OBJ
+	@jwlib -q -b $(NAME).lib -$(SRC).OBJ
 	@cd ..
 
 clean:

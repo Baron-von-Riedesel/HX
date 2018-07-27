@@ -42,9 +42,7 @@ _jmp_pm_pm proc
 
 if ?FIXTSSESP
 ;--- pop value for wHostStack + set wHostStackExc
-	xchg ebx,[esp]
-	mov ss:[dwHostStack],ebx
-	pop ebx
+	pop ss:[dwHostStack]
 else
  if ?SETEXCHS
 	xchg ebx,[esp]
@@ -56,7 +54,6 @@ else
 	pop ss:[taskseg._Esp0]
  endif
 endif
-
 	push ss:[dwPmDest]
 _jmp_pm_pm endp	;fall throu!
 
@@ -135,8 +132,9 @@ rawjmp_pm_patch::
 ;--- with a jump to _diff_pm
 	mov cs:[taskseg._Esi],esi
 ;	mov esi,cs:[avs]
-	mov esi,0
-linadvs label byte
+	mov esi,0			;esi = linear address of v862pm variable
+	org $-4
+linadvs dd ?
 	mov ax,0DE0Ch
 	int 67h 			;modifies eax,esi,ds,es,fs,gs
 
@@ -368,29 +366,28 @@ if ?CLRLDTR
 	xor eax,eax
 	lldt ax
 endif
+	mov eax,cr0
+	and eax,not (CR0_PE or CR0_TS or CR0_PG)
 
 ;--- when the _TEXT32 segment has been moved in extended memory
 ;--- it is not possible to disable paging here. So first jump
 ;--- to conventional memory, then disable paging and protected mode
 
-if ?MOVEHIGHHLP
+if 1;?MOVEHIGHHLP
 	db 066h
 	db 0eah
 	dw offset rawjmp_rm_xms
 	dw _CSGROUP16_
 else
-	mov eax,cr0
-	and eax,not (CR0_PE or CR0_TS or CR0_PG)
 	mov cr0,eax
-	db 66h
 	db 0eah
 	dw offset rawjmp_rm_xms_1
-	dw seg rawjmp_rm_xms
+;--- the following line cannot work, because the
+;--- 32-bit code is not loaded by DOS, and anyway,
+;--- the segment part is NOT fix, at least not with option -a!
+;--- So ?MOVEHIGHHLP simply MUST be set to 1!
+	dw seg rawjmp_rm_xms_1
 endif
-
-size_rawjmp_rm_novcpi equ $ - offset rawjmp_rm_novcpi
-
-	align 4
 
 _rawjmp_rm endp
 
@@ -398,18 +395,15 @@ _TEXT32 ends
 
 _TEXT16 segment
 
-;--- final part of raw jump to real-mode for
-;--- both xms and vcpi.
+;--- final part of raw jump to real-mode for xms.
 
 rawjmp_rm_xms proc
 
-if ?MOVEHIGHHLP
-	mov eax,cr0
-	and eax,not (CR0_PE or CR0_TS or CR0_PG)
+if 1;?MOVEHIGHHLP
 	mov cr0,eax
 	db 0eah
 	dw offset rawjmp_rm_xms_1
-wPatchDgrp1 dw 0	;seg rawjmp_rm_xms_1	PATCH with GROUP16
+wPatchGrp161 dw 0	;seg rawjmp_rm_xms_1	PATCH with GROUP16
 	align 4
 
 rawjmp_rm_xms_1:
@@ -429,7 +423,8 @@ if ?SAVERMCR3
 	mov eax,cs:[dwOldCR3]
 	mov cr3,eax
 endif
-vcpi_rmentry::	; v86-mode entry if running as VCPI client
+;--- this code runs for both xms and vcpi mode
+vcpi_rmentry::
 	mov ax, word ptr cs:[taskseg._Efl]
 	sahf
 	mov eax, cs:[taskseg._Eax]

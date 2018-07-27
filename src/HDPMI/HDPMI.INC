@@ -81,7 +81,10 @@ else
 ?USEDEBUGOUTPUT equ 0
 endif                        
 ifndef ?DOSOUTPUT
-?DOSOUTPUT		equ 1	;std=1, use DOS for output if inDOS flag not set
+?DOSOUTPUT		equ 1	;std=1, use DOS for dbg output if inDOS flag not set
+endif
+if ?DOSOUTPUT
+?USEHOSTPSP		equ 1	;std 1, 1=switch to host psp for DOS output
 endif
 ?DPMI10			equ 1	;std=1, support some DPMI 1.0 functions (0504-0507)
 ?DPMI10EX		equ 1	;std=1, support more DPMI 1.0 functions (0508-050B)
@@ -107,7 +110,7 @@ endif
 ?RMCBSTATICSS	equ 1	;std 1: 1=alloc a selector for SS in real-mode callb.
 ?INT21API		equ 1	;std 1: 0=no int 21h api translation
 ?VM				equ 1	;std 1: 1=optionally support address contexts
-?MOU33RESET		equ 1	;std 1, 1=reset int 33h mouse
+?MOU33RESET		equ 0	;std 0, 1=reset int 33h mouse (v3.18: changed to 0)
 ?MOU15RESET		equ 0	;std 0, 1=reset int 15h mouse
 ?VCPIPREF		equ 1	;std 1: 1=optionally prefer VCPI, ignore XMS
 ?INT15XMS		equ 1	;std 1: 1=optionally use ext. mem the XMS host ignored
@@ -125,9 +128,9 @@ endif
 ?RESTRICTMEM	equ 0ffffh	;std=0ffffh - free page restriction is 256MB, 0 disables
 
 if ?DPMI10EXX
-?EXCRESTART   = 1		;std 1: 1=support exception restartability
+?EXCRESTART		equ 1	;std 1: 1=support exception restartability
 else
-?EXCRESTART   = 0
+?EXCRESTART		equ 0
 endif
 
 if ?MOVEHIGH
@@ -138,10 +141,10 @@ else
 endif
                         
 ifndef ?MPICBASE                        
-?MPICBASE	= 08h   	;std 08: master PIC base
+?MPICBASE	equ 08h		;std 08: master PIC base
 endif
 ifndef ?SPICBASE                        
-?SPICBASE	= 70h   	;std 70: slave PIC base
+?SPICBASE	equ 70h		;std 70: slave PIC base
 endif
 
 if ?ENHANCED
@@ -166,118 +169,113 @@ endif
 ?RMIOPL 		equ 30h	;value for IOPL bits in flags in v86 mode (needed?)
 
 if ?DYNTLBALLOC
-?TLBSIZE	equ 2000h
+?TLBSIZE	equ 2000h	;std 2000h
 else
-?TLBSIZE	equ 4000h
+?TLBSIZE	equ 4000h	;std 4000h
 endif
-
 ?TLBSECS	equ ?TLBSIZE/200h
-?RMSTKSIZE	equ 200h			;real mode stack size
+?RMSTKSIZE	equ 200h			;std 200h, real mode stack size
 
 
-?NTCLEAR	 = 1		;std 1; clear NT flag on switch to protected mode
-?IRQMAPPING  = 1		;std 1; always route IRQs to protected-mode
-?MAPRING0EXC = 0		;std 0; route exc in ring 0 to client handler
-?IGNEXC01INR0 = 0		;std 1: ignore exc 01 in ring0
-?FASTJUMPS	 = 1		;std 1: fast handling of intr30 jumps (gains 10%)
-?I2FINITEXIT = 0		;std 0; int 2F, ax=1605/1606 broadcast
-?TLBINUMB	 = 1		;std 1: TLB allocated in UMB if possible
-?SINGLESETCR3 = 0		;std 0; 1 only for test purposes!
-?RING0FLATCS  = 1		;std 1; supply a ring 0 flat CS in GDT (for wdeb386)   
+?NTCLEAR		equ 1	;std 1; clear NT flag on switch to protected mode
+?IRQMAPPING		equ 1	;std 1; always route IRQs to protected-mode
+?MAPRING0EXC	equ 0	;std 0; 1=route exc in ring 0 to client handler
+?IGNEXC01INR0	equ 0	;std 0: 1=ignore exc 01 in ring0
+?FASTJUMPS		equ 1	;std 1: 1=fast handling of intr30 jumps (gains 10%)
+?I2FINITEXIT	equ 0	;std 0; 1=int 2F, ax=1605/1606 broadcast
+?TLBINUMB		equ 1	;std 1: 1=TLB allocated in UMB if possible
+?SINGLESETCR3	equ 0	;std 0; 1 only for test purposes!
+?RING0FLATCS	equ 1	;std 1; supply a ring 0 flat CS in GDT (for wdeb386)   
 
-?TRAPINT06RM  = 0		;std 0: watch int 06h real-mode
-?TRAPINT21RM  = 0		;std 0: watch int 21h real-mode
-?INT10SUPP	  = 1		;std 1: check for exception 10h/INT 10h
-?INT11SUPP    = 1		;std 1: support exception 11h
-?TRANSFL	  = 1		;std 1: copy flags when returning from internal rmcbs
-?COPYTF 	  = 0		;std 0: copy TF when returning from internal rmcbs
+?TRAPINT06RM	equ 0	;std 0: 1=watch int 06h real-mode
+?TRAPINT21RM	equ 0	;std 0: 1=watch int 21h real-mode
+?INT10SUPP		equ 1	;std 1: 1=check for exception 10h/INT 10h
+?INT11SUPP		equ 1	;std 1: 1=support exception 11h
+?TRANSFL		equ 1	;std 1: 1=copy flags when returning from internal rmcbs
+?COPYTF			equ 0	;std 0: copy TF when returning from internal rmcbs
                         ;       2005/07/30: std changed to 0 
                         ;       it was nonsense to copy the TF flag 
                         ;       because at best we get an int 01 in real-mode.
                         ;       it is "impossible" to transfer this flag
                         ;       back to the protected-mode execution path.
 
-?MAPEXC00	  = 1		;std 1: 1=route exc 00 to int 00 protected-mode
-?MAPINT00	  = 0		;std 0: 0=don't route int 00 to real-mode
-?TESTEXC01	  = 1		;std 1: 1=test if INT 01 is a true exception.
+?MAPEXC00		equ 1	;std 1: 1=route exc 00 to int 00 protected-mode
+?MAPINT00		equ 0	;std 0: 0=don't route int 00 to real-mode
+?TESTEXC01		equ 1	;std 1: 1=test if INT 01 is a true exception.
 						;		if not, just call INT 01 ring 3 PM
-?MAPINT05	  = 1		;std 1: 1=route int 05 to real-mode. Int 05 is
-                        ;		print screen, which makes it a special case.
-?TESTEXC06	  = 1		;std 1: 1=check for exc 06 if [CS:EIP-2]==CD 06 
-?MAPINT07	  = 0		;std 0: 0=dont route int 07 to real-mode
+?MAPINT05		equ 1	;std 1: 1=route int 05 to real-mode. Int 05 is
+						;		print screen, which makes it a special case.
+?TESTEXC06		equ 1	;std 1: 1=check for exc 06 if [CS:EIP-2]==CD 06 
+?MAPINT07		equ 0	;std 0: 0=dont route int 07 to real-mode
 
-?DISINT@RM2PM = 0		;std 0: 1=clear IF in Flags onto stack
-?CMPCR3 	  = 1		;std 1: 1=improves performance by 2-3%
-?EMUMOVREGCRX = 1		;std 1: emulate mov reg, crX (req. by 32rtm!)
-?EMUMOVCRXREG = 1		;std 1: emulate mov crX, reg
-?EMUMOVCR0REG = 0		;std 0: emulate mov cr0, reg
-?EMUMOVREGDRX = 0		;std 0: emulate mov reg, drX
-?EMUMOVDRXREG = 0		;std 0: emulate mov drX, reg
-?SUPP32RTM	  = 1		;std 1: support int2f, ax=168a, "VIRTUAL SUPPORT"
-?CATCHREBOOT  = 1		;std 1; catch ctrl-alt-delete
+?DISINT@RM2PM	equ 0	;std 0: 1=clear IF in Flags onto stack
+?CMPCR3 		equ 1	;std 1: 1=improves performance by 2-3%
+?EMUMOVREGCRX	equ 1	;std 1: 1=emulate mov reg, crX (req. by 32rtm!)
+?EMUMOVCRXREG	equ 1	;std 1: 1=emulate mov crX, reg
+?EMUMOVCR0REG	equ 0	;std 0: 1=emulate mov cr0, reg
+?EMUMOVREGDRX	equ 0	;std 0: 1=emulate mov reg, drX
+?EMUMOVDRXREG	equ 0	;std 0: 1=emulate mov drX, reg
+?SUPP32RTM		equ 1	;std 1: 1=support int2f, ax=168a, "VIRTUAL SUPPORT"
+?CATCHREBOOT	equ 1	;std 1; 1=catch ctrl-alt-delete
 
-?SAVERMCR3	  = 0		;std 0: save/restore real mode CR3
-?SAVERMIDTR   = 0		;std 0: save real mode idtr
-?SAVERMGDTR   = 0		;std 0: save real mode gdtr
-?CLRLDTR	  = 0		;std 0: clear LDTR before jump to real mode
-?COPYFLRM2PM  = 1		;std 1: copy flags from real-mode after int xx call
-?SIMHLT		  = 0		;std 0: 1=simulate HLT, do not execute
-?ALLOWR0IRQ   = 0		;std 0: allow interrupts in ring 0
-?RESIDENT	  = 1		;std 1: support -r switch
-?LOCALINT2324 = 1		;std 1: init int 23/24 locally for each client
-?SUPPDISABLE  = 1		;std 1: support -d and -e command line switches
-?CR0_NE 	  = 1		;std 1: support -t and HDPMI=32768
-?CR0_EM 	  = 0		;std 0: support -w ( clear EM bit on host init )
-?CSIPFROMTOP  = 1		;std 1: get CS:E/IP from top of LPMS
-?CLEARHWESPRM = 1		;std 1: clear highword(esp) in real mode
-?VCPIPICTEST  = 1		;std 1: test if vcpi host did not remap PICs
-?QEMMSUPPORT  = 1		;std 1: make HDPMI compatible with QEMM vcpi host
-?CALLPREVHOST = 1		;std 1: route to a previously installed 16bit host
-?GLOBALTLBUSAGE = 1		;std 1: share one TLB between HDPMI instances
-?LOADHIGH     = 0		;std 0: move resident part into upper memory (not yet)
-?CLEARDR6     = 0		;std 0: 1=clear DR6 on client init
-?LATELGDT     = 0		;std 0: 1=load GDTR *after* switch to protected-mode
-?CLEARHIWORDS = 1		;std 1: 1=opt. clear hiword of esi,edi on init. entry
-?TLBLATE      = 1		;std 1: 1=opt. alloc TLB when client starts (late)
-?SAVEMSW      = 0		;std 0: 1=save/restore MSW on entry/exit
-?SSED         = 0		;std 0: 1=host stack segment (GROUP16) is expand down
+?SAVERMCR3		equ 0	;std 0: save/restore real mode CR3
+?SAVERMIDTR		equ 0	;std 0: save real mode idtr
+?SAVERMGDTR		equ 0	;std 0: save real mode gdtr
+?CLRLDTR		equ 0	;std 0: clear LDTR before jump to real mode
+?COPYFLRM2PM	equ 1	;std 1: copy flags from real-mode after int xx call
+?SIMHLT			equ 0	;std 0: 1=simulate HLT, do not execute
+?ALLOWR0IRQ		equ 0	;std 0: allow interrupts in ring 0
+?RESIDENT		equ 1	;std 1: support -r switch
+?LOCALINT2324	equ 1	;std 1: init int 23/24 locally for each client
+?SUPPDISABLE	equ 1	;std 1: support -d and -e command line switches
+?CR0_NE 		equ 1	;std 1: support -t and HDPMI=32768
+?CR0_EM 		equ 0	;std 0: support -w ( clear EM bit on host init )
+?CSIPFROMTOP	equ 1	;std 1: get CS:E/IP from top of LPMS
+?CLEARHWESPRM	equ 1	;std 1: clear highword(esp) in real mode
+?VCPIPICTEST	equ 1	;std 1: test if vcpi host did not remap PICs
+?QEMMSUPPORT	equ 1	;std 1: make HDPMI compatible with QEMM vcpi host
+?CALLPREVHOST	equ 1	;std 1: route to a previously installed 16bit host
+?GLOBALTLBUSAGE	equ 1	;std 1: share one TLB between HDPMI instances
+?LOADHIGH		equ 0	;std 0: move resident part into upper memory (not yet)
+?CLEARDR6		equ 0	;std 0: 1=clear DR6 on client init
+?LATELGDT		equ 0	;std 0: 1=load GDTR *after* switch to protected-mode
+?CLEARHIWORDS	equ 1	;std 1: 1=opt. clear hiword of esi,edi on init. entry
+?TLBLATE		equ 1	;std 1: 1=opt. alloc TLB when client starts (late)
+?SAVEMSW		equ 0	;std 0: 1=save/restore MSW on entry/exit
+?SSED			equ 0	;std 0: 1=host stack segment (GROUP16) is expand down
 ifndef ?HSINEXTMEM
-?HSINEXTMEM   = 1		;std 1: 1=host stack is in extended memory. this will
-						;       make HIWORD(esp) != 0 for host stack, which
-                        ;       may be a problem if 16-bit stacks are used, 
-                        ;       due to a cpu design bug.
- ifndef ?MAPDOSHIGH
-?MAPDOSHIGH   = 1		;std 1: map the 16-bit part of the host in high memory   
- endif
+?HSINEXTMEM		equ 1	;std 1: 1=host stack is in extended memory. If option
+						;		?MAPDOSHIGH is 0, this will cause HIWORD(esp)
+						;		<> 0, which may be a problem if 16-bit stacks
+						;		are used, due to a cpu design bug.
 endif                        
-ife ?HSINEXTMEM
-?MAPDOSHIGH   = 0
+if ?HSINEXTMEM
+ ifndef ?MAPDOSHIGH
+?MAPDOSHIGH		equ 1	;std 1: map the 16-bit part of the host in high memory   
+ endif
+ if ?MAPDOSHIGH
+?CHECKSSIS32	equ 0	;std 0   
+ else
+?CHECKSSIS32	equ 1	;std 1: 1=check if client SS is 32bit
+ endif
+else
+?MAPDOSHIGH		equ 0	;std 0: no need to map dos if ?HSINEXTMEM is zero.
+?CHECKSSIS32	equ 0	;std 0
 endif
 
-?LPMSSIZE     = 1000h	;std 1000h: size of LPMS
-?PATCHCODE    = 0		;std 0: 1=patch low level switch code
-?DBGSUPP      = 1		;std 1: 1=set TF on client's switch to pmode
-?EXC10FRAME   = 0		;std 0: 1=always set dpmi v1 exc frame if host
-						;       is to be a v1 host (doesnt work yet)
+?LPMSSIZE		equ 1000h	;std 1000h: size of LPMS
+?PATCHCODE		equ 0		;std 0: 1=patch low level switch code
+?DBGSUPP		equ 1		;std 1: 1=set TF on client's switch to pmode
+?EXC10FRAME		equ 0		;std 0: 1=always set dpmi v1 exc frame if host
+							;		is to be a v1 host (doesnt work yet)
 
 if ?GUARDPAGE0
-?CHECKIFINRMIVT = 0		;check if host owns the ivt IRQ vector
+?CHECKIFINRMIVT equ 0		;check if host owns the ivt IRQ vector
 else
-?CHECKIFINRMIVT = 1		;why? Currently, this switch is dead
+?CHECKIFINRMIVT equ 1		;why? Currently, this switch is dead
 endif
 
-?FIXTSSESP    = 0		;std 0: change SS:ESP in TSS for R0
-
-if ?HSINEXTMEM
-;?FIXTSSESP		= 1		;obsolete
- if ?MAPDOSHIGH
-?CHECKSSIS32	= 0		;std 0   
- else
-?CHECKSSIS32	= 1		;std 1: 1=check if client SS is 32bit
- endif
-else
-?CHECKSSIS32 = 0		;std 0
-endif
+?FIXTSSESP		equ 0		;std 0: 0=change ESP0 in TSS for R0
 
 ?TRAPI15E801	equ 1	;std 1: trap int 15h, ax=e801h in raw mode
 						;this may be required if HDPMI=32 is set
@@ -830,7 +828,7 @@ IRETSPM ends
 ;--- IRET protected mode with SS:E/SP
 
 IRET32 struct
-		IRET32PM <>
+	IRET32PM <>
 
 union
  struct
@@ -1097,7 +1095,7 @@ endm
 	  @defseg segname, <dword>, <use32>, <GROUP32>
 	elseifidn <segname>,<_ITEXT32>
 	  @defseg segname, <dword>, <use32>, <GROUP32>
-	elseifidn <segname>,<ENDTEXT32>
+	elseifidn <segname>,<ENDGRP32>
 	  @defseg segname, <para>, <use32>, <GROUP32>
 	elseifidn <segname>,<_DATA16>
 	  @defseg segname, <dword>, <use16>, <GROUP16>
@@ -1105,13 +1103,13 @@ endm
 	  @defseg segname, <dword>, <use16>, <GROUP16>
 	elseifidn <segname>,<CDATA16>
 	  @defseg segname, <dword>, <use16>, <GROUP16>
-	elseifidn <segname>,<BEGTEXT16>
+	elseifidn <segname>,<BEGGRP16>
 	  @defseg segname, <para>, <use16>, <GROUP16>
 	elseifidn <segname>,<_TEXT16>
 	  @defseg segname, <dword>, <use16>, <GROUP16>
 	elseifidn <segname>,<_ITEXT16>
 	  @defseg segname, <byte>, <use16>, <GROUP16>
-	elseifidn <segname>,<ENDTEXT16>
+	elseifidn <segname>,<ENDGRP16>
 	  @defseg segname, <para>, <use16>, <GROUP16>
 	else
 %	  .err <unknown segment segname in macro @seg>
@@ -1125,7 +1123,7 @@ xxxx db xx
 	db 0
 CONST32 ends
 GROUP32 GROUP CONST32
-	exitm <LOWWORD(offset xxxx)>
+	exitm <LOWWORD offset xxxx>
 endm
 
 @printf macro xx,a1,a2,a3,a4,a5,a6,a7,a8,a9,a10,a11,a12
@@ -1133,39 +1131,11 @@ endm
 	echo too many parameters for @printf
 	.err1
   endif
-  ifnb <a11>
-	push a11
-  endif
-  ifnb <a10>
-	push a10
-  endif
-  ifnb <a9>
-	push a9
-  endif
-  ifnb <a8>
-	push a8
-  endif
-  ifnb <a7>
-	push a7
-  endif
-  ifnb <a6>
-	push a6
-  endif
-  ifnb <a5>
-	push a5
-  endif
-  ifnb <a4>
-	push a4
-  endif
-  ifnb <a3>
-	push a3
-  endif
-  ifnb <a2>
-	push a2
-  endif
-  ifnb <a1>
-	push a1
-  endif
+  for arg, <a11,a10,a9,a8,a7,a6,a5,a4,a3,a2,a1>
+   ifnb <arg>
+	push arg
+   endif
+  endm
 	call _stroutx
 	dw CStr(<xx>)
 endm
@@ -1199,39 +1169,11 @@ GROUP16 group CONST16
 	echo too many parameters for @stroutrm
 	.err1
   endif
-  ifnb <a11>
-	push a11
-  endif
-  ifnb <a10>
-	push a10
-  endif
-  ifnb <a9>
-	push a9
-  endif
-  ifnb <a8>
-	push a8
-  endif
-  ifnb <a7>
-	push a7
-  endif
-  ifnb <a6>
-	push a6
-  endif
-  ifnb <a5>
-	push a5
-  endif
-  ifnb <a4>
-	push a4
-  endif
-  ifnb <a3>
-	push a3
-  endif
-  ifnb <a2>
-	push a2
-  endif
-  ifnb <a1>
-	push a1
-  endif
+  for arg, <a11,a10,a9,a8,a7,a6,a5,a4,a3,a2,a1>
+   ifnb <arg>
+	push arg
+   endif
+  endm
 	call _$stroutx
 	dw offset xxxx
 endif
@@ -1478,6 +1420,7 @@ endm
 
 @jmp_pmX macro dest
 	pushw LOWWORD offset dest
+;--- _jmp_pmX is like _jmp_pm, but with @rm2pmbrk first
 	jmp _jmp_pmX
 endm
 

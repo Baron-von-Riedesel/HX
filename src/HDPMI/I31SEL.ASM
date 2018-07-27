@@ -518,7 +518,9 @@ carryexit::
 	align 4
 setlimit endp
 
-;--- function 0009
+;--- int 31h, function 0009
+;--- set descriptior access rights
+;--- bx=selector, cx=new access rights
 
 setaccrights proc public
 	call checksel

@@ -272,6 +272,10 @@ installc207handler endp
 ;--- displays are possible because the video output should work in ring 3
 ;--- this is a real-mode callback proc, registers may be modified.
 
+_TEXT32R3 segment dword use32 public 'CODE'
+
+GROUP32 group _TEXT32R3
+
 	@ResetTrace
 
 mouse_eventproc proc
@@ -304,6 +308,8 @@ endif
 	@iret	;IRETD in 32-bit, IRETW in 16-bit
 	align 4
 mouse_eventproc endp
+
+_TEXT32R3 ends
 
 if ?MOU15RESET
 

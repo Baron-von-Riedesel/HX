@@ -100,11 +100,7 @@ if ?SUPI2F1684
 	cmp al,84h			  ;1684?
 	jnz @F
 	call checkvxd
-	push eax
-	lahf
-	mov byte ptr [esp+4].IRET32.rFL,ah
-	pop eax
-	iretd
+	jmp iret_with_CF_mod
 @@:
 endif
 
@@ -206,6 +202,8 @@ _I2f168A proc near public
 if ?SUPI2F168A100
 	cmp ax,0100h		;get LDT selector?
 	jnz @F
+	test ss:bEnvFlags2, ENVF2_SYSPROT	;v3.18: no LDT selector in "safe" mode
+	jnz error
 if ?LDTROSEL
 	mov ax,_SELLDTSAFE_
 else
@@ -218,6 +216,7 @@ endif
 if ?PRTI2F168A
 	call unsuppcallx
 endif
+error:
 	stc
 	ret
 _I2f168A endp

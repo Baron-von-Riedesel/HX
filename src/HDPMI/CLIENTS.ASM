@@ -65,19 +65,20 @@ _getsavelength endp
 
 if ?VM
 
-;--- out: EAX=offset of saved IDT in client's save region
+;--- out: EAX=offset of IDT in a client save region
 
-_getidtaddr proc public
+_getidtofs proc public
 	call _getsavelength
 	mov eax, ecx
 	sub eax, ?X2 + ?X4 + 800h
 	ret
-_getidtaddr endp
+_getidtofs endp
 
-;--- out: EAX=size client data32
+;--- out: EAX=offset cldata32 in a client save region
+;---    : ECX=size cldata32
 
 _getcldata32 proc public
-	call _getidtaddr
+	call _getidtofs
 	mov ecx,offset GROUP32:endcldata32
 	sub ecx,offset GROUP32:cldata32
 	sub eax, ecx
@@ -243,8 +244,8 @@ _restoreclientstate proc public
 if ?MOU15RESET
 	push cs:[mouse15_rmcb]
 endif
-
 	mov esi,[ltaskaddr]	;is last client?
+	@strout <"#restoreclientstate: enter. ltaskaddr=%lX",lf>, esi
 	and esi,esi
 	jz exit
 	push esi				;save memhdl 
@@ -376,6 +377,7 @@ exit:
 if ?MOU33RESET
 	call mouse33_reset		;expects DS=GROUP16
 endif
+
 if ?MOU15RESET
 	pop eax
 	call mouse15_reset

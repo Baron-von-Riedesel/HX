@@ -31,7 +31,11 @@ OBJMODS = $(OBJNAMES:.\=STD32\)
 OUTD=STD32
 !endif
 
+!ifdef MASM
+ASM = ml.exe
+!else
 ASM = jwasm.exe
+!endif
 LINK  = jwlink.exe
 
 AOPT   = -nologo -c -Cp -Sg -D?32BIT=1 $(AOPTD) -I$(INC32DIR) -Fl$* -Fo$*
@@ -65,11 +69,12 @@ $(LCMDS3)
 $(OUTD)\$(NAME).lib: $(OBJMODS)
 	@cd $(OUTD)
 	@$(LIB16BIN) $(NAME).lib $(OBJNAMES:.\=+)
-	@jwlib -q $(NAME).lib -$(SRC).OBJ
+	@jwlib -q -b $(NAME).lib -$(SRC).OBJ
 	@cd ..
 
 clean:
 	@del $(OUTD)\*.obj
+	@del $(OUTD)\*.lib
 	@del $(OUTD)\*.exe
 	@del $(OUTD)\*.lst
 	@del $(OUTD)\*.map

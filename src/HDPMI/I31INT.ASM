@@ -135,6 +135,9 @@ error8021:
 	align 4
 
 ;*** 0203: set exception vector
+;--- in: BL=exception # (00-1F)
+;---     CX:E/DX=exception handler
+;--- out: C if error, code in AX (8021 if BL > 1F, 8022 if CX invalid)
 
 _LTRACE_ = 0
 
@@ -178,13 +181,18 @@ if ?INT11SUPP
 ?LOWEXC = 11h	;support 00-11
 endif
 
+;--- check if protected-mode interrupt vector is
+;--- stored directly in IDT or in r3vect table.
+
 getpmptr proc
 	movzx ebx,bl
 
 	cmp bl,?LOWEXC			   ;00h - 0F/10/11 are ring 0 gates
 	jbe getpmivec1
+if ?ENHANCED
 	cmp bl,20h				   ;20h as well
 	jz getpmivec20
+endif
 if ?FASTINT21
 	cmp bl,21h
 	jz getpmivec21
@@ -210,44 +218,46 @@ endif
 	add ebx,ss:[pdIDT.dwBase]
 	ret
 getpmivec41:
-	mov bx,LOWWORD(offset GROUP32:r3vect41)
+	mov bx,LOWWORD offset GROUP32:r3vect41
 	stc
 	ret
 getpmivec30:
-	mov bx,LOWWORD(offset GROUP32:r3vect30)
+	mov bx,LOWWORD offset GROUP32:r3vect30
 	stc
 	ret
 if ?FASTINT31
 getpmivec31:
-	mov bx,LOWWORD(offset GROUP32:r3vect31)
+	mov bx,LOWWORD offset GROUP32:r3vect31
 	stc
 	ret
 endif
 if ?FASTINT21
 getpmivec21:
-	mov bx,LOWWORD(offset GROUP32:r3vect21)
+	mov bx,LOWWORD offset GROUP32:r3vect21
 	stc
 	ret
 endif
+if ?ENHANCED
 getpmivec20:
-	mov bx,LOWWORD(offset GROUP32:r3vect20)
+	mov bx,LOWWORD offset GROUP32:r3vect20
 	stc
 	ret
+endif
 if ?WINDBG
 getpmivec22:
-	mov bx,LOWWORD(offset GROUP32:r3vect22)
+	mov bx,LOWWORD offset GROUP32:r3vect22
 	stc
 	ret
 endif
 getpmivec2:
 	sub bl,?SPICBASE
 	shl ebx,_SHFACTOR_
-	add bx,LOWWORD(offset GROUP32:r3vect70)
+	add bx,LOWWORD offset GROUP32:r3vect70
 	stc
 	ret
 getpmivec1:
 	shl ebx,_SHFACTOR_
-	add bx,LOWWORD(offset GROUP32:r3vect00)
+	add bx,LOWWORD offset GROUP32:r3vect00
 	stc
 	ret
 	align 4
@@ -306,6 +316,7 @@ endif
 	mov [ebx].GATE.ofs,dx
 	mov [ebx].GATE.sel,cx
 if ?32BIT
+;	shld dword ptr [ebx].GATE.ofs32, edx, 16
 	push edx
 	shr edx,16
 	mov [ebx].GATE.ofs32,dx
@@ -334,17 +345,35 @@ setpmivec endp
 
 if ?DPMI10EXX
 
+;--- int 31h, ax=0210h
+;--- get protected-mode exception handler
+;--- in: BL=exception no (00-1F)
+;--- out: C if error, code in AX (8021: BL > 1F)
+;---     NC ok, CS:E/IP of handler in CX:E/DX
+
 geteexcp proc public
 	call getpmevec
 	ret
 	align 4
 geteexcp endp
 
+;--- int 31h, ax=0211h
+;--- get real/v86-mode exception handler
+;--- in: BL=exception no (00-1F)
+;--- out: C if error, code in AX (8021: BL > 1F)
+;---     NC ok, CS:E/IP of handler in CX:E/DX
+
 geteexcr proc public
 	stc
 	ret
 	align 4
 geteexcr endp
+
+;--- int 31h, ax=0212h
+;--- set protected-mode exception handler
+;--- in: BL=exception no (00-1F)
+;---     CX:E/DX: cs:e/ip of exception handler
+;--- out: C if error, code in AX (8021: BL > 1F, 8022: CX invalid)
 
 seteexcp proc public
 	call setpmevec
@@ -358,6 +387,12 @@ seteexcp proc public
 	ret
 	align 4
 seteexcp endp
+
+;--- int 31h, ax=0213h
+;--- set real/v86-mode exception handler
+;--- in: BL=exception no (00-1F)
+;---     CX:E/DX: cs:e/ip of exception handler
+;--- out: C if error, code in AX (8021: BL > 1F, 8022: CX invalid)
 
 seteexcr proc public
 	stc

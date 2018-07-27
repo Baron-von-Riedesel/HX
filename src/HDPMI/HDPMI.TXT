@@ -120,8 +120,10 @@
          mode HDPMI will run until it is deinstalled using option -u.
          If option -r is *not* entered, HDPMI will install as a TSR as 
          well, but will terminate when the next client has terminated (*).
-     -s: 'safe' mode. Prevents client from modifying system tables. This
-         is similar to environment switch HDPMI=4096.
+     -s: 'safe' mode. Prevents client from modifying system tables. Also,
+         this option will HPDMI cause to set the WP bit in CR0, thus 
+         preventing write access to read-only pages even for the host.
+         This option is similar to environment switch HDPMI=4096.
      -t: don't touch NE bit in CR0. Without this option HDPMI will set
          the NE bit so floating point errors will cause an exception 0x10.
          Similar to environment switch HDPMI=32768.
@@ -205,7 +207,8 @@
              mode. This doesn't conform to the DPMI specs, but is required
              to make HDPMI compatible with Borlands's 32RTM.EXE when running
              on some versions of DOS.
-   HDPMI=4096: 'safe' mode. Don't allow client to write to GDT, IDT and LDT.
+   HDPMI=4096: 'safe' mode. Don't allow client to write to GDT, IDT and LDT;
+             Host cannot write to pages marked as read-only.
    HDPMI=8192: stop in debugger after client's initial switch to protected
              mode.
    HDPMI=16384: obsolete since HDPMI v3.18. Previously, it caused HDPMI not
@@ -240,8 +243,8 @@
 
    - "HDPMI already installed": may occur when starting HDPMI with 
      option "-r".
-   - "HDPMI not installed or disabled": may occur when starting HDPMI with 
-     option "-u". 
+   - "HDPMI not installed or disabled or version differs": may occur if
+     HDPMI was launched with option "-u" or "-d". 
    - "HDPMI is busy": may occur when starting HDPMI with option "-u". 
      Reason: The server has at least 1 client running.
    - "HDPMI *not* uninstalled because real-mode interrupts were modified"
@@ -508,12 +511,12 @@
    - 0C00h + 0C01h, DPMI TSRs
    - 0D00h - 0D03h, shared memory
 
-   Additionally, some privileged opcodes are emulated:
+   Additionally, some privileged opcodes are emulated (this feature
+   is not active if cmdline option -s ['safe' mode] is given):
 
    - HLT (F4) 
    - MOV reg,CRx (0F 20 xx) - using ESP for <reg> will not work!
    - MOV CRx,reg (0F 22 xx) - using ESP for <reg> will not work!
-
 
  6.7 VDS API
 
@@ -729,7 +732,8 @@
  6.12 Other Features of HDPMI
 
   þ  clients run with CPL 3, and IOPL is 3. This means, instructions like
-     STI, CLI, IN or OUT are executed in real time.
+     STI, CLI, IN or OUT are executed in real time. Optionally, a version
+     of HDPM can be created which runs clients in IOPL 0.
   þ  during ring 0 processing NMIs are ignored.
   þ  HDPMI's ring 0 ESP will always have its hiword cleared. This is because
      of a design weakness in Intel CPUs, which don't touch the Hiword of ESP
@@ -753,8 +757,9 @@
 
  8. Known Problems / Hints
 
-  þ Some versions of DOS4G/W require environment variable HDPMI=1 to be
-    set. Generally, setting this option should be the first thing to do
+  þ DOS4G(W) may require option -i or environment variable HDPMI=1 to be
+    set. This most often is the case if the DOS-extended application uses
+    sound. Generally, setting this option should be the first thing to do
     if a client doesn't run with HDPMI.
 
   þ Some DOS extenders will prefer to use a VCPI host over DPMI and thus
@@ -787,9 +792,9 @@
     interrupt vector 2Fh too late (after HDPMI has done its cleanup).
     PMODE/W and DOS/32A applications may belong to these type of programs.
 
-  þ If HDPMI is loaded and a client refuses to run and tells that it doesn't
-    like to run in a Win9x DOS box, try to set HDPMI=16384 before HDPMI is
-    loaded.
+  þ Obsolete since v3.18: [If HDPMI is loaded and a client refuses to run 
+    and tells that it doesn't like to run in a Win9x DOS box, try to set 
+    HDPMI=16384 before HDPMI is loaded.]
 
   þ To run a 16-bit client while HDPMI32 is installed requires to install
     HDPMI16 before HDPMI32. The best thing to do if both types of clients

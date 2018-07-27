@@ -46,15 +46,16 @@ GROUP32 group _TEXT32, CONST32
 
 CONST32 segment
 
-regtexts db "CS=",00
-		db " SS=",00
-		db lf,"DS=",00
-		db " ES=",00
-		db lf,"FS=",00
-		db " GS=",00
-		db lf,"LDTR=",00
-		db " TR=",00
-		db lf,"ERRC=",00
+regtexts label near
+	db "CS=",00
+	db " SS=",00
+	db lf,"DS=",00
+	db " ES=",00
+	db lf,"FS=",00
+	db " GS=",00
+	db lf,"LDTR=",00
+	db " TR=",00
+	db lf,"ERRC=",00
 
 ife ?DOSOUTPUT
 szTerm1	db "terminate ",0
@@ -65,12 +66,6 @@ endif
 CONST32 ends
 
 _TEXT32 segment
-
-_charout proto stdcall :dword
-_byteout proto stdcall :dword
-_wordout proto stdcall :dword
-_dwordout proto stdcall :dword
-_stroutesi proto
 
 _LTRACE_ = 0
 
@@ -145,11 +140,29 @@ endif
 PTEout:
 	call _Linear2PT		;returns address of PTE in EDI
 	jc @F				;address not allocated
-	invoke _dwordout, dword ptr es:[edi]
+	@printf <"%lX">, dword ptr es:[edi]
 	ret
 @@:
 	@printf <"???">
 	ret
+
+_lfout:
+	@printf lf
+	ret
+
+;--- display string in cs:[esi]
+;--- out: esi -> behind 00
+;--- modifies EAX, ESI
+
+_stroutesi proc
+	@printf <"%ls">, cs, esi
+nextitem:
+	db 2Eh
+	lodsb
+	and al,al
+	jnz nextitem
+	ret
+_stroutesi endp
 
 ;--- ring 0 exception
 
@@ -323,17 +336,16 @@ endif
 endif
 ;--- dump exception number
 
-	@printf <"Exception ">
+	@printf <"Exception %b">, word ptr [ebp].wExcNo
 	mov al,byte ptr [ebp].wExcNo
 	cmp al,10h
 	jnz @F
 	fninit					;clear FSW, FCW and FTW of FPU
 @@:
-	invoke _byteout, eax
 	lar eax,[ebp].de.rSSd
 	and ah,60h
 	jz @F
-	@printf <lf>
+	call _lfout
 	jmp except_cont
 @@:
 
@@ -418,7 +430,7 @@ novalidsel:
 	@printf <" PTE 1. Page LDT=">
 	call PTEout
 @@:
-	invoke _charout, lf
+	call _lfout
 
 ;--- dump special registers (GDTR, IDTR, CRx, ...)
 
@@ -432,7 +444,7 @@ novalidsel:
 if 0
 	@printf <" Stat=%X",lf>,<word ptr cApps>
 else
-	invoke _charout, lf
+	call _lfout
 endif
 
 	mov eax,cr3
@@ -447,10 +459,8 @@ endif
 	@mov_eax_cr4
 	@printf <"CR4=%lX ">, eax
 @@:
-;	push [dwHostStackExc]
-	push [taskseg._Esp0]
-;	@printf <"TSS:ESP0=%lX (%lX)",lf>
-	@printf <"TSS:ESP0=%lX",lf>
+;	@printf <"TSS:ESP0=%lX (%lX)",lf>, taskseg._Esp0, dwHostStackExc
+	@printf <"TSS:ESP0=%lX",lf>, taskseg._Esp0
 	mov eax,dr7
 	push eax
 	mov eax,dr6
@@ -465,16 +475,16 @@ endif
 	push eax
 	@printf <"DR0-3=%lX %lX %lX %lX DR6=%lX DR7=%lX",lf>
 
-;--- dump some host variables (LPMS, RMS, RMCB, ...)
-
-	@printf <"LPMS Sel/Cnt=%X/%X RMS=%X:%X open RMCBs=%X/%X ">,\
-		word ptr _LPMSSEL_, word ptr [bLPMSused],\
-		[tskstate.rmSS], [tskstate.rmSP], [cIntRMCB], [cRMCB]
 ;--- clear dr7 to avoid I/O watchpoints                
 	xor eax, eax
 	mov dr7, eax
-	call closeinterrupts
-	@printf <"ISR=%X",lf>, ax
+	call closeinterrupts	;returns ISR in AX
+
+;--- dump some host variables (LPMS, RMS, RMCB, ...)
+
+	@printf <"LPMS Sel=%X(%b) RMS=%X:%X open RMCBs=%X/%X ISR=%X",lf>,\
+		word ptr _LPMSSEL_, word ptr [bLPMSused],\
+		[tskstate.rmSS], [tskstate.rmSP], [cIntRMCB], [cRMCB], ax
 
 if ?LOGINT31
 externdef i31func:word
@@ -495,15 +505,14 @@ endif
 	mov cl, 12
 nextbyte_eip:
 	lodsb
-	invoke _byteout, eax
-	invoke _charout, ' '
+	@printf "%b ",ax
 	dec cl
 	jnz nextbyte_eip
 	jmp eip_done
 noeip::
 	@printf "??"
 eip_done:
-	invoke _charout, lf
+	call _lfout
 	push ss
 	pop ds
 
@@ -523,15 +532,12 @@ eip_done:
 	mov ch,06
 	jmp start_stackdump
 nextline_stack:
-	invoke _charout, lf
-	invoke _dwordout, esi
-	invoke _charout,  '='
+	@printf <lf,"%lX=">,esi
 start_stackdump:
 	mov cl,08
 nextword:
 	lodsw
-	invoke _wordout, eax
-	invoke _charout, ' '
+	@printf "%X ",ax
 	dec cl
 	jnz nextword
 	dec ch
@@ -540,7 +546,7 @@ nextword:
 noesp::
 	@printf "????"
 esp_done:
-	invoke _charout, lf
+	call _lfout
 	push ss
 	pop ds
 	mov [bExcMode], 0
@@ -604,7 +610,7 @@ else
 	jnz tryagain
  endif
 endif
-	invoke _charout, lf
+	call _lfout
 if ?SETCLIENTPSP        
 	cmp cApps,0			;is there a client?
 	jz @F
@@ -631,7 +637,7 @@ _except endp
 ;*** client fatal exit ***
 
 fatappexit proc
-	invoke _charout, lf
+	call _lfout
 fatappexit endp	;fall throu
 
 fatappexit2 proc public
@@ -643,14 +649,18 @@ fatappexit2 proc public
 	push ax	;clear HiWord(EFL)
 	pushf
 	push byte ptr _CSR3SEL_
-	push offset myexit
+	push offset myexitr3
 	iretd
-myexit:
+fatappexit2 endp        
+
+_TEXT32R3 segment dword use32 public 'CODE'
+GROUP32 group _TEXT32R3
+myexitr3:
 	mov ax,4cffh
 	int 21h
 	push cs
 	pop ss	;in case the int 21h did return cause a GPF now
-fatappexit2 endp        
+_TEXT32R3 ends
 
 if ?WDEB386
 

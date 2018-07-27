@@ -245,7 +245,7 @@ mouse_setrmcb endp
 ;--- this proc is called
 ;--- 1. when a client terminates
 ;---    then mevntvec contains the values for the previous client
-;--- 2. when HDPMI host terminates
+;--- 2. when a vm (=host instance) terminates
 ;--- DS=GROUP16
 ;--- modifies E/DX, CX, AX
 
@@ -256,10 +256,10 @@ mouse_setrmcb endp
 mouse33_reset proc public
 
 	test [fMouse], MF_RMEVTSET
-	jz @F
+	jz exit
 	@strout <"mouse33_reset enter, ss=%lX ds=%lX es=%lX, rms=%X:%X",lf>, ss, ds, es, tskstate.rmSS, tskstate.rmSP
 	cmp [cApps],0
-	jz mouse33_exit
+	jz vm_exit
 	push es
 	mov cx, cs:[moumask]
   if ?32BIT
@@ -273,36 +273,25 @@ mouse33_reset proc public
 	call mouse_setproc
 	pop es
 	@strout <"mouse33_reset exit",lf>
-@@:
+exit:
 	ret
-	align 4
-
-mouse33_reset endp
-
-;--- host terminates
-;--- DS=GROUP16, ES=FLAT
-
-	@ResetTrace
-
-	assume ds:GROUP16
-
-mouse33_exit proc
-;	@strout <"I33: mouse33_exit enter, ss=%lX ds=%lX es=%lX",lf>, ss, ds, es
+vm_exit:
+;--- vm terminates
 	btr dword ptr [fMouse], MF_RMEVTSETB
-	jnc @F
+	jnc exit2
 	mov dx,word ptr [intrmcbrs + ?RMCBMOUSE * sizeof INTRMCBr].rm_vec+0
 	mov ax,word ptr [intrmcbrs + ?RMCBMOUSE * sizeof INTRMCBr].rm_vec+2
 	mov v86iret.rES,ax
 	mov cx,[oldrmmask]
-	@strout <"mouse33_exit: calling int 33h, ax=0014, es:dx=%X:%X cx=%X",lf>,ax,dx,cx
-	mov ax,0014h	;use ax=000Ch instead?
+	@strout <"mouse33_reset: calling int 33h, ax=000C, es:dx=%X:%X cx=%X",lf>,ax,dx,cx
+	mov ax,000Ch
 	@simrmint 33h
-	@strout <"mouse33_exit: exit, ss=%lX ds=%lX es=%lX",lf>, ss, ds, es
-@@:
+	@strout <"mouse33_reset: exit",lf>
+exit2:
 	ret
 	align 4
 
-mouse33_exit endp
+mouse33_reset endp
 
 _TEXT32 ends
 

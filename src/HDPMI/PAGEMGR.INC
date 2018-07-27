@@ -13,7 +13,7 @@ _MovePTEs			proto near		;move PTEs between address spaces
 _AllocUserPages		proto near		;alloc memory in user address region
 _AllocSysPages		proto near		;alloc memory in sysreg 0 (user,r/w)
 _AllocSysPagesX		proto near		;alloc memory in sysreg 0 (system,r/w)
-_AllocSysPagesRo	proto near		;alloc memory in sysreg 0 (user,r/o)
+;_AllocSysPagesRo	proto near		;alloc memory in sysreg 0 (user,r/o)
 _AllocSysPagesDn	proto near		;alloc memory in sysreg 0 down (system,r/w)
 _FreeSysPagesDn		proto near		;free memory in sysreg 0 down
 _GetNumPhysPages	proto near		;get free/total physical pages
@@ -25,13 +25,14 @@ _AllocSysAddrSpace	proto near		;allocate system address space
 _getaddrspace		proto near		;get free/total user address space
 _searchphysregion	proto near		;search a mapped physical region
 _mapphysregion		proto near		;map physical address to user space
+_makeregionreadonly	proto near		;make region readonly
 _ClonePage			proto near		;clone a page
 if ?SAVELDTPTE
 _SetPage 			proto near		;set PTE for a linear address
 endif
 _setregionattributes proto near		;set PTE bits for a region
 if ?MAPDOSHIGH
-CopyPTEs			proto near
+_CopyPTEs			proto near
 endif
 pm_init_rm			proto near16	;page mgr server init real-mode
 pm_init2_rm			proto near16	;page mgr cleanup after prot-mode init

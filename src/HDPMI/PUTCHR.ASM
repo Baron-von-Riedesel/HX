@@ -11,7 +11,7 @@
 	include external.inc
 	include debugsys.inc
 
-?SLOWDOWN equ 1
+?SLOWDOWN equ 0
 
 @slowdown macro
 if _LTRACE_ and ?SLOWDOWN
@@ -423,30 +423,11 @@ _ret:
 	ret
 _putchrx endp
 
-;--- used by except.asm
-;--- display string in cs:[esi]
-;--- out: esi -> behind 00
-;--- modifies ESI
-
-_stroutesi proc public
-	push eax
-@@:
-	db 2Eh		;seg CS
-	lodsb
-	and al,al
-	jz @F
-	call _putchrx
-	jmp @B
-@@:
-	pop eax
-	ret
-_stroutesi endp
-
 getwordfromstack:
-	mov ax,[ebp+0]	;get saved value of LOWWORD(ebp)
-	xchg ax,[ebp+2]	;move it up 1 word, get HIGHWORD(ebp)
-	xchg ax,[ebp+4]	;move it up 1 word, get LOWWORD(eip)
-	xchg ax,[ebp+6]	;move it up 1 word, get HIGHWORD(eip)
+	mov ax,[ebp+0]	;get saved value of LOWWORD ebp
+	xchg ax,[ebp+2]	;move it up 1 word, get HIGHWORD ebp
+	xchg ax,[ebp+4]	;move it up 1 word, get LOWWORD eip
+	xchg ax,[ebp+6]	;move it up 1 word, get HIGHWORD eip
 	xchg ax,[ebp+8]	;move it up 1 word, get word from stack
 	inc ebp
 	inc ebp
@@ -456,7 +437,13 @@ getwordfromstack:
 ;--- format string is located at cs:eip
 ;--- arguments are onto the stack
 ;--- all registers preserved, stack cleaned
-;--- understands %X, %lX and %s (far16)
+;--- understands:
+;---   %X  : word  hex
+;---   %lX : dword hex
+;---   %s  : far16 string
+;---   %ls : far32 string
+;---   %b  : byte  hex
+;---   %c  : byte  char
 
 _stroutx proc public
 	push ebp
@@ -466,6 +453,26 @@ _stroutx proc public
 	push eax
 	push edx
 	push esi
+ifdef _DEBUG
+ if ?DOSOUTPUT and ?USEHOSTPSP
+	push 0
+	push es
+	mov eax,_FLATSEL_
+	mov es,eax
+	mov edx,ss:[dwSDA]
+	cmp es:[edx].DOSSDA.bInDOS,0
+	jnz @F
+	mov ax,es:[edx].DOSSDA.wPSP
+	mov [esp+4],ax
+	push ebx
+	mov bx,ss:[wHostPSP]
+	mov ah,50h
+	@simrmint 21h
+	pop ebx
+@@:
+	pop es
+ endif
+endif
 	mov esi,[ebp+4]
 	movzx esi,word ptr cs:[esi]
 	add dword ptr [ebp+4],2
@@ -473,7 +480,20 @@ nextitem:
 	db 2Eh		;CS
 	lodsb
 	and al,al
-	jnz @F
+	jnz ischar
+ifdef _DEBUG
+ if ?DOSOUTPUT and ?USEHOSTPSP
+	pop eax
+	and eax,eax
+	jz @F
+	push ebx
+	mov ebx,eax
+	mov ah,50h
+	@simrmint 21h
+	pop ebx
+@@:
+ endif
+endif
 	pop esi
 	pop edx
 	pop eax
@@ -481,7 +501,7 @@ nextitem:
 	mov esp,ebp
 	pop ebp
 	ret
-@@:
+ischar:
 	push offset nextitem
 	cmp al,'%'
 	jnz _putchrx		;just display the char
@@ -490,6 +510,10 @@ nextitem:
 	lodsb
 	cmp al,'X'
 	jz stroutx_X
+	cmp al,'b'
+	jz stroutx_b
+	cmp al,'c'
+	jz stroutx_c
 	cmp al,'l'
 	jnz @F
 	mov dl,al
@@ -543,6 +567,12 @@ stroutx_lX:						;%lX get 2 words
 stroutx_X:						;%X get 1 word
 	call getwordfromstack
 	jmp wordout
+stroutx_b:						;%b get 1 word
+	call getwordfromstack
+	jmp byteout
+stroutx_c:						;%c get 1 word
+	call getwordfromstack
+	jmp _putchrx
 _stroutx endp
 
 dwordout proc near
@@ -575,30 +605,6 @@ nibout:
 	das
 	jmp _putchrx
 byteout endp
-
-_charout proc stdcall public arg:dword
-_charout endp
-	mov eax, [esp+4]
-	call _putchrx
-	ret 4
-
-_byteout proc stdcall public arg:dword
-_byteout endp
-	mov eax,[esp+4]
-	call byteout
-	ret 4
-
-_wordout proc stdcall public arg:dword
-_wordout endp
-	mov eax,[esp+4]
-	call wordout
-	ret 4
-
-_dwordout proc stdcall public arg:dword
-_dwordout endp
-	mov eax,[esp+4]
-	call dwordout
-	ret 4
 
 if ?I41SUPPORT
 

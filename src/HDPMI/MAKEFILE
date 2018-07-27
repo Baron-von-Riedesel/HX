@@ -6,9 +6,25 @@ DEBUG = 0
 !endif
 
 ALL:
-    @$(MAKE) -s -f HDPMI32.MAK DEBUG=$(DEBUG) 
-    @$(MAKE) -s -f HDPMI16.MAK DEBUG=$(DEBUG) 
+    @$(MAKE) -s -f HDPMI16.MAK  DEBUG=$(DEBUG) 
+    @$(MAKE) -s -f HDPMI16a.MAK DEBUG=$(DEBUG) 
+    @$(MAKE) -s -f HDPMI16e.MAK DEBUG=$(DEBUG) 
+    @$(MAKE) -s -f HDPMI16i.MAK DEBUG=$(DEBUG) 
+    @$(MAKE) -s -f HDPMI16s.MAK DEBUG=$(DEBUG) 
+    @$(MAKE) -s -f HDPMI32.MAK  DEBUG=$(DEBUG) 
+    @$(MAKE) -s -f HDPMI32a.MAK DEBUG=$(DEBUG) 
+    @$(MAKE) -s -f HDPMI32e.MAK DEBUG=$(DEBUG) 
+    @$(MAKE) -s -f HDPMI32i.MAK DEBUG=$(DEBUG) 
+    @$(MAKE) -s -f HDPMI32s.MAK DEBUG=$(DEBUG) 
 
 clean:
-    @$(MAKE) -s -f HDPMI32.MAK clean DEBUG=$(DEBUG) 
-    @$(MAKE) -s -f HDPMI16.MAK clean DEBUG=$(DEBUG) 
+    @$(MAKE) -s -f HDPMI16.MAK  clean DEBUG=$(DEBUG) 
+    @$(MAKE) -s -f HDPMI16a.MAK clean DEBUG=$(DEBUG) 
+    @$(MAKE) -s -f HDPMI16e.MAK clean DEBUG=$(DEBUG) 
+    @$(MAKE) -s -f HDPMI16i.MAK clean DEBUG=$(DEBUG) 
+    @$(MAKE) -s -f HDPMI16s.MAK clean DEBUG=$(DEBUG) 
+    @$(MAKE) -s -f HDPMI32.MAK  clean DEBUG=$(DEBUG) 
+    @$(MAKE) -s -f HDPMI32a.MAK clean DEBUG=$(DEBUG) 
+    @$(MAKE) -s -f HDPMI32e.MAK clean DEBUG=$(DEBUG) 
+    @$(MAKE) -s -f HDPMI32i.MAK clean DEBUG=$(DEBUG) 
+    @$(MAKE) -s -f HDPMI32s.MAK clean DEBUG=$(DEBUG) 

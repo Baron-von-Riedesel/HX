@@ -10,7 +10,7 @@
 
 	option proc:private
 
-?SLOWDOWN equ 1
+?SLOWDOWN equ 0
 
 ?MONOOUT = 0
 
@@ -315,6 +315,17 @@ _$stroutx proc near public
 	push ax
 	push si
 	cld
+ifdef _DEBUG
+ if ?DOSOUTPUT and ?USEHOSTPSP
+	push bx
+	mov ah,51h
+	int 21h
+	push bx
+	mov bx,cs:wHostPSP
+	mov ah,50h
+	int 21h
+ endif
+endif
 	mov si,[bp+2]
 	add word ptr [bp+2],2
 	mov si,word ptr cs:[si]
@@ -328,6 +339,14 @@ nextitem:
 	call _$putchrx
 	jmp nextitem
 done:
+ifdef _DEBUG
+ if ?DOSOUTPUT and ?USEHOSTPSP
+	pop bx
+	mov ah,50h
+	int 21h
+	pop bx
+ endif
+endif
 	pop si
 	pop ax
 	popf

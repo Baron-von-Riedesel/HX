@@ -1,14 +1,14 @@
 
-@seg BEGTEXT16
+@seg BEGGRP16
 @seg _TEXT16
 @seg _DATA16
 @seg VDATA16
 @seg CDATA16
-@seg ENDTEXT16
+@seg ENDGRP16
 
 @seg _TEXT32
 @seg CDATA32
-@seg ENDTEXT32
+@seg ENDGRP32
 
 SEG16 segment byte use16 public 'CODE'
 SEG16 ends
@@ -143,7 +143,7 @@ AfterDiskIoRead    proto near
 
 _restoreclientstate proto near
 _saveclientstate proto near
-_getidtaddr proto
+_getidtofs proto
 _getcldata32 proto
 
 ;--- except
@@ -155,7 +155,7 @@ fatappexit2 proto near
 
 ;--- movehigh.asm
 
-_movehigh_pm proto near
+_movehigh proto near
 
 ;--- int33api.asm
 
@@ -203,6 +203,7 @@ closeinterrupts proto near
 
 load_pmsegs proto near
 _rawjmp_pm proto near16		;raw jump to protected-mode, esp = taskseg._Esp0
+_rawjmp_pm_savesegm proto near16
 _jmp_pm proto near16		;full switch to protected-mode
 _jmp_pmX proto near16		;do a INT 96h, then _jmp_pm
 
@@ -229,30 +230,31 @@ externdef _CSGROUP16_:abs
 if ?KDSUPP
 externdef _KDSEL_:abs
 endif
-externdef PATCHVALUE2:abs
+;externdef PATCHVALUE2:abs
 
 
-BEGTEXT16 segment
+BEGGRP16 segment
 externdef logo:byte
 externdef llogo:abs
 externdef curGDT:DESCRPTR
 externdef taskseg:TSSSEG
-BEGTEXT16 ends
+BEGGRP16 ends
 
-ENDTEXT16 segment
+ENDGRP16 segment
 externdef endof16bit:near
-ENDTEXT16 ends
+ENDGRP16 ends
 
-ENDTEXT32 segment
+ENDGRP32 segment
 externdef endof32bit:near
-ENDTEXT32 ends
+ENDGRP32 ends
 
 CDATA16 segment
 externdef wEnvFlags:word
 CDATA16 ends
 
 _TEXT32 segment
-externdef intr09:near
+;externdef intr09:near
+externdef simint09:near
 externdef rawjmp_rm_novcpi:near
 externdef rawjmp_rm_vcpi:near
 _TEXT32 ends
@@ -264,22 +266,29 @@ externdef meventr:near16			;real-mode mouse event proc
 if ?VM
 externdef wCloneSize:word
 endif
-externdef linadvs:byte
+externdef linadvs:dword
 externdef unhookIVTvecs:near
 if ?MOVEHIGHHLP
-externdef wPatchDgrp1:word
+externdef wPatchGrp161:word
 endif
-externdef wPatchDgrp3:word
+externdef wPatchGrp163:word
 externdef kdpatch1:near
 externdef kdpatch2:near
 externdef rawjmp_pm_patch:near
-externdef _rawjmp_pm_savesegm:near
 externdef intrrm2pm:far
 externdef kdinit_rm:near
 externdef kdinit2_rm:near
 externdef load_rmsegs:near
 externdef vcpi_rmentry:near
 _TEXT16 ends
+
+BEGGRP16 segment
+externdef wSegTLB:word			;segment TLB
+externdef dwSegTLB:dword		;segment TLB (same as wSegTLB, but DWORD)
+externdef cApps:byte			;cnt active clients
+externdef fMode:byte			;global mode flags
+externdef fMode2:byte			;2. global mode flags
+BEGGRP16 ends
 
 ;--- _DATA16 publics
 
@@ -336,7 +345,6 @@ externdef bExcEntry:byte		;exception mutex
 externdef bTrap:byte			;serial input Ctrl-D received
 externdef bFPUAnd:byte
 externdef bFPUOr:byte
-externdef cApps:byte			;cnt active clients
 externdef bLPMSused:byte		;flag LPMS used
 externdef cRMCB:word			;count open real-mode callbacks
 externdef cIntRMCB:word			;count open internal real-mode callbacks
@@ -350,8 +358,6 @@ endif
 externdef dwLoL:dword			;linear address DOS ListOfLists
 externdef dwSDA:dword			;linear address DOS SDA
 externdef fDebug:byte			;kernel debugger flags
-externdef fMode:byte			;global mode flags
-externdef fMode2:byte			;2. global mode flags
 externdef fHost:byte			;flag: running as VCPI/XMS client?
 externdef fXMSAlloc:byte		;XMS alloc command (v2/v3)
 externdef fXMSQuery:byte		;XMS query command (v2/v3)
@@ -373,8 +379,6 @@ endif
 if ?HSINEXTMEM
 externdef dwStackTop:dword		;top of host stack
 endif
-externdef wSegTLB:word			;segment TLB
-externdef dwSegTLB:dword		;segment TLB (same as wSegTLB, but DWORD)
 externdef wVersion:word			;DPMI version
 externdef xmsaddr:PF16			;XMS entry (RM)
 ;externdef rmpsp:word			;current real-mode PSP of active client
@@ -394,7 +398,7 @@ externdef dwrmSSSPtmp:dword
 if ?DPMI10EXX
 externdef wExcHdlr:word
 endif
-externdef wPatchDgrp2:word
+externdef wPatchGrp162:word
 if ?HSINEXTMEM and ?MAPDOSHIGH
 externdef v86iretesp:dword
 endif

@@ -77,11 +77,12 @@ $(LCMDS1)
 $(OUTIOPL0)\$(NAME).lib: $(OBJMODS) $(NAME)i.mak
 	@cd $(OUTIOPL0)
 	@$(LIB16BIN) $(NAME).lib $(OBJNAMES:.\=+)
-	@jwlib -q $(NAME).lib -$(SRC).OBJ
+	@jwlib -q -b $(NAME).lib -$(SRC).OBJ
 	@cd ..
 
 clean:
 	@del $(OUTIOPL0)\*.obj
+	@del $(OUTIOPL0)\*.lib
 	@del $(OUTIOPL0)\*.exe
 	@del $(OUTIOPL0)\*.lst
 	@del $(OUTIOPL0)\*.map

@@ -96,7 +96,7 @@ endif
 	push cs				;CS is <> GROUP, dont use as prefix!
 	db 0eah				;jmp ssss:oooo
 	dw offset @F
-wPatchDgrp2 dw 0		;will contain GROUP16
+wPatchGrp162 dw 0		;will contain GROUP16
 @@:
 
 if ?NOREENTRY        

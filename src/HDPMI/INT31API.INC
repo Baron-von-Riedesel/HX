@@ -107,10 +107,10 @@ unmapphysregion proto near
 
 ;--- ah=0B
 
-allocwatch proto near
-clearwatch proto near
-getwatchstate proto near
-resetwatchstate proto near
+allocwatchp proto near
+clearwatchp proto near
+getwatchpstate proto near
+resetwatchpstate proto near
 
 ;--- ah=0E
 

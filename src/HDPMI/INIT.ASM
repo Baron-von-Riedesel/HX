@@ -335,14 +335,14 @@ if ?PATCHCODE
 endif
 	jmp patch_done
 host_is_vcpi:  
-	lea eax,[ecx+offset pdGDT]	 ;address GDT pseudo descriptor
+	lea eax,[ecx+offset pdGDT]	;address GDT pseudo descriptor
 	mov v86topm._gdtr,eax
 
-	lea eax,[ecx+offset pdIDT]	 ;address IDT pseudo descriptor
+	lea eax,[ecx+offset pdIDT]	;address IDT pseudo descriptor
 	mov v86topm._idtr,eax
 
 	lea eax,[ecx+offset v86topm]
-	mov dword ptr [linadvs-4],eax	;patch code in rawjmp_pm
+	mov [linadvs],eax			;patch code in rawjmp_pm
 
 if ?INTRM2PM
 if 1
@@ -634,20 +634,19 @@ if ?CALLPREVHOST
 endif
 	mov di,offset logo	;test if HDPMI is already loaded
 	mov si,di
-	mov cx,llogo
+	mov cx,llogo	;cmp logo + version
 	repz cmpsb
 	jnz nohdpmi
+	or fHost,FH_HDPMI
 	assume es:GROUP16
 	@stroutrm <"-initsvr_rm: instance of HDPMI found, inst=%X, flags=%X",lf>,es, es:[wEnvFlags]
 	cmpsb				;is it the same mode (16/32)?
 	jnz @F
-	or fHost,FH_HDPMI
 	mov al, EXIT_DPMIHOST_RUNNING
 	jmp initsvr_ex		;then it can be used
 	assume es:nothing
 @@:
 	@stroutrm <"-but mode is different",lf>
-;	and fHost,not FH_DPMI	;make previous instance invisible
 nohdpmi:
 nodpmi:
 	mov ax,4300h		;check for XMS host
@@ -765,10 +764,14 @@ endif
 	cmp _cpu,4
 	jb @F
 ;--- cpu > 80386, no need to check for exception 09
+if 0
 	mov es,wHostSeg32
 	assume es:GROUP32
 	mov word ptr es:[intr09], PATCHVALUE2
 	assume es:nothing
+else
+	mov [curIDT+9*sizeof GATE].GATE.ofs, LOWWORD offset simint09
+endif
 @@:
 	call handleenvflags		;may modify GROUP32 content
 
@@ -815,7 +818,7 @@ if ?HSINEXTMEM
 	mov ah,48h
 	int 21h
 	jc nodosmem
-	mov word ptr taskseg._Esp, ax	;save the segment value in an unused field 
+	mov word ptr taskseg._DS, ax	;save the segment value in an unused field 
 	movzx eax,ax
 	shl eax,4
 	sub eax, dwSSBase
@@ -892,7 +895,7 @@ if ?HSINEXTMEM
 endif
 
 	@strout <"#initsvr_pm: call _movehigh",lf>
-	call _movehigh_pm		;allocates+inits CD30s + IDT
+	call _movehigh			;allocates bp table, moves GDT + IDT
 	jc initsvr_pm_failed
 
 if ?MOVEHIGH
@@ -951,7 +954,7 @@ if ?HSINEXTMEM
 ;--- release the dos memory that was temporarily used
 ;--- as host stack
 	push es
-	mov es, word ptr taskseg._Esp
+	mov es, word ptr taskseg._DS
 	mov ah,49h
 	int 21h
 	pop es
@@ -1068,7 +1071,7 @@ endif
 if ?RESIDENT
 ife ?STUB
 text9	db "CPU is not 80386 or better",0
-error1	db "% not installed or disabled",0 	   
+error1	db "% not installed or disabled or version differs",0 	   
 error5	db "% already installed",0
 error2	db "% is busy",0
 error3	db "% uninstalled",0
@@ -1451,6 +1454,11 @@ mystart proc
 if _LTRACE_
 ;	int 3
 endif
+ifdef _DEBUG
+ if ?DOSOUTPUT and ?USEHOSTPSP
+ 	mov cs:wHostPSP,es
+ endif
+endif
 	@stroutrm <"-hdpmi startup code, CS=%X, SS:SP=%X:%X",lf>,cs,ss,sp
 	cld
 	push cs
@@ -1490,7 +1498,7 @@ ife ?STUB
 	add bx,cx
  ife ?STACKLAST
   ife ?DELAYLOAD
-	mov cx,LOWWORD(offset endof32bit)
+	mov cx,LOWWORD offset endof32bit
 	shr cx, 4
 	add bx,cx
   endif
@@ -1513,10 +1521,10 @@ endif
 ;	mov v86iret.rSS, ax	;GROUP16
 	mov wHostSeg, ax	;GROUP16
 if ?MOVEHIGHHLP
-	mov wPatchDgrp1, ax	;GROUP16
+	mov wPatchGrp161, ax;GROUP16
 endif
-	mov wPatchDgrp2, ax	;GROUP16
-	mov wPatchDgrp3, ax	;GROUP16
+	mov wPatchGrp162, ax;GROUP16
+	mov wPatchGrp163, ax;GROUP16
 ife ?DELAYLOAD
 	mov dx, offset endof16bit
 	shr dx, 4
@@ -1911,12 +1919,19 @@ else
 
 ;--- close files before going resident.
 	mov bx,0
-@@:
+nextitem:
+ifdef _DEBUG
+ if ?DOSOUTPUT and ?USEHOSTPSP
+	cmp bl,1
+	jz @F
+ endif
+endif
 	mov ah,3Eh
 	int 21h
+@@:
 	inc bx
 	cmp bx,5
-	jb @B
+	jb nextitem
 
 	pop ax				;restore exit code
 	mov ah,31h

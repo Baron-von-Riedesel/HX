@@ -9,6 +9,8 @@
     low.
   þ bugfix: options -a and -i were incompatible and caused a crash if 
     nested execution of two clients occured.
+  þ bugfix: int 33h API translation for mouse event procs may not have
+    worked reliably if the clients did set the event procs concurrently.
   þ HDPMI will now use DOS for its output if an exception occurs.
     There is no longer any query if the client or the server is to
     be terminated; also, video mode is never altered by the host, making
@@ -26,6 +28,7 @@
     extended memory. The host stack size has been increased from 2 to 4 kB.
   þ HDPMI does no longer respond to int 2Fh, ax=160Ah. So emvironment switch
     HDPMI=16384 is obsolete and has been removed.
+  þ special register moves are no longer emulated if option -s is given.
 
   09.10.2013, version 3.17
 

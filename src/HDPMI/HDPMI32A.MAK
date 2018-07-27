@@ -147,7 +147,7 @@ $(LCMDS1)
 $(OUTHSCM)\$(NAME).lib: $(OBJMODS) $(NAME)a.mak
 	@cd $(OUTHSCM)
 	@$(LIB16BIN) $(NAME).lib $(OBJNAMES:.\=+)
-	@jwlib -q $(NAME).lib -$(SRC).OBJ
+	@jwlib -q -b $(NAME).lib -$(SRC).OBJ
 	@cd ..
 
 # create the "no LFN" version
