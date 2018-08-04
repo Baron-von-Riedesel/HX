@@ -2,12 +2,12 @@
 @seg BEGGRP16
 @seg _TEXT16
 @seg _DATA16
-@seg VDATA16
-@seg CDATA16
+@seg _DATA16V
+@seg _DATA16C
 @seg ENDGRP16
 
 @seg _TEXT32
-@seg CDATA32
+@seg _DATA32C
 @seg ENDGRP32
 
 SEG16 segment byte use16 public 'CODE'
@@ -184,8 +184,8 @@ simint09 proto near
 installirqhandler proto near
 pms_call_int proto near 	 ;call ring3 protected mode INT
 lpms_call_int proto near	 ;switch stack to LPMS, call ring3 pm INT
-dormsint proto near 		 ;call real-mode INT from client
-dormintintern proto near	 ;call real-mode INT from inside host
+_callrmsint proto near 		 ;call real-mode INT from client
+callrmintintern proto near	 ;call real-mode INT from inside host
 callrmprocintern proto near	 ;call real-mode near proc from inside host
 _myinit proto near			 
 retf2exit proto near		 ;adjust all std flags, then perform IRETD
@@ -202,12 +202,12 @@ setpmstate proto near
 closeinterrupts proto near
 
 load_pmsegs proto near
-_rawjmp_pm proto near16		;raw jump to protected-mode, esp = taskseg._Esp0
+_rawjmp_pm proto near16		;raw jump to protected-mode, esp = dwHostStack
 _rawjmp_pm_savesegm proto near16
 _jmp_pm proto near16		;full switch to protected-mode
 _jmp_pmX proto near16		;do a INT 96h, then _jmp_pm
 
-_rawjmp_rm proto near		;@rawjmp_rm, raw jump real-mode, sp unchanged
+_rawjmp_rm proto near		;@rawjmp_rm, raw jump real-mode, rm ss:sp not set
 _jmp_rm proto near			;@jmp_rm, full switch to real-mode, ss:sp=RMS
 
 vcpi_pmentry proto near
@@ -230,8 +230,6 @@ externdef _CSGROUP16_:abs
 if ?KDSUPP
 externdef _KDSEL_:abs
 endif
-;externdef PATCHVALUE2:abs
-
 
 BEGGRP16 segment
 externdef logo:byte
@@ -248,9 +246,9 @@ ENDGRP32 segment
 externdef endof32bit:near
 ENDGRP32 ends
 
-CDATA16 segment
+_DATA16C segment
 externdef wEnvFlags:word
-CDATA16 ends
+_DATA16C ends
 
 _TEXT32 segment
 ;externdef intr09:near
@@ -260,7 +258,7 @@ externdef rawjmp_rm_vcpi:near
 _TEXT32 ends
 
 _TEXT16 segment
-externdef dormintintern_rm_exit:near16
+externdef callrmintintern_rm_exit:near16
 externdef meventr:near16			;real-mode mouse event proc
 ;externdef PatchRMStkSize:word
 if ?VM
@@ -371,11 +369,8 @@ externdef v86iret:V86IRET		;client v86/real-mode segments
 externdef vcpiOfs:dword			;offset VCPI host entry
 externdef vcpicall:PF32			;address VCPI host entry (used by pm)
 externdef v86topm:VCPIRM2PM		;contains CR3
-if ?FIXTSSESP
-externdef dwHostStack:dword		;current value of host stack
-else
-externdef dwHostStackExc:dword	;current bottom of host stack (exceptions)
-endif
+externdef dwHostStack:dword		;value of host stack when switching to real-mode
+externdef dwHSExcR3:dword		;value of host stack if exception in r3 occured
 if ?HSINEXTMEM
 externdef dwStackTop:dword		;top of host stack
 endif
@@ -405,9 +400,9 @@ endif
 
 _DATA16 ends
 
-;--- CDATA32 publics
+;--- _DATA32C publics
 
-CDATA32 segment
+_DATA32C segment
 externdef intrmcbs:INTRMCB		;start internal real-mode callbacks
 externdef r3vect00:R3PROC
 externdef r3vect20:R3PROC
@@ -434,5 +429,5 @@ externdef cldata32:near
 externdef endcldata32:near
 externdef endoftext32:near
 
-CDATA32 ends
+_DATA32C ends
 

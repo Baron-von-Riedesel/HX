@@ -167,11 +167,10 @@ endvdata label near
 
 _DATA16 ends
 
-if 0	;deactivated in v3.18
-CDATA16 segment
-dwResI15Pgs  dd 0		;free pages for int 15h
-CDATA16 ends
-endif
+;--- deactivated in v3.18
+;_DATA16C segment
+;dwResI15Pgs  dd 0		;free pages for int 15h
+;_DATA16C ends
 
 _TEXT32  segment
 
@@ -2759,7 +2758,7 @@ isfirst:
 	pop ds
 	call _Linear2PT	;get PTE ptr in edi
 @@:
-	and byte ptr es:[edi],not (PTF_DIRTY or PTF_ACCESSED)
+	and byte ptr es:[edi],not (PTF_DIRTY or PTF_ACCESSED or PTF_USER)
 	add edi,4
 	loop @B
 	clc
@@ -2780,8 +2779,8 @@ pm_CloneGroup32 endp
 
 ;---  1 page   page dir
 ;--- +3 pages  page tables 0, FF8, FFC
-;--- +1 page   pm breaks + GDT
-;--- +1 page   IDT
+;--- +1 page   pm breaks 
+;--- +1 page   GDT + IDT
 ;--- +1 page   LDT
 ;--- +1 page   LPMS
 ;--- +2 pages  client save state
@@ -2826,6 +2825,9 @@ pm_createvm proc public
 	mov ebp, esp
 	@strout <"#pm_createvm enter",lf>
 	@strout <"#pm_createvm: cr3=%lX pPageDir=%lX pPageTab0=%lX",lf>, v86topm._cr3, pPageDir, pPageTab0
+
+;--- global variables may (and "should") be set here. The host instance has been
+;--- switched already in case it isn't the very first VM.
 
 	mov SysAddrUp, ?SYSAREA0 + 1000h
 	mov SysAddrDown, ?SYSAREA1 - 1000h
@@ -3135,7 +3137,7 @@ pm_alloci15 proc near
 	stc
 	@simrmint 15h
 	jc e801_err
-	@strout <"#pm_alloci15: int 15h, ax=E801 ok, 1M-16M=%X,%X >16M%X,%X",lf>, ax, cx, bx, dx
+	@strout <"#pm_alloci15: int 15h, ax=E801 ok, 1M-16M=%X,%X >16M=%X,%X",lf>, ax, cx, bx, dx
 	and ax, ax
 	jnz @F
 	mov ax, cx
@@ -3153,6 +3155,7 @@ pm_alloci15 proc near
 	clc
 	ret
 e801_err:
+	@strout <"#pm_alloci15: int 15h,ax=E801h failed",lf>
 	stc
 	ret
 
@@ -3224,7 +3227,7 @@ pm_int15rm proc public
 
 ;--- since v3.18, there is no longer a part of the memory
 ;--- "released" and regained, since this didn't really work.
-;--- now the one physical block is kept for all vms.
+;--- now the one physical block is kept for all VMs.
 ;	mov ecx, cs:[dwResI15Pgs]
 	mov ecx, cs:PhysBlk.dwFree
 
@@ -3232,7 +3235,7 @@ if ?TRAPI15E801	;intercept int 15h, ax=e801h?
 	cmp ah, 0E8h
 	jz i15e801
 endif
-	cmp ecx, 0FFC0h shr 2
+	cmp ecx, 0FFC0h shr 2	;less than 63 MB free?
 	mov ax, cx
 	pop ecx
 	jb @F
@@ -3243,9 +3246,11 @@ endif
 	ret
 if ?TRAPI15E801
 i15e801:
+;--- to return: AX/CX ext. memory between 1M-16MB in kB (max 15360)
+;--- to return: BX/DX ext. memory above 16MB in 64kB blocks
 	@stroutrm <"-pm_int15rm, ax=e801h: free pages=%lX",lf>, ecx
 	mov ax, 15360
-	cmp ecx, 15360 shr 2	;this is in pages, not kB
+	cmp ecx, 15360 shr 2	;less than 15 MB free? (ecx is pages, not kB!)
 	jnc @F
 	mov ax, cx
 	shl ax, 2				;pages -> kB
@@ -3253,8 +3258,8 @@ i15e801:
 	jmp done
 
 @@:
-	sub ecx, 15360 shr 2
-	shr ecx, 4				;64k blocks
+	sub ecx, 15360 shr 2	;subtract 15 MB (in pages)
+	shr ecx, 4				;convert 4k-pages to 64k-blocks
 	mov bx, cx
 done:
 	pop ecx
@@ -3263,7 +3268,6 @@ done:
 	ret
 endif
 pm_int15rm endp
-
 
 if ?I15MEMMGR	;this is 0
 
@@ -3470,38 +3474,42 @@ nextitem:
 	mov edx,"SMAP"
 	mov eax,00E820h
 	int 15h
-	mov cl, 0
-	jc done
+;	jc done
+	cmp eax,"SMAP"
+	jnz done
+	cmp dword ptr es:[di+16], 1	;type "available"?
+	jnz @F
+	cmp word ptr es:[di+4], 0	;beyond 4 GB?
+	jnz @F
+	mov edx, es:[di+0]
+	cmp edx, 100000h			;base above 1 MB?
+	jb @F
+	mov eax, es:[di+8]
+	shr eax, 12 		;bytes -> pages
+	@stroutrm <"-alloci15rm, ax=e820: found available mem at %lX, pages %lX",lf>,\ 
+		dword ptr es:[di+0], eax
+	add sp, 20
+	jmp exit
+@@:
 	and ebx, ebx
-	jz done
-	.if (dword ptr es:[di+16] == 1)
-		mov edx, es:[di+0]
-		.if (edx == 100000h)
-			mov eax, es:[di+8]
-			shr eax, 12 		;bytes -> pages
-			inc cl
-			jmp done
-		.endif
-	.endif
-	jmp nextitem
+	jnz nextitem
 done:
 	add sp, 20
 endif
 if ?USEE801
-  if ?USEE820
-	cmp cl,0
-	jnz donee801
-  endif
 	@stroutrm <"-alloci15rm: int 15h, ax=E801",lf>
+	clc
 	mov ax,0E801h
 	int 15h
 	jc e801_err
-	@stroutrm <"-alloci15rm: int 15h, ax=E801 ok, ax-dx=%X %X %X %X",lf>, ax, bx, cx, dx
+	@stroutrm <"-alloci15rm, ax=E801: ok, ax-dx=%X %X %X %X",lf>, ax, bx, cx, dx
 	and ax, ax
 	jnz @F
 	mov ax, cx
 	mov bx, dx
 @@:
+	;--- max value in AX "should" be 3C00h, but there are "providers"
+	;--- that return FFC0 instead ( i.e. GRUB2 )
 	cmp ax, 3C00h+1	;max is 3C00h (15360 kB)
 	jnc e801_err
 	movzx eax, ax
@@ -3509,28 +3517,19 @@ if ?USEE801
 	movzx ebx, bx
 	shl ebx, 4		;64kb -> pages 
 	add eax, ebx
-	mov cl,1
 	@stroutrm <"-alloci15rm: pages=%lX",lf>, eax
-	jmp donee801
+	jmp done
 e801_err:
-	mov cl,0
-donee801:
 endif
-	cmp cl,0
-	jnz @F
 	@stroutrm <"-alloci15rm: int 15, ah=88h",lf>
+	clc
 	mov ah,88h				;get extended memory size (kB)
 	int 15h
+	jc exit
 	@stroutrm <"-alloci15rm: Int 15 extended memory size=%X",lf>,ax
 	movzx eax, ax
 	shr ax,2				;kb -> pages
-	and ax,ax
-	jz exit
-@@:
-;	mov [dwNxtPageOfs],-1000h ;allocate from top to bottom
-;	mov edx,eax
-;	shl edx,12				;pages -> bytes
-;	add edx,100000h-1000h	;block starts at 0x100000 (HMA)
+done:
 	mov edx,100000h
 	clc
 exit:
@@ -3559,25 +3558,26 @@ exit:
 	ret
 getphysaddr endp
 
-;*** alloc memory for 1 page table (1000h bytes) + 1 PDEs (4 bytes) in dos memory
-;--- this is for full page table 0 and first PDE in page dir.
+;*** init page table 0 for the first 4 MB in DOS memory
+;--- behind this table (which starts at a page boundary
+;--- will be space for at least 4 PDEs in page dir.
 ;*** it's temporary until we are in protected mode
 ;--- and will be changed in initserver_pm
 ;--- in: DS=GROUP16
 ;--- out: EAX = linear address page table 0
-;--- ES= segment page table 0
+;--- modifies ES
 
 	@ResetTrace
 
-allocpagetab0 proc
+initpagetab0 proc
 
-	@stroutrm <"-allocpagetab0: try to alloc 2000h bytes conv. memory",lf>
+	@stroutrm <"-initpagetab0: try to alloc 2000h bytes conv. memory",lf>
 	mov bx, 200h		;2 pages (8 kB), needed are 1004h bytes
 	mov ah, 48h
 	int 21h
 	jc error
 	mov word ptr [taskseg._ES],ax	;save it here, will be released soon
-	@stroutrm <"-allocpagetab0: DOS memory alloc for page tabs ok (%X)",lf>,ax
+	@stroutrm <"-initpagetab0: DOS memory alloc for page tabs ok (%X)",lf>,ax
 
 ;--- now shrink the memory so it fits exactly
 
@@ -3590,16 +3590,30 @@ allocpagetab0 proc
 	int 21h
 if 0	;igore shrink failure
 	jc error
-	@stroutrm <"-allocpagetab0: DOS memory realloc for page tabs ok (%X)",lf>,bx
+	@stroutrm <"-initpagetab0: DOS memory realloc for page tabs ok (%X)",lf>,bx
 endif
 	mov ax,es
 	add ax,100h-1
 	mov al,00
-	@stroutrm <"-allocpagetab0: page tab start %X",lf>,ax
+	@stroutrm <"-initpagetab0: page tab start %X",lf>,ax
+	mov es,ax
+	movzx eax,ax
+	shl eax,4
+	mov pPageTab0, eax
+	call getphysaddr		;get physical address (PDE) of PT0 in edx
+	@stroutrm <"-initpagetab0: pPageTab0=%lX [PDE=%lX]",lf>, eax, edx
+	or dl,PTF_PRESENT or PTF_NORMAL
+	assume es:SEG16
+	mov es:[1000h+000],edx	;set PDE for pagetab0 in page dir
+	add eax,1000h
+	mov pPageDir, eax
+	call getphysaddr
+	mov v86topm._cr3, edx	;CR3 will be modified later
+	@stroutrm <"-initpagetab0: pPageDir=%lX [CR3=%lX]",lf>, eax, edx
+
 ;--- init page table 0:
 ;--- 000000-10FFFF: phys=linear 
 ;--- 110000-3FFFFF: NULL
-	mov es,ax
 	xor di,di
 	mov cx,440h/4
 	xor eax,eax
@@ -3612,13 +3626,34 @@ endif
 	mov cx,(1000h-440h)/4	;init rest of tab0
 	xor eax,eax
 	rep stosd
-	@stroutrm <"-allocpagetab0: initialization pagetab0 done",lf>
-        
-	mov ax,es
-	shl eax,4
+	@stroutrm <"-initpagetab0: initialization pagetab0 done",lf>
+	xor di,di
+	test [fHost],FH_VCPI
+	jz @F
+
+;--- get VCPI protected-mode interface
+;--- ds:si = pointer to 3 descriptors in GDT
+;--- es:di = page table 0
+	mov si,offset vcpidesc
+	mov ax,0DE01h			;get protected mode interface
+	int 67h
+	cmp ah,00				;returns in DI=first free entry
+	stc 					;in pagetab 0
+	jnz error
+	mov [vcpiOfs],ebx		;entry VCPI host
+	@stroutrm <"-initpagetab0: get VCPI protected mode interface ok (%lX,%X)",lf>,ebx,di
+@@:
+;--- v3.18: ensure 1 uncommitted page exists between DOS memory
+;--- and host memory
+	cmp di,444h 			;never go below linear addr 111000h 
+	jnb @F
+	mov di,444h
+@@:
+	mov word ptr [dwOfsPgTab0],di	;first free entry in page table 0
+	clc
 error:
 	ret
-allocpagetab0 endp
+initpagetab0 endp
 
 if ?INT15XMS
 
@@ -3794,44 +3829,11 @@ initpagemgr_rm_1:
 	mov PhysBlk.dwSize, eax 	;pages total
 	mov PhysBlk.dwFree, eax 	;pages free to allocate
 	mov PhysBlk.dwBase, edx		;phys. address
+
 initpagemgr_rm_2:
-
-	call allocpagetab0		;will set ES=page tab 0
+	call initpagetab0
 	jc error
-	mov pPageTab0, eax		;save linaddr page table 0
-	call getphysaddr		;get physical address (PDE) of PT0 in edx
-	@stroutrm <"-pm_init_rm: pPageTab0=%lX [PDE=%lX]",lf>, eax, edx
-	or dl,PTF_PRESENT or PTF_NORMAL
-	assume es:SEG16
-	mov es:[1000h+000],edx	;set PDE for pagetab0 in page dir
-	add eax,1000h
-	mov pPageDir, eax
-	call getphysaddr
-	mov v86topm._cr3, edx	;CR3 will be modified later
-	@stroutrm <"-pm_init_rm: pPageDir=%lX [CR3=%lX]",lf>, eax, edx
 
-	xor di,di				;es:di ^ pagetable 0
-	test [fHost],FH_VCPI
-	jz @F
-
-;--- get VCPI protected-mode interface
-;--- ds:si = pointer to 3 descriptors in GDT
-;--- es:di = page table 0
-	mov si,offset vcpidesc
-	mov ax,0DE01h			;get protected mode interface
-	int 67h
-	cmp ah,00				;returns in DI=first free entry
-	stc 					;in pagetab 0
-	jnz error
-	mov [vcpiOfs],ebx		;entry VCPI host
-	@stroutrm <"-pm_init_rm: get protected mode interface ok (%lX,%X)",lf>,ebx,di
-@@:
-	cmp di,440h 			;never go below linear addr 110000h 
-	jnb @F
-	mov di,440h
-@@:
-	add di,4				;v3.18: ensure 1 "notpresent" page exists at the bottom
-	mov word ptr [dwOfsPgTab0],di	;first free entry in page table 0
 if ?386SWAT
 	test fDebug,FDEBUG_KDPRESENT
 	jz @F

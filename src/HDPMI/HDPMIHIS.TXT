@@ -11,6 +11,8 @@
     nested execution of two clients occured.
   þ bugfix: int 33h API translation for mouse event procs may not have
     worked reliably if the clients did set the event procs concurrently.
+  þ bugfix: in exception frame for DPMI v1.0 the field PTE wasn't set
+    for page faults.
   þ HDPMI will now use DOS for its output if an exception occurs.
     There is no longer any query if the client or the server is to
     be terminated; also, video mode is never altered by the host, making

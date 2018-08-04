@@ -185,8 +185,8 @@ endif
 ;--- stored directly in IDT or in r3vect table.
 
 getpmptr proc
-	movzx ebx,bl
 
+	movzx ebx,bl
 	cmp bl,?LOWEXC			   ;00h - 0F/10/11 are ring 0 gates
 	jbe getpmivec1
 if ?ENHANCED
@@ -380,6 +380,8 @@ seteexcp proc public
 	jc @F
 	push ebx
 	movzx ebx,bl
+;--- set the bit to tell that an extended frame is to be generated for this exception.
+;--- these bits are not reset until the client terminates.
 	bts ss:[wExcHdlr],bx
 	pop ebx
 	clc

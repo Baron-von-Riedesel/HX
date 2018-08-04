@@ -200,15 +200,17 @@
              tables are allocated in HDPMI's reserved space above linear
              address FF800000h, but some programs seem to not expect them
              at such high addresses. Furthermore, GDT is not moved to
-             extended memory if this switch is on.
+             extended memory if this switch is on. In 'safe' mode this
+             switch is ignored!
    HDPMI=1024: disables support for DPMI 1.0 memory functions (AX >= 0504h).
              Same effect as command line option -m.
    HDPMI=2048: clear HiWord of ESI and EDI on initial switch to protected
              mode. This doesn't conform to the DPMI specs, but is required
              to make HDPMI compatible with Borlands's 32RTM.EXE when running
              on some versions of DOS.
-   HDPMI=4096: 'safe' mode. Don't allow client to write to GDT, IDT and LDT;
-             Host cannot write to pages marked as read-only.
+   HDPMI=4096: 'safe' mode. Don't allow client direct read/write access to 
+             GDT, IDT, LDT and page tables; also, host cannot write to pages
+             marked as read-only. Same effect as command line option -s.
    HDPMI=8192: stop in debugger after client's initial switch to protected
              mode.
    HDPMI=16384: obsolete since HDPMI v3.18. Previously, it caused HDPMI not
@@ -824,6 +826,11 @@
     is due to a real-mode stack overflow. What sometimes may help then is:
     - set STACKS=9,512 in CONFIG.SYS (may introduce new problems though)
     - try to load another mouse/network/sound driver
+
+  þ in Int15h or "raw" mode HDPMI expects Int 15h, ax=e801h to "work".
+    However, there exist some versions of the GRUB bootloader which intercept
+    this interrupt and return "wrong" values in AX, causing HDPMI to fall back
+    to Int 15h, ah=88h. Extended memory is then limited to 63 MB.
 
 
  9. Compatibility List

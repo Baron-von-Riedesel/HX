@@ -22,13 +22,13 @@ SRCMODS = \
 OBJNAMES = $(SRCMODS:.ASM=.OBJ)
 
 !if $(DEBUG)
-OBJMODS = $(OBJNAMES:.\=STD32D\)
-AOPTD=-D_DEBUG -D?SLOWDOWN=1
+OBJMODS = $(OBJNAMES:.\=X32D\)
+AOPTD=-D_DEBUG
 #AOPTD=-D_DEBUG -D?DOSOUTPUT=0 -DVIODIROUT=1
-OUTD=STD32D
+OUTD=X32D
 !else
-OBJMODS = $(OBJNAMES:.\=STD32\)
-OUTD=STD32
+OBJMODS = $(OBJNAMES:.\=X32\)
+OUTD=X32
 !endif
 
 !ifdef MASM
@@ -38,7 +38,7 @@ ASM = jwasm.exe
 !endif
 LINK  = jwlink.exe
 
-AOPT   = -nologo -c -Cp -Sg -D?32BIT=1 $(AOPTD) -I$(INC32DIR) -Fl$* -Fo$*
+AOPT   = -nologo -c -Cp -Sg -D?32BIT=1 $(AOPTD) -I$(INC32DIR) -Fl$* -Fo$* -D?ALLOWR0IRQ=1
 LCMDS3 = format DOS file {$(OBJMODS)} name $*.EXE lib $(OUTD)\$(NAME).lib op q, map=$*.MAP, stack=0
 
 SRC   = hdpmi
@@ -62,9 +62,6 @@ $(OUTD)\$(NAME).EXE: $(OBJMODS) $(OUTD)\$(NAME).lib
 $(LCMDS3)
 <<
 	@..\..\BIN\SETMZHDR.EXE -q $*.EXE
-!if $(DEBUG)==0
-	@copy $*.EXE ..\..\BIN\*.* >NUL
-!endif     
 
 $(OUTD)\$(NAME).lib: $(OBJMODS)
 	@cd $(OUTD)

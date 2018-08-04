@@ -17,23 +17,6 @@
 
 	assume DS:GROUP16
 
-if ?SUPI15C207
-
-_DATA16 segment
-mouse_rmcs RMCS <>
-_DATA16 ends
-
-CDATA32 segment
-mouse15_rmcb dd 0		; real mode callback for int15, ax=c207h
-if ?32BIT
-mouse_evntproc	PF32 0	; mouse event proc for int 15, ax=c207h
-else
-mouse_evntproc	PF16 0
-endif
-CDATA32 ends
-
-endif
-
 _TEXT32  segment
 
 	@ResetTrace
@@ -174,9 +157,10 @@ if ?SUPI15C207
 int15c207 proc
 	popfd			;restore EFlags
 	push ds
-	push byte ptr _CSALIAS_
+	push byte ptr _DSR3SEL_
 	pop ds
-	assume ds:GROUP32
+	assume ds:_TEXT32R3
+	@strout <"#int15c207: install int 15h mouse event proc es:ebx=%lX:%lX",lf>,es,ebx
 if ?32BIT
 	mov dword ptr [mouse_evntproc+0],ebx
 	mov word ptr [mouse_evntproc+4],es
@@ -191,9 +175,8 @@ endif
 ;--- the mouse event proc is reset by the client
 
 	cmp [mouse15_rmcb],0	;was a rm callback allocated?
-;	jz iret_with_CF_mod	;no, done
 	jz exit				;no, done
-	@strout <"deinstall int 15h mouse event proc",lf>
+	@strout <"#int15c207: deinstall int 15h mouse event proc",lf>
 	mov ss:v86iret.rES,0
 	@simrmint 15h				;deinstall event proc
 	pushad
@@ -215,7 +198,7 @@ int15c207 endp
 
 ;--- install a real int 15h mouse event proc
 ;--- if not already done.
-;--- DS=CGROUP32
+;--- DS=_TEXT32R3 alias
 ;--- out: Carry on errors
 
 installc207handler proc
@@ -231,16 +214,21 @@ installc207handler proc
 	pop ds
 	push byte ptr _DSR3SEL_
 	pop es
+	assume es:_TEXT32R3
+
 if ?32BIT
 	mov esi,offset mouse_eventproc
 	mov edi,offset mouse_rmcs
+	@strout <"#installc207handler: allocate rmcb for ds:esi=%lX:%lX, es:edi=%lX:%lX",lf>,ds,esi,es,edi
 else
 	mov si,LOWWORD offset mouse_eventproc
 	mov di,LOWWORD offset mouse_rmcs
+	@strout <"#installc207handler: allocate rmcb for ds:si=%lX:%X, es:di=%lX:%X",lf>,ds,si,es,di
 endif
 	call allocrmcb		;ds:esi -> pm proc, es:edi -> rmcs
 	pop es
 	pop ds
+	assume es:nothing
 	jc @F
 	mov word ptr [mouse15_rmcb+0],dx
 	mov word ptr [mouse15_rmcb+2],cx
@@ -249,7 +237,7 @@ endif
 	jc exit
 done1:
 	push ebx
-	@strout <"install int 15h mouse event proc",lf>
+	@strout <"#installc207handler: activate int 15h mouse event proc",lf>
 	mov bx,word ptr [mouse15_rmcb+2]
 	mov ss:v86iret.rES,bx
 	mov bx,word ptr [mouse15_rmcb+0]
@@ -259,8 +247,6 @@ exit:
 	ret
 	align 4
 installc207handler endp
-
-	assume ds:nothing
 
 ;--- this is a ring3 protected-mode proc!
 ;--- the original int 15 event proc is called with 4 words onto the stack
@@ -274,9 +260,21 @@ installc207handler endp
 
 _TEXT32R3 segment dword use32 public 'CODE'
 
-GROUP32 group _TEXT32R3
+	assume ds:nothing
+
+mouse_rmcs RMCS <>
+	align 4
+if ?32BIT
+mouse_evntproc	PF32 0	; mouse event proc for int 15, ax=c207h
+else
+mouse_evntproc	PF16 0
+endif
+	align 4
+mouse15_rmcb dd 0		; real mode callback for int15, ax=c207h
 
 	@ResetTrace
+
+	assume ds:nothing
 
 mouse_eventproc proc
 	cld
@@ -318,14 +316,20 @@ if ?MOU15RESET
 ;--- inp: eax=previous state of mouse event proc
 
 mouse15_reset proc public
-	cmp eax, cs:[mouse15_rmcb]	;has the rmcb changed?
+	push ds
+	push byte ptr _CSR3SEL_
+	pop ds
+	assume ds:_TEXT32R3
+	cmp eax, [mouse15_rmcb]	;has the rmcb changed?
 	jz @F
-	mov bx,word ptr cs:[mouse15_rmcb+0]
-	mov ax,word ptr cs:[mouse15_rmcb+2]
+	mov bx,word ptr [mouse15_rmcb+0]
+	mov ax,word ptr [mouse15_rmcb+2]
 	mov ss:v86iret.rES,ax
 	mov ax,0C207h
 	@simrmint 15h					;set the event proc (ax=C207)
 @@:
+	pop ds
+	assume ds:GROUP16
 	ret
 	align 4
 mouse15_reset endp

@@ -11,7 +11,9 @@
 	include external.inc
 	include debugsys.inc
 
+ifndef ?SLOWDOWN
 ?SLOWDOWN equ 0
+endif
 
 @slowdown macro
 if _LTRACE_ and ?SLOWDOWN

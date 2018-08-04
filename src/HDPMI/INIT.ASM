@@ -117,6 +117,10 @@ if ?VM
 	mov wCloneSize,dx
 @@:
 endif
+	test ah,ENVF2_SYSPROT
+	jz @F
+	and bEnvFlags2, not ENVF2_LDTLOW	;this switch is incompatible with "safe" mode
+@@:
 	ret
 handleenvflags endp
 
@@ -262,17 +266,17 @@ if ?HSINEXTMEM and ?MAPDOSHIGH
 endif
 	mov ecx,eax
 	mov bx,_SSSEL_
-	mov si,_DSR3SEL_
+;	mov si,_DSR3SEL_
 	and si,not 7
 	mov [curGDT+bx].A0015,ax
-	mov [curGDT+si].A0015,ax
+;	mov [curGDT+si].A0015,ax
 if ?MOVEHIGHHLP
 	mov di,_CSGROUP16_
 	mov [curGDT+di].A0015,ax
 endif
 	shr eax,16
 	mov [curGDT+bx].A1623,al
-	mov [curGDT+si].A1623,al
+;	mov [curGDT+si].A1623,al
 if ?MOVEHIGHHLP
 	mov [curGDT+di].A1623,al
 endif
@@ -281,15 +285,15 @@ endif
 	shl eax,4
 	mov bx,_CSSEL_
 	mov di,_CSALIAS_
-	mov si,_CSR3SEL_
-	and si,not 7
+;	mov si,_CSR3SEL_
+;	and si,not 7
 	mov [curGDT+bx].A0015,ax
 	mov [curGDT+di].A0015,ax
-	mov [curGDT+si].A0015,ax
+;	mov [curGDT+si].A0015,ax
 	shr eax,16
 	mov [curGDT+bx].A1623,al
 	mov [curGDT+di].A1623,al
-	mov [curGDT+si].A1623,al
+;	mov [curGDT+si].A1623,al
 
 ife ?DYNBREAKTAB
 	mov ax,offset inttable
@@ -371,7 +375,7 @@ getcpu proc near
 	assume ds:GROUP16
 
 	mov si,sp
-	and sp,not 3		; make sure there is no alignment exception
+	and sp,not 3		; ensure there's no alignment exception (AM=1 in CR0)
 
 	mov cl,3			; default: 80386
 	pushfd				; save EFlags
@@ -517,12 +521,12 @@ endif
 	ret
 nokerneldebugger:
 	@stroutrm <"-WDeb386 not active",lf>
-	mov ax,8B66h		;MOV AX,AX or MOV EAX,EAX
-	mov cl,0C0h
-	mov word ptr kdpatch1+0,ax
-	mov byte ptr kdpatch1+2,cl
-	mov word ptr kdpatch2+0,ax
-	mov byte ptr kdpatch2+2,cl
+;	mov ax,8B66h		;MOV AX,AX or MOV EAX,EAX
+;	mov cl,0C0h
+;	mov word ptr kdpatch1+0,ax
+;	mov byte ptr kdpatch1+2,cl
+;	mov word ptr kdpatch2+0,ax
+;	mov byte ptr kdpatch2+2,cl
 	ret
 initdebugger_rm endp
 
@@ -697,17 +701,19 @@ if ?VCPIPICTEST
 	jnz invalidvcpihost
 picok:
 endif
+	;alloc a EMS handle to ensure
+	;the EMM does not uninstall and remains ON
+	xor dx,dx
+	mov ax,5A00h;EMS v4.0 function   
+	mov bx,0	;no of pages, may be 0
+	int 67h
+	mov wEMShandle,dx
 ife ?CR0COPY
-	mov ax,0DE07h		;get CR0
+	mov ax,0DE07h	;get CR0
 	int 67h
 	mov eax, ebx
 endif
-	xor dx,dx
-	mov ax,5A00h		;alloc a EMS handle to ensure
-	mov bx,0			;the EMM does not uninstall and remains ON
-	int 67h
-	mov wEMShandle,dx
-	jmp initdpmi_1
+	jmp initdpmi_1	;expects eax to hold CR0
 
 ;--- no VCPI host found
 
@@ -718,6 +724,14 @@ vcpidone:
 	mov al,EXIT_DPMIHOST_RUNNING	;exit (nothing to do)
 	jmp initsvr_ex
 @@: 						;neither VCPI nor DPMI found
+
+	test byte ptr dwFeatures,40h	;PAE supported?
+	jz @F
+	@mov_eax_cr4
+	and al, not 20h		;reset PAE bit
+	@mov_cr4_eax
+@@:
+
 	smsw ax				;cpu must be in real-mode
 if ?SAVEMSW
 	mov wMSW, ax
@@ -764,14 +778,7 @@ endif
 	cmp _cpu,4
 	jb @F
 ;--- cpu > 80386, no need to check for exception 09
-if 0
-	mov es,wHostSeg32
-	assume es:GROUP32
-	mov word ptr es:[intr09], PATCHVALUE2
-	assume es:nothing
-else
 	mov [curIDT+9*sizeof GATE].GATE.ofs, LOWWORD offset simint09
-endif
 @@:
 	call handleenvflags		;may modify GROUP32 content
 
@@ -823,14 +830,13 @@ if ?HSINEXTMEM
 	shl eax,4
 	sub eax, dwSSBase
 	add eax, 400h
- if ?FIXTSSESP
 	mov [dwHostStack], eax
- else
-	mov taskseg._Esp0, eax
-	sub eax, sizeof R3FAULT32
-	mov [dwHostStackExc], eax
-	@stroutrm <"-initsvr_rm: temp. host stack allocated (%lX), size 1kB",lf>, taskseg._Esp0
- endif
+;--- no need for those moves, we won't switch to ring3 now
+;--- and will set those variables later in protmode
+;	mov taskseg._Esp0, eax
+;	sub eax, sizeof R3FAULT32
+;	mov [dwHSExcR3], eax
+	@stroutrm <"-initsvr_rm: temp. host stack allocated (%lX), size 1kB",lf>, dwHostStack
 endif
 
 ;--- now do call protected-mode the first time
@@ -899,7 +905,7 @@ endif
 	jc initsvr_pm_failed
 
 if ?MOVEHIGH
-;--- move code32 in extended memory.
+;--- code32 has been copied into extended memory; now adjust the GDT descriptors
 	mov eax, taskseg._Ebp
 	@strout <"#initsvr_pm: adjust GDT descriptors, new base=%lX",lf>, eax
 	mov edx, pdGDT.dwBase
@@ -908,24 +914,22 @@ if ?MOVEHIGH
 	shld ebx,eax,16
 	shl eax,16
 	mov ax, (LOWWORD offset endoftext32) - 1
-	mov ecx,_CSR3SEL_
-	and ecx,not 7
+;	mov ecx,_CSR3SEL_
+;	and ecx,not 7
 	mov dword ptr [edx + _CSSEL_  ].DESCRPTR.limit,eax
 	mov dword ptr [edx + _CSALIAS_].DESCRPTR.limit,eax
-	mov dword ptr [edx + ecx      ].DESCRPTR.limit,eax
+;	mov dword ptr [edx + ecx      ].DESCRPTR.limit,eax
 	mov [edx + _CSSEL_  ].DESCRPTR.A1623,bl
 	mov [edx + _CSALIAS_].DESCRPTR.A1623,bl
-	mov [edx + ecx      ].DESCRPTR.A1623,bl
+;	mov [edx + ecx      ].DESCRPTR.A1623,bl
 	mov [edx + _CSSEL_  ].DESCRPTR.A2431,bh
 	mov [edx + _CSALIAS_].DESCRPTR.A2431,bh
-	mov [edx + ecx      ].DESCRPTR.A2431,bh
-if 0
-	mov ecx,_DSR3SEL_
-	and ecx,not 7
-	mov dword ptr [edx+ecx].DESCRPTR.limit,eax
-	mov [edx+ecx].DESCRPTR.A1623,bl
-	mov [edx+ecx].DESCRPTR.A2431,bh
-endif
+;	mov [edx + ecx      ].DESCRPTR.A2431,bh
+;	mov ecx,_DSR3SEL_
+;	and ecx,not 7
+;	mov dword ptr [edx+ecx].DESCRPTR.limit,eax
+;	mov [edx+ecx].DESCRPTR.A1623,bl
+;	mov [edx+ecx].DESCRPTR.A2431,bh
 ;	@strout <"initsvr_pm: copy done",lf>
 endif
 
@@ -1004,25 +1008,19 @@ nopmhost::						;neither VCPI nor DPMI, but in v86-mode
 
 _initsvr_rm2 endp
 
-;--- out (overlay): AX=server instance (=CS)
-;---                BX=size in paragraphs
-;--- si,di preserved
+;--- call _initsvr_rm and display an error msg if needed
+;--- registers AX, DX, BX, SI may be modified
+;--- return NC if ok
 
 _initserver_rm proc
 	assume ds:GROUP16
-;	push si
-;	push di
 	pushad
 	call _initsvr_rm		;returns with code in AL!
 	mov bp,sp
 	mov [bp].PUSHADS.rAX,ax
-	popad
-;	pop di
-;	pop si
 	cmp al,EXIT_DPMIHOST_RUNNING
 	jb done
 	je initerr
-	push ax
 	mov ah,0
 	add ax,ax
 	mov bx,ax
@@ -1031,11 +1029,12 @@ _initserver_rm proc
 	int 21h
 	mov dx,[bx+texttab-4*2]
 	call display_string
-	pop ax
 initerr:
+	popad
 	stc
 	ret
 done:
+	popad
 	clc
 	ret
 _initserver_rm endp

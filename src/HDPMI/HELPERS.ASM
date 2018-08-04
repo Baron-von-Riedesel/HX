@@ -754,7 +754,7 @@ getrmdesc proc near
 	ret
 getrmdesc_err:
 	@strout <"no more LDT selectors",lf>
-	pop		ds
+	pop ds
 	ret
 	align 4
 getrmdesc endp

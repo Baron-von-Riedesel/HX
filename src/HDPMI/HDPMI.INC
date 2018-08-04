@@ -60,7 +60,7 @@ endif
 ifndef ?MOVEIDT
 ?MOVEIDT		equ 1	;std=1, 1=move IDT into extended memory on startup
 endif
-?DYNBREAKTAB	equ 1	;std=1, 1=create pm break table dynamically
+?DYNBREAKTAB	equ 1	;std=1, 1=create pm break table dynamically (MUST be 1)
 ?CHECKIRQRM		equ 1	;std=1, 1=get/set the fake real-mode ints with
 						; functions 31h, ax=0200/0201 for internal rm cbs
 ?ALLOCRMS		equ 0	;std=0, 0=RMS is allocated by client
@@ -89,7 +89,6 @@ endif
 ?DPMI10			equ 1	;std=1, support some DPMI 1.0 functions (0504-0507)
 ?DPMI10EX		equ 1	;std=1, support more DPMI 1.0 functions (0508-050B)
 ?DPMI10EXX		equ 1	;std=1, support even more DPMI 1.0 functions (0210-0213)
-?CATCHLDTACCESS	equ 0	;std=0, 1=catch LDT write access if LDT is r/o
 ?LDTROSEL		equ 0	;std=0, 1=LDT alias selector is r/o
 ?SAFEPAGETABS	equ 0	;std=0, 1=page tables cannot be accessed from ring 3
 ?USESYSSPACE2	equ 1	;std=1, 1=use a second sys space ptr (downwards)
@@ -224,7 +223,9 @@ endif
 ?CLRLDTR		equ 0	;std 0: clear LDTR before jump to real mode
 ?COPYFLRM2PM	equ 1	;std 1: copy flags from real-mode after int xx call
 ?SIMHLT			equ 0	;std 0: 1=simulate HLT, do not execute
+ifndef ?ALLOWR0IRQ
 ?ALLOWR0IRQ		equ 0	;std 0: allow interrupts in ring 0
+endif
 ?RESIDENT		equ 1	;std 1: support -r switch
 ?LOCALINT2324	equ 1	;std 1: init int 23/24 locally for each client
 ?SUPPDISABLE	equ 1	;std 1: support -d and -e command line switches
@@ -274,8 +275,6 @@ if ?GUARDPAGE0
 else
 ?CHECKIFINRMIVT equ 1		;why? Currently, this switch is dead
 endif
-
-?FIXTSSESP		equ 0		;std 0: 0=change ESP0 in TSS for R0
 
 ?TRAPI15E801	equ 1	;std 1: trap int 15h, ax=e801h in raw mode
 						;this may be required if HDPMI=32 is set
@@ -705,30 +704,23 @@ else
 endif 
 RMCB ends
 
-;*** structure of protected mode segment save
-
-PMSTATE struct
-wPrevStack	dw ?	;previous value of host stack
-PMSTATE ends
-
 TASKSTATE struct
 
 union
-rDSES   dd ?		;+0
+rESDS	dd ?		;+0
 struct
-rDS		dw ?		;+0
 rES		dw ?		;+2
+rDS		dw ?		;+0
 ends
 ends
 union
-rFSGS   dd ?		;+4
+rFSGS	dd ?		;+4
 struct
 rFS		dw ?		;+4
 rGS		dw ?		;+6
 ends
 ends
-rESP	dd ?		;+8  client protected mode esp
-rSS		dd ?		;+12 client protected mode ss
+
 union
 rmSSSP	dd ?		;+16
 struct
@@ -756,21 +748,29 @@ VCPIRM2PM ends
 ;--- switch is done by a IRETD with VM bit set in EFlags
 
 V86IRET struct
-rEIP 	  dd ?		;1
-rCS 	  dw ?		;2 cs v86 mode
-		  dw ?		;3
-rEFL	  dd ?		;4
-rESP 	  dd ?		;5 value for (e)sp v86 mode
-rSS 	  dw ?		;6 = GROUP16
-		  dw ?
-rES 	  dw ?      ;es V86 mode
-		  dw ?
-rDS 	  dw ?		;ds v86 mode
-		  dw ?
-rFS 	  dw ?		;fs v86 mode
-		  dw ?
-rGS 	  dw ?		;gs v86 mode
-		  dw ?
+rEIP	dd ?		;1
+rCS 	dw ?		;2 cs v86 mode
+		dw ?		;3
+rEFL	dd ?		;4
+rESP	dd ?		;5 value for (e)sp v86 mode
+rSS 	dw ?		;6 = GROUP16
+		dw ?
+ union
+rESd	dd ?
+rES 	dw ?		;es V86 mode
+ ends
+ union
+rDSd	dd ?
+rDS 	dw ?		;ds v86 mode
+ ends
+ union
+rFSd	dd ?
+rFS 	dw ?		;fs v86 mode
+ ends
+ union
+rGSd	dd ?
+rGS 	dw ?		;gs v86 mode
+ ends
 V86IRET ends
 
 ;--- item of linked list of "real-mode" selectors (int 31h, ax=0002)
@@ -825,7 +825,8 @@ else
 endif
 IRETSPM ends
 
-;--- IRET protected mode with SS:E/SP
+;--- IRET protected mode with switch to ring 3
+;--- (includes SS:E/SP)
 
 IRET32 struct
 	IRET32PM <>
@@ -1051,19 +1052,19 @@ ife ?32BIT
 endif
 rDPMIIPx	dd ?	;+20h
 rDPMICSx	dd ?	;+24h
-rErrx		dd ?	;+28h
+rErrx		dd ?	;+28h	;filled with dr6 if exc 01
 rEIPx		dd ?	;+2Ch
 rCSx		dw ?	;+30h
 rInfoBits	dw ?	;+32h
-rEFLx    	dd ?	;+34h
-rESPx    	dd ?	;+38h
-rSSx    	dd ?	;+3Ch
-rESx    	dd ?	;+40h
-rDSx    	dd ?	;+44h
-rFSx    	dd ?	;+48h
-rGSx    	dd ?	;+4Ch
-rCR2    	dd ?	;+50h
-rPTE    	dd ?	;+54h
+rEFLx		dd ?	;+34h
+rESPx		dd ?	;+38h
+rSSx		dd ?	;+3Ch
+rESx		dd ?	;+40h
+rDSx		dd ?	;+44h
+rFSx		dd ?	;+48h
+rGSx		dd ?	;+4Ch
+rCR2		dd ?	;+50h	;exc 0E only
+rPTE		dd ?	;+54h	;exc 0E only, bits 0-8 of PTE only
 DPMI10EXC ends
 
 endif
@@ -1091,7 +1092,7 @@ endm
 @seg macro segname
 	ifidn <segname>,<_TEXT32>
 	  @defseg segname, <dword>, <use32>, <GROUP32>
-	elseifidn <segname>,<CDATA32>
+	elseifidn <segname>,<_DATA32C>
 	  @defseg segname, <dword>, <use32>, <GROUP32>
 	elseifidn <segname>,<_ITEXT32>
 	  @defseg segname, <dword>, <use32>, <GROUP32>
@@ -1099,9 +1100,9 @@ endm
 	  @defseg segname, <para>, <use32>, <GROUP32>
 	elseifidn <segname>,<_DATA16>
 	  @defseg segname, <dword>, <use16>, <GROUP16>
-	elseifidn <segname>,<VDATA16>
+	elseifidn <segname>,<_DATA16V>
 	  @defseg segname, <dword>, <use16>, <GROUP16>
-	elseifidn <segname>,<CDATA16>
+	elseifidn <segname>,<_DATA16C>
 	  @defseg segname, <dword>, <use16>, <GROUP16>
 	elseifidn <segname>,<BEGGRP16>
 	  @defseg segname, <para>, <use16>, <GROUP16>
@@ -1185,7 +1186,7 @@ endm
 
 @callrmsint macro xx
 	push xx
-	jmp  dormsint
+	jmp  _callrmsint
 	align 4
 endm
 
@@ -1194,7 +1195,7 @@ endm
 
 @simrmint macro xx
 	push xx
-	call dormintintern
+	call callrmintintern
 endm
 
 ;--- call ring 3 protected-mode int xx
@@ -1210,7 +1211,7 @@ endm
 
 ;--- save current real-mode SS:SP
 ;--- so it can be saved on the host stack later.
-;--- this is used by standard and client real-mode callbacks
+;--- this is used by internal & client real-mode callbacks
 ;--- this macro should be followed by @pushstate in protected-mode
 
 @savermstk macro
@@ -1222,7 +1223,7 @@ endm
 
 ;--- restore value of real-mode stack
 ;--- this is done after a @popstate macro in protected-mode
-;--- this is used by standard and client real-mode callbacks
+;--- this is used by internal & client real-mode callbacks
 
 @restorermstk macro
 	lss sp, cs:tskstate.rmSSSP
@@ -1231,75 +1232,53 @@ endm
 endm
 
 ;--- save client state on host stack
-;--- this is used by standard and client real-mode callbacks
+;--- this is used by internal & client real-mode callbacks
 
 @pushstate macro bRMSegs
 ifnb <bRMSegs>
-	push ss:v86iret.rES
-	push ss:v86iret.rDS
-	push ss:v86iret.rFS
-	push ss:v86iret.rGS
+	push ss:v86iret.rGSd
+	push ss:v86iret.rFSd
+	push ss:v86iret.rDSd
+	push ss:v86iret.rESd
 endif
 	push ss:dwrmSSSPtmp
-	push ss:tskstate.rSS
-	push ss:tskstate.rESP
 	push ss:tskstate.rFSGS
-	push ss:tskstate.rDSES
-if ?FIXTSSESP
-	mov ss:dwHostStack, esp
-else
+	push ss:tskstate.rESDS
+	push ss:[dwHSExcR3]
+	push ss:taskseg._Esp0
 	mov ss:taskseg._Esp0, esp
 	lea esp, [esp - sizeof R3FAULT32]
-	mov ss:dwHostStackExc, esp
+	mov ss:dwHSExcR3, esp
 	lea esp, [esp + sizeof R3FAULT32]
-endif
 endm
 
 ;--- restore client state from host stack
-;--- this is used by standard and client real-mode callbacks
+;--- this is used by internal and client real-mode callbacks
 
 @popstate macro bRMSegs
-	pop ss:tskstate.rDSES
+	pop ss:taskseg._Esp0
+	pop ss:[dwHSExcR3]
+	pop ss:tskstate.rESDS
 	pop ss:tskstate.rFSGS
-	pop ss:tskstate.rESP
-	pop ss:tskstate.rSS
 	pop ss:dwrmSSSPtmp
 ifnb <bRMSegs>
-	pop ss:v86iret.rGS
-	pop ss:v86iret.rFS
-	pop ss:v86iret.rDS
-	pop ss:v86iret.rES
-endif
-if ?FIXTSSESP
-	mov ss:[dwHostStack], esp
-else
-	mov ss:[taskseg._Esp0], esp
-	lea esp, [esp - sizeof R3FAULT32]
-	mov ss:[dwHostStackExc], esp
-	lea esp, [esp + sizeof R3FAULT32]
+	pop ss:v86iret.rESd
+	pop ss:v86iret.rDSd
+	pop ss:v86iret.rFSd
+	pop ss:v86iret.rGSd
 endif
 endm
 
-;--- save protected-mode state in tskstate.
+;--- save protected-mode segregs in tskstate.
 ;--- this macro is used before a jump to real-mode
 ;--- 1. in raw mode switch to real-mode
 ;--- 2. in function _jmp_rm
-;--- saves current protected-mode segment registers and ring 3 ss:esp
-;--- assumes value in taskseg._Esp0 points BEHIND an IRET32 struct
 
 @savepmstate macro
-	mov ss:tskstate.rDS,ds
 	mov ss:tskstate.rES,es
+	mov ss:tskstate.rDS,ds
 	mov ss:tskstate.rFS,fs
 	mov ss:tskstate.rGS,gs
-;--- get ring3 ESP & SS
-	push ebp
-	mov ebp, ss:taskseg._Esp0
-	push [ebp - sizeof IRET32].IRET32.rSP
-	mov ebp, dword ptr [ebp - sizeof IRET32].IRET32.rSS
-	pop ss:tskstate.rESP
-	mov ss:tskstate.rSS, ebp
-	pop ebp
 endm
 
 ;--- real-mode to protected-mode break

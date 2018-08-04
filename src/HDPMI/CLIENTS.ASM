@@ -91,8 +91,8 @@ endif
 ;*** a new client is starting, save current state
 ;*** inp: DS=GROUP16, ES=FLAT
 ;*** in detail:
-;*** 1. CDATA segment
-;*** 2. CDATA32 segment
+;*** 1. _DATA16C segment
+;*** 2. _DATA32C segment
 ;*** 3. taskseg._Esp0 in TSS (?X1), DR7 (?X3)
 ;*** 4. IDT (800h)
 ;*** 5. LDT (first page) (?X4)
@@ -297,7 +297,7 @@ if 1
 endif
 if ?SAVEHOSTSP
 	lodsd
-	mov ss:[taskseg._Esp0],eax		;wHostStackExc is in client area!
+	mov ss:[taskseg._Esp0],eax		;dwHSExcR3 is in client area!
 endif
 if ?SAVEDR7
 	lodsd

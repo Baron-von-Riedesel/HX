@@ -15,16 +15,16 @@
 MF_RMEVTSET equ 1	;real-mode init happened for int 33, eventproc functions 
 MF_RMEVTSETB equ 0	;bit number
 
-VDATA16 segment
+_DATA16V segment
 ;oldrmproc dd 0		;int 33h, old real mode event proc value
 oldrmmask dw 0		;int 33h, old real mode event mask
 fMouse    db 0		;mouse flags (global)
-VDATA16 ends
+_DATA16V ends
 
-CDATA32 segment
+_DATA32C segment
 mevntvec R3PROC <0,0>	;mouse event proc
 moumask dw 0			;mouse event mask
-CDATA32 ends
+_DATA32C ends
 
 intrmcb_rm_retf proto near16
 

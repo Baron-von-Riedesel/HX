@@ -68,7 +68,8 @@
  -------------------------------------------------------------
  BEGGRP16  16   data  TSS
  _DATA16   16   data  host's global data (for both modes)
- CDATA16   16   data  client specific data for both modes
+ _DATA16V  16   data  vm specific data
+ _DATA16C  16   data  client specific data for both modes
  _TEXT16   16   code  resident real-mode code
  CONST16   16   data  strings for both modes (usually empty)
  GDTSEG    16   data  GDT (usually moved to extended memory)
@@ -76,7 +77,7 @@
  _ITEXT16  16   code  real-mode code for initialization
  _TEXT32   32   code  resident protected-mode code
  CONST32   32   data  constants and strings for protected-mode only
- CDATA32   32   data  client specific data for protected-mode only
+ _DATA32C  32   data  client specific data for protected-mode only
  _ITEXT32  32   code  protected-mode code for initialization
  
  16-bit segments are grouped in GROUP16.
@@ -90,7 +91,7 @@
   - CS: contains GROUP16 in real mode, GROUP32 in protected mode
   - SS: contains GROUP16 in protected mode
 
-  The CDATA16/CDATA32 segments are saved when a new client starts and
+  The _DATA16C/_DATA32C segments are saved when a new client starts and
   restored when it's terminating. 
 
  

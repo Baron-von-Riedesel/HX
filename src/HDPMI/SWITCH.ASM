@@ -40,26 +40,12 @@ _TEXT32 segment
 
 _jmp_pm_pm proc
 
-if ?FIXTSSESP
-;--- pop value for wHostStack + set wHostStackExc
-	pop ss:[dwHostStack]
-else
- if ?SETEXCHS
-	xchg ebx,[esp]
-	mov ss:[taskseg._Esp0],ebx		;now a dword is pushed/poped
-	lea ebx,[ebx-sizeof R3FAULT32]
-	mov ss:[dwHostStackExc],ebx
-	pop ebx							;restore ebx
- else
-	pop ss:[taskseg._Esp0]
- endif
-endif
 	push ss:[dwPmDest]
 _jmp_pm_pm endp	;fall throu!
 
 load_pmsegs proc public
-	mov ds,ss:tskstate.rDS
 	mov es,ss:tskstate.rES
+	mov ds,ss:tskstate.rDS
 	mov fs,ss:tskstate.rFS
 	mov gs,ss:tskstate.rGS
 	ret
@@ -95,7 +81,7 @@ kdinit2_rm proc
 	align 4
 kdinit2_rm endp
 
-if ?WDEB386
+if 0;?WDEB386
 ;--- if no debugger present, this code is disabled
 ;--- currently moved to a dead location, since
 ;--- wdeb386 doesn't work
@@ -105,7 +91,7 @@ endif
 endif
 
 ;*** raw jump to pm with rm segs set
-;--- out: esp=taskseg._Esp0
+;--- out: esp=dwHostStack
 
 _rawjmp_pm_savesegm proc public
 	mov cs:[v86iret.rES],es
@@ -157,12 +143,12 @@ endif
 ife ?LATELGDT
 	@lgdt cs:[pdGDT]
 endif
-if ?SINGLESETCR3 eq 0
-if ?CMPCR3
+ife ?SINGLESETCR3
+ if ?CMPCR3
 	mov eax,cr3
 	cmp eax,cs:[v86topm._cr3]
 	jz @F
-endif
+ endif
 	mov eax,cs:[v86topm._cr3]
 	mov cr3,eax
 @@:
@@ -196,7 +182,7 @@ _TEXT32 segment
 xms_pmentry proc
 	mov ax,_SSSEL_
 	mov ss,eax
-	mov esp, ss:[taskseg._Esp0]
+	mov esp, ss:dwHostStack
 	lidt ss:[pdIDT]		;set IDTR
 
 	mov al,_LDTSEL_
@@ -220,7 +206,7 @@ xms_pmentry endp
 vcpi_pmentry proc public
 	mov ax,_SSSEL_
 	mov ss,eax
-	mov esp,ss:[taskseg._Esp0]
+	mov esp,ss:dwHostStack
 	mov esi,ss:[taskseg._Esi]
 ife ?CR0COPY
 	mov eax,ss:dwCR0
@@ -237,32 +223,14 @@ vcpi_pmentry endp
 
 ;--- normal jump to real-mode
 ;--- - save protected mode segment registers in tskstate
-;--- - adjust TSS:ESP0
 ;--- - raw jump to real mode
-;--- - switch to real mode stack
-;--- - restore real-mode segment registers
-;--- - jmp to wRmDest
+;--- - the destination address in real-mode has been
+;--- - saved in wRmDest (see @jmp_rm)
 
 _jmp_rm proc public
 
-;--- save segregs and ring3 stack in tskstate
-	@savepmstate
-
-;--- save ring0 esp on host stack, then set new value for it
-;--- the old value is restored in _jmp_pm_pm
-if ?FIXTSSESP
-	push ss:[dwHostStack]
-	mov ss:[dwHostStack],esp
-else
-	push ss:[taskseg._Esp0]
-	mov ss:[taskseg._Esp0], esp
- if ?SETEXCHS
-	lea esp,[esp-sizeof R3FAULT32]
-	mov ss:[dwHostStackExc], esp
- endif
-endif
-
-	@rawjmp_rm _jmp_rm_rm	;rawjmp rm, no stack switch
+	@savepmstate			; save es,ds,fs,gs in tskstate
+	@rawjmp_rm _jmp_rm_rm	; jmp via rawjmp_rm to dest _jmp_rm_rm
 	align 4
 _jmp_rm endp
 
@@ -270,7 +238,7 @@ _TEXT32 ends
 
 _TEXT16 segment
 
-if ?WDEB386
+if 0;?WDEB386
 ;--- if no debugger present, this code is disabled
 ;--- currently moved to a dead location, since wdeb386
 ;--- doesn't work
@@ -313,6 +281,8 @@ ife ?CR0COPY
 	mov eax, cr0
 	mov ss:dwCR0, eax
 endif
+
+	mov ss:[dwHostStack],esp
 
 ife ?PATCHCODE
 	jmp ss:[rawjmp_rm_vector]
@@ -402,11 +372,10 @@ rawjmp_rm_xms proc
 if 1;?MOVEHIGHHLP
 	mov cr0,eax
 	db 0eah
-	dw offset rawjmp_rm_xms_1
+	dw offset @F
 wPatchGrp161 dw 0	;seg rawjmp_rm_xms_1	PATCH with GROUP16
 	align 4
-
-rawjmp_rm_xms_1:
+@@:
 endif
 ;--- v3.18: no need to set a stack, since
 ;--- all code that uses the rawjmp will set

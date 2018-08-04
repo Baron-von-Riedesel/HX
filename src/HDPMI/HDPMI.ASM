@@ -36,12 +36,12 @@ BEGGRP16 segment para use16 public 'CODE'
 BEGGRP16 ends
 _DATA16 segment dword use16 public 'CODE'
 _DATA16 ends
-VDATA16 segment dword use16 public 'CODE'
+_DATA16V segment dword use16 public 'CODE'
 _StartOfVMData label near
-VDATA16 ends
-CDATA16 segment dword use16 public 'CODE'
+_DATA16V ends
+_DATA16C segment dword use16 public 'CODE'
 _StartOfClientData label near
-CDATA16 ends
+_DATA16C ends
 _TEXT16 segment dword use16 public 'CODE'
 _EndOfClientData label near
 _TEXT16 ends
@@ -72,26 +72,30 @@ ENDGRP16 ends
 
 _TEXT32 segment dword use32 public 'CODE'
 _TEXT32 ends
-_TEXT32R3 segment dword use32 public 'CODE'
-_TEXT32R3 ends
 CONST32 segment byte use32 public 'CODE'
 CONST32 ends
-CDATA32 segment dword use32 public 'CODE'
+_DATA32C segment dword use32 public 'CODE'
 cldata32 label near
-CDATA32 ends
-_ITEXT32 segment dword use32 public 'CODE'
+_DATA32C ends
+BEGTXTR3 segment para use32 public 'CODE'
 endcldata32 label near
+	public startof32bitr3
+startof32bitr3 label near
+BEGTXTR3 ends
+_TEXT32R3 segment dword use32 public 'CODE'
+_TEXT32R3 ends
+_ITEXT32 segment dword use32 public 'CODE'
 endoftext32 label near
 _ITEXT32 ends
 ENDGRP32 segment para use32 public 'CODE'
 endof32bit label near
 ENDGRP32 ends
 
-GROUP16  group BEGGRP16, _TEXT16, _TEXT16X, CONST16, _DATA16, VDATA16, CDATA16, GDTSEG, IDTSEG, _ITEXT16, ENDGRP16
+GROUP16  group BEGGRP16, _TEXT16, _TEXT16X, CONST16, _DATA16, _DATA16V, _DATA16C, GDTSEG, IDTSEG, _ITEXT16, ENDGRP16
 ;ife ?STACKLAST
 ;GROUP16 group STACK
 ;endif
-GROUP32 group _TEXT32, _TEXT32R3, CONST32, CDATA32, _ITEXT32, ENDGRP32
+GROUP32 group _TEXT32, CONST32, _DATA32C, _ITEXT32, BEGTXTR3, ENDGRP32
 
 	include hdpmi.inc
 	include external.inc
@@ -156,11 +160,7 @@ endm
 @testexception macro exclbl
 	cmp [esp+4].IRET32.rCS,_CSSEL_	;exception in r0?
 	jz exclbl
-if ?FIXTSSESP
-	cmp esp, offset ring0stack - sizeof R3FAULT32	;exception in r3?
-else
-	cmp esp, ss:[dwHostStackExc]	;exception in r3?
-endif
+	cmp esp, ss:dwHSExcR3		;exception in r3?
 ;	jbe exclbl	;v3.18: changed, to allow IRQ in r0
 	je exclbl
 endm
@@ -254,7 +254,7 @@ ifnb <zz>
 	call zz
 endif
 	push yy
-	jmp dormproc
+	jmp callrmproc_iretframe
 	align 4
 endm
 
@@ -321,6 +321,12 @@ endif
 
 ?IVAL	equ (_IGATE32_ + ?PLVL) shl 8
 ?TVAL	equ (_TGATE_ + ?PLVL) shl 8
+
+if ?ALLOWR0IRQ
+?XVAL	equ ?TVAL
+else
+?XVAL	equ ?IVAL
+endif
 
 HIBASE	equ 0	;HIGHWORD offset label32 not accepted by MASM
 
@@ -405,11 +411,7 @@ endif
   GATE <2Eh*2		,_INTSEL_,?TVAL, 0>
   GATE <_INT2F_ 	,_INTSEL_,?TVAL, 0>
 
-if ?ALLOWR0IRQ
-  GATE <LOWWORD offset intr30,_CSSEL_,?TVAL, HIBASE>
-else  
-  GATE <LOWWORD offset intr30,_CSSEL_,?IVAL, HIBASE>
-endif  
+  GATE <LOWWORD offset intr30,_CSSEL_,?XVAL, HIBASE>
 if ?FASTINT31
   GATE <LOWWORD offset intr31,_CSSEL_,?IVAL, HIBASE>
 else
@@ -574,7 +576,7 @@ if ?TLBLATE
 else
 ?TLBSELATTR equ 2
 endif
-	@defdesc <?TLBSIZE-1,0,0Fh,90h or ?TLBSELATTR or ?PLVL,0,0>,_TLBSEL_, ?RING
+	@defdesc <?TLBSIZE-1,0,0Fh,90h or ?TLBSELATTR,0,0>,_TLBSEL_
 
 ;--- 58+3 protected mode breakpoints
 
@@ -591,13 +593,13 @@ endif
 
 	@defdesc <0FFFh,0,0,92h or ?PLVL,0,0>,_SELLDT_, ?RING
 
-;--- 70+3 ring 3 GROUP32 code selector (rarely used!)
+;--- 70+3 ring 3 _TEXT32R3 code selector (rarely used!)
 
-	@defdesc <-1,0,0,9Ah or ?PLVL,40h,0>,_CSR3SEL_, ?RING
+	@defdesc <3ffh,0,0,9Ah or ?PLVL,40h,0>,_CSR3SEL_, ?RING
 
-;--- 78+3 ring 3 GROUP16 data selector (rarely used!)
+;--- 78+3 ring 3 _TEXT32R3 data selector (rarely used!)
 
-	@defdesc <-1,0,0,92h or ?PLVL,00h,0>,_DSR3SEL_, ?RING
+	@defdesc <3ffh,0,0,92h or ?PLVL,00h,0>,_DSR3SEL_, ?RING
 
 ;--- alias for GROUP16 (code)
 ;--- needed to disable paging in xms and raw mode (which
@@ -829,7 +831,7 @@ BEGGRP16 ends
 _DATA16 segment
 
 ;--- the _DATA16 segment should not contain data which is client-specific
-;--- for this segment CDATA16 is to be used
+;--- for this segment _DATA16C is to be used
 
 pdGDT	PDESCR <?GDTLIMIT,0>	;pseudo descriptor GDT
 	align 4
@@ -943,10 +945,10 @@ endif
 
 	align 4
 
-VDATA16 segment
+_DATA16V segment
 dwTSSdesc	dd offset tssdesc	;normalized address TSS descriptor
 rmsels		dd 0				;normalized start "real mode selector" list
-VDATA16 ends
+_DATA16V ends
 
 if ?GUARDPAGE0
 lastcr2	dd 0
@@ -1015,7 +1017,7 @@ endm
 ?INTRMCB_IN_CDATA	equ 1
 
 if ?INTRMCB_IN_CDATA
-CDATA32 segment
+_DATA32C segment
 endif
 
 intrmcbs label INTRMCB
@@ -1047,11 +1049,11 @@ RMCB1C	equ intrmcbs + 16 * sizeof INTRMCB
 RMCB24	equ intrmcbs + 18 * sizeof INTRMCB
 
 if ?INTRMCB_IN_CDATA
-CDATA32 ends
+_DATA32C ends
 
-CDATA16 segment
+_DATA16C segment
 intrmcbrs INTRMCBr 16+4 dup (<?>)
-CDATA16 ends
+_DATA16C ends
 
 endif
 
@@ -1061,9 +1063,9 @@ endif
 
 _DATA16 ends
 
-;--- CDATA16: client instance data both modes
+;--- _DATA16C: client instance data both modes
 
-CDATA16 segment
+_DATA16C segment
 
 ifdef ?QEMMSUPPORT
 		dq 0			;QEMM requires 8 bytes more
@@ -1075,8 +1077,7 @@ endif
 ;--- structure (which must be located in 1. MB)
 ;--- EIP,CS,0,EFL,ESP,SS,0,ES,0,DS,0,FS,0,GS,0
 
-;v86iret	V86IRET <offset vcpi_rmentry,0,0,0,40h,0,0,0,0,0,0,0,0,0,0>
-v86iret		V86IRET <offset vcpi_rmentry,0,0,0,0,0,0,0,0,0,0,0,0,0,0>
+v86iret		V86IRET <offset vcpi_rmentry>
 
 ltaskaddr	dd 0		;addr tcb previous client
 ife ?CR0COPY
@@ -1097,21 +1098,13 @@ endif
 ;--- real-mode and protected mode segment register values + esp
 tskstate TASKSTATE <>
 
-;--- since the ring0stack is in a 16-bit segment, be careful with
-;--- offset calculations done by MASM!
-
-if ?FIXTSSESP
-dwHostStack dd 0
-else
-dwHostStackExc label dword
-  if ?HSINEXTMEM
-	dw 0, 0
-  else
-	dw offset ring0stack - sizeof R3FAULT32, 0
-  endif
-endif
 if ?HSINEXTMEM
-dwStackTop	dd 0
+dwHostStack		dd 0
+dwHSExcR3		dd 0
+dwStackTop		dd 0
+else
+dwHostStack		dd offset ring0stack
+dwHSExcR3		dd offset ring0stack - sizeof R3FAULT
 endif
 
 if ?INT21API
@@ -1132,13 +1125,13 @@ bEnvFlags	db 0		;flags of environment string "HDPMI="
 bEnvFlags2	db 0		;flags 256-32768 of "HDPMI="
 
 
-CDATA16 ends
+_DATA16C ends
 
 ;--- end of client specific data in GROUP16
 
 ;--- start client specific data in GROUP32
 
-CDATA32 segment
+_DATA32C segment
 
 ;--- ring 3 vectors int 00-10 and 70-77
 ;--- + some special ints. The other vectors can be read directly from IDT.
@@ -1226,7 +1219,7 @@ excvec label R3PROC
 	R3PROC < _EXC1E_,_INTSEL_>
 	R3PROC < _EXC1F_,_INTSEL_>
 
-CDATA32 ends
+_DATA32C ends
 
 ;--- end client specific data in GROUP32
 
@@ -1568,14 +1561,14 @@ if ?ALLOWR0IRQ or ?EMUHLTINR0
 							;now ESP->IRET32
 	push ss:taskseg._Esp0
 	mov ss:taskseg._Esp0, esp
-	mov ss:dwHostStackExc, esp
-	sub ss:dwHostStackExc, sizeof R3FAULT
+	mov ss:dwHSExcR3, esp
+	sub ss:dwHSExcR3, sizeof R3FAULT
 	sub esp, sizeof IRET32
 	push ss:taskseg._Eax
 ;--- now esp points to this struct:
 IRQ0FR struct
-pR3Proc dd ?		;the r3 proc which we will call (irq handler) thru lpms_call_int
-irn		IRET32 <>	;the r3 frame which will switch back to protected-mode
+pR3Proc dd ?		;the r3 proc that we will call (irq handler) thru lpms_call_int
+irn		IRET32 <>	;the r3 frame that will be used by lpms_call_int
 dwEsp0	dd ?		;old taskseg._Esp0
 iro		IRET32PM <>	;the frame that returns to where the IRQ has happened in r0
 IRQ0FR ends
@@ -1589,7 +1582,7 @@ if _LTRACE_
 ;	@strout <"#lpms_call_int: esp=%lX",lf>, esp
 endif
 ;--- build the IRET32 frame that returns to r0.
-;--- taskseg._Esp0 hasn't been modified yet and hence
+;--- the old taskseg._Esp0 is on the stack and
 ;--- may be used to get the r3 ss:esp.
 	push eax
 	mov [esp+4].IRQ0FR.irn.rIP, _RTINTR0_
@@ -1597,7 +1590,7 @@ endif
 	mov eax, [esp+4].IRQ0FR.iro.rFL
 	mov [esp+4].IRQ0FR.irn.rFL, eax
 	push ebp
-	mov ebp, [esp+4].IRQ0FR.dwEsp0
+	mov ebp, [esp+8].IRQ0FR.dwEsp0
 	mov eax, [ebp-sizeof IRET32].IRET32.rSP
 	mov [esp+8].IRQ0FR.irn.rSP, eax
 	mov eax, [ebp-sizeof IRET32].IRET32.rSSd
@@ -1622,9 +1615,9 @@ endif
 _retirqr0::
 	add esp,sizeof IRET32
 	xchg eax,[esp]
-	mov ss:taskseg._Esp0, eax
+	mov ss:taskseg._Esp0, eax		;restore hoststack entry value
 	lea eax,[eax - sizeof R3FAULT]
-	mov ss:dwHostStackExc, eax
+	mov ss:dwHSExcR3, eax
 	pop eax
 if _LTRACE_
 	push ebp
@@ -1633,7 +1626,7 @@ if _LTRACE_
 	pop ebp
 ;	@strout <"#retirqr0: esp=%lX",lf>, esp
 endif
-	iretd
+	iretd	;return to ring 0 code that was interrupted.
 else
 	mov ax,_EAERR3_
 	jmp _exitclientEx
@@ -1762,6 +1755,24 @@ else
 	mov [edi].DPMI10EXC.rDPMIIPx, _RTEXC_ + 10000h * _INTSEL_
 	mov [edi].DPMI10EXC.rDPMICSx, 0
 endif
+	cmp esi,14
+	jnz noexc0e
+	mov eax, cr2
+	mov [edi].DPMI10EXC.rCR2, eax
+	push edi
+	call _Linear2PT
+	mov ax,0
+	jc @F
+	push ds
+	push byte ptr _FLATSEL_
+	pop ds
+	mov eax,dword ptr [edi]
+	pop ds
+@@:
+	pop edi
+	and eax,1FFh
+	mov [edi].DPMI10EXC.rPTE, eax
+noexc0e:
 	mov eax, [ebp+4].LCEFR.f.rErr
 	cmp esi,1
 	jnz @F
@@ -1776,8 +1787,8 @@ endif
 if ?EXCRESTART
 	shl esi,16
 	mov si,dx
-	cmp esi,_INTSEL_ * 10000h + _RTEXCR0_
-	setz al
+	cmp esi, (_INTSEL_ shl 16) + _RTEXCR0_
+	setz al		;bit 0=1 (exc in host), bit 1=0 (can be retried)
 endif
 	mov [edi].DPMI10EXC.rInfoBits, ax
 	mov eax, [ebp+4].LCEFR.f.rFL
@@ -1791,9 +1802,6 @@ endif
 	mov [edi].DPMI10EXC.rESx, es
 	mov [edi].DPMI10EXC.rFSx, fs
 	mov [edi].DPMI10EXC.rGSx, gs
-	mov esi, cr2
-	mov [edi].DPMI10EXC.rCR2, esi
-	mov [edi].DPMI10EXC.rPTE, 0
 nodpmi10handler:
 endif
 	mov [ebp+4].LCEFR.r.rSP, edi
@@ -1934,17 +1942,12 @@ LCEFR0X ends
 	pop ss:[taskseg._Eax]		;get exception no
 	push ds
 	push es
-if ?FIXTSSESP
-	push ss:[dwHostStack]
-	mov ss:[dwHostStack],esp
-else
 	push ss:[taskseg._Esp0]
 	mov ss:[taskseg._Esp0],esp
  if ?SETEXCHS
-	mov ss:[dwHostStackExc], esp
-	sub ss:[dwHostStackExc],sizeof R3FAULT32
+	mov ss:[dwHSExcR3], esp
+	sub ss:[dwHSExcR3],sizeof R3FAULT32
  endif
-endif
 	sub esp,sizeof R3FAULT32
 	push ss:[taskseg._Eax]
 	pushad
@@ -1988,13 +1991,11 @@ endif
 	add esp, sizeof IRET32
 	@strout <"return from ring 0 exception handler, esp=%lX",lf>,esp
 	pop ss:[taskseg._Esp0]
-ife ?FIXTSSESP
  if ?SETEXCHS
 	push ss:[taskseg._Esp0]
-	pop ss:[dwHostStackExc]
-	sub ss:[dwHostStackExc], sizeof R3FAULT
+	pop ss:[dwHSExcR3]
+	sub ss:[dwHSExcR3], sizeof R3FAULT
  endif
-endif
 	pop es
 	pop ds
 	lea esp, [esp+4]	;skip error code
@@ -2168,7 +2169,7 @@ iret_with_CF_mod endp
 ;*** Int 30h is a interrupt gate (interrupts disabled) 
 
 	@ResetTrace
-;_LTRACE_ = 0
+_LTRACE_ = 0	;no log of int 30h calls
 
 intr30 proc
 if ?FASTJUMPS
@@ -2235,7 +2236,7 @@ endif
 	pop eax
 	pop ebx
 ;   pop ebp
-	jmp dormsint
+	jmp _callrmsint
 	align 4
 
 if ?FASTJUMPS
@@ -2332,7 +2333,10 @@ intr30_3:
 	align 4
 intr30 endp
 
+ifdef _DEBUG
 _LTRACE_ = 1
+endif
+
 ;--- adjust all standard flags, then perform IRETD
 
 retf2exit proc public
@@ -2594,8 +2598,6 @@ noint09::
 	@defaultexc 09
 simint09 endp
 
-;PATCHVALUE2 equ  0EBh + (offset simint09 - (offset intr09 + 2)) * 100h
-
 intr0A proc
 	@testexception exc0A
 	@simintlpms 0A
@@ -2636,8 +2638,6 @@ if 0
 	pop ebp
 endif
 	@testexception exc0D
-;	test byte ptr [esp.IRET32.rFL+1],2 ;ints disabled?
-;	jz int0dcalled 		   ;then it is a programmed INT
 	@simintlpms 0D
 exc0D:
 	call checksiminstr		;emulate some priviledged opcodes
@@ -2666,21 +2666,6 @@ if ?GUARDPAGE0
 	mov ss:[lastcr2],eax
 	pop eax
 intr0e_1:
-endif
-if ?CATCHLDTACCESS
-	push edx
-	push eax
-	mov eax,cr2
-	mov edx,ss:[dwLDTAddr]
-	cmp eax,edx
-	jb @F
-	add edx,10000h
-	cmp eax,edx
-	jnb @F
-;--- now do something here!
-@@:
-	pop eax
-	pop edx
 endif
 	@exception 0E, TRUE
 	@defaultexc 0E,1 
@@ -2806,11 +2791,9 @@ else
 	@termint 07		;terminate client
 endif
 	@callrmproc 08,<ss:[intrmcbrs+00*size INTRMCBr].rm_vec>
-if 0;?CATCHREBOOT
-	@callrmproc 09,<ss:[intrmcbrs+01*size INTRMCBr].rm_vec>,myint09proc
-else
+;--- obsolete since v3.18
+;	@callrmproc 09,<ss:[intrmcbrs+01*size INTRMCBr].rm_vec>,myint09proc
 	@callrmproc 09,<ss:[intrmcbrs+01*size INTRMCBr].rm_vec>
-endif
 	@callrmproc 0A,<ss:[intrmcbrs+02*size INTRMCBr].rm_vec>
 	@callrmproc 0B,<ss:[intrmcbrs+03*size INTRMCBr].rm_vec>
 	@callrmproc 0C,<ss:[intrmcbrs+04*size INTRMCBr].rm_vec>
@@ -2982,11 +2965,28 @@ intrmcb_pm proc
 ;--- E/IP, CS and E/FLAGS will be copied to the LPMS/PMS
 ;--- after this is done, real-mode code can be called again
 
+	lea esp,[esp-sizeof IRET32]
+	mov [esp].IRET32.rIP, _FRTIN_
+	mov [esp].IRET32.rCS, _INTSEL_
+	push ebp
+	push eax
+	mov eax,ss:tmpFLRegD
+	mov [esp+8].IRET32.rFL, eax
+	mov ebp,[esp+8 + sizeof IRET32]	;get old taskseg._Esp0
+	mov eax,[ebp-sizeof IRET32].IRET32.rSP
+	mov ebp,[ebp-sizeof IRET32].IRET32.rSSd
+	mov [esp+8].IRET32.rSP,eax
+	mov [esp+8].IRET32.rSSd,ebp
+	pop eax
+	pop ebp
+
+if 0
 	push ss:tskstate.rSS	;SS
 	push ss:tskstate.rESP	;ESP
 	push ss:tmpFLRegD		;EFL
 	push _INTSEL_			;CS
 	push _FRTIN_			;EIP
+endif
 
 ;--- now displays (via dos or bios) are possible again
 
@@ -3078,12 +3078,12 @@ if ?COPYTF
 endif
 	dec ss:[cIntRMCB]
 if _LTRACE_ and IRQLOG
-	@strout <"#rpmstackr: fl=%X, HSTK=%lX, esp=%lX rms=%X:%X",lf>,ss:[tmpFLReg],ss:[taskseg._Esp0], esp, ss:tskstate.rmSS, ss:tskstate.rmSP
+	@strout <"#rpmstackr: fl=%X, _Esp0=%lX, esp=%lX rms=%X:%X",lf>,ss:[tmpFLReg],ss:taskseg._Esp0, esp, ss:tskstate.rmSS, ss:tskstate.rmSP
 endif
 	lea esp, [esp + sizeof IRET32]	;skip the IRET32 frame
 
 	@popstate 1						;restore client state
-	@rawjmp_rm rpmstackr_rm
+	@rawjmp_rm rpmstackr_rm			;jmp to real-mode, rm stack "undefined"
 	align 4
 
 rpmstackr endp
@@ -3165,20 +3165,21 @@ _TEXT32 segment
 dormint proc
 	xchg ebx, [esp]
 	@getrmintvec [calladdr1]
-	jmp dormproc_1
+	jmp callrmproc_1
 	align 4
 dormint endp
 
+;--- call a real-mode INT, then return to r3 via IRETD
 ;--- Ints 08-0F and 70-77, 1C
 ;--- esp+0 -> real-mode far proc to call (must have a IRET frame)
 ;--- esp+4 -> IRET32
 ;--- flags not modified
 ;--- used by macro @callrmproc
 
-dormproc proc
+callrmproc_iretframe proc
 	pop ss:[calladdr1]
 	push ebx
-dormproc_1::
+callrmproc_1::
 	mov ebx, [esp+4].IRET32.rFL
 	and bh,not _TF		;reset TF
 if ?SETRMIOPL
@@ -3187,44 +3188,32 @@ if ?SETRMIOPL
 endif
 	mov ss:[tmpFLReg], bx
 	pop ebx
-	@jmp_rm dormproc_rm
+	@jmp_rm callrmproc_rm
 	align 4
-
-dormproc endp
-
-_TEXT32 ends
-
 _TEXT16 segment
-
-dormproc_rm proc
+callrmproc_rm:
 	push cs:[tmpFLReg]
 	call cs:[calladdr1]
-	@jmp_pmX dormproc_pm2
+	@jmp_pmX callrmproc_pm
 	align 4
-
-dormproc_rm endp
-
 _TEXT16 ends
-
-_TEXT32 segment
-
-dormproc_pm2 proc
+callrmproc_pm:
 	iretd
 	align 4
-dormproc_pm2 endp
+callrmproc_iretframe endp
 
-;***  call real-mode software interrupt
+;***  call real-mode interrupt, then return to r3 via IRETD
+;---  unlike dormint above, flags are modified here!
 ;---  [esp+0] : DWORD intno
 ;---  esp+4 -> IRET32
-;---  flags are modified!
 ;---  used by macro @callrmsint
 
 	@ResetTrace
 
-dormsint proc public
+_callrmsint proc public
 
 	xchg ebx,[esp]
-;	@strout <"#dormsint %lX", lf>, ebx
+;	@strout <"#callrmsint %X", lf>, bx
 	@getrmintvec [calladdr2]
 	mov ebx,[esp+4].IRET32.rFL
 	pushfd
@@ -3232,31 +3221,19 @@ dormsint proc public
 	mov ss:[tmpFLReg],bx
 	popfd
 	pop ebx				;stack: ip,cs,fl,sp,ss
-	@jmp_rm dormsint_rm
+	@jmp_rm callrmsint_rm
 	align 4
-dormsint endp
-
-_TEXT32 ends
-
 _TEXT16 segment
-
-dormsint_rm proc
-
-;	@stroutrm <"-dormsint %lX", lf>, cs:[calladdr2]
+callrmsint_rm:
 	push cs:[tmpFLReg]
 	call cs:[calladdr2]
 	pushf
 	@rm2pmbreak
 	pop cs:[tmpFLReg]
-	@jmp_pm dormsint_pm2
+	@jmp_pm callrmsint_pm
 	align 4
-dormsint_rm endp
-
 _TEXT16 ends
-
-_TEXT32 segment
-
-dormsint_pm2 proc
+callrmsint_pm:
 	push eax
 	mov ax,ss:[tmpFLReg]
 	and ah,8Fh				;reset NT, IOPL
@@ -3265,7 +3242,7 @@ dormsint_pm2 proc
 	pop eax
 	iretd
 	align 4
-dormsint_pm2 endp
+_callrmsint endp
 
 ;--- call a real-mode near16 proc internally
 ;--- esp+0 -> return address
@@ -3278,103 +3255,56 @@ callrmprocintern proc public
 ;	mov ss:[calladdr3], eax
 	mov ss:[calladdr3], ax
 	pop eax
-	pop [esp]	;removes parameter from stack
-
-	push ds
-	push es
-
-	push 0		;clear es+ds
-	pop es
-	push 0
-	pop ds
 	@jmp_rm callrmprocintern_rm
 	align 4
-callrmprocintern endp
-
-_TEXT32 ends
-
 _TEXT16 segment
-        
-callrmprocintern_rm proc
-
+callrmprocintern_rm:
 	call cs:[calladdr3]
 if 1
-	@jmp_pmX callrmprocintern_pm2
+	@jmp_pmX callrmprocintern_pm
 else
 	pushf				;flags need not be saved, since jmp_pm won't modify them
 	@rm2pmbreak			;clears IF,TF+NT
 	pop cs:[tmpFLReg]
-	@jmp_pm callrmprocintern_pm2
+	@jmp_pm callrmprocintern_pm
 endif
 	align 4
-callrmprocintern_rm endp
-
 _TEXT16 ends
-
-	@ResetTrace
-
-_TEXT32 segment
-
-callrmprocintern_pm2 proc
-	pop es
-	pop ds
-if 0
-	push eax
-	mov ah, byte ptr ss:[tmpFLReg]
-	sahf
-	pop eax
-endif
-	ret
+callrmprocintern_pm:
+	ret 4
 	align 4
-callrmprocintern_pm2 endp
+callrmprocintern endp
 
+;--- call a real-mode INT from inside host
 ;*** proc called by macro @simrmint 
 ;--- esp+0 -> return address
 ;--- esp+4 -> DWORD intno
-;--- this proc is to be called internally by host code
 
 	@ResetTrace
 
-dormintintern proc public
+callrmintintern proc public
 
 	push ebx
 	mov ebx,[esp+2*4]
+;	@strout <"callrmintintern: int=%X", lf>,bx
 	@getrmintvec [calladdr2]
 	pop ebx
-	pop [esp]
-	@jmp_rm dormintintern_rm
+	@jmp_rm callrmintintern_rm
 	align 4
-dormintintern endp
-
-_TEXT32 ends
-
 _TEXT16 segment
-
-dormintintern_rm proc
-
-;	@stroutrm <"dormintintern_rm enter", lf>
+callrmintintern_rm:
+;	@stroutrm <"callrmintintern: in real-mode now", lf>
 	pushf
 	call cs:[calladdr2]
-
-
-dormintintern_rm_exit::	;<--- entry for int21api.asm
-
-	@jmp_pmX dormintintern_pm2
+callrmintintern_rm_exit::	;<--- entry for int21api.asm
+	@jmp_pmX callrmintintern_pm
 	align 4
-        
-dormintintern_rm endp
-
 _TEXT16 ends
-
-_TEXT32 segment
-
-dormintintern_pm2 proc
-
-;	@strout <"dormintintern_pm2 enter", lf>
-	ret
+callrmintintern_pm:
+;	@strout <"callrmintintern: exit", lf>
+	ret 4
 	align 4
-
-dormintintern_pm2 endp
+callrmintintern endp
 
 	@ResetTrace
 
@@ -3421,7 +3351,7 @@ endif
 
 myint09proc endp
 
-_TEXT32R3 segment dword use32 public 'CODE'
+_TEXT32R3 segment
 clientexit:
 	mov ax,4cffh
 	int 21h
@@ -3550,9 +3480,9 @@ emuspecregmove:
 	align 4
 endif
 
-CDATA32 segment
+_DATA32C segment
 tmpCode dd ?
-CDATA32 ends
+_DATA32C ends
 
 simhlt:
 	@strout <"simulate hlt",lf>
@@ -4314,15 +4244,9 @@ endif
 	mov eax,ebx
 	sub ebx, 0F80h
 	mov dwStackTop, ebx
- if ?FIXTSSESP
-	mov [dwHostStack], eax
- else
 	mov taskseg._Esp0, eax
-	push eax
-	lea eax, [eax-sizeof R3FAULT32]
-	mov [dwHostStackExc], eax
-	pop eax
- endif
+	mov dwHSExcR3, eax
+	sub dwHSExcR3, sizeof R3FAULT32
 ;--- no displays until SS has been reset!
 ;	@strout <"#setuphoststack: new host stack top=%lX, bottom=%lX",lf>, dwStackTop, eax
 error:
@@ -4389,7 +4313,7 @@ endif
 	mov ecx, offset _Endof16bitres
 	shr ecx, 2
 
-;--- we need ltaskaddr, it's in CDATA16, so copy it to _DATA16
+;--- we need ltaskaddr, it's in _DATA16C, so copy it to _DATA16
 	mov eax, ltaskaddr
 	mov [taskseg._Esi], eax	;save it in _DATA16, so it won't be overwritten
 	rep movsd
@@ -4438,15 +4362,15 @@ gdtok:
 
 	mov eax, [esp]		;get new dwSSBase
 	mov [edx+_SSSEL_].DESCRPTR.A0015,ax
-	mov [edx+(_DSR3SEL_ and 0F8h)].DESCRPTR.A0015,ax
+;	mov [edx+(_DSR3SEL_ and 0F8h)].DESCRPTR.A0015,ax
 if ?MOVEHIGHHLP
 	mov [edx+_CSGROUP16_].DESCRPTR.A0015,ax
 endif
 	shr eax,16
 	mov [edx+_SSSEL_].DESCRPTR.A1623,al
 	mov [edx+_SSSEL_].DESCRPTR.A2431,ah
-	mov [edx+(_DSR3SEL_ and 0F8h)].DESCRPTR.A1623,al
-	mov [edx+(_DSR3SEL_ and 0F8h)].DESCRPTR.A2431,ah
+;	mov [edx+(_DSR3SEL_ and 0F8h)].DESCRPTR.A1623,al
+;	mov [edx+(_DSR3SEL_ and 0F8h)].DESCRPTR.A2431,ah
 if ?MOVEHIGHHLP        
 	mov [edx+_CSGROUP16_].DESCRPTR.A1623,al
 	mov [edx+_CSGROUP16_].DESCRPTR.A2431,ah
@@ -4570,9 +4494,7 @@ if _LTRACE_
 	mov dx,es:[ecx+(_TLBSEL_ and 0F8h)].DESCRPTR.A0015
 endif
 	@strout <"#CreateVM: GDT.base=%lX, dwSSBase=%lX, wSegTLB=%X, TLB=%lX",lf>, pdGDT.dwBase, dwSSBase, wSegTLB, edx
-ife ?FIXTSSESP
-	@strout <"#CreateVM: taskseg.esp0=%lX, dwHostStackExc=%lX ltaskaddr=%lX",lf>, taskseg._Esp0, dwHostStackExc, ltaskaddr
-endif
+	@strout <"#CreateVM: taskseg.esp0=%lX, dwHSExcR3=%lX ltaskaddr=%lX",lf>, taskseg._Esp0, dwHSExcR3, ltaskaddr
 	call _initrms			;may fail if ?ALLOCRMS is set; so better dont activate this switch!
 
 ;--- let the heap do its reinitialization
@@ -4620,7 +4542,7 @@ endif
 	mov [edi],eax		;save the old value
 @@:
 
-;--- now copy CDATA32
+;--- now copy _DATA32C
 
 	call _getcldata32
 	mov esi, ltaskaddr
@@ -4750,6 +4672,12 @@ endif
 	@strout <"#initclient_pm: calling saveclientstate, esp=%lX",lf>, esp
 	call _saveclientstate	;increments cApps
 	jc initclerr11			;no memory
+if 1          
+	lea eax,[esp + sizeof INITCLPM]
+	mov taskseg._Esp0, eax
+	lea eax,[eax - sizeof R3FAULT32]
+	mov dwHSExcR3, eax
+endif
 	call _initclientstate
 vmok:
 if ?TLBLATE
@@ -5081,23 +5009,6 @@ closeinterrupts endp
 if ?CHECKHOSTSTACK
 _exitclientEx5 proc public
 	mov ax,_EAERR5_
-if ?HSINEXTMEM
-	cmp esp,ss:dwStackTop
-	jnc _exitclientEx
-	mov esp,ss:dwStackTop
-	lea esp, [esp+0F80h]
-else
-	mov esp,offset ring0stack
-endif
-	mov ss:[taskseg._Esp0], esp
-if ?FIXTSSESP
-	mov ss:[dwHostStack], esp
-else
-;	mov ss:[dwHostStackExc], offset ring0stack - sizeof R3FAULT32
-	lea esp, [esp - sizeof R3FAULT32]
-	mov ss:[dwHostStackExc], esp
-	lea esp, [esp + sizeof R3FAULT32]
-endif
 	jmp _exitclientEx
 _exitclientEx5 endp
 endif
@@ -5128,10 +5039,15 @@ _exitclientEx endp ;fall through
 
 _exitclient_pm proc public
 	@DebugBreak 0
-	push eax					;save return code
 	push ss
 	pop ds
 	assume DS:GROUP16
+	mov esp, taskseg._Esp0	;skip the IRET32 from ring3 entry
+
+;--- don't save anything onto the stack, it is modified inside the proc
+;	push eax					;save return code
+	mov taskseg._GS, eax
+
 	push byte ptr _FLATSEL_
 	pop es
 	@strout <"#exitclient enter, cApps=%X, task=%lX RMS=%X:%X",lf>,<word ptr cApps>, ltaskaddr, tskstate.rmSS, tskstate.rmSP
@@ -5153,10 +5069,14 @@ endif
 if ?ALWAYSRESTORE
 	mov bx,tskstate.rmSP		;needed for _exitclient_rm
 	mov dx,tskstate.rmSS
-	@strout <"#exitclient: call restoreclientstate",lf>
+	@strout <"#exitclient: call restoreclientstate, taskseg._Esp0=%lX",lf>, taskseg._Esp0
 	call _restoreclientstate	;no register modified
+;--- set esp to the restored hoststack in case the client terminated inside a rmcb
+;--- or an IRQ handler.
+	mov esp, dwHostStack
 endif
-	@strout <"#exitclient: last task check",lf>
+	@strout <"#exitclient: last task check, taskseg._Esp0=%lX, esp=%lX",lf>, taskseg._Esp0, esp
+
 if ?ALWAYSRESTORE
 	cmp [cApps],0
 	jz exitclient_1
@@ -5173,7 +5093,10 @@ ife ?ALWAYSRESTORE
 	call _restoreclientstate	;no registers modified
 endif
 	@strout <"#exitclient: jump to exitclient_rm, RMS=%X:%X, dx:bx=%X:%X",lf>, tskstate.rmSS, tskstate.rmSP, dx, bx
-	pop eax			;get return code
+
+;	pop eax			;get return code
+	mov eax,taskseg._GS
+
 	@rawjmp_rm _exitclient_rm	;raw jump to rm, rm stack "undefined"
         
 ;--- either last client terminates
@@ -5208,7 +5131,10 @@ if ?RESIDENT
 	jnz exitclient_2
 endif
 	@strout <"#server *will* terminate",lf>
-	pop eax					;get return code
+
+;	pop eax					;get return code
+	mov eax,taskseg._GS
+
 	pushd offset _dosexit_rm
 	jmp _exitserver_pm 	;will return to real mode
 	align 4
@@ -5693,6 +5619,8 @@ _exitclient_rm endp	;fall through
 _dosexit_rm proc
 ifdef _DEBUG
  if ?DOSOUTPUT and ?USEHOSTPSP
+	cmp cs:cApps,0
+	jnz @F
 	push ax
 	mov ah,51h
 	int 21h
@@ -5706,7 +5634,8 @@ ifdef _DEBUG
 	pop bx
 	mov ah,50h
 	int 21h
-	pop bx
+	pop ax
+@@:
  endif
 endif
 	sti

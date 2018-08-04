@@ -459,7 +459,7 @@ endif
 	@mov_eax_cr4
 	@printf <"CR4=%lX ">, eax
 @@:
-;	@printf <"TSS:ESP0=%lX (%lX)",lf>, taskseg._Esp0, dwHostStackExc
+;	@printf <"TSS:ESP0=%lX (%lX)",lf>, taskseg._Esp0, dwHSExcR3
 	@printf <"TSS:ESP0=%lX",lf>, taskseg._Esp0
 	mov eax,dr7
 	push eax
@@ -654,7 +654,7 @@ fatappexit2 proc public
 fatappexit2 endp        
 
 _TEXT32R3 segment dword use32 public 'CODE'
-GROUP32 group _TEXT32R3
+;GROUP32 group _TEXT32R3
 myexitr3:
 	mov ax,4cffh
 	int 21h

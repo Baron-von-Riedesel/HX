@@ -311,6 +311,7 @@ _AllocMem endp
 ;*** functions int 31h, ax=05xxh
 
 ;*** ax=0500h, get mem info
+;--- ES:E/DI = buffer for info
 
 	@ResetTrace
 

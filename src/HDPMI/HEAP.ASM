@@ -11,7 +11,7 @@
 
 	option proc:private
 
-VDATA16 segment
+_DATA16V segment
 
 heap    db 36 dup (0)
 maxheap label byte
@@ -22,7 +22,7 @@ dwCurPg			dd 0			;normalized address of current page for allocs
 dwCurOfs		dd offset heap	;offset within the page
 dwMaxOfs		dd offset maxheap;max offset within the page
 
-VDATA16 ends
+_DATA16V ends
 
 _TEXT32 segment
 

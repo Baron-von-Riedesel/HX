@@ -11,6 +11,11 @@
 
 	option proc:private
 
+BEGTXTR3 segment para use32 public 'CODE'
+externdef startof32bitr3:near
+BEGTXTR3 ends
+GROUP32 group BEGTXTR3
+
 ife ?DYNBREAKTAB
 ?MOVEIDT = 0
 endif
@@ -52,18 +57,42 @@ if ?DYNBREAKTAB
 	mov edx, pdGDT.dwBase
 	mov ecx, _INTSEL_
 	and cl,0F8h
-	add edx, ecx
-	mov es:[edx].DESCRPTR.A0015,ax
+	mov es:[edx+ecx].DESCRPTR.A0015,ax
 	shr eax,16
-	mov es:[edx].DESCRPTR.A1623,al
-	mov es:[edx].DESCRPTR.A2431,ah
+	mov es:[edx+ecx].DESCRPTR.A1623,al
+	mov es:[edx+ecx].DESCRPTR.A2431,ah
+	mov cx, _CSR3SEL_
+	and cl, 0F8h
+	lea eax,[edi+400h]
+	mov es:[edx+ecx].DESCRPTR.A0015,ax
+	mov es:[edx+ecx+8].DESCRPTR.A0015,ax
+	shr eax,16
+	mov es:[edx+ecx].DESCRPTR.A1623,al
+	mov es:[edx+ecx].DESCRPTR.A2431,ah
+	mov es:[edx+ecx+8].DESCRPTR.A1623,al
+	mov es:[edx+ecx+8].DESCRPTR.A2431,ah
+	
 	mov ax,30CDh
 	mov ecx,_MAXCB_
 	push edi
 	rep stosw
+
+	and di,0F000h
+	add di,400h
+	mov esi,offset startof32bitr3
+	mov ecx,offset endoftext32
+	sub ecx, esi
+	@strout <"#movehigh_pm: copy r3 code size=%lX, src=%lX, dst=%lX",lf>,ecx, esi, edi
+	shr ecx, 2
+	push ds
+	push cs
+	pop ds
+	rep movsd
+	pop ds
+
 	pop eax
-	mov ecx,1
-	call _makeregionreadonly
+;	mov ecx,1
+;	call _makeregionreadonly
 endif ;?DYNBREAKTAB
 
 	xor edi, edi

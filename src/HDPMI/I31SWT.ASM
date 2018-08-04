@@ -56,7 +56,7 @@ bIret	db 0		;temp variable for int 31h, ax=300,301,302
 
 _DATA16 ends
 
-CDATA32 segment
+_DATA32C segment
 
 ;--- client real mode callbacks
 
@@ -66,7 +66,7 @@ CDATA32 segment
 ;endm
 clrmcbs RMCB ?RMCBMAX dup ({{0,0},0})
 
-CDATA32 ends
+_DATA32C ends
 
 _TEXT16 segment
 
@@ -140,15 +140,31 @@ rmcb_pm proc
 ;--- save values in tskstate on host stack
 	@pushstate	;save client state, without rm DS/ES/FS/GS
 
+	lea esp,[esp-sizeof IRET32]
+	mov [esp].IRET32.rIP, _RETCB_
+	mov [esp].IRET32.rCS, _INTSEL_
+	push ebp
+	push eax
+	pushfd
+	pop eax
+	mov [esp+8].IRET32.rFL, eax
+	mov ebp,[esp+8+sizeof IRET32]	;get old taskseg._Esp0
+	mov eax,[ebp-sizeof IRET32].IRET32.rSP
+	mov ebp,[ebp-sizeof IRET32].IRET32.rSSd
+	mov [esp+8].IRET32.rSP,eax
+	mov [esp+8].IRET32.rSSd,ebp
+	pop eax
+	pop ebp
+
 ;--- set an IRET32 frame below taskseg.esp0
 ;--- after this is done, real-mode code can be called again
 ;--- i.e. trace output to dos or bios.
-	push ss:tskstate.rSS	;SS
-	push ss:tskstate.rESP	;ESP
+;	push ss:tskstate.rSS	;SS
+;	push ss:tskstate.rESP	;ESP
 ;	push ss:tmpFLRegD		;EFL
-	pushfd					;EFL
-	push _INTSEL_			;CS
-	push _RETCB_			;EIP
+;	pushfd					;EFL
+;	push _INTSEL_			;CS
+;	push _RETCB_			;EIP
 
 	inc ss:[cRMCB]
 
@@ -765,12 +781,10 @@ freermcb endp
 
 getsraddr proc near public
 
-	mov ax,sizeof tskstate + 2*4;groesse des puffers
-
-	mov bx, ss:[wHostSeg]
+	mov ax,sizeof tskstate + 4*2;size of save state buffer in AX
+	mov bx, ss:[wHostSeg]		;real mode address in BX:CX
 	mov cx, offset srtask_rm
-
-	mov si,_INTSEL_
+	mov si,_INTSEL_				;protected-mode address in SI:DI
 if ?32BIT
 	mov edi,_SRTSK_
 else
@@ -786,6 +800,8 @@ getsraddr endp
 ;--- al=1 : restore task state
 ;--- es:e/di: buffer
 
+;--- buffer consists of tskstate and the real-mode segreg values om v86iret
+
 _srtask proc public
 ;	@strout <"#task state save/restore pm, ax=%X, es:edi=%lX:%lX",lf>, ax, es, edi
 	push ds
@@ -798,7 +814,7 @@ _srtask proc public
 ife ?32BIT
 	movzx edi, di
 endif
-	cmp al,0
+	cmp al,0		;save or restore?
 	jnz @F
 	push ss
 	pop ds
@@ -961,8 +977,8 @@ endif
 ;--- current real-mode SS:SP becomes RMS.
 ;--- old value of tskstate.rmSSSP is NOT saved here
 
-	mov cs:tskstate.rmSS,ss
 	mov cs:tskstate.rmSP,sp
+	mov cs:tskstate.rmSS,ss
 
 ;--- switch to pm, leaves ds,es,fs,gs undefined
 ;--- stack switch to host stack, tskstate untouched
@@ -1018,12 +1034,14 @@ rm2pm_pm endp
 ;--- cx=ES
 
 _pm2rm proc near public
-	push word ptr [esp].IRET32.rFL
-	pop ss:[tmpFLReg]
+	push [esp].IRET32.rFL
+	and byte ptr [esp+1],8Fh	;reset IOPL,NT
+	or byte ptr [esp+1],?RMIOPL
+	pop ss:[tmpFLRegD]
 	@strout <"#pm2rm: CS:IP=%X:%X, SS:SP=%X:%X, DS=%X, FL=%X, cur RMS=%X:%X",lf>,\
 		si,di,dx,bx,ax,ss:[tmpFLReg],ss:[tskstate.rmSS],ss:[tskstate.rmSP]
 
-	@savepmstate			;store segment and stack values in tskstate
+	@savepmstate			;store pm segregs in tskstate
 	@rawjmp_rm _pm2rm_rm	;raw jump rm, rm stack "undefined"
 	align 4
 _pm2rm endp
@@ -1040,12 +1058,9 @@ _pm2rm_rm proc
 	mov es,cx
 	mov fs,ax
 	mov gs,ax
-	mov ax,cs:[tmpFLReg]
 	push si			;push CS
-	and ah,08Fh		;reset IOPL,NT
 	push di			;push IP
-	or ah,?RMIOPL
-	push ax
+	push cs:[tmpFLReg]
 	popf
 	retf			;real-mode retf!
 	align 4

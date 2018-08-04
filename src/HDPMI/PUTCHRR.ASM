@@ -10,7 +10,9 @@
 
 	option proc:private
 
+ifndef ?SLOWDOWN
 ?SLOWDOWN equ 0
+endif
 
 ?MONOOUT = 0
 

@@ -121,13 +121,6 @@ endif
 	retn 4
 	align 4
 @@:
-ifdef _DEBUG
-;------------------------- cause a protection exception in ring 0
-	.if ((eax == 52637485h) && (esi == 12345678h))
-		push -1
-		pop ds
-	.endif
-endif
 	call setdsreg2tlb
 	call setesreg2tlb		 ;just to be sure set DS+ES=TLB
 	jmp rmdos
@@ -196,7 +189,7 @@ jmptab	label dword
 
 	@ResetTrace
 
-else
+else ;?INT21API
 _TEXT32 segment
 intr21 proc public
 	cmp ah,4Ch
@@ -258,13 +251,16 @@ intr2100:
 	mov eax,ss:[dwSDA]
 	movzx ebx,word ptr es:[eax].DOSSDA.wPSP	;get current psp in bx
 	shl ebx,4
+
+ife ?32BIT	;v3.18: 16-bit only
+
+;--- someone (Win31!) may have converted the parent psp segment to a
+;--- selector, but now real-mode DOS will use it (and expect a segment
+;--- value); so check if it is really a selector to a valid PSP
+;--- and if true, transform it back to a segment
+
 	mov ax,es:[ebx+16h]
 	@strout <"#i21,00: parent psp value %X",lf>,bx
-
-;--- someone may have converted the parent psp segment to a selector
-;--- but now real-mode DOS will use it (and expect a segment value)
-;--- so check if it is really a selector to a valid PSP
-;--- and if true, transform it back to a segment
 
 	verw ax			;is a valid data selector?
 	jnz @F
@@ -279,10 +275,12 @@ intr2100:
 	jc @F
 	mov es:[ebx+16h],ax
 @@:
+endif
+
 	@strout <"#i21,00: will simulate a dos call 4Ch, esp=%lX",lf>, esp
 	mov eax, ss:[dwHostSeg]
 	shl eax,16
-	mov ax,offset dormintintern_rm_exit
+	mov ax,offset callrmintintern_rm_exit
 	mov es:[ebx+000Ah], eax
 	mov ax,4C00h
 	call rmdos
