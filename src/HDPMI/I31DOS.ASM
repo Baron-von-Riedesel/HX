@@ -20,7 +20,7 @@ _TEXT32  segment
 
 allocdos proc public
 	pushad
-	@strout <"try to alloc %X paragraphs DOS memory",lf>,bx
+	@strout <"#allocdos: try to alloc %X paragraphs DOS memory",lf>,bx
 	mov ah,48h
 	call rmdos
 	jc allocdos_err1
@@ -63,7 +63,7 @@ clientDS equ <[esp + sizeof PUSHADS + 4]>	;where client's DS is saved
 
 freedos proc public
 	pushad
-	@strout <"i31: enter dos free memory, DS=%X",lf>, <word ptr clientDS>
+	@strout <"#freedos: enter dos free memory, DS=%X",lf>, word ptr clientDS
 	lar eax,edx
 	jnz freedos_err			;invalid selector
 	mov ebx,edx
@@ -72,7 +72,7 @@ freedos proc public
 	mov ss:v86iret.rES, bx
 	mov ah,49h
 	call rmdos				;es=segment
-	@strout <"i31: rc from DOS: %X",lf>,ax
+	@strout <"#freedos: rc from DOS: %X",lf>,ax
 	jc freedos_err2
 	call selector_free
 	lar eax, clientDS
@@ -110,11 +110,11 @@ resizedos proc public
 	pushad
 	lar eax,edx
 	jnz resizedos_err		;selector is invalid
-	@strout <"resize dos: selector %X seems ok",lf>, dx
+	@strout <"#resizedos: selector %X seems ok",lf>, dx
 	mov ebx,edx
 	call bx_sel2segm
 	jc resizedos_err2		;it's not a DOS selector
-	@strout <"resize dos: memory is dos memory (%X)",lf>,bx
+	@strout <"#resizedos: memory is dos memory (%X)",lf>,bx
 	mov ss:v86iret.rES, bx
 ife ?32BIT
 	movzx ebx,[esp].PUSHADS.rBX
@@ -126,12 +126,12 @@ endif
 	mov ah,4Ah
 	call rmdos				;es=segment,bx=req. size
 	jc resizedos_err3
-	@strout <"resize dos: DOS has resized memory",lf>
+	@strout <"#resizedos: DOS has resized memory",lf>
 	movzx eax,word ptr [esp].PUSHADS.rBX
 	shl eax,4
 	call selector_resize		;resize selector DX, new size EAX
 	jc resizedos_err4		;might fail for 16-bit clients
-	@strout <"resize dos: selectors adjusted",lf>
+	@strout <"#resizedos: selectors adjusted",lf>
 ife ?32BIT
 	lar eax, clientDS
 	jz @F
@@ -145,7 +145,7 @@ endif
 resizedos_err4:
 	popad
 	mov ax,8011h			;"descriptor unavailable"	
-	@strout <"resize dos: error 8011",lf>
+	@strout <"#resizedos: error 8011",lf>
 	ret
 resizedos_err3:
 ;--- due to a bug in many DOSes even if the call failed the block has been
@@ -158,7 +158,7 @@ resizedos_err3:
 	ret
 resizedos_err2:
 resizedos_err:
-	@strout <"resize dos: error 8022",lf>
+	@strout <"#resizedos: error 8022",lf>
 	popad
 	mov ax,8022h
 	stc
@@ -166,7 +166,7 @@ resizedos_err:
 	align 4
 resizedos endp
 
-_TEXT32  ends
+_TEXT32 ends
 
 	end
 

@@ -16,8 +16,10 @@ ifndef ?SLOWDOWN
 endif
 
 @slowdown macro
-if _LTRACE_ and ?SLOWDOWN
+if _LTRACE_
+ if ?SLOWDOWN
 	call slowdown
+ endif
 endif
 endm
 
@@ -218,10 +220,11 @@ endif
 
 endif	;?VIODIROUT
 
-if _LTRACE_ and ?SLOWDOWN
+if _LTRACE_
+ if ?SLOWDOWN
 slowdown proc
 	push ecx
-	mov ecx, 700
+	mov ecx, ?SLOWDOWN
 @@:
 	in al,61h
 	and al,10h
@@ -232,6 +235,7 @@ slowdown proc
 	pop ecx
 	ret
 slowdown endp
+ endif
 endif
 
 ;--- display a char in AL

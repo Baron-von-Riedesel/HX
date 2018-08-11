@@ -17,7 +17,6 @@
 	option proc:private
 
 ?COPYFLRMS	  = 1	;std=1, 1=copy flags on raw mode switch
-?STI@RETRMCB  = 0	;std=0, 1=do a sti after a rm cb
 ?DEBUGRMCB	  = 0	;std=0, 1=int 3 on entry/exit RMCB (debug)
 ?CLEARDIR     = 0	;std=0, 1=clear direction flag on RMCBs
 ?NOREENTRY    = 1	;std=1, 1=dont enter pm if exception handler runs
@@ -52,7 +51,6 @@ rFlags	dw ?
 MRMSTRUC ends
 
 MyRMCS MRMSTRUC <>
-bIret	db 0		;temp variable for int 31h, ax=300,301,302
 
 _DATA16 ends
 
@@ -117,7 +115,7 @@ if _LTRACE_ and ?RMCBLOG
 	push bp
 	mov bp,sp
 	@stroutrm <"-rm cb rmSS:SP=%X:%X, Fl=%X, old RMS=%X:%X ds=%X es=%X fs=%X gs=%X",lf>,\
-		cs:tskstate.rmSS, cs:tskstate.rmSP, cs:MyRMCS.rFlags,\
+		cs:v86iret.rSS, cs:v86iret.rSP, cs:MyRMCS.rFlags,\
 		cs:wrmSStmp, cs:wrmSPtmp, ds, es, fs, gs
 	pop bp
 endif
@@ -137,7 +135,7 @@ _TEXT16 ends
 _TEXT32 segment
 
 rmcb_pm proc
-;--- save values in tskstate on host stack
+
 	@pushstate	;save client state, without rm DS/ES/FS/GS
 
 	lea esp,[esp-sizeof IRET32]
@@ -169,9 +167,9 @@ rmcb_pm proc
 	inc ss:[cRMCB]
 
 	push edi
-	mov fs,ss:tskstate.rFS
+	mov fs,ss:pmstate.rFS
 	movzx edi, ss:[MyRMCS.rCS]
-	mov gs,ss:tskstate.rGS
+	mov gs,ss:pmstate.rGS
 	sub di, ss:[wHostSeg]		;seg RMSwitch
 	shl edi,4					;RMCB size is 16!
 	.errnz sizeof RMCB - 16
@@ -214,7 +212,7 @@ if ?RMCBSTATICSS
 	movzx ebx, ss:[MyRMCS.rCS]
 	mov ds,ss:[selLDT]
 	sub bx, ss:[wHostSeg]		;seg RMSwitch
-	movzx edx,ss:tskstate.rmSS
+	movzx edx,ss:v86iret.rSS
 	shl ebx, 4                  ;*16 (sizeof RMCB)
 	mov es:[edi].RMCS.rSS,dx
 	shl edx, 4					;edx = linear address of real-mode SS
@@ -239,7 +237,7 @@ else
 
 	@strout <"#rmcb: will try to alloc a rm-selector",lf>
 
-	mov bx,ss:tskstate.rmSS
+	mov bx,ss:v86iret.rSS
 	mov ax,-1
 	mov es:[edi].RMCS.rSS,bx
 	call allocxsel
@@ -247,7 +245,7 @@ else
 	mov ds,eax			;now DS -> rm SS
 endif
 
-	movzx esi,ss:[tskstate.rmSP]
+	movzx esi,ss:v86iret.rSP
 	mov eax, [esi-sizeof RMCBSF].RMCBSF.dwESDS
 	mov ecx, [esi-sizeof RMCBSF].RMCBSF.dwFSGS
 	mov dword ptr es:[edi].RMCS.rES,eax
@@ -266,10 +264,6 @@ if ?CHECKHOSTSTACK
   endif
 	jc _exitclientEx5
 endif
-if _LTRACE_ and ?RMCBLOG
-	@strout <"#rmcb, taskstate ss:esp=%X:%lX",lf>,\
-		word ptr ss:tskstate.rSS, ss:tskstate.rESP
-endif
 
 	mov ax, es:[edi].RMCS.rCS
 	sub ax, ss:[wHostSeg]			;seg RMSwitch
@@ -283,9 +277,12 @@ endif
 	add eax,offset GROUP32:clrmcbs
 
 if _LTRACE_ and ?RMCBLOG
-	@strout <"#rmcb, frame for lpms_call_int: %lX %lX %lX %lX %lX",lf>,\
-		dword ptr _RETCB_, dword ptr _INTSEL_, dword ptr ss:tmpFLRegD,\
-		ss:tskstate.rESP, dword ptr ss:tskstate.rSS
+	push ebp
+	mov ebp,esp
+	@strout <"#rmcb, IRET32 frame for lpms_call_int: %lX %lX %lX %lX %lX",lf>,\
+		[ebp+4].IRET32.rIP, [ebp+4].IRET32.rCSd, [ebp+4].IRET32.rFL,\
+		[ebp+4].IRET32.rSP, [ebp+4].IRET32.rSSd
+	pop ebp
 
  if ?32BIT
 	@strout <"#rmcb, jmp to pm proc=%X:%lX, EDI=%lX:%lX, ESI=%lX:%lX, HS=%lX",lf>,\
@@ -334,16 +331,27 @@ endif
 	mov dx,es:[edi].RMCS.rDS
 	mov cx,es:[edi].RMCS.rFS
 	mov bx,es:[edi].RMCS.rGS
-	mov ss:MyRMCS.rFlags,si
+;	mov ss:MyRMCS.rFlags,si
 	mov ss:v86iret.rES, ax
 	mov ss:v86iret.rDS, dx
 	mov ss:v86iret.rFS, cx
 	mov ss:v86iret.rGS, bx
 
-	mov eax,es:[edi].RMCS.rCSIP
 	mov edx,es:[edi].RMCS.rSSSP
-	mov ss:MyRMCS.rCSIP, eax
-	mov ss:tskstate.rmSSSP, edx
+	sub dx,6
+	mov ss:v86iret.rSP,dx
+	movzx eax,dx
+	shr edx,16
+	mov ss:v86iret.rSS,dx
+	shl edx,4
+	add edx,eax
+	mov eax,es:[edi].RMCS.rCSIP
+	push ds
+	push byte ptr _FLATSEL_
+	pop ds
+	mov [edx+0],si
+	mov [edx+2],eax
+	pop ds
 
 	push es:[edi].RMCS.rEDI
 	mov esi, es:[edi].RMCS.rESI
@@ -355,49 +363,23 @@ endif
 	pop edi
 
 ;--- can a display be done here (won't it change v86iret?)
-;	@strout <"#ret rmcb: rmSS:SP=%X:%X",lf>,ss:tskstate.rmSS,ss:tskstate.rmSP
+;	@strout <"#ret rmcb: rmSS:SP=%X:%X",lf>,ss:v86iret.rSS,ss:v86iret.rSP
 
 	lea esp, [esp+ sizeof IRET32]	;skip the IRET32 frame build in rmcb_pm
 	@popstate				;restore client state
-	@rawjmp_rm _retcb_rm	;raw jump rm, rm stack "undefined"
+	@rawjmp_rm _retcb_rm
 	align 4
-_retcb endp
-
-_TEXT32 ends
 
 _TEXT16 segment
-
-_retcb_rm proc
+_retcb_rm:
 	@restorermstk		;load rm ss:sp
-	call load_rmsegs	;load DS/ES/FS/GS from v86iret
-
-if _LTRACE_ and ?RMCBLOG
-	push bp
-	mov bp,sp
-	@stroutrm <"-ret rmcb: SS:SP=%X:%X FL=%X IP=%X:%X DS=%X ES=%X tskstate.rmSS:SP=%X:%X",lf>,\
-		ss , bp, cs:[MyRMCS.rFlags], cs:[MyRMCS.rCS], cs:[MyRMCS.rIP], ds, es, cs:tskstate.rmSS, cs:tskstate.rmSP
-	pop bp
-endif
-if ?STI@RETRMCB
-	or byte ptr cs:[MyRMCS.rFLags+1],2
-endif
-	push word ptr cs:[MyRMCS.rFlags]
-if ?DEBUGRMCB
-	int 3
-endif
-if 0
-	push dword ptr cs:[MyRMCS.rIP]
-	iret	;real-mode iret!
-else
+;	call load_rmsegs	;load DS/ES/FS/GS from v86iret
 	popf
-	jmp dword ptr cs:[MyRMCS.rIP]
-endif
+	retf
 	align 4
-_retcb_rm endp
-
 _TEXT16 ends
 
-_TEXT32 segment
+_retcb endp
 
 ;***********************************************
 ;*** simulate real mode interrupt            ***
@@ -407,95 +389,35 @@ _TEXT32 segment
 
 	@ResetTrace
 
-;--- modifies DS, ES, esi, edi, ecx
-
-copystackparms proc uses ebp
-
-	mov ebp,ss:[taskseg._Esp0]		 ;client stack -> ds:si
-	@strout <"copy stack parms, %X words src=%X:%lX",lf>,cx,\
-		[ebp-sizeof IRET32].IRET32.rSS,[ebp-sizeof IRET32].IRET32.rSP
-
-	lds esi,[ebp-sizeof IRET32].IRET32.rSSSP
-	push ecx
-	movzx ecx,cx
-	movzx eax,word ptr ss:tskstate.rmSP
-	movzx edi,word ptr ss:tskstate.rmSS
-	shl ecx,1						;2*, since WORDS
-	sub eax,ecx
-	jc error
-	shr ecx,1
-
-	shl edi,4
-	add edi,eax
-	push byte ptr _FLATSEL_
-	pop es
-;--- now es:edi -> rms
-	rep movsw
-	pop ecx
-	@strout <"%X words copied to RMS [%X:%X]",lf>, cx, ss:tskstate.rmSS, ss:tskstate.rmSP
-	add cx,cx
-	sub word ptr ss:[tskstate.rmSP],cx
-	ret
-error:
-	@strout <"#copystackparms; can't copy %lX bytes to RMS!",lf>, ecx
-	pop ecx
-	ret
-	align 4
-copystackparms endp
-
-;--- please note: values CS:IP and SS:SP in RMCS must NOT be modified!
-;--- since we first copy the RMCS to our internal one, this should
-;--- not happen
-;--- as well, client's real-mode segment registers should not be modified
-;--- by the RMCS used here. why???
-
-	@ResetTrace
-
-RMCALLS struct
+RMCALLS struct	;stack frame for EBP
 rES		dd ?
 rDS		dd ?
 		PUSHADS <>
 RMCALLS ends
 
-;*** int 31h, ax=0300h simulate real-mode interrupt
+;--- int 31h, ax=0300h simulate real-mode interrupt
 ;--- BL = interrupt
 ;--- BH = 0
 ;--- ES:E/DI = RMCS
 ;--- CX = words to copy to real-mode stack
-
-simrmint proc public
-	mov ss:[bIret],2+1	;flag: get address from IVT, push flags
-	jmp callrmproc
-	align 4
-simrmint endp	;fall through
 
 ;--- int 31h, ax=0301h: call real-mode proc with retf frame
 ;--- BH = 0
 ;--- ES:E/DI = RMCS
 ;--- CX = words to copy to real-mode stack
 
-callrmretf proc public
-	mov ss:[bIret],0
-	jmp callrmproc
-	align 4
-callrmretf endp
-
-;*** int 31h, ax=0302h: call real mode proc with iret frame
+;--- int 31h, ax=0302h: call real mode proc with iret frame
 ;--- BH = 0
 ;--- ES:E/DI = RMCS
 ;--- CX = words to copy to real-mode stack
 
-callrmiret proc public
-	mov ss:[bIret],1	;flags: push flags
-callrmiret endp	;fall through
-
-callrmproc proc
+_callrmproc proc public
 if ?32BIT
-	@strout <"call rm RMS=%X:%X rmcs: a-d=%X %X %X %X, d-e=%X %X, stk=%X:%X",lf>, ss:tskstate.rmSS, ss:tskstate.rmSP,\
+	@strout <"call rm RMS=%X:%X rmcs: a-d=%X %X %X %X, d-e=%X %X, stk=%X:%X",lf>, ss:v86iret.rSS, ss:v86iret.rSP,\
 		es:[edi].RMCS.rAX, es:[edi].RMCS.rBX, es:[edi].RMCS.rCX, es:[edi].RMCS.rDX,\
 		es:[edi].RMCS.rDS, es:[edi].RMCS.rES, es:[edi].RMCS.rSS, es:[edi].RMCS.rSP
 else
-	@strout <"rm call, RMS=%X:%X rmcs: a-d=%X %X %X %X, d-e=%X %X, stk=%X:%X",lf>, ss:tskstate.rmSS, ss:tskstate.rmSP,\
+	@strout <"rm call, RMS=%X:%X rmcs: a-d=%X %X %X %X, d-e=%X %X, stk=%X:%X",lf>, ss:v86iret.rSS, ss:v86iret.rSP,\
 		es:[di].RMCS.rAX, es:[di].RMCS.rBX, es:[di].RMCS.rCX, es:[di].RMCS.rDX,\
 		es:[di].RMCS.rDS, es:[di].RMCS.rES, es:[di].RMCS.rSS, es:[di].RMCS.rSP
 endif
@@ -506,13 +428,14 @@ ife ?32BIT
 	movzx edi,di
 endif
 	mov ebp,esp
-	push ss:tskstate.rmSSSP
+	push ss:v86iret.rSS
+	push ss:v86iret.rSP
 
 ;--- 1. set CS:IP and SS:SP
 
 	mov eax, es:[edi].RMCS.rCSIP
-	test ss:[bIret],2	;is address to copy from IVT (ax=0300h)?
-	jz @F
+	test [ebp].RMCALLS.rAX,3	;is address to copy from IVT (ax=0300h)?
+	jnz @F
 	push byte ptr _FLATSEL_
 	pop ds
 if ?CHECKIRQRM
@@ -528,35 +451,64 @@ endif
 	mov eax, es:[edi].RMCS.rSSSP
 	and eax,eax
 	jz @F
-	mov ss:[tskstate.rmSSSP], eax
+	mov ss:v86iret.rSP, ax
+	shr eax, 16
+	mov ss:v86iret.rSS, ax
 @@:
+	movzx eax,ss:v86iret.rSP
+	movzx edx,ss:v86iret.rSS
+	shl edx,4
 
 ;--- 2 copy words to real-mode stack
 
-	jcxz @F						 ;no stack params
-	call copystackparms
+	push byte ptr _FLATSEL_
+	pop es
+	jcxz @F						;no stack params
+	movzx ecx,cx
+	shl ecx,1					;2*, since WORDS
+	sub eax,ecx
 	jc error1
+	mov esi,ss:[taskseg._Esp0]		 ;client stack -> ds:si
+	@strout <"copy stack parms, %X words src=%X:%lX",lf>, cx,\
+		[esi-sizeof IRET32].IRET32.rSS, [esi-sizeof IRET32].IRET32.rSP
+	lds esi,ss:[esi-sizeof IRET32].IRET32.rSSSP
+	shr ecx,1	;byte to words
+	push edi
+	mov edi, edx
+	add edi, eax
+	cld
+	rep movsw
+	pop edi
 @@:
+;--- 2a copy flags to realmode stack
+
+	mov ds,[ebp].RMCALLS.rES
+	mov cx, [edi].RMCS.rFlags
+	and ch,08Eh 					;reset NT,IOPL,TF
+	or ch,?RMIOPL
+	test [ebp].RMCALLS.rAX,1		;function 0300h or 0302h?
+	jnz @F
+	sub eax,2
+	mov es:[edx+eax],cx				;push flags
+@@:
+	test [ebp].RMCALLS.rAX,3		;function 0300h?
+	jnz @F
+	and ch,not 2					;reset IF
+@@:
+	sub eax,2
+	mov es:[edx+eax],cx				;push flags
+	mov ss:v86iret.rSP, ax
 
 ;--- 3. copy RMCS in conv. memory and registers
 
-	mov ds,[ebp].RMCALLS.rES
-	mov edi,[ebp].RMCALLS.rEDI
-ife ?32BIT
-	movzx edi,di
-endif
-	mov ax, [edi].RMCS.rFlags
-	and ah,08Eh 					  ;reset NT,IOPL,TF
-	or ah,?RMIOPL
-	mov ss:tmpFLReg,ax
 	mov ax, [edi].RMCS.rES
 	mov dx, [edi].RMCS.rDS
-	mov bx, [edi].RMCS.rFS
-	mov cx, [edi].RMCS.rGS
+	mov cx, [edi].RMCS.rFS
+	mov bx, [edi].RMCS.rGS
 	mov ss:v86iret.rES, ax
 	mov ss:v86iret.rDS, dx
-	mov ss:v86iret.rFS, bx
-	mov ss:v86iret.rGS, cx
+	mov ss:v86iret.rFS, cx
+	mov ss:v86iret.rGS, bx
 
 	mov esi, [edi].RMCS.rESI
 	mov edx, [edi].RMCS.rEDX
@@ -574,50 +526,31 @@ endif
 
 	@jmp_rm callrmproc_rm
 error1:
-	pop ss:tskstate.rmSSSP
+	pop ss:v86iret.rSP
+	pop ss:v86iret.rSS
 	pop es
 	pop ds
 	popad
 	ret		;exit with C set, error
 	align 4
 
-callrmproc endp
-
-_TEXT32 ends
-
 _TEXT16 segment
-
-callrmproc_rm proc
-
-	test cs:[bIret],1
-	jz @F
-	push cs:[tmpFLReg]
-@@:        
-	and byte ptr cs:[tmpFLReg+1],not (1+2)	;reset IF + TF
-	push cs:[tmpFLReg]
-;	@stroutrm <"-call rm proc/int, cs:ip=%X:%X, ss:sp=%X:%X fl=%X,ax=%X",lf>,\
-;		cs:[MyRMCS.rCS],cs:[MyRMCS.rIP],ss,sp,ax,cs:[MyRMCS.rAX]
+callrmproc_rm:
 	popf
 	call cs:[MyRMCS.rCSIP]
-
 	pushf
 	@rm2pmbreak
 	pop cs:[tmpFLReg]
-
 	@jmp_pm callrmproc_pm2
 	align 4
-
-callrmproc_rm endp
-
 _TEXT16 ends
 
-_TEXT32 segment
-
-callrmproc_pm2 proc
+callrmproc_pm2:
 
 ;--- copy the Registers to the client's RMCS. Dont modify CS:IP and SS:SP!
 
-	pop ss:tskstate.rmSSSP
+	pop ss:v86iret.rSP
+	pop ss:v86iret.rSS
 	pop ds	;use DS for client's RMCS to avoid register override
 
 	push edi
@@ -633,10 +566,10 @@ endif
 	mov [edi].RMCS.rECX, ecx
 	mov [edi].RMCS.rEAX, eax
 	mov si, ss:tmpFLReg
-	mov ax, word ptr ss:v86iret.rES
-	mov dx, word ptr ss:v86iret.rDS
-	mov cx, word ptr ss:v86iret.rFS
-	mov bx, word ptr ss:v86iret.rGS
+	mov ax, ss:v86iret.rES
+	mov dx, ss:v86iret.rDS
+	mov cx, ss:v86iret.rFS
+	mov bx, ss:v86iret.rGS
 	mov [edi].RMCS.rFlags, si
 	mov [edi].RMCS.rES, ax
 	mov [edi].RMCS.rDS, dx
@@ -646,11 +579,12 @@ endif
 	mov es, eax
 	pop ds
 	popad
-	@strout <"#callrmproc_pm: exit, NC, RMS=%X:%X",lf>, ss:tskstate.rmSS, ss:tskstate.rmSP
+	@strout <"#callrmproc_pm: exit, NC, RMS=%X:%X",lf>, ss:v86iret.rSS, ss:v86iret.rSP
 	clc
 	ret
 	align 4
-callrmproc_pm2 endp
+
+_callrmproc endp
 
 ;*** int 31h, ax=0303: alloc real mode callback
 ;*** inp: ds:(e)si: far16/far32 pm proc to call
@@ -773,18 +707,20 @@ freecberr:
 	align 4
 freermcb endp
 
-;*************************************************
-;*** 0305h get task state save/restore address ***
-;*************************************************
+;--- 0305h get task state save/restore address
+;--- out:
+;--- AX = size of state buffer
+;--- BX:CX = real-mode entry to save/restore state
+;--- SI:E/DI = protected-mode entry to save/restore state
 
 	@ResetTrace
 
 getsraddr proc near public
 
-	mov ax,sizeof tskstate + 4*2;size of save state buffer in AX
-	mov bx, ss:[wHostSeg]		;real mode address in BX:CX
+	mov ax,sizeof pmstate + 6*2	;size of save state buffer
+	mov bx, ss:[wHostSeg]		;real mode entry
 	mov cx, offset srtask_rm
-	mov si,_INTSEL_				;protected-mode address in SI:DI
+	mov si,_INTSEL_				;protected-mode entry
 if ?32BIT
 	mov edi,_SRTSK_
 else
@@ -800,60 +736,19 @@ getsraddr endp
 ;--- al=1 : restore task state
 ;--- es:e/di: buffer
 
-;--- buffer consists of tskstate and the real-mode segreg values om v86iret
+;--- buffer consists of pmstate and the real-mode segreg values in v86iret
 
 _srtask proc public
-;	@strout <"#task state save/restore pm, ax=%X, es:edi=%lX:%lX",lf>, ax, es, edi
 	push ds
 	push es
-	pushad
-	cld
-
-	mov esi,offset tskstate
-	mov ecx,sizeof tskstate/2
 ife ?32BIT
+	push edi
 	movzx edi, di
 endif
-	cmp al,0		;save or restore?
-	jnz @F
-	push ss
-	pop ds
-	assume ds:GROUP16
-ife ?DOSOUTPUT
-	@strout <"#srtask: task state save, es:edi=%lX:%lX",lf>,es,edi
+	call srtask
+ife ?32BIT
+	pop edi
 endif
-	rep movsw
-	mov ax, v86iret.rES
-	stosw
-	mov ax, v86iret.rDS
-	stosw
-	mov ax, v86iret.rFS
-	stosw
-	mov ax, v86iret.rGS
-	stosw
-	jmp exit
-@@:
-;--- restore task state
-ife ?DOSOUTPUT
-	@strout <"#srtask: task state restore, es:di=%lX:%lX",lf>,es,edi
-endif
-	xchg esi, edi
-	push es
-	pop ds
-	push ss
-	pop es
-	rep movsw
-	lodsw
-	mov es:v86iret.rES, ax
-	lodsw
-	mov es:v86iret.rDS, ax
-	lodsw
-	mov es:v86iret.rFS, ax
-	lodsw
-	mov es:v86iret.rGS, ax
-exit:
-;	clc			;useless!
-	popad
 	pop es
 	pop ds
 	and byte ptr [esp].IRET32.rFL,not 1	;clear carry flag
@@ -861,70 +756,156 @@ exit:
 	align 4
 _srtask endp
 
+	.errnz sizeof PMSTATE - 8
+
+srtask proc
+	push esi
+	push edi
+	cld
+	mov esi, offset v86iret.rSP
+	cmp al,0		;save or restore?
+	jnz srtask_restore
+	push ss
+	pop ds
+	assume ds:GROUP16
+	@strout <"#srtask: task state save, es:edi=%lX:%lX",lf>,es,edi
+@@:
+	movsw
+	add esi,2  
+	cmp esi, offset pmstate	; v86iret.rSP+6*4
+	jnz @B
+;	mov esi,offset pmstate	;pmstate follows v86iret in memory
+	jmp exit
+srtask_restore:
+;--- restore task state
+	@strout <"#srtask: task state restore, es:di=%lX:%lX",lf>,es,edi
+	xchg esi, edi
+	push es
+	pop ds
+	push ss
+	pop es
+@@:
+	movsw
+	add edi,2
+	cmp edi, offset pmstate	; v86iret.rSP+6*4
+	jnz @B
+;	mov edi, offset pmstate	;pmstate follows v86iret in memory
+exit:
+	movsd	; pmstate is 8 bytes!
+	movsd
+	pop edi
+	pop esi
+	ret
+	align 4
+srtask endp
+
 _TEXT32 ends
 
 _TEXT16 segment
 
+;--- there are 2 versions for task state saving in real-mode.
+;--- one that does all in real-mode
+;--- the other switches to protected-mode, but this is
+;--- a critical operation, since the "task state" must not
+;--- be modified by the switch.
+
 	@ResetTrace
 
-;--- don't loose TF!
-
 srtask_rm proc
-	clc
+
 	pushf
 	@rm2pmbreak
+if 0
+;--- this version switches to protected-mode
+	push ds	;save all real-mode segment registers onto the rm stack
+	push es
+	push fs
+	push gs
+	push dx
+	push bx
+	push cx
+	mov cx,es
+	mov bx,ss	;save the value of rm SS:SP in standard registers
+	mov dx,sp
+	@rawjmp_pm srtask_rm_1
 
+_TEXT32 segment
+srtask_rm_1:
+	push byte ptr _FLATSEL_
+	pop es
+	push edi
+	push ecx
+	movzx ecx, cx
+	shl ecx, 4
+	movzx edi,di	;hiword edi to be cleared in both modes
+	add edi, ecx
+	call srtask
+	pop ecx
+	pop edi
+	clc
+	@rawjmp_rm srtask_rm_2
+	align 4
+_TEXT32 ends
+srtask_rm_2:
+	mov ss,bx		;restore the stack
+	mov sp,dx
+	pop cx
+	pop bx
+	pop dx
+	pop gs			;and the segment registers
+	pop fs
+	pop es
+	pop ds
+	popf
+	clc
+	retf
+else
+;--- this version does all in real-mode
 	push ds
+	push es
 	pusha
 	cld
-
-	mov si,offset tskstate
-	mov cx,sizeof tskstate/2
-	cmp al,0
-	jnz @F
-	@stroutrm <"-srtask_rm: task state save, es:di=%X:%X",lf>,es,di
+	mov si, offset v86iret.rSP
 	push cs
+	cmp al,0
+	jnz srtask_restore
+	@stroutrm <"-srtask_rm: task state save, es:di=%X:%X",lf>, es, di
 	pop ds
 	assume DS:GROUP16
-	rep movsw
-	mov ax, v86iret.rES
-	stosw
-	mov ax, v86iret.rDS
-	stosw
-	mov ax, v86iret.rFS
-	stosw
-	mov ax, v86iret.rGS
-	stosw
-	jmp exit
 @@:
-;--- restore task state
+	movsw
+	add si,2
+	cmp si, offset pmstate	;v86iret.rSP+6*4
+	jnz @B
+;	mov si, offset pmstate
+	jmp exit
+srtask_restore:
 	@stroutrm <"-srtask_rm: task state restore, es:di=%X:%X",lf>,es,di
-	push es
 	xchg si, di
 	push es
 	pop ds
-	push cs
 	pop es
-	rep movsw
-	lodsw
-	mov es:v86iret.rES, ax
-	lodsw
-	mov es:v86iret.rDS, ax
-	lodsw
-	mov es:v86iret.rFS, ax
-	lodsw
-	mov es:v86iret.rGS, ax
-	pop es
+@@:
+	movsw
+	add di,2
+	cmp di, offset pmstate	;v86iret.rSP+6*4
+	jnz @B
+;	mov di, offset pmstate
 exit:
+	movsd
+	movsd
 	popa
+	pop es
 	pop ds
 	popf
+	clc
 	retf
 	align 4
+
+endif
 srtask_rm endp
 
 _TEXT16 ends
-
 
 _TEXT32 segment
 
@@ -950,8 +931,6 @@ endif
 	align 4
 getrmsa endp
 
-_TEXT32 ends
-
 	@ResetTrace
 
 _TEXT16 segment
@@ -974,25 +953,23 @@ rm2pm_brk::
 ife ?DOSOUTPUT
 	@stroutrm <"-rm2pm: ">
 endif
-;--- current real-mode SS:SP becomes RMS.
-;--- old value of tskstate.rmSSSP is NOT saved here
 
-	mov cs:tskstate.rmSP,sp
-	mov cs:tskstate.rmSS,ss
+if 0	;changed in v3.18; also see changes in pm2rm below.
+;--- current real-mode SS:SP becomes RMS.
+;--- old value of v86iret.rSS/rSP is NOT saved here
+	mov cs:v86iret.rSP,sp
+	mov cs:v86iret.rSS,ss
+endif
 
 ;--- switch to pm, leaves ds,es,fs,gs undefined
-;--- stack switch to host stack, tskstate untouched
+;--- stack switch to host stack
 
 	@rawjmp_pm rm2pm_pm		;raw switch to pm, rm segs not saved in v86iret
 	align 4
 
-rm2pm endp
-
-_TEXT16 ends
-
 _TEXT32 segment
 
-rm2pm_pm proc
+rm2pm_pm:
 	mov ds,eax
 	mov es,ecx
 	sub esp, sizeof IRET32
@@ -1012,18 +989,21 @@ endif
 	mov [esp].IRET32.rFL, eax
 	mov [esp].IRET32.rSP, ebx
 	mov [esp].IRET32.rSSd, edx
-ife ?DOSOUTPUT
 if ?32BIT
-	@strout <"CS:Eip=%X:%lX,SS:Esp=%X:%lX,HS=%lX",lf>,si,edi,dx,ebx,ss:[taskseg._Esp0]
+	@strout <"#rm2pm: CS:Eip=%X:%lX, SS:Esp=%X:%lX, RMS=%X:%X",lf>,\
+		si, edi, dx, ebx, ss:v86iret.rSS, ss:v86iret.rSP
 else
-	@strout <"CS:Ip=%X:%X,SS:Sp=%X:%X,RMS=%X:%X,HS=%lX",lf>,si,di,dx,bx,\
-		ss:[tskstate.rmSS],ss:[tskstate.rmSP],ss:[taskseg._Esp0]
-endif
+	@strout <"#rm2pm: CS:Ip=%X:%X, SS:Sp=%X:%X, RMS=%X:%X, HS=%lX",lf>,\
+		si, di, dx, bx, ss:v86iret.rSS, ss:v86iret.rSP, esp
 endif
 	iretd
 	align 4
 
-rm2pm_pm endp
+_TEXT32 ends
+
+rm2pm endp
+
+_TEXT16 ends
 
 ;*** raw mode switch: protected mode -> real mode
 ;*** preserve interrupt flag!
@@ -1033,40 +1013,50 @@ rm2pm_pm endp
 ;--- ax=DS
 ;--- cx=ES
 
+;--- up to v3.17, this value was 0
+;--- since v3.18, it is 1
+?RAWSETNEWRMS equ 1
+
+	@ResetTrace
+
 _pm2rm proc near public
 	push [esp].IRET32.rFL
 	and byte ptr [esp+1],8Fh	;reset IOPL,NT
 	or byte ptr [esp+1],?RMIOPL
-	pop ss:[tmpFLRegD]
-	@strout <"#pm2rm: CS:IP=%X:%X, SS:SP=%X:%X, DS=%X, FL=%X, cur RMS=%X:%X",lf>,\
-		si,di,dx,bx,ax,ss:[tmpFLReg],ss:[tskstate.rmSS],ss:[tskstate.rmSP]
+	pop ss:taskseg._Efl
+	@strout <"#pm2rm: CS:IP=%X:%X, SS:SP=%X:%X, DS=%X, FL=%lX, cur RMS=%X:%X",lf>,\
+		si,di,dx,bx,ax,ss:taskseg._Efl,ss:v86iret.rSS, ss:v86iret.rSP
 
-	@savepmstate			;store pm segregs in tskstate
-	@rawjmp_rm _pm2rm_rm	;raw jump rm, rm stack "undefined"
+	@savepmstate			;store pm segregs in pmstate
+if ?RAWSETNEWRMS
+	mov ss:v86iret.rSP, bx
+	mov ss:v86iret.rSS, dx
+endif
+	mov ss:v86iret.rES, cx
+	mov ss:v86iret.rDS, ax
+	mov ss:v86iret.rFS, 0
+	mov ss:v86iret.rGS, 0
+	@rawjmp_rm _pm2rm_rm
 	align 4
+
+_TEXT16 segment
+_pm2rm_rm:
+ife ?RAWSETNEWRMS
+	mov ss,dx	;v3.18: now set above
+	mov sp,bx
+endif
+	@stroutrm <"-pm2rm: cur RMS=%X:%X, SS:SP=%X:%X",lf>,\
+		cs:v86iret.rSS, cs:v86iret.rSP, ss, sp 
+	push word ptr cs:taskseg._Efl
+	push si			;push CS
+	push di			;push IP
+	iret			;real-mode iret!
+	align 4
+_TEXT16 ends
+
 _pm2rm endp
 
 _TEXT32 ends
-
-_TEXT16 segment
-
-_pm2rm_rm proc
-	mov ds,ax
-	mov ss,dx
-	mov sp,bx		;set SP only
-	xor ax,ax
-	mov es,cx
-	mov fs,ax
-	mov gs,ax
-	push si			;push CS
-	push di			;push IP
-	push cs:[tmpFLReg]
-	popf
-	retf			;real-mode retf!
-	align 4
-_pm2rm_rm endp
-
-_TEXT16 ends
 
 	end
 

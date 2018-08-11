@@ -252,7 +252,7 @@ intr2100:
 	movzx ebx,word ptr es:[eax].DOSSDA.wPSP	;get current psp in bx
 	shl ebx,4
 
-ife ?32BIT	;v3.18: 16-bit only
+if 1;ife ?32BIT	;v3.18: 16-bit only
 
 ;--- someone (Win31!) may have converted the parent psp segment to a
 ;--- selector, but now real-mode DOS will use it (and expect a segment
@@ -1148,7 +1148,7 @@ endif
 	test eax,0FFF00000h
 	jnz @F
 	shr eax,4
-	mov dword ptr ss:v86iret.rDS, eax
+	mov ss:v86iret.rDSd, eax
 	@strout <"no TLB needed for read/write (%lX addr, %X size)",lf>,eax,cx
 	pop eax
 	add esp,4			;dont return
@@ -1195,7 +1195,7 @@ nextblock:
 	jb @F
 	mov ecx,ebp
 @@:
-	mov dword ptr ss:v86iret.rDS,esi
+	mov ss:v86iret.rDSd,esi
 	xor edx,edx
 	@strout <"  call rm dos, read (ax=%X) in TLB (=%X:%X) %X bytes",lf>,ax,si,dx,cx
 	call rmdos
@@ -1293,7 +1293,7 @@ intr2140A:				 ;<----
 	call copy_far32_2_flat
 
 	xor edx,edx
-	mov dword ptr ss:v86iret.rDS,esi
+	mov ss:v86iret.rDSd,esi
 	call rmdos
 	pop edx
 	pop ecx

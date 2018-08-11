@@ -207,8 +207,8 @@ _rawjmp_pm_savesegm proto near16
 _jmp_pm proto near16		;full switch to protected-mode
 _jmp_pmX proto near16		;do a INT 96h, then _jmp_pm
 
-_rawjmp_rm proto near		;@rawjmp_rm, raw jump real-mode, rm ss:sp not set
-_jmp_rm proto near			;@jmp_rm, full switch to real-mode, ss:sp=RMS
+_rawjmp_rm proto near		;@rawjmp_rm, raw jump real-mode
+_jmp_rm proto near			;@jmp_rm, saves pm segregs
 
 vcpi_pmentry proto near
 
@@ -276,8 +276,8 @@ externdef rawjmp_pm_patch:near
 externdef intrrm2pm:far
 externdef kdinit_rm:near
 externdef kdinit2_rm:near
-externdef load_rmsegs:near
-externdef vcpi_rmentry:near
+;externdef load_rmsegs:near
+externdef rawjmp_rm_all:near
 _TEXT16 ends
 
 BEGGRP16 segment
@@ -334,7 +334,7 @@ externdef dwLDTAddr:dword		;linear address LDT
 externdef selLDT:word			;ring3 selector for LDT access
 externdef wLDTLimit:word		;limit LDT
 
-externdef tmpBXReg:word
+;externdef tmpBXReg:word
 externdef tmpFLReg:word			;temp storage for flags register
 externdef tmpFLRegD:dword		;same address, but DWORD type
 externdef bEnvFlags:byte		;value HDPMI environment variable
@@ -364,7 +364,7 @@ externdef pMemItems:dword		;start list of memory items
 ;externdef rmcbs:RMCB			;start client real-mode callbacks
 externdef rmsels:dword			;start real-mode selector list
 externdef szVirtual:byte		;string "VIRTUAL SUPPORT"
-externdef tskstate:TASKSTATE	;client task state
+externdef pmstate:PMSTATE		;client pm segregs
 externdef v86iret:V86IRET		;client v86/real-mode segments
 externdef vcpiOfs:dword			;offset VCPI host entry
 externdef vcpicall:PF32			;address VCPI host entry (used by pm)
@@ -378,7 +378,7 @@ externdef wVersion:word			;DPMI version
 externdef xmsaddr:PF16			;XMS entry (RM)
 ;externdef rmpsp:word			;current real-mode PSP of active client
 externdef wPSPSegm:word			;initial real-mode PSP of active client
-externdef wRmDest:word
+;externdef wRmDest:word
 externdef wRmDest2:word
 externdef wIntRmCb:word
 externdef wHostPSP:word

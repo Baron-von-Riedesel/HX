@@ -460,7 +460,7 @@ getavailxmspages proc uses ebx
 	test fHost, FH_XMS
 	jz error
 	@strout <"#getavailxmspages: calling realmode XMS at %X:%X, RMS=%X:%X",lf>,\
-		word ptr ss:xmsaddr+2, word ptr ss:xmsaddr+0, tskstate.rmSS, tskstate.rmSP
+		word ptr ss:xmsaddr+2, word ptr ss:xmsaddr+0, v86iret.rSS, v86iret.rSP
 ;	@waitesckey
 	push ecx
 	mov ah, fXMSQuery
@@ -2630,7 +2630,7 @@ nextitem2:
 	cmp esi,esp
 	jz @F
 	pop dx
-	@strout <"#pm_exit_pm: free xms block %X, rm ss:sp=%X:%X",lf>,dx,ss:[tskstate.rmSS],cs:[tskstate.rmSP]
+	@strout <"#pm_exit_pm: free xms block %X, rm ss:sp=%X:%X",lf>,dx,ss:v86iret.rSS, ss:v86iret.rSP
 
 	pushd offset freexms
 	call callrmprocintern

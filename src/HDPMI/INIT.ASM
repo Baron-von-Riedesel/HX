@@ -25,10 +25,10 @@ endif
 	@seg _ITEXT16
 	@seg _ITEXT32
 
-IDTSEG segment para use16 public 'CODE'
-externdef startofidtseg:near
-IDTSEG ends
-GROUP16 group IDTSEG
+GDTSEG segment para use16 public 'CODE'
+endofgdtseg label near
+GDTSEG ends
+GROUP16 group GDTSEG
 
 	public mystart
 
@@ -334,9 +334,6 @@ endif
 	jnz host_is_vcpi
 
 	mov word ptr [rawjmp_pm_patch], RAWJMP_PM_PATCHVALUE
-if ?PATCHCODE
-	mov word ptr [rawjmp_rm_patch], RAWJMP_RM_PATCHVALUE
-endif
 	jmp patch_done
 host_is_vcpi:  
 	lea eax,[ecx+offset pdGDT]	;address GDT pseudo descriptor
@@ -349,7 +346,7 @@ host_is_vcpi:
 	mov [linadvs],eax			;patch code in rawjmp_pm
 
 if ?INTRM2PM
-if 1
+ if 1
 	test bEnvFlags2, ENVF2_DEBUG
 	jnz @F
 	mov ax,90FAh
@@ -357,11 +354,9 @@ if 1
 externdef rm2pm_brk:near
 	mov word ptr rm2pm_brk,ax	;deactivate RM2PM int
 @@:
+ endif
 endif
-endif
-ife ?PATCHCODE
 	mov rawjmp_rm_vector, offset rawjmp_rm_vcpi
-endif
 patch_done:
 	clc
 	ret
@@ -853,8 +848,8 @@ endif
 
 ;--- make sure we have a valid real-mode stack
 
-	mov tskstate.rmSP,sp
-	mov tskstate.rmSS,ss
+	mov v86iret.rSP, sp
+	mov v86iret.rSS, ss
 
 	@rawjmp_pm _initsvr_pm
 _initsvr_rm endp
@@ -875,7 +870,7 @@ _initsvr_pm proc
 	mov fs,eax
 	mov gs,eax
 
-	@strout <"#initsvr_pm: start, current rmSS:SP=%X:%X, esp=%lX",lf>, tskstate.rmSS, tskstate.rmSP, esp
+	@strout <"#initsvr_pm: start, current rmSS:SP=%X:%X, esp=%lX",lf>, v86iret.rSS, v86iret.rSP, esp
 if ?WDEB386
 	call initwdeb386_pm
 endif
@@ -914,25 +909,15 @@ if ?MOVEHIGH
 	shld ebx,eax,16
 	shl eax,16
 	mov ax, (LOWWORD offset endoftext32) - 1
-;	mov ecx,_CSR3SEL_
-;	and ecx,not 7
 	mov dword ptr [edx + _CSSEL_  ].DESCRPTR.limit,eax
 	mov dword ptr [edx + _CSALIAS_].DESCRPTR.limit,eax
-;	mov dword ptr [edx + ecx      ].DESCRPTR.limit,eax
 	mov [edx + _CSSEL_  ].DESCRPTR.A1623,bl
 	mov [edx + _CSALIAS_].DESCRPTR.A1623,bl
-;	mov [edx + ecx      ].DESCRPTR.A1623,bl
 	mov [edx + _CSSEL_  ].DESCRPTR.A2431,bh
 	mov [edx + _CSALIAS_].DESCRPTR.A2431,bh
-;	mov [edx + ecx      ].DESCRPTR.A2431,bh
-;	mov ecx,_DSR3SEL_
-;	and ecx,not 7
-;	mov dword ptr [edx+ecx].DESCRPTR.limit,eax
-;	mov [edx+ecx].DESCRPTR.A1623,bl
-;	mov [edx+ecx].DESCRPTR.A2431,bh
-;	@strout <"initsvr_pm: copy done",lf>
 endif
 
+;	@strout <"#initsvr_pm: exit, esp=%lX",lf>, esp
 	jmp initsvr_pm_done
 initsvr_pm_failed2:
 initsvr_pm_failed:
@@ -940,7 +925,7 @@ initsvr_pm_failed:
 	stc
 initsvr_pm_done:
 pmfirst_done:
-	@rawjmp_rm _initsvr_rm2		;raw jump rm, rm stack "undefined"
+	@rawjmp_rm _initsvr_rm2
 _initsvr_pm endp
 
 _ITEXT32 ends
@@ -948,7 +933,7 @@ _ITEXT32 ends
 	@ResetTrace
 
 _initsvr_rm2 proc
-	lss sp,cs:tskstate.rmSSSP
+;	lss esp,fword ptr cs:v86iret.rESP
 	pop gs
 	pop fs
 	pop ds
@@ -1269,7 +1254,7 @@ if ?MOVEGDT
 	test bEnvFlags2, ENVF2_LDTLOW
 	jz @F
 endif
-	mov dx, offset startofidtseg
+	mov dx, offset endofgdtseg
 @@:
 	shr dx,4
 	ret
@@ -1892,8 +1877,8 @@ else
 
 ;--- release environment
 	mov es,wHostPSP
-	mov tskstate.rmSP, 100h	;used on next initial switch to pm;
-	mov tskstate.rmSS, es	;the current stack isnt valid anymore
+	mov v86iret.rSP, 100h	;used on next initial switch to pm;
+	mov v86iret.rSS, es		;the current stack isnt valid anymore
 	assume es:SEG16
 	xor cx, cx
 	xchg cx, es:[2Ch]
@@ -1914,7 +1899,7 @@ else
 	add dx,?TLBSIZE/16
 @@:
 	add dx,10h	;16 paragraphs for the PSP
-	@stroutrm <"-start: going resident, memory block size=%X, RMS=%X:%X",lf>, dx, tskstate.rmSS, tskstate.rmSP
+	@stroutrm <"-start: going resident, memory block size=%X, RMS=%X:%X",lf>, dx, v86iret.rSS, v86iret.rSP
 
 ;--- close files before going resident.
 	mov bx,0

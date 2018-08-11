@@ -73,7 +73,7 @@
  _TEXT16   16   code  resident real-mode code
  CONST16   16   data  strings for both modes (usually empty)
  GDTSEG    16   data  GDT (usually moved to extended memory)
- IDTSEG    16   data  GDT (usually moved to extended memory)
+ IDTSEG    16   data  IDT (moved to extended memory)
  _ITEXT16  16   code  real-mode code for initialization
  _TEXT32   32   code  resident protected-mode code
  CONST32   32   data  constants and strings for protected-mode only

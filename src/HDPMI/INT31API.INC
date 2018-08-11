@@ -69,9 +69,10 @@ endif
 
 ;--- ah=03
 
-simrmint proto near
-callrmiret proto near
-callrmretf proto near
+;simrmint proto near
+;callrmiret proto near
+;callrmretf proto near
+_callrmproc proto near
 allocrmcb proto near
 freermcb proto near
 getsraddr proto near

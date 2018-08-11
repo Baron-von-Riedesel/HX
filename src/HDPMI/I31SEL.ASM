@@ -41,12 +41,12 @@ nextsel:
 	or esi, [ebx+4]
 	jz allocsel_1
 	mov ecx,edi 			;reset counter
-if _LTRACE_
+if 0;_LTRACE_
 	mov ah,[ebx+7]
 	mov al,[ebx+4]
 	shl eax, 16
 	mov ax,[ebx+2]
-	@strout <"#selector %X skipped, not free: (%lX %X %X)",lf>,bx, eax, <word ptr [ebx+0]>, <word ptr [ebx+5]>
+	@strout <"#allocsel: selector %X skipped, not free: (%lX %X %X)",lf>,bx, eax, <word ptr [ebx+0]>, <word ptr [ebx+5]>
 endif
 allocsel3:
 	add ebx,8
@@ -64,7 +64,7 @@ allocsel3:
 
 	call EnlargeLDT			;all registers preserved!
 	jnc tryagain
-	@strout <"#not enough selectors available (%X/%X)",lf>,bx,dx
+	@strout <"#allocsel: out of selectors (%X/%X)",lf>,bx,dx
 	jmp exit
 
 ;--- free selector found
@@ -80,7 +80,15 @@ allocsel_1:
 	jnz @B
 	add bx,8+4+?RING
 	mov [esp].PUSHADS.rAX, bx
-	@strout <"#selectors allocated, first is %X",lf>,bx
+if _LTRACE_
+	mov cx,[esp].PUSHADS.rCX
+	cmp cx,1
+	.if ZERO?
+		@strout <"#allocsel: selector %X allocated",lf>,bx
+	.else
+		@strout <"#allocsel: %X descriptors allocated, first is %X",lf>, cx, bx
+	.endif
+endif
 	clc
 exit:
 	popad
@@ -267,7 +275,7 @@ setrmsel proc public uses ebx eax ds
 	mov [ebx].RMSEL.pNext,eax
 @@:
 	mov eax, [esp].SETRMFR.dwSel
-	@strout <"#entry %lX filled with rm selector %X (segm=%lX)",lf>, ebx, ax, [esp].SETRMFR.dwSegm
+	@strout <"#setrmsel: entry %lX filled with rm selector %X (segm=%lX)",lf>, ebx, ax, [esp].SETRMFR.dwSegm
 	mov [ebx].RMSEL.sel,ax
 	lsl eax,eax
 	mov [ebx].RMSEL.limit,ax
@@ -501,7 +509,13 @@ setlimit proc public
 	or [ebx].DESCRPTR.lim_gr,cl
 	jmp _reloadexit
 setlim2:
+;--- bits 0-11 of dx must be 1 for big segments
 	pushad
+	mov eax,edx
+	and ah,0Fh
+	cmp ax,0fffh
+	stc
+	jnz @F
 	shr edx,12		;skip the lowest 12 bits
 	mov eax,ecx
 	shl ecx,4
@@ -510,8 +524,9 @@ setlim2:
 	shr ax,12
 	or al,80h
 	or [ebx].DESCRPTR.lim_gr,al
+@@:
 	popad
-	jmp _reloadexit
+	jnc _reloadexit
 carryexit::
 	stc
 	ret

@@ -316,8 +316,8 @@ endif
 	jnz except_2x		;this is fatal
 if ?SAFERMSTACK
 	push [wHostPSP]
-	push 100h
-	pop [tskstate.rmSSSP]
+	pop v86iret.rSS
+	mov v86iret.rSP, 100h
 endif
 if ?FORCETEXTMODE
 if ?VIODIROUT
@@ -352,10 +352,12 @@ endif
 ;--- exception in ring 0, dump client CS:EIP, SS:ESP
 
 	@printf <" in ring 0",lf>
-	cmp cApps, 0
+;	cmp cApps, 0
+;	jz @F
+	mov ebx,taskseg._Esp0
+	and ebx,ebx
 	jz @F
-	mov ebx,[taskseg._Esp0]
-	@printf <"next client CS:EIP=%X:%lX,SS:ESP=%X:%lX",lf>,\
+	@printf <"client CS:EIP=%X:%lX SS:ESP=%X:%lX",lf>,\
 		[ebx-sizeof IRET32].IRET32.rCS, [ebx-sizeof IRET32].IRET32.rIP,\
 		[ebx-sizeof IRET32].IRET32.rSS, [ebx-sizeof IRET32].IRET32.rSP
 if ?DISPCLSP
@@ -484,7 +486,7 @@ endif
 
 	@printf <"LPMS Sel=%X(%b) RMS=%X:%X open RMCBs=%X/%X ISR=%X",lf>,\
 		word ptr _LPMSSEL_, word ptr [bLPMSused],\
-		[tskstate.rmSS], [tskstate.rmSP], [cIntRMCB], [cRMCB], ax
+		v86iret.rSS, v86iret.rSP, [cIntRMCB], [cRMCB], ax
 
 if ?LOGINT31
 externdef i31func:word

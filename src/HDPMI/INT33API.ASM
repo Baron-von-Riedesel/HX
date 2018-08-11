@@ -257,7 +257,7 @@ mouse33_reset proc public
 
 	test [fMouse], MF_RMEVTSET
 	jz exit
-	@strout <"mouse33_reset enter, ss=%lX ds=%lX es=%lX, rms=%X:%X",lf>, ss, ds, es, tskstate.rmSS, tskstate.rmSP
+	@strout <"mouse33_reset enter, ss=%lX ds=%lX es=%lX, rms=%X:%X",lf>, ss, ds, es, v86iret.rSS, v86iret.rSP
 	cmp [cApps],0
 	jz vm_exit
 	push es

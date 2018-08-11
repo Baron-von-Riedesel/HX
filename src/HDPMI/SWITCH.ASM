@@ -44,10 +44,10 @@ _jmp_pm_pm proc
 _jmp_pm_pm endp	;fall throu!
 
 load_pmsegs proc public
-	mov es,ss:tskstate.rES
-	mov ds,ss:tskstate.rDS
-	mov fs,ss:tskstate.rFS
-	mov gs,ss:tskstate.rGS
+	mov es,ss:pmstate.rES
+	mov ds,ss:pmstate.rDS
+	mov fs,ss:pmstate.rFS
+	mov gs,ss:pmstate.rGS
 	ret
 	align 4
 load_pmsegs endp
@@ -219,25 +219,6 @@ endif
 	align 4
 vcpi_pmentry endp
 
-	@ResetTrace
-
-;--- normal jump to real-mode
-;--- - save protected mode segment registers in tskstate
-;--- - raw jump to real mode
-;--- - the destination address in real-mode has been
-;--- - saved in wRmDest (see @jmp_rm)
-
-_jmp_rm proc public
-
-	@savepmstate			; save es,ds,fs,gs in tskstate
-	@rawjmp_rm _jmp_rm_rm	; jmp via rawjmp_rm to dest _jmp_rm_rm
-	align 4
-_jmp_rm endp
-
-_TEXT32 ends
-
-_TEXT16 segment
-
 if 0;?WDEB386
 ;--- if no debugger present, this code is disabled
 ;--- currently moved to a dead location, since wdeb386
@@ -245,29 +226,25 @@ if 0;?WDEB386
 kdpatch2:: call kdinit2_rm
 endif
 
-_jmp_rm_rm proc
-	lss sp,cs:tskstate.rmSSSP
-	push cs:[wRmDest]
-_jmp_rm_rm endp	;fall through
+	@ResetTrace
 
-load_rmsegs proc public
-	mov es,cs:[v86iret.rES]   ;do it in this order!
-	mov ds,cs:[v86iret.rDS]
-	mov fs,cs:[v86iret.rFS]
-	mov gs,cs:[v86iret.rGS]
-	ret
-	align 4
-load_rmsegs endp
+;--- normal jump to real-mode
+;--- - save protected mode segment registers in pmstate
+;--- - raw jump to real mode
+;--- - the destination address in real-mode has been
+;--- - saved in wRmDest2 (see @jmp_rm)
 
-_TEXT16 ends
-
-_TEXT32 segment
+_jmp_rm proc public
+	@savepmstate			; save es,ds,fs,gs in pmstate
+_jmp_rm endp	;fall thru
 
 ;--- raw jump to real-mode
-;--- no stack switch to tskstate.rmSSSP, no segment register save
-;--- all general registers preserved
-;--- real-mode segment registers undefined
-;--- real-mode dest in wRmDest2
+;--- NO pm segregs saved
+;--- ring 0 esp saved in dwHostStack
+;--- stack switch to SS:SP in v86iret
+;--- real-mode segment registers set to values in v86iret
+;--- real-mode IP in wRmDest2
+;--- all general registers preserved, including flags.
 
 _rawjmp_rm proc public
 	pushfd
@@ -276,20 +253,14 @@ if ?SETRMIOPL
 	and byte ptr [esp+1],0CFh		;reset IOPL
 	or byte ptr [esp+1],?RMIOPL
 endif
-	pop ss:[taskseg._Efl]
+	pop ss:v86iret.rEFL
 ife ?CR0COPY
 	mov eax, cr0
 	mov ss:dwCR0, eax
 endif
-
 	mov ss:[dwHostStack],esp
-
-ife ?PATCHCODE
 	jmp ss:[rawjmp_rm_vector]
 	align 4
-else
-rawjmp_rm_patch::					;might be patched!
-endif
 
 rawjmp_rm_vcpi::
 	mov ax,_FLATSEL_
@@ -311,16 +282,6 @@ endif
 nullidt PDESCR <3FFh,0>			;pseudo descriptor IDT real mode
 
 rawjmp_rm_novcpi::	;the label if no vcpi host was detected (xms or raw)
-
-if ?PATCHCODE
-
-_diff_rm = offset rawjmp_rm_novcpi - offset rawjmp_rm_patch
-
-;--- MASM has a severe bug calculating the difference of 2 offsets
-;--- when there is a short jump between them
-
-RAWJMP_RM_PATCHVALUE = 0EBh+100h*(_diff_rm - 2)
-endif
 
 	lidt cs:[nullidt]
 
@@ -359,15 +320,9 @@ else
 	dw seg rawjmp_rm_xms_1
 endif
 
-_rawjmp_rm endp
-
-_TEXT32 ends
-
 _TEXT16 segment
 
-;--- final part of raw jump to real-mode for xms.
-
-rawjmp_rm_xms proc
+rawjmp_rm_xms:	; xms branch of raw jump to real-mode
 
 if 1;?MOVEHIGHHLP
 	mov cr0,eax
@@ -377,14 +332,6 @@ wPatchGrp161 dw 0	;seg rawjmp_rm_xms_1	PATCH with GROUP16
 	align 4
 @@:
 endif
-;--- v3.18: no need to set a stack, since
-;--- all code that uses the rawjmp will set
-;--- the rm stack as its first step.
-;	mov ax,cs
-;	mov ss,ax
-;if ?HSINEXTMEM
-;	mov sp,20h
-;endif
 if ?SAVERMGDTR
 	@lgdt cs:[rmgdt]
 endif
@@ -392,14 +339,21 @@ if ?SAVERMCR3
 	mov eax,cs:[dwOldCR3]
 	mov cr3,eax
 endif
-;--- this code runs for both xms and vcpi mode
-vcpi_rmentry::
-	mov ax, word ptr cs:[taskseg._Efl]
-	sahf
+	lss esp, fword ptr cs:v86iret.rESP
+	push cs:v86iret.rEFL
+	mov es,cs:[v86iret.rES]   ;do it in this order!
+	mov ds,cs:[v86iret.rDS]
+	mov fs,cs:[v86iret.rFS]
+	mov gs,cs:[v86iret.rGS]
+	popfd
+rawjmp_rm_all::		; this code runs for both xms and vcpi mode
 	mov eax, cs:[taskseg._Eax]
 	jmp cs:[wRmDest2]
-rawjmp_rm_xms endp
 
 _TEXT16 ends
+
+_rawjmp_rm endp
+
+_TEXT32 ends
 
 end

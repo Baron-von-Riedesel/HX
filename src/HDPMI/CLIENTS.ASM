@@ -253,7 +253,7 @@ endif
 	push ds
 	pop es					;ES=GROUP16
 
-if _LTRACE_
+if 0;_LTRACE_
 	mov bx,offset intrmcbrs
 	mov cx,0
 @@:
@@ -264,8 +264,9 @@ if _LTRACE_
 	jnz @B
 endif
 
-if 1
-	mov eax, tskstate.rmSSSP
+if 0
+	mov eax, dword ptr v86iret.rESP+2
+	mov ax, v86iret.rSP
 endif
 	push byte ptr _FLATSEL_
 	pop ds
@@ -287,18 +288,21 @@ endif
 
 	cld
 	rep movsd
-if 1
+if 0
 ;--- if the last client is terminating, use its real-mode
 ;--- stack for host real-mode calls.
 	cmp ss:[cApps],0
 	jnz @F
-	mov ss:tskstate.rmSSSP, eax
+	mov ss:v86iret.rSP, ax
+	shr eax,16
+	mov ss:v86iret.rSS, ax
 @@:
 endif
 if ?SAVEHOSTSP
 	lodsd
 	mov ss:[taskseg._Esp0],eax		;dwHSExcR3 is in client area!
 endif
+	@strout <"#restoreclientstate: restored taskseg._Esp0=%lX",lf>, ss:taskseg._Esp0
 if ?SAVEDR7
 	lodsd
 	mov dr7,eax
@@ -389,17 +393,10 @@ endif
 _restoreclientstate endp
 
 ;--- adjust committed memory for LDT to wLDTLimit
-;--- ECX = 0
 ;--- this may invalidate descriptors of current segment registers (FS, GS)
 
 ResizeLDT proc near
-	movzx eax,[wLDTLimit]	;FFF,1FFF,...,FFFF
-	inc ax 				;ax=1000,2000,...,0000
-	sub cx,ax				;ecx=F000,E000,...,0000
-	shr cx,12				;ecx=0F,0E,...,00
-	add eax,[dwLDTAddr]
-	call _UncommitRegion	;free memory starting at eax, ecx pages
-	call setldtinfos
+	call setldtinfos		;reloads LDTR
 	xor eax, eax
 	mov ecx, fs
 	lar ecx, ecx
@@ -411,6 +408,12 @@ ResizeLDT proc near
 	jz @F
 	mov gs, eax
 @@:
+	movzx eax,[wLDTLimit]	;FFF,1FFF,...,FFFF
+	inc ax 				;ax=1000,2000,...,0000
+	sub cx,ax				;ecx=F000,E000,...,0000
+	shr cx,12				;ecx=0F,0E,...,00
+	add eax,[dwLDTAddr]
+	call _UncommitRegion	;free memory starting at eax, ecx pages
 	ret
 	align 4
 ResizeLDT endp
@@ -449,7 +452,7 @@ if ?LDTROSEL
 	mov [ecx+edi].DESCRPTR.A2431,ah
 endif
 	pop ds
-	mov ax,_LDTSEL_ 	   ;reload LDTR cache
+	mov ax,_LDTSEL_		;reload LDTR cache
 	lldt ax
 	popad
 	ret

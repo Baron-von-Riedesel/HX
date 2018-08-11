@@ -1,6 +1,6 @@
 
-# nmake makefile, creates a HDPMI32.EXE which has its host stack
-# in extended memory. Since v3.18, this is the "standard" version.
+# nmake makefile, creates a HDPMI32.EXE which allows interrupts
+# in ring 0. Doesn't work yet!
 # tools used:
 #  - JWasm | Masm
 #  - JWLib | WLib (Open Watcom) | MS OMF LIB (lib16.exe)

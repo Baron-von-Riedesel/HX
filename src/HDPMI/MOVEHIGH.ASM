@@ -16,10 +16,6 @@ externdef startof32bitr3:near
 BEGTXTR3 ends
 GROUP32 group BEGTXTR3
 
-ife ?DYNBREAKTAB
-?MOVEIDT = 0
-endif
-
 ?USERIDT	equ 1	;std 1, 1=optionally alloc IDT in user address space
 ?IDTPAGE	equ 1	;std 1, 1=give IDT its own page
 
@@ -160,31 +156,28 @@ ife ?MOVEGDT
 	mov edi,eax
 @@:
 endif
+	mov esi, pdIDT.dwBase
 	mov pdIDT.dwBase, edi
+	push es
+	pop ds
   if ?VM
-	test fMode, FM_CLONE
+	test ss:fMode, FM_CLONE
 	jz @F
 ;--- copy IDT from its location where it was saved in _saveclientstate
 	call _getidtofs
-	mov esi, ltaskaddr
+	mov esi, ss:ltaskaddr
 	add esi, eax
-	push es
-	pop ds
 	mov ecx, 800h/4
 	rep movsd
-	push ss
-	pop ds
 	jmp idtcopied
 @@:
   endif	;?VM
 
 ;--- copy IDT from conventional to extended memory (vectors 00-77h)
 
-	mov esi, offset curIDT
-
 ;--- the predefined IDT contains just 78h entries
 	mov ecx,?PREDEFIDTGATES * sizeof DESCRPTR/4
-	@strout <"#movehigh_pm: copy IDT from GROUP16:%lX to %lX",lf>, esi, edi
+	@strout <"#movehigh_pm: copy IDT from %lX to %lX",lf>, esi, edi
 	rep movsd
 
 ;--- initialize the rest of the IDT
@@ -195,8 +188,8 @@ endif
 	xor edx, edx
 	mov dh, _TGATE_ or ?PLVL
 @@:
-	mov es:[edi+ecx*8+0],eax
-	mov es:[edi+ecx*8+4],edx
+	mov [edi+ecx*8+0],eax
+	mov [edi+ecx*8+4],edx
 	inc eax
 	inc eax
 	inc cl
@@ -222,6 +215,8 @@ endif
   endif
 
 idtcopied:
+	push ss
+	pop ds
 	lidt pdIDT
 	@strout <"#movehigh_pm: IDT copied, pdIDT=%X:%lX, pdGDT=%X:%lX",lf>, pdIDT.wLimit, pdIDT.dwBase, pdGDT.wLimit, pdGDT.dwBase
 

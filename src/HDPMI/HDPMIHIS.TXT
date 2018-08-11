@@ -13,6 +13,8 @@
     worked reliably if the clients did set the event procs concurrently.
   þ bugfix: in exception frame for DPMI v1.0 the field PTE wasn't set
     for page faults.
+  þ bugfix: int 31h, ax=8 (set limit of descriptor): if limit was >= 1 MB,
+    it wasn't checked that lowest 12 bits of DX were all 1.
   þ HDPMI will now use DOS for its output if an exception occurs.
     There is no longer any query if the client or the server is to
     be terminated; also, video mode is never altered by the host, making

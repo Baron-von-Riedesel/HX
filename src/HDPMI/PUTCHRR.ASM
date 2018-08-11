@@ -40,8 +40,10 @@ BIOSROWS	equ 484h
 endif	;?DOSOUTPUT
 
 @slowdown macro
-if _LTRACE_ and ?SLOWDOWN
+if _LTRACE_
+ if ?SLOWDOWN
 	call slowdown
+ endif
 endif
 endm
 
@@ -91,10 +93,11 @@ endif
 _$VioSetCurPosDir endp
 endif
 
-if _LTRACE_ and ?SLOWDOWN
+if _LTRACE_
+ if ?SLOWDOWN
 slowdown proc
 	push cx
-	mov cx, 700
+	mov cx, ?SLOWDOWN
 @@:
 	in al,61h
 	and al,10h
@@ -105,6 +108,7 @@ slowdown proc
 	pop cx
 	ret
 slowdown endp
+ endif
 endif
 
 ;--- $putchrx: display character in AL
@@ -258,6 +262,7 @@ ppch4:
 	mov ah,00
 	mov ch,00
 	invoke _$VioSetCurPosDir,cx,ax
+	@slowdown
 done:
 	pop es
 	pop ds

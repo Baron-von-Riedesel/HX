@@ -173,9 +173,9 @@ if ?DPMI10EXX
 endif
 
 jmpvector3 label dword
-	dd @defl(simrmint)  ;0
-	dd @defl(callrmretf);1
-	dd @defl(callrmiret);2
+	dd @defl(_callrmproc);0
+	dd @defl(_callrmproc);1
+	dd @defl(_callrmproc);2
 	dd @defl(allocrmcb) ;3
 	dd @defl(freermcb)  ;4
 	dd @defl(getsraddr) ;5 Get State Save/Restore Addresses

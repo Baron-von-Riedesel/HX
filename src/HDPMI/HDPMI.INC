@@ -85,7 +85,10 @@ ifndef ?DOSOUTPUT
 endif
 if ?DOSOUTPUT
 ?USEHOSTPSP		equ 1	;std 1, 1=switch to host psp for DOS output
+else
+?USEHOSTPSP		equ 0	;must be 0
 endif
+
 ?DPMI10			equ 1	;std=1, support some DPMI 1.0 functions (0504-0507)
 ?DPMI10EX		equ 1	;std=1, support more DPMI 1.0 functions (0508-050B)
 ?DPMI10EXX		equ 1	;std=1, support even more DPMI 1.0 functions (0210-0213)
@@ -190,14 +193,6 @@ endif
 ?TRAPINT21RM	equ 0	;std 0: 1=watch int 21h real-mode
 ?INT10SUPP		equ 1	;std 1: 1=check for exception 10h/INT 10h
 ?INT11SUPP		equ 1	;std 1: 1=support exception 11h
-?TRANSFL		equ 1	;std 1: 1=copy flags when returning from internal rmcbs
-?COPYTF			equ 0	;std 0: copy TF when returning from internal rmcbs
-                        ;       2005/07/30: std changed to 0 
-                        ;       it was nonsense to copy the TF flag 
-                        ;       because at best we get an int 01 in real-mode.
-                        ;       it is "impossible" to transfer this flag
-                        ;       back to the protected-mode execution path.
-
 ?MAPEXC00		equ 1	;std 1: 1=route exc 00 to int 00 protected-mode
 ?MAPINT00		equ 0	;std 0: 0=don't route int 00 to real-mode
 ?TESTEXC01		equ 1	;std 1: 1=test if INT 01 is a true exception.
@@ -265,7 +260,6 @@ else
 endif
 
 ?LPMSSIZE		equ 1000h	;std 1000h: size of LPMS
-?PATCHCODE		equ 0		;std 0: 1=patch low level switch code
 ?DBGSUPP		equ 1		;std 1: 1=set TF on client's switch to pmode
 ?EXC10FRAME		equ 0		;std 0: 1=always set dpmi v1 exc frame if host
 							;		is to be a v1 host (doesnt work yet)
@@ -704,7 +698,7 @@ else
 endif 
 RMCB ends
 
-TASKSTATE struct
+PMSTATE struct
 
 union
 rESDS	dd ?		;+0
@@ -721,15 +715,7 @@ rGS		dw ?		;+6
 ends
 ends
 
-union
-rmSSSP	dd ?		;+16
-struct
-rmSP	dw ?		;+16 real mode sp
-rmSS	dw ?		;+18 real mode ss
-ends
-ends
-
-TASKSTATE ends
+PMSTATE ends
 
 ;--- structure for VCPI function DE0C (switch to protected mode)
 
@@ -745,31 +731,45 @@ VCPIRM2PM ends
 
 
 ;--- structure for VCPI function DE0C (switch to V86 mode)
-;--- switch is done by a IRETD with VM bit set in EFlags
+;--- switch is done inside the VCPI host by a IRETD with 
+;--- VM bit set in EFlags.
 
 V86IRET struct
-rEIP	dd ?		;1
-rCS 	dw ?		;2 cs v86 mode
-		dw ?		;3
-rEFL	dd ?		;4
-rESP	dd ?		;5 value for (e)sp v86 mode
-rSS 	dw ?		;6 = GROUP16
-		dw ?
+ union
+rEIP	dd ?
+rIP		dw ?
+ ends
+ union
+rCSd	dd ?
+rCS 	dw ?
+ ends
+ union
+rEFL	dd ?
+rFL		dw ?
+ ends
+ union
+rESP	dd ?
+rSP		dw ?
+ ends
+ union
+rSSd	dd ?
+rSS 	dw ?
+ ends
  union
 rESd	dd ?
-rES 	dw ?		;es V86 mode
+rES		dw ?
  ends
  union
 rDSd	dd ?
-rDS 	dw ?		;ds v86 mode
+rDS		dw ?
  ends
  union
 rFSd	dd ?
-rFS 	dw ?		;fs v86 mode
+rFS		dw ?
  ends
  union
 rGSd	dd ?
-rGS 	dw ?		;gs v86 mode
+rGS		dw ?
  ends
 V86IRET ends
 
@@ -1215,10 +1215,11 @@ endm
 ;--- this macro should be followed by @pushstate in protected-mode
 
 @savermstk macro
-	push cs:tskstate.rmSSSP
+	push cs:v86iret.rSS
+	push cs:v86iret.rSP
 	pop cs:dwrmSSSPtmp
-	mov cs:tskstate.rmSP,sp
-	mov cs:tskstate.rmSS,ss
+	mov cs:v86iret.rSP,sp
+	mov cs:v86iret.rSS,ss
 endm
 
 ;--- restore value of real-mode stack
@@ -1226,9 +1227,9 @@ endm
 ;--- this is used by internal & client real-mode callbacks
 
 @restorermstk macro
-	lss sp, cs:tskstate.rmSSSP
 	push cs:dwrmSSSPtmp
-	pop cs:tskstate.rmSSSP
+	pop cs:v86iret.rSP
+	pop cs:v86iret.rSS
 endm
 
 ;--- save client state on host stack
@@ -1236,14 +1237,14 @@ endm
 
 @pushstate macro bRMSegs
 ifnb <bRMSegs>
-	push ss:v86iret.rGSd
-	push ss:v86iret.rFSd
-	push ss:v86iret.rDSd
 	push ss:v86iret.rESd
+	push ss:v86iret.rDSd
+	push ss:v86iret.rFSd
+	push ss:v86iret.rGSd
 endif
 	push ss:dwrmSSSPtmp
-	push ss:tskstate.rFSGS
-	push ss:tskstate.rESDS
+	push ss:pmstate.rESDS
+	push ss:pmstate.rFSGS
 	push ss:[dwHSExcR3]
 	push ss:taskseg._Esp0
 	mov ss:taskseg._Esp0, esp
@@ -1258,27 +1259,27 @@ endm
 @popstate macro bRMSegs
 	pop ss:taskseg._Esp0
 	pop ss:[dwHSExcR3]
-	pop ss:tskstate.rESDS
-	pop ss:tskstate.rFSGS
+	pop ss:pmstate.rFSGS
+	pop ss:pmstate.rESDS
 	pop ss:dwrmSSSPtmp
 ifnb <bRMSegs>
-	pop ss:v86iret.rESd
-	pop ss:v86iret.rDSd
-	pop ss:v86iret.rFSd
 	pop ss:v86iret.rGSd
+	pop ss:v86iret.rFSd
+	pop ss:v86iret.rDSd
+	pop ss:v86iret.rESd
 endif
 endm
 
-;--- save protected-mode segregs in tskstate.
+;--- save protected-mode segregs in pmstate.
 ;--- this macro is used before a jump to real-mode
 ;--- 1. in raw mode switch to real-mode
 ;--- 2. in function _jmp_rm
 
 @savepmstate macro
-	mov ss:tskstate.rES,es
-	mov ss:tskstate.rDS,ds
-	mov ss:tskstate.rFS,fs
-	mov ss:tskstate.rGS,gs
+	mov ss:pmstate.rES,es
+	mov ss:pmstate.rDS,ds
+	mov ss:pmstate.rFS,fs
+	mov ss:pmstate.rGS,gs
 endm
 
 ;--- real-mode to protected-mode break
@@ -1381,7 +1382,7 @@ endm
 ;-- switches to real-mode
 
 @jmp_rm macro dest
-	mov ss:[wRmDest], offset dest
+	mov ss:[wRmDest2], offset dest
 	jmp _jmp_rm
 endm
 
