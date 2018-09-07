@@ -1,0 +1,30 @@
+
+  1. About
+
+  EDITPE extracts data from PE binaries.
+  
+  It is used to create an assembly include file from
+  stub HDPMIxx.bin, which may then be included as "blob"
+  in stubs LOADPEx.BIN.
+
+
+  2. Make binary
+
+  There's a makefile supplied which is to be used to 
+  create EDITPE.EXE.
+
+
+  3. History
+
+  v1.4: option -e added. Named changed from EXTRSECT to EDITPE.
+  v1.3: source cleaned to make it compatible with HX Win32.
+  v1.2: DOS 32bit binary
+
+
+  4. License
+
+  EDITPE is freeware.
+  Copyright Japheth.
+
+  Japheth   ( http://www.japheth.de )
+
