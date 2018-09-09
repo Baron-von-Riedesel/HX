@@ -7,7 +7,9 @@
 	include external.inc
 	include keyboard.inc
 	include debugsys.inc
-
+ifdef ?PE
+	include winnt.inc
+endif
 	option proc:private
 
 ifndef ?STUB
@@ -266,34 +268,39 @@ if ?HSINEXTMEM and ?MAPDOSHIGH
 endif
 	mov ecx,eax
 	mov bx,_SSSEL_
-;	mov si,_DSR3SEL_
-	and si,not 7
 	mov [curGDT+bx].A0015,ax
-;	mov [curGDT+si].A0015,ax
 if ?MOVEHIGHHLP
 	mov di,_CSGROUP16_
 	mov [curGDT+di].A0015,ax
 endif
 	shr eax,16
 	mov [curGDT+bx].A1623,al
-;	mov [curGDT+si].A1623,al
 if ?MOVEHIGHHLP
 	mov [curGDT+di].A1623,al
 endif
 	xor eax,eax
 	mov ax, wHostSeg32		;GROUP32
 	shl eax,4
+ifdef ?PE
+	sub eax,1000h
+endif
 	mov bx,_CSSEL_
-	mov di,_CSALIAS_
-;	mov si,_CSR3SEL_
-;	and si,not 7
 	mov [curGDT+bx].A0015,ax
+	mov di,_CSALIAS_
 	mov [curGDT+di].A0015,ax
-;	mov [curGDT+si].A0015,ax
+ifdef ?PE
+	mov si,_CSR3SEL_
+	and si,not 7
+	mov [curGDT+si].A0015,ax
+	mov [curGDT+si+8].A0015,ax
+endif
 	shr eax,16
 	mov [curGDT+bx].A1623,al
 	mov [curGDT+di].A1623,al
-;	mov [curGDT+si].A1623,al
+ifdef ?PE
+	mov [curGDT+si].A1623,al
+	mov [curGDT+si+8].A1623,al
+endif
 
 ife ?DYNBREAKTAB
 	mov ax,offset inttable
@@ -305,7 +312,6 @@ ife ?DYNBREAKTAB
 	mov [curGDT+bx].A1623,al
 ;	mov [curGDT+bx].A2431,ah
 endif
-
 	lea eax,[ecx+offset taskseg]
 	mov bx,_TSSSEL_
 	and bl,not 7
@@ -313,7 +319,6 @@ endif
 	shr eax,16
 	mov [curGDT+bx].A1623,al
 ;	mov [curGDT+bx].A2431,ah
-
 ;--- fill GDT pseudo descriptor
 
 	lea eax,[ecx+offset curGDT]
@@ -346,10 +351,12 @@ host_is_vcpi:
 	mov [linadvs],eax			;patch code in rawjmp_pm
 
 if ?INTRM2PM
+;--- the main purpose of INT 96h is to clear IF
+;--- this can be done directly. todo: explain the benefits
  if 1
 	test bEnvFlags2, ENVF2_DEBUG
 	jnz @F
-	mov ax,90FAh
+	mov ax,90FAh				;decodes to "CLI" + "NOP"
 	mov word ptr _jmp_pmX, ax	;deactivate RM2PM int
 externdef rm2pm_brk:near
 	mov word ptr rm2pm_brk,ax	;deactivate RM2PM int
@@ -406,11 +413,11 @@ getcpu proc near
 	ret
 getcpu endp
 
-;*** kernel debugger (wdeb386/386swat) init real mode
+if ?386SWAT
+
+;*** debugger 386swat init real mode
 ;--- IDT must be in conventional memory
 ;--- no return value
-
-if ?386SWAT
 
 initkd386swat1_rm proc
 	push ds
@@ -474,7 +481,7 @@ endif
 
 if ?WDEB386
 
-initdebugger_rm proc
+initwdeb386_rm proc
 
 	push ds
 	xor eax, eax
@@ -523,13 +530,9 @@ nokerneldebugger:
 ;	mov word ptr kdpatch2+0,ax
 ;	mov byte ptr kdpatch2+2,cl
 	ret
-initdebugger_rm endp
-
-endif
+initwdeb386_rm endp
 
 _ITEXT32 segment
-
-if ?WDEB386
 
 ;*** kernel debugger init prot mode ***
 ;--- DS=GROUP16, ES=FLAT
@@ -555,9 +558,9 @@ done:
 	ret
 initwdeb386_pm endp
 
-endif        
-
 _ITEXT32 ends
+
+endif
 
 	@ResetTrace
 
@@ -743,11 +746,6 @@ initdpmi_1:
 else
 initdpmi_1:
 endif
-if ?ALLOCRMS
-	@DosFMalloc <?RMSTKSIZE/10h>;alloc real mode stack
-	jc nodosmem
-	mov rmSS,ax
-endif
 
 ;--- settlb_rm may allocate a permanent TLB. it should be called before
 ;--- pm_init_rm, which temporarily allocates DOS mem for pagemgr.
@@ -761,12 +759,6 @@ if ?DELAYLOAD
 ;--- the protected mode code still is not loaded. load it now *after*
 ;--- the permanent TLB has been allocated
 
-	mov bx,LOWWORD offset endof32bit
-	shr bx,4
-	mov ah,48h
-	int 21h
-	jc nodosmem
-	mov wHostSeg32, ax
 	call load32bit
 	jc nodosmem
 endif
@@ -809,7 +801,7 @@ if ?386SWAT
 	call initkd386swat2_rm
 endif
 if ?WDEB386
-	call initdebugger_rm	;modifies ax,bx,cx,dx,si,di,es!
+	call initwdeb386_rm		;modifies ax,bx,cx,dx,si,di,es!
 endif
 
 if ?HSINEXTMEM
@@ -832,15 +824,14 @@ if ?HSINEXTMEM
 ;	sub eax, sizeof R3FAULT32
 ;	mov [dwHSExcR3], eax
 	@stroutrm <"-initsvr_rm: temp. host stack allocated (%lX), size 1kB",lf>, dwHostStack
+else
+	mov [dwHostStack], offset ring0stack
 endif
 
 ;--- now do call protected-mode the first time
 ;--- to initialize paging
 
 	cli
-	push ds
-	push fs
-	push gs
 if ?SINGLESETCR3
 	mov eax,v86topm._cr3
 	mov cr3,eax
@@ -851,7 +842,7 @@ endif
 	mov v86iret.rSP, sp
 	mov v86iret.rSS, ss
 
-	@rawjmp_pm _initsvr_pm
+	@rawjmp_pm_savesegm _initsvr_pm
 _initsvr_rm endp
 
 _ITEXT32 segment
@@ -871,6 +862,7 @@ _initsvr_pm proc
 	mov gs,eax
 
 	@strout <"#initsvr_pm: start, current rmSS:SP=%X:%X, esp=%lX",lf>, v86iret.rSS, v86iret.rSP, esp
+
 if ?WDEB386
 	call initwdeb386_pm
 endif
@@ -882,7 +874,7 @@ if ?MOVEHIGH
 	@strout <"#initsvr_pm: call pm_CloneGroup32",lf>
 	xor eax, eax
 	call pm_CloneGroup32
-	mov taskseg._Ebp, eax
+	mov taskseg._Ebp, eax	;"should" return ff801000h
 	jc initsvr_pm_failed
 endif
 
@@ -902,25 +894,53 @@ endif
 if ?MOVEHIGH
 ;--- code32 has been copied into extended memory; now adjust the GDT descriptors
 	mov eax, taskseg._Ebp
+ifdef ?PE
+	sub eax, 1000h
+endif
 	@strout <"#initsvr_pm: adjust GDT descriptors, new base=%lX",lf>, eax
 	mov edx, pdGDT.dwBase
 	push es
 	pop ds
 	shld ebx,eax,16
 	shl eax,16
+ifdef ?PE
+	mov ax, word ptr ss:dwVSize
+	dec ax
+else
 	mov ax, (LOWWORD offset endoftext32) - 1
+endif
 	mov dword ptr [edx + _CSSEL_  ].DESCRPTR.limit,eax
 	mov dword ptr [edx + _CSALIAS_].DESCRPTR.limit,eax
+ifdef ?PE
+	mov ecx, _CSR3SEL_
+	and cl,0F8h
+	mov dword ptr [edx + ecx    ].DESCRPTR.limit,eax
+	mov dword ptr [edx + ecx + 8].DESCRPTR.limit,eax
+endif
 	mov [edx + _CSSEL_  ].DESCRPTR.A1623,bl
-	mov [edx + _CSALIAS_].DESCRPTR.A1623,bl
 	mov [edx + _CSSEL_  ].DESCRPTR.A2431,bh
+	mov [edx + _CSALIAS_].DESCRPTR.A1623,bl
 	mov [edx + _CSALIAS_].DESCRPTR.A2431,bh
+ifdef ?PE
+	mov al,byte ptr ss:dwVSize+2
+	and al,0Fh
+	or  [edx + _CSSEL_  ].DESCRPTR.lim_gr,al
+	or  [edx + _CSALIAS_].DESCRPTR.lim_gr,al
+	mov [edx + ecx      ].DESCRPTR.A1623,bl
+	or  [edx + ecx      ].DESCRPTR.lim_gr,al
+	mov [edx + ecx      ].DESCRPTR.A2431,bh
+	mov [edx + ecx + 8  ].DESCRPTR.A1623,bl
+	or  [edx + ecx + 8  ].DESCRPTR.lim_gr,al
+	mov [edx + ecx + 8  ].DESCRPTR.A2431,bh
+endif
 endif
 
+;--- this log msg will cause a GPF, since limit CS is now too low
 ;	@strout <"#initsvr_pm: exit, esp=%lX",lf>, esp
 	jmp initsvr_pm_done
 initsvr_pm_failed2:
 initsvr_pm_failed:
+	@strout <"#initsvr_pm: failure",lf>
 	call pm_exit_pm
 	stc
 initsvr_pm_done:
@@ -933,10 +953,6 @@ _ITEXT32 ends
 	@ResetTrace
 
 _initsvr_rm2 proc
-;	lss esp,fword ptr cs:v86iret.rESP
-	pop gs
-	pop fs
-	pop ds
 	sti
 	pushf
 if ?HSINEXTMEM
@@ -1132,7 +1148,8 @@ if ?INT15XMS
 	db "  -y: use extended memory not managed by XMS host",lf
 endif
 ifdef _DEBUG
-	db "  -z: switch log file writes off/on",lf 
+	db "  -z<nn>: w/o nn: switch log writes off/on",lf
+	db "         with nn: switch log conditions off/on",lf 
 endif
 	db 0
 endif
@@ -1336,28 +1353,113 @@ load32bit proc uses ds
 	mov ax,3D00h
 	int 21h
 	jc error_1
+
+ifdef ?PE
+
+?VSTART equ 1000h
+
 	mov bx,ax
+	mov bp,sp
+	mov cx,sizeof IMAGE_DOS_HEADER	;read the mz header
+	sub sp,cx
+	mov dx,sp
+	push ss
+	pop ds
+else
+	push ax
+	mov bx,LOWWORD offset endof32bit
+	shr bx,4
+	mov ah,48h
+	int 21h
+	pop bx
+	jc error_2
+	mov cs:wHostSeg32, ax
+	@stroutrm <"-load32bit: allocated DOS memory block %X",lf>, ax
+	mov ds,ax
 	mov cx,20h	;read the header
 	xor dx,dx
-	mov ds,cs:[wHostSeg32]
+endif
 	mov ah,3Fh
 	int 21h
 	jc error_2
-
+ifdef ?PE
+	mov dx,[bp-4]
+	mov cx,[bp-2]
+	add dx, sizeof IMAGE_NT_HEADERS	;skip the PE header
+	mov sp, bp
+else
 	mov dx,ds:[8]	;size of header
 	shl dx,4
 	add dx,offset endof16bit
 	xor cx,cx
+endif
 	mov ax,4200h
 	int 21h
 	jc error_2
+ifdef ?PE
+	mov cx,3 * sizeof IMAGE_SECTION_HEADER
+	sub sp,cx
+	mov dx,sp
+	mov ah,3Fh
+	int 21h
+	jc error_2
+	cmp ax,cx
+	jnz error_2
+	mov edx,[bp - sizeof IMAGE_SECTION_HEADER].IMAGE_SECTION_HEADER.VirtualAddress
+	add edx,[bp - sizeof IMAGE_SECTION_HEADER].IMAGE_SECTION_HEADER.Misc.VirtualSize
+	mov cs:dwVSize, edx
+;--- Misc.VirtualSize is NOT para aligned!
+	add edx, 16-1
+	shr edx,4
+	sub dx,?VSTART shr 4
 
-	@stroutrm <"-load32bit: loading GROUP32 part of hdpmi at %X, size=%X",lf>, cs:wHostSeg32, lowword offset endof32bit
+	push bx
+	mov bx,dx
+	mov ah,48h
+	int 21h
+	pop bx
+	jc error_2
+	mov cs:wHostSeg32, ax
+	@stroutrm <"-load32bit: allocated DOS memory block %X",lf>, ax
+	mov es,ax
+	mov cx,dx
+	shl cx,2
+	xor di,di
+	xor eax,eax
+	rep stosd
+
+;--- now read 3 sections
+
+	mov ds, cs:wHostSeg32
+	movzx esp,sp
+nextsection:
+	mov dx, word ptr [esp].IMAGE_SECTION_HEADER.PointerToRawData+0
+	mov cx, word ptr [esp].IMAGE_SECTION_HEADER.PointerToRawData+2
+	mov ax,4200h
+	int 21h
+	jc error_2
+	mov edx, [esp].IMAGE_SECTION_HEADER.VirtualAddress
+	sub edx,?VSTART
+	mov cx, word ptr [esp].IMAGE_SECTION_HEADER.Misc.VirtualSize
+	@stroutrm <"-load32bit: loading section at rva=%X size=%X",lf>, dx, cx
+	mov ah,3fh
+	int 21h
+	jc error_2
+
+	add sp, sizeof IMAGE_SECTION_HEADER
+	cmp sp, bp
+	jnz nextsection
+else
 	mov cx,LOWWORD offset endof32bit
+	@stroutrm <"-load32bit: loading GROUP32 part of hdpmi at %X, size=%X",lf>, cs:wHostSeg32, cx
 	xor dx,dx
 	mov ah,3Fh
 	int 21h
+endif
 error_2:
+ifdef ?PE
+	mov sp,bp
+endif
 	pushf
 	mov ah,3Eh
 	int 21h
@@ -1743,12 +1845,36 @@ safemode:
 ifdef _DEBUG
 switchlog:
 	call IsHDPMIRunning
+	push ds
 	jc @F
-	mov es, ax					;set ES to running instance
-	assume es:GROUP16
-	xor es:fMode2,FM2_NOLOG
+	mov ds, ax					;set DS to running instance
+@@:
+	cmp cl,2
+	jb @F
+	mov ax,es:[si]
+	cmp al,'0'
+	jb @F
+	cmp al,'9'
+	ja @F
+	cmp ah,'0'
+	jb @F
+	cmp ah,'9'
+	ja @F
+	sub cl,2
+	add si,2
+	sub ax,'00'
+	push cx
+	mov cl,10
+	mov ch,ah
+	mul cl
+	add al,ch
+	pop cx
+	xor [traceflgs],ax
+	pop ds
+	retn
 @@:
 	xor fMode2, FM2_NOLOG
+	pop ds
 	retn
 endif
 if ?RESIDENT

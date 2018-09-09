@@ -176,7 +176,7 @@ rmcb_pm proc
 ;--- Masm silently ignores second override, JWasm gives a warning.
 ;--- Since Masm v6 prefers to use the GROUP for fixup calculation,
 ;--- the second override isn't necessary anyway.
-;	les edi, fword ptr cs:[edi+offset GROUP32:clrmcbs].RMCB.rmcs
+;	les edi, fword ptr cs:[edi+offset clrmcbs].RMCB.rmcs
 	les edi, fword ptr cs:[edi+offset clrmcbs].RMCB.rmcs
 	pop es:[edi].RMCS.rEDI
 	mov es:[edi].RMCS.rESI,esi
@@ -217,7 +217,7 @@ if ?RMCBSTATICSS
 	mov es:[edi].RMCS.rSS,dx
 	shl edx, 4					;edx = linear address of real-mode SS
 ;--- Masm silently ignores second override, JWasm gives a warning
-;	movzx ebx, cs:[ebx+offset GROUP32:clrmcbs].RMCB.wSS
+;	movzx ebx, cs:[ebx+offset clrmcbs].RMCB.wSS
 	movzx ebx, cs:[ebx+offset clrmcbs].RMCB.wSS
 	push ebx
 	and bl,0F8h
@@ -274,7 +274,7 @@ endif
 	mov es:[edi].RMCS.rIP,ax		;IP is calculated from CS
 
 	movzx eax,cx						;callback handle
-	add eax,offset GROUP32:clrmcbs
+	add eax,offset clrmcbs
 
 if _LTRACE_ and ?RMCBLOG
 	push ebp
@@ -286,10 +286,10 @@ if _LTRACE_ and ?RMCBLOG
 
  if ?32BIT
 	@strout <"#rmcb, jmp to pm proc=%X:%lX, EDI=%lX:%lX, ESI=%lX:%lX, HS=%lX",lf>,\
-		word ptr cs:[eax].R3PROC._Cs,cs:[eax].R3PROC._Eip,es,edi,ds,esi,ss:[taskseg._Esp0]
+		word ptr cs:[eax].R3PROC._Cs,cs:[eax].R3PROC._Eip,es,edi,ds,esi,ss:taskseg._Esp0
  else
 	@strout <"#rmcb, jmp to pm proc=%X:%X,ES:DI=%lX:%X,DS:SI=%lX:%X,HS=%lX",lf>,\
-		cs:[eax].R3PROC._Cs,cs:[eax].R3PROC._Eip,es,di,ds,si,ss:[taskseg._Esp0]
+		cs:[eax].R3PROC._Cs,cs:[eax].R3PROC._Eip,es,di,ds,si,ss:taskseg._Esp0
  endif
 endif
 	push eax
@@ -315,10 +315,10 @@ if _LTRACE_ and ?RMCBLOG
 		[ebp+0],[ebp+4],[ebp+8],[ebp+12],[ebp+16]
  if ?32BIT
 	@strout <"#ret rmcb %X: ES:EDI=%lX:%lX,HS=%lX",lf>,\
-		ss:[cRMCB],es,edi,ss:[taskseg._Esp0]
+		ss:[cRMCB],es,edi,ss:taskseg._Esp0
  else
 	@strout <"rm cb ret: ES:DI=%lX:%X,HS=%lX",lf>,\
-		es,di,ss:[taskseg._Esp0]
+		es,di,ss:taskseg._Esp0
  endif
 endif
 	dec ss:[cRMCB]
@@ -372,8 +372,7 @@ endif
 
 _TEXT16 segment
 _retcb_rm:
-	@restorermstk		;load rm ss:sp
-;	call load_rmsegs	;load DS/ES/FS/GS from v86iret
+	@restorermstk		;restore RMS
 	popf
 	retf
 	align 4
@@ -468,7 +467,7 @@ endif
 	shl ecx,1					;2*, since WORDS
 	sub eax,ecx
 	jc error1
-	mov esi,ss:[taskseg._Esp0]		 ;client stack -> ds:si
+	mov esi,ss:taskseg._Esp0		 ;client stack -> ds:si
 	@strout <"copy stack parms, %X words src=%X:%lX",lf>, cx,\
 		[esi-sizeof IRET32].IRET32.rSS, [esi-sizeof IRET32].IRET32.rSP
 	lds esi,ss:[esi-sizeof IRET32].IRET32.rSSSP
@@ -603,7 +602,7 @@ allocrmcb proc public
 	pop ds
 ;	assume ds:GROUP16
 	assume ds:GROUP32
-	mov ebx,offset GROUP32:clrmcbs
+	mov ebx,offset clrmcbs
 	mov cx,?RMCBMAX		;ch == 0
 alloccb2:
 	cmp [ebx].RMCB._Cs,0000
@@ -685,7 +684,7 @@ freermcb proc public
 	cmp ax,dx
 	jnz freecberr
 	mov eax,ecx
-	add eax,offset GROUP32:clrmcbs
+	add eax,offset clrmcbs
 	mov ebx,eax
 	cmp [ebx].RMCB._Cs, 0	;is it already free?
 	jz freecberr
@@ -1021,13 +1020,14 @@ _TEXT16 ends
 
 _pm2rm proc near public
 	push [esp].IRET32.rFL
-	and byte ptr [esp+1],8Fh	;reset IOPL,NT
+if ?SETRMIOPL	;is 0 by default
+	and byte ptr [esp+1],0CFh		;reset IOPL
 	or byte ptr [esp+1],?RMIOPL
+endif
 	pop ss:taskseg._Efl
-	@strout <"#pm2rm: CS:IP=%X:%X, SS:SP=%X:%X, DS=%X, FL=%lX, cur RMS=%X:%X",lf>,\
-		si,di,dx,bx,ax,ss:taskseg._Efl,ss:v86iret.rSS, ss:v86iret.rSP
+	@strout <"#pm2rm: CS:IP=%X:%X, SS:SP=%X:%X, DS=%X, FL=%lX, hs=%lX",lf>,\
+		si, di, dx, bx, ax, ss:taskseg._Efl, esp
 
-	@savepmstate			;store pm segregs in pmstate
 if ?RAWSETNEWRMS
 	mov ss:v86iret.rSP, bx
 	mov ss:v86iret.rSS, dx
@@ -1036,17 +1036,21 @@ endif
 	mov ss:v86iret.rDS, ax
 	mov ss:v86iret.rFS, 0
 	mov ss:v86iret.rGS, 0
-	@rawjmp_rm _pm2rm_rm
+
+;	@savepmstate			;store pm segregs in pmstate
+;	@rawjmp_rm pm2rm_rm
+	@jmp_rm pm2rm_rm		;v3.18: @jmp_rm the very same as the 2 lines above
+
 	align 4
 
 _TEXT16 segment
-_pm2rm_rm:
+pm2rm_rm:
 ife ?RAWSETNEWRMS
 	mov ss,dx	;v3.18: now set above
 	mov sp,bx
 endif
-	@stroutrm <"-pm2rm: cur RMS=%X:%X, SS:SP=%X:%X",lf>,\
-		cs:v86iret.rSS, cs:v86iret.rSP, ss, sp 
+;	@stroutrm <"-pm2rm: cur RMS=%X:%X, SS:SP=%X:%X",lf>,\
+;		cs:v86iret.rSS, cs:v86iret.rSP, ss, sp 
 	push word ptr cs:taskseg._Efl
 	push si			;push CS
 	push di			;push IP

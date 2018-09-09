@@ -39,7 +39,7 @@ ASM = jwasm.exe
 LINK  = jwlink.exe
 
 AOPT   = -nologo -c -Cp -Sg -D?32BIT=0 -D?PMIOPL=00 $(AOPTD) -I$(INC32DIR) -Fl$* -Fo$*
-LCMDS1 = format DOS file $(OUTIOPL0)\$(SRC).obj name $*.EXE lib $(OUTIOPL0)\$(NAME).lib op q, map=$*.MAP, stack=0 
+LCMDS  = format DOS file $(OUTIOPL0)\$(SRC).obj name $*.EXE lib $(OUTIOPL0)\$(NAME).lib op q, map=$*.MAP, stack=0 
 
 SRC   = hdpmi
 
@@ -65,7 +65,7 @@ $(OUTIOPL0):
 
 $(OUTIOPL0)\$(NAME).EXE: $(OUTIOPL0)\$(SRC).obj $(OUTIOPL0)\$(NAME).lib
 	$(LINK) @<<
-$(LCMDS1)
+$(LCMDS)
 <<
 	@..\..\BIN\SETMZHDR.EXE -q $*.EXE
 

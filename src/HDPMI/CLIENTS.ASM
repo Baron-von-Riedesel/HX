@@ -8,6 +8,13 @@
 
 	option proc:private
 
+externdef startcldata32:near
+ifndef ?PE
+externdef endcldata32:near
+else
+endcldata32 equ <startcldata32 + 400h>
+endif
+
 ?SAVEHOSTSP equ 1	;std=1, 1=save ring 0 ESP from TSS for client
 ifndef ?SAVEIVT
 ?SAVEIVT	equ 0	;std=0, 1=save/restore IVT
@@ -34,24 +41,24 @@ else
 ?X3		equ 0
 endif
 
-if ?SAVELDTPTE
-?X4		equ 4
-else
-?X4		equ 1000h
-endif
-
-?SAVELENGTH	equ 800h + ?X1 + ?X2 + ?X3 + ?X4
+?SAVELENGTH	equ 800h + ?X1 + ?X2 + ?X3
 
 _TEXT32 segment
 
 ;--- out: ECX= size of client's save region
 ;--- out: EAX= size of vm data (?VM only)
 
+	assume ds:GROUP16
+
 _getsavelength proc
 	mov ecx, offset GROUP16:_EndOfClientData
-	mov eax, offset GROUP32:endcldata32
+	mov eax, offset endcldata32
 	sub ecx, offset GROUP16:_StartOfClientData
-	sub eax, offset GROUP32:cldata32
+	sub eax, offset startcldata32
+	add ecx, eax
+	movzx eax, wLDTLimit
+	inc eax
+	shr eax, 6	;1000h -> 40h
 	add ecx, eax
 if ?VM
 	mov eax, offset GROUP16:_StartOfClientData
@@ -68,20 +75,19 @@ if ?VM
 ;--- out: EAX=offset of IDT in a client save region
 
 _getidtofs proc public
-	call _getsavelength
-	mov eax, ecx
-	sub eax, ?X2 + ?X4 + 800h
+	call _getcldata32
+	mov ecx, offset endcldata32
+	sub ecx, offset startcldata32
+	add eax, ecx
 	ret
+	align 4
 _getidtofs endp
 
 ;--- out: EAX=offset cldata32 in a client save region
-;---    : ECX=size cldata32
 
 _getcldata32 proc public
-	call _getidtofs
-	mov ecx,offset GROUP32:endcldata32
-	sub ecx,offset GROUP32:cldata32
-	sub eax, ecx
+	mov eax, offset GROUP16:_EndOfClientData + ?X1 + ?X3
+	sub eax, offset GROUP16:_StartOfVMData
 	ret
 	align 4
 _getcldata32 endp
@@ -91,11 +97,12 @@ endif
 ;*** a new client is starting, save current state
 ;*** inp: DS=GROUP16, ES=FLAT
 ;*** in detail:
-;*** 1. _DATA16C segment
-;*** 2. _DATA32C segment
-;*** 3. taskseg._Esp0 in TSS (?X1), DR7 (?X3)
+;*** 1a. vmdata in _DATA16C segment
+;*** 1b. clientdata in _DATA16C segment
+;*** 2. taskseg._Esp0 in TSS (?X1), DR7 (?X3)
+;*** 3. clientdata in _DATA32C segment
 ;*** 4. IDT (800h)
-;*** 5. LDT (first page) (?X4)
+;*** 5. LDT (last used page) (?X4)
 ;*** 6. IVT (optionally) (?X2)
 ;--- out: C = error
 ;--- if a client is started by cloning the host (CreateVM called),
@@ -110,16 +117,6 @@ _saveclientstate proc public
 	push es
 	pushad
 
-if ?SAVELDTPTE
-	@strout <"#saveclientstate: calling _ClonePage for 1. LDT page",lf>
-	mov edx,[dwLDTAddr]
-	mov ecx,1
-	call _ClonePage
-	jc exit		;out of memory?
-	@strout <"#saveclientstate: 1. LDT page copied, old PTE=%lX",lf>, ecx
-	mov ebp, ecx
-	call _SetPage
-endif
 	call _getsavelength
 	@strout <"#saveclientstate: total size of data to save=%lX",lf>, ecx
 ife ?USESYSSPACE2
@@ -145,6 +142,7 @@ if ?CR0COPY
 	mov bCR0, al
 endif
 	push edi
+	cld
 if ?VM
 	mov esi,offset _StartOfVMData
 	mov ecx,offset _StartOfClientData
@@ -156,12 +154,11 @@ endif
 	sub ecx, esi
 	@strout <"#saveclientstate, save 16bit data dst=%lX, src=%lX, size=%lX",lf>, edi, esi, ecx
 	shr ecx, 2
-	cld
 	rep movsd
 	pop dword ptr [ltaskaddr]
 
 if ?SAVEHOSTSP
-	mov eax,[taskseg._Esp0]
+	mov eax,ds:taskseg._Esp0
 	stosd
 endif
 if ?SAVEDR7
@@ -172,8 +169,8 @@ endif
 	push cs
 	pop ds
 
-	mov esi,offset GROUP32:cldata32
-	mov ecx,offset GROUP32:endcldata32
+	mov esi,offset startcldata32
+	mov ecx,offset endcldata32
 	sub ecx, esi
 	@strout <"#saveclientstate: save 32bit data, dst=%lX, src=%lX, size=%lX",lf>,edi, esi, ecx
 	shr ecx, 2
@@ -187,11 +184,10 @@ endif
 	@strout <"#saveclientstate: save IDT, dst=%lX, src=%lX",lf>,edi, esi
 	rep movsd
 
-if ?SAVELDTPTE
-	mov eax, ebp
-	stosd
-else
 	mov esi,ss:[dwLDTAddr]
+if 1
+	call createldtbitfield
+else
 	mov ecx,1000h/4 			   ;save (1. page of) LDT
 	@strout <"#saveclientstate: save LDT, dst=%lX, src=%lX",lf>,edi, esi
 	rep movsd
@@ -209,25 +205,74 @@ endif
 	@strout <"#saveclientstate exit",lf>
 
 	clc
-ife ?SAVELDTPTE
 exit2:
-endif
 exit:
 	popad
 	pop es
 	ret
-if ?SAVELDTPTE
-exit2:
-	mov eax, ebp
-	call _SetPage
-	stc
-	jmp exit
-endif
 	align 4
 _saveclientstate endp
 
+;--- in esi=linear address ldt
+;--- DS,ES=FLAT
+
+createldtbitfield proc
+	movzx ebx,ss:wLDTLimit
+	inc ebx
+	push ebx
+	mov ecx,ebx
+	shr ecx,8	;example: size of ldt 1000h -> 200h descriptors -> 40h size bitfield -> 10h dwords
+	push edi
+	xor eax,eax
+	rep stosd
+	pop edi
+	pop ebx
+	shr ebx, 3	;no of descriptors in ebx
+	xor ecx, ecx
+nextitem:
+	cmp ecx, ebx
+	jz done
+	cmp [esi+ecx*8].DESCRPTR.attrib, 0
+	jz @F
+	bts [edi], ecx
+@@:
+	inc ecx
+	jmp nextitem
+done:
+	shr ecx, 5
+	add edi, ecx
+	ret
+	align 4
+createldtbitfield endp
+
+;--- in edi=linear address ldt
+;--- esi = descriptor bitfield
+;--- DS,ES=FLAT
+
+readldtbitfield proc
+	movzx ebx,ss:wLDTLimit
+	inc ebx
+	shr ebx, 3
+	xor ecx, ecx
+nextitem:
+	cmp ecx, ebx
+	jz done
+	bt [esi], ecx
+	jc @F
+	mov dword ptr [edi+ecx*8],0
+	mov dword ptr [edi+ecx*8+4],0
+@@:
+	inc ecx
+	jmp nextitem
+done:
+	shr ecx, 5
+	add esi, ecx
+	ret
+	align 4
+readldtbitfield endp
+
 ;*** called on _exitclient (AH=4CH)
-;*** DS=GROUP16, ES=FLAT
+;*** DS=GROUP16
 ;--- no return value!
                 
 	@ResetTrace
@@ -300,7 +345,7 @@ if 0
 endif
 if ?SAVEHOSTSP
 	lodsd
-	mov ss:[taskseg._Esp0],eax		;dwHSExcR3 is in client area!
+	mov ss:taskseg._Esp0,eax		;dwHSExcR3 is in client area!
 endif
 	@strout <"#restoreclientstate: restored taskseg._Esp0=%lX",lf>, ss:taskseg._Esp0
 if ?SAVEDR7
@@ -310,8 +355,8 @@ endif
 
 	push byte ptr _CSALIAS_
 	pop es
-	mov edi,offset GROUP32:cldata32
-	mov ecx,offset GROUP32:endcldata32
+	mov edi,offset startcldata32
+	mov ecx,offset endcldata32
 	sub ecx, edi
 	@strout <"#restoreclientstaten: load exc vectors, dst=%lX, src=%lX, size=%lX",lf>,edi, esi, ecx
 	shr ecx, 2
@@ -324,18 +369,10 @@ endif
 	mov ecx,800h/4
 	rep movsd
 
-if ?SAVELDTPTE
-	lodsd
-	push ds
-	push ss
-	pop ds
-	assume ds:GROUP16
-	mov edx,[dwLDTAddr]
-	call _SetPage
-	pop ds
-	assume ds:nothing
-else
 	mov edi,ss:[dwLDTAddr] 	;restore LDT (1. page)
+if 1
+	call readldtbitfield
+else
 	@strout <"#restoreclientstate: load LDT, dst=%lX, src=%lX",lf>,edi, esi
 	mov cx,1000h/4
 	rep movsd
@@ -408,8 +445,8 @@ ResizeLDT proc near
 	jz @F
 	mov gs, eax
 @@:
-	movzx eax,[wLDTLimit]	;FFF,1FFF,...,FFFF
-	inc ax 				;ax=1000,2000,...,0000
+	movzx eax,wLDTLimit		;FFF,1FFF,...,FFFF
+	inc ax 					;ax=1000,2000,...,0000
 	sub cx,ax				;ecx=F000,E000,...,0000
 	shr cx,12				;ecx=0F,0E,...,00
 	add eax,[dwLDTAddr]
@@ -419,11 +456,11 @@ ResizeLDT proc near
 ResizeLDT endp
 
 
-setldtinfos proc public
+setldtinfos proc
 	pushad
 	mov eax,[dwLDTAddr]
 	mov ecx, pdGDT.dwBase
-	mov dx, [wLDTLimit]
+	mov dx, wLDTLimit
 	push ds
 	push byte ptr _FLATSEL_
 	pop ds
@@ -470,7 +507,7 @@ EnlargeLDT proc near public
 	pop ds
 	@strout <"#EnlargeLDT, base=%lX, old limit=%X",lf>, dwLDTAddr, wLDTLimit
 	mov eax,[dwLDTAddr]
-	movzx ecx,wLDTLimit
+	movzx ecx, wLDTLimit
 	jecxz @F
 	inc cx					;use CX, not ECX here!
 	stc

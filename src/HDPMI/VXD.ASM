@@ -224,13 +224,13 @@ if 1;?32BIT
 	add [esp+4+sizeof PUSHADS].IRET32.rSP,ecx
 	mov ecx,[ebx+1*4]
 	mov edx,[ebx+0*4]
-	@strout <"vwin32 mmgr [esp]=%lX %lX %lX",lf>,edx, ecx, <dword ptr [ebx+2*4]>
+	@strout <"vwin32 mmgr [esp]=%lX %lX %lX",lf>,edx, ecx, dword ptr [ebx+2*4]
 else
 	lds bx,[esp+4+sizeof PUSHADS].IRETS.rSSSP
 	add [esp+4+sizeof PUSHADS].IRETS.rSP,cx
 	mov ecx,[bx+1*4]
 	mov edx,[bx+0*4]
-	@strout <"vwin32 mmgr [esp]=%lX %lX %lX",lf>,edx, ecx, <dword ptr [bx+2*4]>
+	@strout <"vwin32 mmgr [esp]=%lX %lX %lX",lf>,edx, ecx, dword ptr [bx+2*4]
 endif
 	push ss
 	pop ds

@@ -26,8 +26,7 @@ _getaddrspace		proto near		;get free/total user address space
 _searchphysregion	proto near		;search a mapped physical region
 _mapphysregion		proto near		;map physical address to user space
 _makeregionreadonly	proto near		;make region readonly
-_ClonePage			proto near		;clone a page
-if ?SAVELDTPTE
+if 0
 _SetPage 			proto near		;set PTE for a linear address
 endif
 _setregionattributes proto near		;set PTE bits for a region

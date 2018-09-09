@@ -6,7 +6,6 @@
 #  - JWasm | Masm
 #  - JWLib | WLib (Open Watcom) | MS OMF LIB (lib16.exe)
 #  - JWLink v1.8x
-#  - extrsect.exe, converts stub binary to assembly include file 
 #  - setmzhdr.exe, modifies exe so:
 #       - dos will load the 16-bit part only
 #       - stack size will be 200h
@@ -28,7 +27,8 @@ MASM=0
 !endif
 
 !if $(DEBUG)
-AOPTD=-Zi -D_DEBUG
+#AOPTD=-Zi -D_DEBUG
+AOPTD=-D_DEBUG -D?DOSOUTPUT=0 -D?VIODIROUT=1 -D?SLOWDOWN=50
 LOPTD=/LI
 !ifdef 386SWAT
 AOPTD=$(AOPTD) -D?386SWAT=1

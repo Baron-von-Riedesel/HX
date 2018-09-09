@@ -23,11 +23,7 @@
 ?NOVCPIANDXMS	= 1	;std 1, 1=avoid using VCPI if XMS host exists
 ?FREEXMSDYN 	= 1	;std 1, 1=free XMS blocks dynamically
 ?XMSBLOCKCNT	= 1	;std 1, 1=count XMS blocks to improve alloc strategy
-if ?SAVELDTPTE
-?SETPTE equ 1	;1=support to set PTEs
-else
 ?SETPTE equ 0
-endif
 
 @seg _ITEXT16
 
@@ -459,7 +455,7 @@ getavailxmspages proc uses ebx
 
 	test fHost, FH_XMS
 	jz error
-	@strout <"#getavailxmspages: calling realmode XMS at %X:%X, RMS=%X:%X",lf>,\
+	@strout <"#getavailxmspages: calling XMS (cs:ip=%X:%X, RMS=%X:%X)",lf>,\
 		word ptr ss:xmsaddr+2, word ptr ss:xmsaddr+0, v86iret.rSS, v86iret.rSP
 ;	@waitesckey
 	push ecx
@@ -473,6 +469,7 @@ getavailxmspages proc uses ebx
 ;--- total free in E/DX
 ;--- it is returned even if the call ah=88h "fails" (BL=A0)
 
+	@strout <"#getavailxmspages: XMS returned (e)ax=%lX, (e)dx=%lX, bx=%X",lf>, eax, edx, bx
 	cmp bl,0
 	jz @F
 	cmp bl,0A0h				;status "all memory allocated"?
@@ -618,7 +615,7 @@ if _LTRACE_
 	shl ecx, 12
 	add ecx, PhysBlk.dwBase
 	dec ecx
-	@strout <"#getblockpage: page %lX from cur block %lX-%lX, free=%lX",lf>, eax, PhysBlk.dwBase, ecx, PhysBlk.dwFree
+	@stroutx ?LOG_PMGREXT,<"#getblockpage: page %lX from cur block %lX-%lX, free=%lX",lf>, eax, PhysBlk.dwBase, ecx, PhysBlk.dwFree
 	pop ecx
 endif
 ;	@waitesckey
@@ -1012,7 +1009,7 @@ getphyspage proc
 	call scanpagepool
 	jc @F
 	dec [dwPagePool]
-	@strout <"#getphyspage: page pool decremented [%lX], Entry=%lX",lf>, [dwPagePool], eax
+	@stroutx ?LOG_PMGREXT,<"#getphyspage: page pool decremented [%lX], Entry=%lX",lf>, [dwPagePool], eax
 	ret
 @@:
 
@@ -1053,7 +1050,7 @@ novcpimem:
 endif
 	call getdospage
 exit:
-	@strout <"#getphyspage: exit, eax=%lX",lf>, eax
+	@stroutx ?LOG_PMGREXT,<"#getphyspage: exit, eax=%lX",lf>, eax
 	ret
 	align 4
 getphyspage endp
@@ -1073,7 +1070,7 @@ freephyspage proc
 	jz noxmspage	        ;no (VCPI or mapped)
 	inc [dwPagePool]		;XMS/I15/DOS will be put in page pool
 	and al, not PTF_PRESENT
-	@strout <"#freephyspage: Page Pool incremented [%lX], Entry=%lX, caller=%lX",lf>,[dwPagePool],eax,<dword ptr [esp]>
+	@stroutx ?LOG_PMGREXT,<"#freephyspage: Page Pool incremented [%lX], Entry=%lX, caller=%lX",lf>,[dwPagePool],eax,<dword ptr [esp]>
 exit:
 	ret
 	align 4
@@ -1126,7 +1123,7 @@ mapPageTable proc near
 
 if _LTRACE_
 	lea edx, [edi+edx]
-	@strout <"#mapPageTable: written %lX to %lX",lf>, eax, edx
+	@stroutx ?LOG_PMGREXT,<"#mapPageTable: written %lX to %lX",lf>, eax, edx
 endif
 
 ;--- now clear new page table
@@ -1134,7 +1131,7 @@ endif
 	shl edi,10			;* 1024
 	add edi, pPageTables
 
-	@strout <"#mapPageTable: phys entry %lX mapped at %lX",lf>, eax, edi
+	@stroutx ?LOG_PMGREXT, <"#mapPageTable: phys entry %lX mapped at %lX",lf>, eax, edi
 
 
 	push edi
@@ -2139,15 +2136,20 @@ endif
 ;--- eax=(new) destination PTE
 ;--- ecx=(old) source PTE
 
-_ClonePage proc public
+_ClonePage proc
 	push edi
 	push eax
 	mov eax, edx
 	call _Linear2PT
 	pop eax
 	jc error1
+ifdef ?PE
+	test byte ptr es:[edi],PTF_WRITEABLE
+	jnz @F
+else
 	test byte ptr es:[edi],PTF_DIRTY
 	jnz @F
+endif
 	mov eax, es:[edi]
 	mov ecx, eax
 	and ax, 0F000h or PTF_PRESENT or PTF_USER
@@ -2389,7 +2391,7 @@ compresspool:
 	add edi, 4
 	cmp edi, esi
 	jz @B
-	@strout <"#compresspagepol: pool entry %lX at %lX",lf>, eax, edi
+	@stroutx ?LOG_PMGREXT,<"#compresspagepool: pool entry %lX at %lX",lf>, eax, edi
 	mov dword ptr es:[esi-4],PTF_NORMAL
 	mov es:[edi-4], eax
 	jmp @B
@@ -2705,7 +2707,7 @@ _restoreI15mem endp
 
 endif
 
-;--- clone GROUP32 
+;--- clone 32-bit code & data
 ;--- inp: eax=0 -> create first VM
 ;---      else eax -> dest where copied PTEs are stored
 ;--- ES=FLAT, DS=GROUP16
@@ -2715,8 +2717,13 @@ endif
 
 pm_CloneGroup32 proc public
 
+ifdef ?PE
+	mov ecx, dwVSize
+	sub ecx, 1000h
+else
 	mov ecx, offset endoftext32
-	@strout <"#pm_CloneGroup32: alloc %lX bytes 32bit code",lf>, ecx
+endif
+	@strout <"#pm_CloneGroup32: alloc %lX bytes 32bit code+data",lf>, ecx
 	mov edx, ecx
 	shr ecx, 12
 	test dx,0FFFh
@@ -2749,18 +2756,35 @@ isfirst:
 	push ds
 	push cs
 	pop ds
-	xor esi, esi
 	push ecx
+ifdef ?PE
+	mov esi, 1000h
+	mov ecx, ss:dwVSize
+	sub ecx, esi
+else
+	xor esi, esi
 	mov ecx, offset endoftext32
+endif
 	shr ecx, 2
 	rep movsd
 	pop ecx
 	pop ds
+ifdef ?PE
+	sub ecx,2	;the last 2 pages get special flags
+endif
 	call _Linear2PT	;get PTE ptr in edi
 @@:
+ifdef ?PE
+	and byte ptr es:[edi],not (PTF_DIRTY or PTF_ACCESSED or PTF_USER or PTF_WRITEABLE)
+else
 	and byte ptr es:[edi],not (PTF_DIRTY or PTF_ACCESSED or PTF_USER)
+endif
 	add edi,4
 	loop @B
+ifdef ?PE
+	and byte ptr es:[edi],not (PTF_DIRTY or PTF_ACCESSED or PTF_USER)
+	and byte ptr es:[edi+4],not (PTF_DIRTY or PTF_ACCESSED)
+endif
 	clc
 error:
 	ret
@@ -3576,7 +3600,7 @@ initpagetab0 proc
 	mov ah, 48h
 	int 21h
 	jc error
-	mov word ptr [taskseg._ES],ax	;save it here, will be released soon
+	mov word ptr taskseg._ES,ax	;save it here, will be released soon
 	@stroutrm <"-initpagetab0: DOS memory alloc for page tabs ok (%X)",lf>,ax
 
 ;--- now shrink the memory so it fits exactly
@@ -3851,7 +3875,7 @@ pm_init_rm endp
 
 pm_init2_rm proc public
 	push es
-	mov es,word ptr [taskseg._ES]
+	mov es,word ptr taskseg._ES
 	@stroutrm <"-pm_init2_rm: releasing old page tables %X",lf>, es
 	mov ah,49h
 	int 21h

@@ -33,7 +33,7 @@ OBJMODS = $(OBJNAMES:.\=STUB16\)
 LINK  = jwlink.exe
 LOPT  = format DOS
 
-LCMDS=$(LOPT) file $(OUTSTUB)\$(SRC).obj name $*.BIN lib $(OUTSTUB)\$(NAME).lib op q, map=$*.MAP, stack=0x200
+LCMDS = $(LOPT) file $(OUTSTUB)\$(SRC).obj name $*.BIN lib $(OUTSTUB)\$(NAME).lib op q, map=$*.MAP, stack=0x200
 
 AOPT= -nologo -c -Cp -Sg -D?32BIT=0 -D?STUB=1 $(AOPTD) -I$(INC32DIR) -Fl$* -Fo$*
 
@@ -67,12 +67,11 @@ $(OUTSTUB):
 $(OBJMODS): $(DEPS0)
 
 # create the stub version
-# EXTRSECT: convert binary to asm include
+# EXTRMZ: convert binary to asm include
 # -i: create include
-# -m: assume MZ binary
 
 $(OUTSTUB)\$(NAME).INC: $*.BIN $(NAME)s.mak
-	@..\..\TOOLS\EXTRSECT.EXE -q -m -i $*.BIN $*.INC
+	@..\..\TOOLS\EXTRMZ.EXE -q -i $*.BIN $*.INC
 
 $(OUTSTUB)\$(NAME).BIN: $(OUTSTUB)\$(SRC).obj $(OUTSTUB)\$(NAME).lib $(NAME)s.mak
 	$(LINK) @<<

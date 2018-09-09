@@ -1,13 +1,13 @@
 
-# nmake makefile, creates a HDPMI32.EXE which has its host stack
-# in extended memory. Since v3.18, this is the "standard" version.
+# nmake makefile, creates a HDPMI32.EXE that is linked as a PE binary.
+# This is the "standard" version since v3.18.
 # tools used:
 #  - JWasm | Masm
 #  - JWLib | WLib (Open Watcom) | MS OMF LIB (lib16.exe)
-#  - JWLink v1.8x
-#  - setmzhdr.exe, modifies exe so:
-#      - dos will load the 16-bit part only
-#      - stack size will be 200h
+#  - JWLink v1.9beta 14
+#  - EditPE
+# EditPE is used to extract the 16-bit code section from the PE binary
+# and then add it again, as a so-called "stub".
 
 !include <..\dirs>
 
@@ -23,23 +23,19 @@ OBJNAMES = $(SRCMODS:.ASM=.OBJ)
 
 !if $(DEBUG)
 OBJMODS = $(OBJNAMES:.\=STD32D\)
-AOPTD=-D_DEBUG
-#AOPTD=-D_DEBUG -D?DOSOUTPUT=0 -DVIODIROUT=1 -D?SLOWDOWN=50
+#AOPTD=-D_DEBUG
+AOPTD=-D_DEBUG -D?DOSOUTPUT=0 -D?VIODIROUT=1 -D?SLOWDOWN=200
 OUTD=STD32D
 !else
 OBJMODS = $(OBJNAMES:.\=STD32\)
 OUTD=STD32
+AOPTD=
 !endif
 
-!ifdef MASM
-ASM = ml.exe
-!else
-ASM = jwasm.exe
-!endif
+ASM   = jwasm.exe
 LINK  = jwlink.exe
 
-AOPT   = -nologo -c -Cp -Sg -D?32BIT=1 $(AOPTD) -I$(INC32DIR) -Fl$* -Fo$*
-LCMDS3 = format DOS file {$(OBJMODS)} name $*.EXE lib $(OUTD)\$(NAME).lib op q, map=$*.MAP, stack=0
+AOPT   = -nologo -c -Cp -Sg -D?32BIT=1 $(AOPTD) -I$(INC32DIR) -Fl$* -Fo$* -D?PE
 
 SRC   = hdpmi
 
@@ -57,14 +53,26 @@ $(OUTD):
 
 $(OBJMODS): $(DEPS0)
 
-$(OUTD)\$(NAME).EXE: $(OBJMODS) $(OUTD)\$(NAME).lib
-	$(LINK) @<<
-$(LCMDS3)
-<<
-	@..\..\BIN\SETMZHDR.EXE -q $*.EXE
+# the binary created by jwlink has to be adjusted
+# 1. the 16-bit code (segment 3) must get VA 0
+# 2. the 16-bit code must be extracted and written as a stub
+# 3. the 16-bit code section must be removed from the PE binary
+# 4. the .reloc section is removed
+# 5. the stub must be attached to the PE binary
+
+$(OUTD)\$(NAME).EXE: $(OUTD)\$(NAME).TMP
+	@editpe a 3=0  $(OUTD)\$(NAME).TMP $(OUTD)\$(NAME).EXE
+	@editpe x 3 /m $(OUTD)\$(NAME).EXE $(OUTD)\stub.bin
+	@editpe d 3    $(OUTD)\$(NAME).EXE $(OUTD)\$(NAME).EXE
+	@editpe d 3    $(OUTD)\$(NAME).EXE $(OUTD)\$(NAME).EXE
+	@pestub -n     $(OUTD)\$(NAME).EXE $(OUTD)\stub.bin
 !if $(DEBUG)==0
 	@copy $*.EXE ..\..\BIN\*.* >NUL
 !endif     
+
+$(OUTD)\$(NAME).TMP: $(OUTD)\$(SRC).obj $(OUTD)\$(NAME).lib $(NAME).mak 
+	@$(LINK) format win pe hx ru native f $(OUTD)\$(SRC) n $*.TMP lib $(OUTD)\$(NAME).lib op q, map=$*.MAP, stack=0, offset=0, align=0x100
+#	link /subsystem:native $(OUTD)\$(SRC).obj $(OUTD)\$(NAME).lib /OUT:$*.TMP /MAP:$*.map /STACK:0,0 /BASE:0 /FILEALIGN:0x100
 
 $(OUTD)\$(NAME).lib: $(OBJMODS)
 	@cd $(OUTD)

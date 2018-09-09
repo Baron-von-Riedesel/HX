@@ -263,7 +263,7 @@ _AllocMemEx endp				;<--- fall thru
 ;*** general memory allocator
 ;*** inp: pages in EDX
 ;***      flags in CL
-;***      DS=data segment
+;***      DS=GROUP16
 ;*** out: EBX=handle
 ;*** modifies eax, edx and ebx
 
@@ -406,7 +406,7 @@ allocmem proc public
 	pushad
 	push bx
 	push cx
-	pop eax 		   ;size -> EAX
+	pop eax		;size -> EAX
 	@strout <"#allocmem: bx:cx=%X:%X",lf>, bx, cx
 	mov cl, HDLF_COMMIT
 	call _AllocMemEx
@@ -481,8 +481,7 @@ _freememint endp	;fall through
 _freememintEx proc
 	pushad
 	@strout <"#freememint: ebx=%lX",lf>, ebx
-	call searchhandle				;get previous handle in EAX
-									;sets ds to data segment
+	call searchhandle				;get previous handle in EAX, sets ds to GROUP16
 	jc error
 	test byte ptr [ebx.MEMITEM.flags],HDLF_ALLOC;ist bereich bereits frei?
 	jz error
@@ -634,8 +633,7 @@ endif
 _resizememint proc
 	call checksize					;size in eax to edx (in pages)
 	jc error
-	call searchhandle				;search handle of memory block
-									;(sets ds to data segment)
+	call searchhandle				;search handle of memory block, sets DS to GROUP16
 	jc resizememerr
 	@strout <"#resizemem: handle found (%lX,Base=%lX,Size=%lX,Flags=%X)",lf>,\
 		 ebx,[ebx.MEMITEM.dwBase],[ebx.MEMITEM.dwSize],[ebx.MEMITEM.flags]
@@ -1010,32 +1008,32 @@ setpageattr endp		;fall throu
 getsetpageattr proc
 	pushad
 	@strout <"#getsetpageattr (%X): esi=%lX, ebx=%lX, ecx=%lX, es:edx=%lX:%lX",lf>,ax,esi,ebx,ecx,es,edx
-if 0							;allow 0 pages because of 32rtm.exe
+if 0					;allow 0 pages because of 32rtm.exe
 	stc
-	jecxz	exit
+	jecxz exit
 endif        
-	mov		edi, ebx		;save ebx
-	mov		ebx, esi
-	call	searchhandle	;sets ds to data segment
-	jc		error8023
-	shr 	edi, 12
-	mov		eax, [ebx].MEMITEM.dwSize
-	sub 	eax, edi
-	jc		error8025		;error "offset is beyond block size"
-	cmp		eax, ecx
-	jc		error8025		;error "offset + pages are beyond block size"
-	shl 	edi, 12
-	mov 	ebx, [ebx].MEMITEM.dwBase
-	add 	ebx, edi
-	cmp		[esp].PUSHADS._AL,07
-	jz		@F
-	call	_getpageattributes	;es:edx -> word table, ebx=addr, ecx= size in pages
-	jmp		exit
+	mov edi, ebx		;save ebx
+	mov ebx, esi
+	call searchhandle	;sets ds to GROUP16
+	jc error8023
+	shr edi, 12
+	mov eax, [ebx].MEMITEM.dwSize
+	sub eax, edi
+	jc error8025		;error "offset is beyond block size"
+	cmp eax, ecx
+	jc error8025		;error "offset + pages are beyond block size"
+	shl edi, 12
+	mov ebx, [ebx].MEMITEM.dwBase
+	add ebx, edi
+	cmp [esp].PUSHADS._AL,07
+	jz @F
+	call _getpageattributes	;es:edx -> word table, ebx=addr, ecx= size in pages
+	jmp exit
 @@:
-	call	_setpageattributes	;es:edx -> word table, ebx=addr, ecx= size in pages
-	jnc		exit
-	mov		[esp].PUSHADS.rECX, ecx
-	mov		[esp].PUSHADS.rAX, 8013h	;physical memory unavailable
+	call _setpageattributes	;es:edx -> word table, ebx=addr, ecx= size in pages
+	jnc exit
+	mov [esp].PUSHADS.rECX, ecx
+	mov [esp].PUSHADS.rAX, 8013h	;physical memory unavailable
 exit:
 if _LTRACE_
 	pushfd

@@ -6,8 +6,8 @@
 #  - JWasm | Masm
 #  - JWLib | WLib (Open Watcom) | MS OMF LIB (lib16.exe)
 #  - JWLink v1.8x
-#  - extrsect.exe, converts stub binary to assembly include file 
-#  - setmzhdr.exe, modifies exe so:
+#  - extrmz.exe, converts stub binary to assembly include file 
+#  - setmzhdr.exe, modifies MZ binary so:
 #       - dos will load the 16-bit part only
 #       - stack size will be 200h
 
@@ -75,12 +75,11 @@ $(OUTSTUB):
 $(OBJMODS): $(DEPS0)
 
 # create the stub version
-# EXTRSECT: convert binary to asm include
+# EXTRMZ: convert binary to asm include
 # -i: create include
-# -m: assume MZ binary
 
 $(OUTSTUB)\$(NAME).INC: $*.BIN $(NAME)s.mak
-	@..\..\TOOLS\EXTRSECT.EXE -q -m -i $*.BIN $*.INC
+	@..\..\TOOLS\EXTRMZ.EXE -q -i $*.BIN $*.INC
 
 $(OUTSTUB)\$(NAME).BIN: $(OUTSTUB)\$(SRC).obj $(OUTSTUB)\$(NAME).lib $(NAME)s.mak
 	$(LINK) @<<

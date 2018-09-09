@@ -8,7 +8,9 @@
 
 @seg _TEXT32
 @seg _DATA32C
+ifndef ?PE
 @seg ENDGRP32
+endif
 
 SEG16 segment byte use16 public 'CODE'
 SEG16 ends
@@ -179,7 +181,6 @@ intr4B  proto near
 ;--- hdpmi
 
 EnlargeLDT proto near
-setldtinfos proto near
 simint09 proto near
 installirqhandler proto near
 pms_call_int proto near 	 ;call ring3 protected mode INT
@@ -201,7 +202,6 @@ _exitclientEx5 proto near	 ;_exitclientEx with error code 5
 setpmstate proto near
 closeinterrupts proto near
 
-load_pmsegs proto near
 _rawjmp_pm proto near16		;raw jump to protected-mode, esp = dwHostStack
 _rawjmp_pm_savesegm proto near16
 _jmp_pm proto near16		;full switch to protected-mode
@@ -235,16 +235,23 @@ BEGGRP16 segment
 externdef logo:byte
 externdef llogo:abs
 externdef curGDT:DESCRPTR
+if ?HSINEXTMEM and ?MAPDOSHIGH
 externdef taskseg:TSSSEG
+;taskseg equ <TSSSEG[2000h]>
+else
+externdef taskseg:TSSSEG
+endif
 BEGGRP16 ends
 
 ENDGRP16 segment
 externdef endof16bit:near
 ENDGRP16 ends
 
+ifndef ?PE
 ENDGRP32 segment
 externdef endof32bit:near
 ENDGRP32 ends
+endif
 
 _DATA16C segment
 externdef wEnvFlags:word
@@ -373,13 +380,14 @@ externdef dwHostStack:dword		;value of host stack when switching to real-mode
 externdef dwHSExcR3:dword		;value of host stack if exception in r3 occured
 if ?HSINEXTMEM
 externdef dwStackTop:dword		;top of host stack
+else
+externdef ring0stack:near
 endif
 externdef wVersion:word			;DPMI version
 externdef xmsaddr:PF16			;XMS entry (RM)
 ;externdef rmpsp:word			;current real-mode PSP of active client
 externdef wPSPSegm:word			;initial real-mode PSP of active client
-;externdef wRmDest:word
-externdef wRmDest2:word
+externdef wRmDest:word
 externdef wIntRmCb:word
 externdef wHostPSP:word
 if ?DTAINHOSTPSP
@@ -397,7 +405,12 @@ externdef wPatchGrp162:word
 if ?HSINEXTMEM and ?MAPDOSHIGH
 externdef v86iretesp:dword
 endif
-
+ifdef _DEBUG
+externdef traceflgs:word
+endif
+ifdef ?PE
+externdef dwVSize:dword
+endif
 _DATA16 ends
 
 ;--- _DATA32C publics
@@ -425,9 +438,10 @@ externdef excvec:R3PROC
 
 externdef mouse15_rmcb:dword
 
-externdef cldata32:near
-externdef endcldata32:near
-externdef endoftext32:near
-
 _DATA32C ends
 
+;externdef startcldata32:near
+;externdef endcldata32:near
+ifndef ?PE
+externdef endoftext32:near
+endif

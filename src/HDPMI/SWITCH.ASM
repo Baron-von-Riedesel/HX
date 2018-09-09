@@ -13,49 +13,6 @@
 
 _TEXT16 segment
 
-;*** full switch to protected mode
-;--- - save real-mode segment registers
-;--- - raw jump to protected mode
-;--- - adjust TSS:ESP0
-;--- - restore protected mode segment registers (PMSTATE)
-;--- - flags not touched
-
-	@ResetTrace
-
-_jmp_pmX proc near public
-	@rm2pmbreak
-_jmp_pmX endp		;fall through
-
-_jmp_pm proc near public
-
-	pop word ptr cs:[dwPmDest]
-	@rawjmp_pm_savesegm _jmp_pm_pm
-	align 4
-
-_jmp_pm endp
-
-_TEXT16 ends
-
-_TEXT32 segment
-
-_jmp_pm_pm proc
-
-	push ss:[dwPmDest]
-_jmp_pm_pm endp	;fall throu!
-
-load_pmsegs proc public
-	mov es,ss:pmstate.rES
-	mov ds,ss:pmstate.rDS
-	mov fs,ss:pmstate.rFS
-	mov gs,ss:pmstate.rGS
-	ret
-	align 4
-load_pmsegs endp
-
-_TEXT32 ends
-
-_TEXT16 segment
-
 if ?WDEB386
 
 ;--- called by switch to protected-mode
@@ -90,14 +47,44 @@ endif
 
 endif
 
+;*** switch to protected mode
+;--- - clear IF
+;--- - save real-mode segment registers
+;--- - raw jump to protected mode
+;--- - restore protected mode segment registers
+;--- flags not touched
+
+	@ResetTrace
+
+_jmp_pmX proc near public
+	@rm2pmbreak
+_jmp_pmX endp		;fall through
+
+_jmp_pm proc near public
+
+	pop word ptr cs:dwPmDest
+	@rawjmp_pm_savesegm _jmp_pm_pm
+	align 4
+_TEXT32 segment
+_jmp_pm_pm:
+	mov es, ss:pmstate.rES
+	mov ds, ss:pmstate.rDS
+	mov fs, ss:pmstate.rFS
+	mov gs, ss:pmstate.rGS
+	jmp ss:dwPmDest
+	align 4
+_TEXT32 ends
+
+_jmp_pm endp
+
 ;*** raw jump to pm with rm segs set
 ;--- out: esp=dwHostStack
 
 _rawjmp_pm_savesegm proc public
-	mov cs:[v86iret.rES],es
-	mov cs:[v86iret.rDS],ds
-	mov cs:[v86iret.rFS],fs
-	mov cs:[v86iret.rGS],gs
+	mov cs:v86iret.rES, es
+	mov cs:v86iret.rDS, ds
+	mov cs:v86iret.rFS, fs
+	mov cs:v86iret.rGS, gs
 _rawjmp_pm_savesegm endp	;fall throu
 
 ;*** raw jump to pm, segment registers undefined
@@ -106,17 +93,17 @@ _rawjmp_pm_savesegm endp	;fall throu
 _rawjmp_pm proc near public
 
 	pop word ptr cs:[dwPmDest2]
-	mov cs:[taskseg._Eax],eax
+	mov cs:taskseg._Eax,eax
 ;	@stroutrm <"entry rawjmp_pm",lf>
 	pushf
 	pop ax
 	and ah,8Fh			;mask out IOPL and NT
 	or ah,?PMIOPL
-	mov word ptr cs:[taskseg._Efl],ax
+	mov word ptr cs:v86iret.rFL,ax
 rawjmp_pm_patch::
 ;--- if there's no VCPI host, this location will be patched
 ;--- with a jump to _diff_pm
-	mov cs:[taskseg._Esi],esi
+	mov cs:taskseg._Esi,esi
 ;	mov esi,cs:[avs]
 	mov esi,0			;esi = linear address of v862pm variable
 	org $-4
@@ -193,8 +180,8 @@ xms_pmentry proc
 	mov ax,_TSSSEL_
 	ltr ax				;set TR
 
-	push ss:[taskseg._Efl]
-	mov eax,ss:[taskseg._Eax]
+	push ss:v86iret.rEFL
+	mov eax,ss:taskseg._Eax
 	popfd
 	jmp ss:[dwPmDest2]
 	align 4
@@ -207,13 +194,13 @@ vcpi_pmentry proc public
 	mov ax,_SSSEL_
 	mov ss,eax
 	mov esp,ss:dwHostStack
-	mov esi,ss:[taskseg._Esi]
+	mov esi,ss:taskseg._Esi
 ife ?CR0COPY
 	mov eax,ss:dwCR0
 	mov cr0, eax
 endif
-	push ss:[taskseg._Efl]
-	mov eax,ss:[taskseg._Eax]
+	push ss:v86iret.rEFL
+	mov eax,ss:taskseg._Eax
 	popfd
 	jmp ss:[dwPmDest2]
 	align 4
@@ -232,10 +219,14 @@ endif
 ;--- - save protected mode segment registers in pmstate
 ;--- - raw jump to real mode
 ;--- - the destination address in real-mode has been
-;--- - saved in wRmDest2 (see @jmp_rm)
+;--- - saved in wRmDest (see @jmp_rm)
 
 _jmp_rm proc public
-	@savepmstate			; save es,ds,fs,gs in pmstate
+;	@savepmstate			; save es,ds,fs,gs in pmstate
+	mov ss:pmstate.rES, es
+	mov ss:pmstate.rDS, ds
+	mov ss:pmstate.rFS, fs
+	mov ss:pmstate.rGS, gs
 _jmp_rm endp	;fall thru
 
 ;--- raw jump to real-mode
@@ -243,13 +234,13 @@ _jmp_rm endp	;fall thru
 ;--- ring 0 esp saved in dwHostStack
 ;--- stack switch to SS:SP in v86iret
 ;--- real-mode segment registers set to values in v86iret
-;--- real-mode IP in wRmDest2
+;--- real-mode IP in wRmDest
 ;--- all general registers preserved, including flags.
 
 _rawjmp_rm proc public
 	pushfd
-	mov ss:[taskseg._Eax],eax
-if ?SETRMIOPL
+	mov ss:taskseg._Eax,eax
+if ?SETRMIOPL	;is 0 by default
 	and byte ptr [esp+1],0CFh		;reset IOPL
 	or byte ptr [esp+1],?RMIOPL
 endif
@@ -347,8 +338,8 @@ endif
 	mov gs,cs:[v86iret.rGS]
 	popfd
 rawjmp_rm_all::		; this code runs for both xms and vcpi mode
-	mov eax, cs:[taskseg._Eax]
-	jmp cs:[wRmDest2]
+	mov eax, cs:taskseg._Eax
+	jmp cs:[wRmDest]
 
 _TEXT16 ends
 

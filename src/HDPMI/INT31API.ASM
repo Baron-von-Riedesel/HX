@@ -13,6 +13,8 @@
 
 	option proc:private
 
+	@seg CONST32
+
 if ?LOGINT31
 _DATA16 segment
 		public i31func
@@ -117,6 +119,8 @@ dpmi5functions db ?FUNC05	;05 (may be modified while this code is low)
 	exitm <offset x>
 	endm
 
+CONST32 segment
+
 functab label dword
 	dd @defl(func00), @defl(func01), @defl(func02), @defl(func03)
 	dd @defl(func04), @defl(func05), @defl(func06), @defl(func07)
@@ -217,6 +221,7 @@ jmpvectorE label dword
 	dd @defl(getcostate)
 	dd @defl(setcostate)
 endif
+CONST32 ends
 
 	@ResetTrace
 

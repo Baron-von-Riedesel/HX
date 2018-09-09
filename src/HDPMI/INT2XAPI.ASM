@@ -66,11 +66,11 @@ intr23 endp
 	@ResetTrace
 
 ife ?INT24FAIL
-CONST32 segment byte use32 public 'CODE'
+	@seg CONST32
+CONST32 segment
 abmsg	db cr,lf,"I/O-Error - A(bort), R(etry), I(gnore) or F(ail)? $"
 crlfstr db cr,lf,"$"
 CONST32 ends
-GROUP32 group _TEXT32, CONST32
 endif
 
 intr24 proc near public

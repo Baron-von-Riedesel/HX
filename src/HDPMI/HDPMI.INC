@@ -63,8 +63,6 @@ endif
 ?DYNBREAKTAB	equ 1	;std=1, 1=create pm break table dynamically (MUST be 1)
 ?CHECKIRQRM		equ 1	;std=1, 1=get/set the fake real-mode ints with
 						; functions 31h, ax=0200/0201 for internal rm cbs
-?ALLOCRMS		equ 0	;std=0, 0=RMS is allocated by client
-						;       1=RMS is allocated by dpmi host
 ?INTRM2PM		equ 1	;std=1, use a real-mode int to protect switch to
 						;protected mode (int 96h)
 ?XRM2PM 		equ 96h	;std=96h, real-mode to prot-mode int no
@@ -272,8 +270,6 @@ endif
 
 ?TRAPI15E801	equ 1	;std 1: trap int 15h, ax=e801h in raw mode
 						;this may be required if HDPMI=32 is set
-?SAVELDTPTE		equ 0	;std=0, 1=save LDT PTEs only in saveclientstate
-						;(may not work with dosbox)
 
 ?PREDEFIDTGATES equ 78h	;number of predefined IDT gates
 
@@ -1081,37 +1077,58 @@ IVTHOOK ends
 
 ;-------------------------------- macros
 
-@defseg macro name_, align_, use_, group_
-name_ segment align_ use_ public 'CODE'
-name_ ends
-ifnb <group_>
-group_ group name_
+ifdef ?PE
+GROUP32	equ <FLAT>
+?USE32	equ <flat>
+?CODER3	equ <>
+else
+?USE32	equ <use32>
+?CODER3	equ <'CODE'>
 endif
+
+@defseg32 macro name_, align_, cls:=<'CODE'>
+ifdef ?PE
+name_ segment align_ flat  public cls
+else
+name_ segment align_ use32 public 'CODE'
+endif
+name_ ends
+ifndef ?PE
+GROUP32 group name_
+endif
+endm
+
+@defseg16 macro name_, align_, cls:=<'CODE'>
+name_ segment align_ use16 public cls
+name_ ends
+GROUP16 group name_
 endm
 
 @seg macro segname
 	ifidn <segname>,<_TEXT32>
-	  @defseg segname, <dword>, <use32>, <GROUP32>
-	elseifidn <segname>,<_DATA32C>
-	  @defseg segname, <dword>, <use32>, <GROUP32>
+	  @defseg32 segname, dword
+	elseifidn <segname>,<CONST32>
+	  @defseg32 segname, dword
 	elseifidn <segname>,<_ITEXT32>
-	  @defseg segname, <dword>, <use32>, <GROUP32>
+	  @defseg32 segname, dword
+	elseifidn <segname>,<_DATA32C>
+	  @defseg32 segname, dword, 'DATA'
 	elseifidn <segname>,<ENDGRP32>
-	  @defseg segname, <para>, <use32>, <GROUP32>
-	elseifidn <segname>,<_DATA16>
-	  @defseg segname, <dword>, <use16>, <GROUP16>
-	elseifidn <segname>,<_DATA16V>
-	  @defseg segname, <dword>, <use16>, <GROUP16>
-	elseifidn <segname>,<_DATA16C>
-	  @defseg segname, <dword>, <use16>, <GROUP16>
+	  @defseg32 segname, para
 	elseifidn <segname>,<BEGGRP16>
-	  @defseg segname, <para>, <use16>, <GROUP16>
+	  @defseg16 segname, para
+	elseifidn <segname>,<_DATA16>
+	  @defseg16 segname, dword
+	elseifidn <segname>,<_DATA16V>
+	  @defseg16 segname, dword
+	elseifidn <segname>,<_DATA16C>
+	  @defseg16 segname, dword
 	elseifidn <segname>,<_TEXT16>
-	  @defseg segname, <dword>, <use16>, <GROUP16>
+	  @defseg16 segname, dword
 	elseifidn <segname>,<_ITEXT16>
-	  @defseg segname, <byte>, <use16>, <GROUP16>
+	  @defseg16 segname, byte
 	elseifidn <segname>,<ENDGRP16>
-	  @defseg segname, <para>, <use16>, <GROUP16>
+	  @defseg16 segname, para
 	else
 %	  .err <unknown segment segname in macro @seg>
 	endif
@@ -1119,11 +1136,13 @@ endm
 
 CStr macro xx:VARARG
 local xxxx
-CONST32 segment byte use32 public 'CODE'
+CONST32 segment dword ?USE32 public 'CODE'
 xxxx db xx
 	db 0
 CONST32 ends
-GROUP32 GROUP CONST32
+ifndef ?PE
+GROUP32 group CONST32
+endif
 	exitm <LOWWORD offset xxxx>
 endm
 
@@ -1149,13 +1168,32 @@ _LTRACE_ = 0
 endif
 endm
         
-;--- formatted output in protected-mode
+;--- formatted trace output in protected-mode
 
 @strout macro strg:REQ, xx:VARARG
 if _LTRACE_
 	@printf <strg>,xx
 endif
 endm
+
+;--- formatted conditional trace output in protected-mode
+
+@stroutx macro cond, strg:REQ, xx:VARARG
+local lbl
+if _LTRACE_
+	test ss:traceflgs, cond
+	jz lbl
+	@printf <strg>,xx
+lbl:
+endif
+endm
+
+ifdef _DEBUG
+?LOG_PMGREXT	equ 1	;extended pagemgr log
+?LOG_INT30		equ 2	;int 30h dispatcher log
+?LOG_INTRMCB	equ 4	;internal rmcbs log
+?LOG_INT31GEN	equ 8	;int 31h generic logs
+endif
 
 ;--- formatted output in real-mode
 
@@ -1204,7 +1242,7 @@ endm
 ;--- esp -> IRET32
 
 @simintpms macro xx
-	pushd offset GROUP32:r3vect&xx
+	pushd offset r3vect&xx
 	jmp pms_call_int
 	align 4
 endm
@@ -1215,11 +1253,8 @@ endm
 ;--- this macro should be followed by @pushstate in protected-mode
 
 @savermstk macro
-	push cs:v86iret.rSS
-	push cs:v86iret.rSP
-	pop cs:dwrmSSSPtmp
-	mov cs:v86iret.rSP,sp
-	mov cs:v86iret.rSS,ss
+	mov word ptr cs:dwrmSSSPtmp+0,sp
+	mov word ptr cs:dwrmSSSPtmp+2,ss
 endm
 
 ;--- restore value of real-mode stack
@@ -1242,7 +1277,13 @@ ifnb <bRMSegs>
 	push ss:v86iret.rFSd
 	push ss:v86iret.rGSd
 endif
+	push ss:v86iret.rSS
+	push ss:v86iret.rSP
+
 	push ss:dwrmSSSPtmp
+	pop ss:v86iret.rSP
+	pop ss:v86iret.rSS
+
 	push ss:pmstate.rESDS
 	push ss:pmstate.rFSGS
 	push ss:[dwHSExcR3]
@@ -1270,20 +1311,20 @@ ifnb <bRMSegs>
 endif
 endm
 
+if 0
 ;--- save protected-mode segregs in pmstate.
-;--- this macro is used before a jump to real-mode
-;--- 1. in raw mode switch to real-mode
-;--- 2. in function _jmp_rm
-
+;--- obsolete since v3.18
 @savepmstate macro
 	mov ss:pmstate.rES,es
 	mov ss:pmstate.rDS,ds
 	mov ss:pmstate.rFS,fs
 	mov ss:pmstate.rGS,gs
 endm
+endif
 
 ;--- real-mode to protected-mode break
 ;--- this prevents debuggers from stepping in untraceable code
+;--- also clears IF and TF flags
 
 @rm2pmbreak macro
 if ?INTRM2PM
@@ -1382,12 +1423,12 @@ endm
 ;-- switches to real-mode
 
 @jmp_rm macro dest
-	mov ss:[wRmDest2], offset dest
+	mov ss:[wRmDest], offset dest
 	jmp _jmp_rm
 endm
 
 @rawjmp_rm macro dest
-	mov ss:[wRmDest2], offset dest
+	mov ss:[wRmDest], offset dest
 	jmp _rawjmp_rm
 endm
 
@@ -1398,9 +1439,9 @@ endm
 	jmp _jmp_pm
 endm
 
+;--- @jmp_pmX is like @jmp_pm, but with @rm2pmbrk first
 @jmp_pmX macro dest
 	pushw LOWWORD offset dest
-;--- _jmp_pmX is like _jmp_pm, but with @rm2pmbrk first
 	jmp _jmp_pmX
 endm
 

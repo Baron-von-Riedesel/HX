@@ -127,7 +127,7 @@ endif
 ;_AllocMemEx proto near    
 
 if ?DPMI10
-_TEXT32 segment dword use32 public 'CODE'
+_TEXT32 segment dword ?USE32 public 'CODE'
 externdef dpmi5functions:byte
 _TEXT32 ends
 endif

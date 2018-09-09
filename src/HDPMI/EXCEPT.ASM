@@ -32,8 +32,7 @@ xxxx:
 endif
 endm
 
-CONST32 segment byte use32 public 'CODE'
-CONST32 ends
+	@seg CONST32
 
 _DATA16 segment
 bExcMode	db 0		;0=normal,1=suppress [EIP],2=suppress [ESP]
@@ -42,7 +41,7 @@ savedfDebug db 0
 endif
 _DATA16 ends
 
-GROUP32 group _TEXT32, CONST32
+;GROUP32 group _TEXT32, CONST32
 
 CONST32 segment
 
@@ -655,8 +654,7 @@ fatappexit2 proc public
 	iretd
 fatappexit2 endp        
 
-_TEXT32R3 segment dword use32 public 'CODE'
-;GROUP32 group _TEXT32R3
+_TEXT32R3 segment dword ?USE32 public ?CODER3
 myexitr3:
 	mov ax,4cffh
 	int 21h

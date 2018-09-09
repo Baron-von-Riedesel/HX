@@ -115,12 +115,12 @@ getpmevec proc public
 	jnb error8021
 	movzx ebx,bl
   if ?32BIT
-	mov edx, cs:[ebx*sizeof R3PROC+offset GROUP32:excvec].R3PROC._Eip
-	mov cx, word ptr cs:[ebx*sizeof R3PROC+offset GROUP32:excvec].R3PROC._Cs
+	mov edx, cs:[ebx*sizeof R3PROC+offset excvec].R3PROC._Eip
+	mov cx, word ptr cs:[ebx*sizeof R3PROC+offset excvec].R3PROC._Cs
 	@strout <"get exception vector %X: %X:%lX",lf>, bx, cx, edx
   else
-	mov dx, cs:[ebx*sizeof R3PROC+offset GROUP32:excvec].R3PROC._Eip
-	mov cx, cs:[ebx*sizeof R3PROC+offset GROUP32:excvec].R3PROC._Cs
+	mov dx, cs:[ebx*sizeof R3PROC+offset excvec].R3PROC._Eip
+	mov cx, cs:[ebx*sizeof R3PROC+offset excvec].R3PROC._Cs
 	@strout <"get exception vector %X: %X:%X",lf>, bx, cx, dx
   endif
 	clc
@@ -138,6 +138,7 @@ error8021:
 ;--- in: BL=exception # (00-1F)
 ;---     CX:E/DX=exception handler
 ;--- out: C if error, code in AX (8021 if BL > 1F, 8022 if CX invalid)
+;--- this proc must exit with int# preserved in BL!
 
 _LTRACE_ = 0
 
@@ -156,11 +157,11 @@ setpmevec proc public
 	pop ds
 if 1
   if ?32BIT
-	mov ds:[ebx*sizeof R3PROC+offset GROUP32:excvec].R3PROC._Eip, edx
-	mov word ptr ds:[ebx*sizeof R3PROC+offset GROUP32:excvec].R3PROC._Cs, cx
+	mov ds:[ebx*sizeof R3PROC+offset excvec].R3PROC._Eip, edx
+	mov word ptr ds:[ebx*sizeof R3PROC+offset excvec].R3PROC._Cs, cx
   else
-	mov ds:[ebx*sizeof R3PROC+offset GROUP32:excvec].R3PROC._Eip, dx
-	mov ds:[ebx*sizeof R3PROC+offset GROUP32:excvec].R3PROC._Cs, cx
+	mov ds:[ebx*sizeof R3PROC+offset excvec].R3PROC._Eip, dx
+	mov ds:[ebx*sizeof R3PROC+offset excvec].R3PROC._Cs, cx
   endif
 endif
 	clc
@@ -187,10 +188,10 @@ endif
 getpmptr proc
 
 	movzx ebx,bl
-	cmp bl,?LOWEXC			   ;00h - 0F/10/11 are ring 0 gates
+	cmp bl,?LOWEXC			;00h - 0F/10/11 are ring 0 gates
 	jbe getpmivec1
 if ?ENHANCED
-	cmp bl,20h				   ;20h as well
+	cmp bl,20h				;20h as well
 	jz getpmivec20
 endif
 if ?FASTINT21
@@ -198,66 +199,66 @@ if ?FASTINT21
 	jz getpmivec21
 endif
 if ?WINDBG
-	cmp bl,22h				   ;22h if Win9x int 22h dbg API support
+	cmp bl,22h				;22h if Win9x int 22h dbg API support
 	jz getpmivec22
 endif
-	cmp bl,30h				   ;30h as well
+	cmp bl,30h				;30h as well
 	jz getpmivec30
 if ?FASTINT31
 	cmp bl,31h
 	jz getpmivec31
 endif
-	cmp bl,41h				   ;41h as well
+	cmp bl,41h				;41h as well
 	jz getpmivec41
 	cmp bl,?SPICBASE+0
 	jb @F
 	cmp bl,?SPICBASE+8
-	jb getpmivec2			   ;70h-77h as well
+	jb getpmivec2			;70h-77h as well
 @@:
 	shl ebx,3
 	add ebx,ss:[pdIDT.dwBase]
 	ret
 getpmivec41:
-	mov bx,LOWWORD offset GROUP32:r3vect41
+	mov bx,LOWWORD offset r3vect41
 	stc
 	ret
 getpmivec30:
-	mov bx,LOWWORD offset GROUP32:r3vect30
+	mov bx,LOWWORD offset r3vect30
 	stc
 	ret
 if ?FASTINT31
 getpmivec31:
-	mov bx,LOWWORD offset GROUP32:r3vect31
+	mov bx,LOWWORD offset r3vect31
 	stc
 	ret
 endif
 if ?FASTINT21
 getpmivec21:
-	mov bx,LOWWORD offset GROUP32:r3vect21
+	mov bx,LOWWORD offset r3vect21
 	stc
 	ret
 endif
 if ?ENHANCED
 getpmivec20:
-	mov bx,LOWWORD offset GROUP32:r3vect20
+	mov bx,LOWWORD offset r3vect20
 	stc
 	ret
 endif
 if ?WINDBG
 getpmivec22:
-	mov bx,LOWWORD offset GROUP32:r3vect22
+	mov bx,LOWWORD offset r3vect22
 	stc
 	ret
 endif
 getpmivec2:
 	sub bl,?SPICBASE
 	shl ebx,_SHFACTOR_
-	add bx,LOWWORD offset GROUP32:r3vect70
+	add bx,LOWWORD offset r3vect70
 	stc
 	ret
 getpmivec1:
 	shl ebx,_SHFACTOR_
-	add bx,LOWWORD offset GROUP32:r3vect00
+	add bx,LOWWORD offset r3vect00
 	stc
 	ret
 	align 4

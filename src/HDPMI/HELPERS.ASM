@@ -41,12 +41,12 @@ copyz_tlb_2_dssi	;copy asciiz   src tlb:0   dst ds:si
 copy$_dsdx_2_tlb	;copy dosstr   src ds:dx   dst tlb:0
 
 getlinaddr			;get linear address in eax from selector at [esp+4]
-getpspsel			;
+getpspsel			;get descriptor for a PSP
 setpspsel			;save selector in bx,segment in dx in rm selector table
 
 endif
 
-_LTRACE_ = 0
+	@ResetTrace
 
 ;*** set real-mode DS to TLB
 
@@ -698,12 +698,13 @@ copyscratchsel endp
 
 endif
 
-_LTRACE_ = 0
+	@ResetTrace
 
 if ?32BIT
 
 ;--- alloc BIG DATA descriptor for real-mode memory
-;*** BX=segment
+;--- called by initclient
+;--- BX=segment
 
 getmyseldatabig proc public
 	mov dx,4000h
@@ -713,13 +714,15 @@ getmyseldatabig endp
 endif
 
 ;--- alloc a DATA descriptor for real-mode memory
+;--- called by initclient
 ;--- BX=segment 
 
 getmyseldata proc public
 	mov dx,0000
 getmyseldata endp	;fall through
 
-;--- BX=segment, type in DX (code/data big/normal)
+;--- BX=segment, DX=type (code/data big/normal)
+;--- called by initclient (to translate rm CS of new client)
 
 getmyselx proc public
 	mov cx,0FFFFh
@@ -753,7 +756,7 @@ getrmdesc proc near
 	pop ds
 	ret
 getrmdesc_err:
-	@strout <"no more LDT selectors",lf>
+	@strout <"#getrmdesc: error, out of LDT descriptors",lf>
 	pop ds
 	ret
 	align 4
@@ -761,7 +764,7 @@ getrmdesc endp
 
 ;*** In: BX=PSP segment / Out: BX=PSP selector
 
-_LTRACE_ = 0
+	@ResetTrace
 
 getpspsel proc public
 	push eax
@@ -769,16 +772,14 @@ getpspsel proc public
 	call allocxsel
 	mov bx,ax		;dont touch highword EBX (just in case)
 	pop eax
-	jc getpspsel_er
-	@strout <"getpsp: selector %X marked as psp",lf>,bx
+	jc getpspsel_err
+	@strout <"#getpspsel: selector %X marked as psp",lf>,bx
+getpspsel_err:
 	ret
-getpspsel_er:
-	mov ax,_EAERR6_
-	jmp _exitclientEx
 	align 4
 getpspsel endp
 
-_LTRACE_ = 0
+	@ResetTrace
 
 ;*** In: BX=PSP segment, DX=Selector
 ;--- used by int 21h, ah=55h
@@ -827,7 +828,7 @@ next:
 	cmp ax,?DYNTLBSIZE/16 + 1
 	jb next
 	jz suitsexact
-	@strout <"found an mcb at %lX, size %X",lf>, edi, ax
+	@strout <"#AllocDosMemory: found an mcb at %lX, size %X",lf>, edi, ax
 	mov byte ptr [edi],'M'
 	mov word ptr [edi+3],?DYNTLBSIZE/16
 	mov byte ptr [edi+?DYNTLBSIZE+10h],cl
@@ -866,7 +867,7 @@ _FreeDosMemory proc public
 	movzx edi,si
 	shl edi,4
 	mov word ptr [edi-10h+1],0
-	@strout <"free dyn tlb at %X, size now %X",lf>,si,[edi-10h+3]
+	@strout <"#FreeDosMemory: free dyn tlb at %X, size now %X",lf>,si,word ptr [edi-10h+3]
 	pop ds
 	ret
 	align 4
@@ -910,7 +911,7 @@ nextsel:
 	add ebx,8
 	add edi,10000h
 	sub esi,10000h
-	@strout <"selectortile: base=%lX, limit=%lX",lf>, edi, esi
+	@strout <"#selectortile2: base=%lX, limit=%lX",lf>, edi, esi
 	push edi
 	pop dx
 	pop cx
@@ -1012,7 +1013,7 @@ endif
 
 selector_resize proc public
 
-	@strout <"selector_resize: entry, sel=%X, new size=%lX",lf>,dx,eax
+	@strout <"#selector_resize: entry, sel=%X, new size=%lX",lf>,dx,eax
 	pushad
 ife ?32BIT
 	xor ebp,ebp
@@ -1025,7 +1026,7 @@ ife ?32BIT
 	mov ebx,edi
 	lsl eax,edx
 	inc eax
-	@strout <"selector_resize: old size=%lX, new size=%lX",lf>, eax, esi
+	@strout <"#selector_resize: old size=%lX, new size=%lX",lf>, eax, esi
 	add eax,10000h-1		;align old size to 64 kB
 	xor ax,ax
 	lea edx,[esi+10000h-1]	;align new size to 64 kB
@@ -1037,13 +1038,13 @@ ife ?32BIT
 	shr edx,16
 	shr eax,16-3
 	add ebx,eax
-	@strout <"selector_resize: need %X new selectors at %X",lf>,dx,bx
+	@strout <"#selector_resize: need %X new selectors at %X",lf>,dx,bx
 	push ds
 	mov ds,ss:[selLDT]
 	call allocselx			  ;alloc additional selectors
 	pop ds
 	jc error
-	@strout <"selector_resize: alloc of selectors was ok",lf>
+	@strout <"#selector_resize: alloc of selectors was ok",lf>
 	jmp selectortilex_1
 smallerblock:
 	and ebp,ebp
@@ -1053,10 +1054,10 @@ smallerblock:
 	mov ecx,eax
 	shr edx,16-3
 	add ebx,edx
-	@strout <"selector_resize: try to free %X selectors at %X",lf>,cx,bx
+	@strout <"#selector_resize: try to free %X selectors at %X",lf>,cx,bx
 	call freeselx
 	jc error
-	@strout <"selector_resize: freeing of selectors was ok",lf>
+	@strout <"#selector_resize: freeing of selectors was ok",lf>
 selectortilex_1:
 	and ebp,ebp
 	jz done
@@ -1076,7 +1077,7 @@ done:
 	ret
 ife ?32BIT
 error:
-	@strout <"selector_resize: error, not enough free selectors",lf>
+	@strout <"#selector_resize: error, not enough free selectors",lf>
 	popad
 	ret
 endif

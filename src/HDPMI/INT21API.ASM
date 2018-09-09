@@ -53,28 +53,31 @@ EXECRM ends
 
 if ?INT21API
 
+	@seg CONST32
+
 _DATA16 segment
 
 ?DPBSIZE = 33	  ;DOS 4+, (DOS 3.XX 32 Bytes)
 
 if ?SUPPDOS33
-		public wDPBSize
+	public wDPBSize
 wDPBSize	dw ?DPBSIZE
 endif
 
+;--- used by int 21h, ah=4Bh
 execparm  EXECRM <0,120h,100h,110h,0,0>
 
 _DATA16 ends
 
 _TEXT32 segment
 
+CONST32 segment
 dummyfcb label byte
 	db 0
 	db 11 dup (' ')
 	db 4 dup (0)
 dummycmd db 0,cr
-
-	align 4
+CONST32 ends
 
 ;*** entry dos api translation
 ;--- DOS might indicate success not only with CF, but sometimes
@@ -155,7 +158,9 @@ endm
 	@tabentry d
 endm
 
-jmptab	label dword
+CONST32 segment
+
+jmptab label dword
 	@do intr2100   ,		   ,		   ,		   ;00-03
 	@do 		   ,		   ,		   ,		   ;04-07
 	@do 		   ,intr2109   ,intr210A   ,		   ;08-0B
@@ -185,7 +190,7 @@ jmptab	label dword
 	@do 		   ,intr2169   ,		   ,		   ;68-6B
 	@do intr216C   ,		   ,		   ,		   ;6C-6F
 	@do 		   ,intr2171   ,		   ,intr2173   ;70-73
-
+CONST32 ends
 
 	@ResetTrace
 
@@ -688,9 +693,9 @@ endif
 	pop ds
 	assume ds:GROUP16
 	mov ax,[wSegTLB]
-	mov word ptr [execparm.fcb1+2],ax
-	mov word ptr [execparm.fcb2+2],ax
-	mov word ptr [execparm.cmdline+2],ax
+	mov word ptr execparm.fcb1+2, ax
+	mov word ptr execparm.fcb2+2, ax
+	mov word ptr execparm.cmdline+2, ax
 
 	pop es
 
@@ -700,7 +705,7 @@ if ?32BIT
   else
 	xor eax,eax
   endif
-	mov word ptr [execparm.environ],ax
+	mov word ptr execparm.environ,ax
 else
 	;for 16-bit, environment is included
 	;in parameter block. must be a real mode
@@ -714,7 +719,7 @@ else
 	call getrmenv		;get current environment
 	mov bx, ax
 EnvIsValid:
-	mov word ptr [execparm.environ], bx
+	mov word ptr execparm.environ, bx
 endif
 	pop ds
 if ?32BIT
@@ -724,7 +729,7 @@ else
 endif
 	call copyz_dsdx_2_tlb	;DS:(E)DX -> tlb:0, dx=0
 
-	mov bx,offset execparm
+	mov bx, offset execparm
 
 	mov eax,ss:[dwHostSeg]
 	mov ss:v86iret.rES, ax
@@ -1603,6 +1608,7 @@ endif
 	popad
 	ret
 
+CONST32 segment
 ;--- table of int 21h, ax=440D, subfunction CL
 ;--- bytes to copy from DS:E/DX
 
@@ -1632,6 +1638,7 @@ tab440D2 label byte
 ;	db 6Dh,255		;enum open files
 ;	db 6Eh,255		;find swap file path
 	db -1h
+CONST32 ends
 
 intr21440D endp
 
@@ -1708,30 +1715,30 @@ unsuppcall:
 	ret
 intr2111:
 intr2112:
-intr2113:							   ;ds:dx -> fcb
+intr2113:					;ds:dx -> fcb
 	push ecx
 	push edx
-	mov cx,0025h			   ;size of "normal fcb" is 37 bytes
+	mov cx,0025h			;size of "normal fcb" is 37 bytes
 ife ?32BIT
 	movzx edx,dx
 endif
-	cmp byte ptr [edx],0FFh	   ;extended fcb?
+	cmp byte ptr [edx],0FFh	;extended fcb?
 	jnz @F
-	mov cl,25h+7			   ;then size 44 bytes
+	mov cl,25h+7			;then size 44 bytes
 @@:
 	push ecx
-	call copy_dsdx_2_tlb 	   ;copy cx bytes to tlb:0
+	call copy_dsdx_2_tlb 	;copy cx bytes to tlb:0
 	xor edx,edx
 	call rmdos
 	pop ecx
 	pop edx
-	call copy_tlb_2_dsdx 	   ;copy back! - may have been modified
-	cmp al,0FFh 			   ;error?
+	call copy_tlb_2_dsdx 	;copy back! - may have been modified
+	cmp al,0FFh 			;error?
 	jz @F
 ;	@strout <"I21: fcb call was successful",lf>
 	push word ptr 0
 	push cx
-	call copy_tlbdta_2_dta	   ;copy cx bytes tlbdta -> dta
+	call copy_tlbdta_2_dta	;copy cx bytes tlbdta -> dta
 @@:
 	pop ecx
 	ret
@@ -1786,7 +1793,11 @@ intr2151:
 intr2162:
 	call rmdos
 	call getpspsel
+	jc pspsel_err
 	ret
+pspsel_err:
+	mov ax,_EAERR6_
+	jmp _exitclientEx
 
 ;*** get extended error info (ES:DI]
 ;--- this call may modify v86.rES to 0000

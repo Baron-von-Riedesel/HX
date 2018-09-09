@@ -1,6 +1,6 @@
 
 # nmake makefile, creates a HDPMI32.EXE which allows interrupts
-# in ring 0. Doesn't work yet!
+# in ring 0. Doesn't run stable yet!
 # tools used:
 #  - JWasm | Masm
 #  - JWLib | WLib (Open Watcom) | MS OMF LIB (lib16.exe)
@@ -24,7 +24,7 @@ OBJNAMES = $(SRCMODS:.ASM=.OBJ)
 !if $(DEBUG)
 OBJMODS = $(OBJNAMES:.\=X32D\)
 AOPTD=-D_DEBUG
-#AOPTD=-D_DEBUG -D?DOSOUTPUT=0 -DVIODIROUT=1
+#AOPTD=-D_DEBUG -D?DOSOUTPUT=0 -D?VIODIROUT=1
 OUTD=X32D
 !else
 OBJMODS = $(OBJNAMES:.\=X32\)
@@ -39,7 +39,7 @@ ASM = jwasm.exe
 LINK  = jwlink.exe
 
 AOPT   = -nologo -c -Cp -Sg -D?32BIT=1 $(AOPTD) -I$(INC32DIR) -Fl$* -Fo$* -D?ALLOWR0IRQ=1
-LCMDS3 = format DOS file {$(OBJMODS)} name $*.EXE lib $(OUTD)\$(NAME).lib op q, map=$*.MAP, stack=0
+LCMDS  = format DOS file {$(OBJMODS)} name $*.EXE lib $(OUTD)\$(NAME).lib op q, map=$*.MAP, stack=0
 
 SRC   = hdpmi
 
@@ -59,7 +59,7 @@ $(OBJMODS): $(DEPS0)
 
 $(OUTD)\$(NAME).EXE: $(OBJMODS) $(OUTD)\$(NAME).lib
 	$(LINK) @<<
-$(LCMDS3)
+$(LCMDS)
 <<
 	@..\..\BIN\SETMZHDR.EXE -q $*.EXE
 

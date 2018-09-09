@@ -11,10 +11,12 @@
 
 	option proc:private
 
-BEGTXTR3 segment para use32 public 'CODE'
+ifndef ?PE
+_DATA32C$Z segment dword ?USE32 public 'CODE'
 externdef startof32bitr3:near
-BEGTXTR3 ends
-GROUP32 group BEGTXTR3
+_DATA32C$Z ends
+GROUP32 group _DATA32C$Z
+endif
 
 ?USERIDT	equ 1	;std 1, 1=optionally alloc IDT in user address space
 ?IDTPAGE	equ 1	;std 1, 1=give IDT its own page
@@ -57,6 +59,7 @@ if ?DYNBREAKTAB
 	shr eax,16
 	mov es:[edx+ecx].DESCRPTR.A1623,al
 	mov es:[edx+ecx].DESCRPTR.A2431,ah
+ifndef ?PE
 	mov cx, _CSR3SEL_
 	and cl, 0F8h
 	lea eax,[edi+400h]
@@ -67,12 +70,13 @@ if ?DYNBREAKTAB
 	mov es:[edx+ecx].DESCRPTR.A2431,ah
 	mov es:[edx+ecx+8].DESCRPTR.A1623,al
 	mov es:[edx+ecx+8].DESCRPTR.A2431,ah
-	
+endif
 	mov ax,30CDh
 	mov ecx,_MAXCB_
 	push edi
 	rep stosw
 
+ifndef ?PE
 	and di,0F000h
 	add di,400h
 	mov esi,offset startof32bitr3
@@ -85,10 +89,13 @@ if ?DYNBREAKTAB
 	pop ds
 	rep movsd
 	pop ds
+endif
 
 	pop eax
-;	mov ecx,1
-;	call _makeregionreadonly
+ifdef ?PE
+	mov ecx,1
+	call _makeregionreadonly
+endif
 endif ;?DYNBREAKTAB
 
 	xor edi, edi
