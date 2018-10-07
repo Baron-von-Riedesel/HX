@@ -1024,9 +1024,9 @@ if ?SETRMIOPL	;is 0 by default
 	and byte ptr [esp+1],0CFh		;reset IOPL
 	or byte ptr [esp+1],?RMIOPL
 endif
-	pop ss:taskseg._Efl
-	@strout <"#pm2rm: CS:IP=%X:%X, SS:SP=%X:%X, DS=%X, FL=%lX, hs=%lX",lf>,\
-		si, di, dx, bx, ax, ss:taskseg._Efl, esp
+	pop ss:tmpFLRegD
+	@strout <"#pm2rm: CS:IP=%X:%X, SS:SP=%X:%X, DS=%X, FL=%X, hs=%lX",lf>,\
+		si, di, dx, bx, ax, ss:tmpFLReg, esp
 
 if ?RAWSETNEWRMS
 	mov ss:v86iret.rSP, bx
@@ -1051,7 +1051,7 @@ ife ?RAWSETNEWRMS
 endif
 ;	@stroutrm <"-pm2rm: cur RMS=%X:%X, SS:SP=%X:%X",lf>,\
 ;		cs:v86iret.rSS, cs:v86iret.rSP, ss, sp 
-	push word ptr cs:taskseg._Efl
+	push cs:tmpFLReg
 	push si			;push CS
 	push di			;push IP
 	iret			;real-mode iret!

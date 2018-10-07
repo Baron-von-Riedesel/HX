@@ -244,7 +244,10 @@ if ?SETRMIOPL	;is 0 by default
 	and byte ptr [esp+1],0CFh		;reset IOPL
 	or byte ptr [esp+1],?RMIOPL
 endif
-	pop ss:v86iret.rEFL
+;--- v86iret.rEFL cannot be used to store flags.
+;--- This field will be set by the vcpi host.
+;	pop ss:v86iret.rEFL
+	pop ss:taskseg._Efl
 ife ?CR0COPY
 	mov eax, cr0
 	mov ss:dwCR0, eax
@@ -331,14 +334,16 @@ if ?SAVERMCR3
 	mov cr3,eax
 endif
 	lss esp, fword ptr cs:v86iret.rESP
-	push cs:v86iret.rEFL
+;	push cs:v86iret.rEFL
 	mov es,cs:[v86iret.rES]   ;do it in this order!
 	mov ds,cs:[v86iret.rDS]
 	mov fs,cs:[v86iret.rFS]
 	mov gs,cs:[v86iret.rGS]
-	popfd
+;	popfd
 rawjmp_rm_all::		; this code runs for both xms and vcpi mode
+	push word ptr cs:taskseg._Efl
 	mov eax, cs:taskseg._Eax
+	popf
 	jmp cs:[wRmDest]
 
 _TEXT16 ends
