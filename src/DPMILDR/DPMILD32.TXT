@@ -471,12 +471,14 @@
 
 14.  History
 
- 03.07.2018: version 3.9
+ 13.10.2018: version 3.9
 
  þ bugfix: if option DPMILDR=8 was set, nested execution failed.
  þ bugfix: when terminating, segment register SS was temporarily connected
    to a 16-bit data descriptor, which may have caused problems if the ring
    0 stackpointer was >= 0x10000.
+ þ bugfix: if option DPMILDR=8 wasn't set and nested execution occured, 
+   a GPF may have occured after an application has terminated.
  þ linking the loader statically to a binary as a stub ( DPMILD32.BIN )
    didn't work.
 

@@ -68,8 +68,8 @@ _RESIZEPSP_ 	 = 1	;1 1=resize loader psp to 120h after moved in ext. memory
 ?LOWENV			= 1 	;1 1=alloc new env in dos memory (0 not finished!)
 ?FREECHILDSELS	= 1		;1 1=free selectors for psp+env
 ?USE1PSP		= 1		;1 1=use just 1 psp if DPMILDR=8
-ifndef ?STDERR
-?STDERR	equ 2
+ifndef ?STDOUT
+?STDOUT	equ 1
 endif
 
 ifndef ?KERNEL16
@@ -229,6 +229,9 @@ wStktop  dw 0			;top stack pointer
 endif
 
 printproc dw offset printchar
+if _TRACE_
+tprintproc dw offset tprintchar
+endif
 
 ;*** global variables
 
@@ -645,6 +648,14 @@ if ?LFN
 endif
 	int 11h 			;get equipment flags (MPC)
 	mov [wEquip],ax
+if ?DEBUG
+	mov bx,3
+	mov ah,3Eh		;close AUX
+	int 21h
+	mov ah,45h		;duplicate file handle
+	mov bx,1
+	int 21h
+endif
 	call JumpToPM		;initial switch to protected mode
 	jnc @F
 main_err1:
@@ -3237,7 +3248,18 @@ endif
 if 0
 	call GetLdrEnvironmentVariable  ;DI=^Path
 else
+ if 0
+;--- v3.9, 13.10.2018: if DPMILDR=8 isn't set, wCurPSP may be invalid 
+;--- if nested execution occurs, since wCurPSP isn't reset when an application
+;--- terminates.
 	mov es, [wCurPSP]
+ else
+	push bx
+	mov ah,51h
+	int 21h
+	mov es,bx
+	pop bx
+ endif
 	call GetEnvironmentVariable  ;DI=^Path
 endif
 	jc exit
@@ -6890,33 +6912,28 @@ n_2_str:
 ;--- this routine must be bimodal
 
 printchar proc
-if ?32BIT
-	push ds
-	push ss
-	pop ds
-	push bx
-	push ecx
-	push edx
-	push eax
-	mov edx,esp
-	mov ecx,1
-	mov bx,?STDERR
-	mov ah,40h
-	int 21h
-	pop eax
-	pop edx
-	pop ecx
-	pop bx
-	pop ds
-else
+	push ax
 	push dx
 	mov dl,al
-	mov ah,02
+	mov ah,02	;write to stdout
 	int 21h
 	pop dx
-endif
+	pop ax
 	ret
 printchar endp
+
+if _TRACE_
+tprintchar proc
+	push ax
+	push dx
+	mov dl,al
+	mov ah,04	;write to AUX
+	int 21h
+	pop dx
+	pop ax
+	ret
+tprintchar endp
+endif
 
 if ?USEINT14 or ?USEINT41
 
