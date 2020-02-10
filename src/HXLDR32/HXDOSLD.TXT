@@ -1,0 +1,17 @@
+
+  About HXDOSLD
+
+  HXDOSLD is used to bypass an installed HXLDR32. This is rarely needed.
+  HXLDR32 will launch HX's DPMILD32 if it founds a PE binary to be run.
+  Sometimes this isn't appropriate because it doesn't allow a stub in
+  this binary to be executed. If this stub should run while HXLDR32 is
+  installed use HXDOSLD.
+  
+  Usage:
+  
+  HXDOSLD name_of_binary [ parameters ]
+  
+  If no path is given with the name of the binary, it must be found in
+  the current directory.
+  
+  Japheth

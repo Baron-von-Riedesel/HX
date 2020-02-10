@@ -1,0 +1,138 @@
+
+ 1. About HXLdr32
+
+ With this program one can avoid to change PE executables as it
+ is done by tool PEStub to run Win32 apps in plain DOS. Instead
+ this program will go resident, hook dos interrupt 21h and wait
+ for any "load and execute program" calls. If one is catched, the
+ file to execute is examined if it is a PE console app and if
+ so, PE file loader DPMILD32.EXE will be started to run this app.
+
+ This seems to be a more conveniant way than modifying binaries.
+ 
+ 
+ 2. Installing HXLdr32
+ 
+ HXLdr32 is a TSR program, but it is a dos device driver as well.
+ So you can install it in several ways. For example by adding a 
+ line in CONFIG.SYS like:
+ 
+ DEVICE=C:\TOOLS\HXLDR32.EXE C:\TOOLS\DPMILD32.EXE
+ 
+ or let HXLdr32 install as TSR by entering in CONFIG.SYS:
+ 
+ INSTALL=C:\TOOLS\HXLDR32.EXE
+
+ Of course, as a TSR HXLdr32 can be installed at any time simply by
+ typing its name. 
+
+ When being installed as TSR, be sure DPMILD32.EXE is located somewhere
+ in a directory of your PATH environment variable. When being installed
+ as device driver, there is no environment available, that's why you will
+ have to enter the full path of DPMILD32.EXE as an argument here.
+
+
+ 3. Uninstalling HXLdr32
+
+ Type "HXLdr32 -u" to uninstall HXLdr32. Uninstallation will only work
+ if HXLdr32 was installed as TSR, but not if it was installed as a device
+ driver. 
+ 
+
+ 4. Known Problems
+ 
+ þ Due to the nature of the "resident" approach there is a slight difference
+   compared to changing PE executables with PEStub. Other dos-extended
+   PE binaries will be executed by DPMILD32 as well, giving the
+   containing stub no chance to take over. So for example apps created
+   with the Borland extender (32RTM) will no longer start 32RTM.EXE.
+   Usually this doesn't cause any problems, because HX's Win32 emulation  
+   should be the most mature. However, if the stub *must* run while
+   HXLDR32 is installed, use tool HXDOSLD.
+
+ þ If you get error message:
+     "dpmild32: <name of executable>: relocs stripped, cannot load"
+   it may be necessary to set environment variable DPMILDR=8 (for
+   a detailed description of DPMILDR variable view dpmild32.txt).
+
+ þ HXLDR32 isn't compatible with DosBox. This is due to a bug in DosBox's
+   emulation of DOS int 21h, ax=4B01h.
+ 
+ 
+ 5. History
+ 
+ 2009/11/16: version 1.12
+
+ þ linker changed to OW WLink.
+ 
+ 2009/01/20: version 1.11
+
+ þ source assembled with JWasm.
+ 
+ 2008/01/11: version 1.10
+ 
+ þ bugfix: full path of binary to launch was restricted to 68, now is 80.
+ 
+ 2006/09/14: version 1.9.1
+ 
+ þ bugfix: when loaded from the command line the terminating 00 of the
+   DPMILD32 path may not have become resident if it happened to be located
+   on a paragraph boundary, resulting in HXLDR32 unable to run Win32
+   applications.
+ 
+ 2006/08/15: version 1.9
+
+ þ linker options changed to make resulting binary a bit smaller.
+   
+ 2006/07/15: version 1.8
+
+ þ code simplified a bit. Previously the applications stack pointers
+   were saved in an internal table which had just room for 8 entries.
+   This restriction no longer exists.
+ 
+ 2005/11/12: version 1.7
+ 
+ þ allow GUI apps to be loaded if running in true DOS.
+ 
+ 2005/09/17: version 1.6
+ 
+ þ HXLdr32 now can be uninstalled - if it was installed as a TSR. 
+ þ bugfix: if hxldr32 was started from the command line and dpmild32.exe
+   was in the current directory, just the name of dpmild32.exe was saved
+   internally. This made hxldr32 to not find dpmild32.exe if the current
+   directory changed.
+   
+ 2005/08/08: version 1.5
+ 
+ þ flags in int 21h handler saved/restored.
+ 
+ 2005/07/31: version 1.4
+ 
+ þ free unused space of DPMILD32.EXE full path.
+ þ additional check for FileHeader.Machine == i386. There exist
+   some (rather old) PE binaries (MS C V7.0) which cannot be loaded by 
+   DPMILD32 and must use their own loader (MS32KRNL.DLL or DOSX32?)
+   
+ 2004/11/25: version 1.3
+ 
+ þ some PE binaries included in Borland's free commandline tools couldn't
+   be loaded because they contained a value < 0x3E in field "relocation
+   entries offset".
+   
+ 2004/10/11: version 1.2
+ 
+ þ sections .text and .rdata no longer merged because of potential problems.
+ 
+ 2004/08/28: version 1.1 
+ 
+ þ bugfix: internal buffer too small for large paths.
+ 
+ 2004/05/04: version 1.0 
+ 
+ 
+ 6. Copyright
+ 
+ HXLdr32 is part of HX DOS extender. This extender is freeware.
+ View HXRT.TXT for licence details.
+ 
+ Japheth
