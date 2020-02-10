@@ -1,0 +1,168 @@
+
+# nmake makefile to create DKRNL32.DLL
+
+# 2 versions of the binary are created:
+# - RELEASE: old std release version (no longer distributed)
+# - SBEMU: SB emu compatible release version (supplied in HX\Bin)
+# with "nmake debug=1", it's:
+# - DEBUG: old std debug version 
+# - SBEMUD: SB emu compatible debug version
+
+# the format of the object modules is COFF, zero-based flat memory model.
+# to create modules in OMF format see OMF.MAK.
+
+# currently NTLFNHLP modules are linked into DKRNL32 statically.
+
+# two libraries are created as well:
+# - dkrnl32s.lib: static lib, COFF format, all modules included.
+# - dkrnl32.lib: import lib, may be used instead of SDK's kernel32.lib,
+#   but you will get linker errors if any win32 API not emulated is used.
+
+!include <..\dirs>
+
+!ifndef DEBUG
+DEBUG=0
+!endif
+
+NAME=DKRNL32
+LIBNAME=DKRNL32S
+
+!if $(DEBUG)
+AOPTD=-D_DEBUG
+OUTD1=DEBUG
+OUTD2=SBEMUD
+!else
+AOPTD=
+OUTD1=RELEASE
+OUTD2=SBEMU
+!endif
+
+SRCMODS = \
+!include modules.inc
+
+OBJMODS = $(SRCMODS:.ASM=.OBJ)
+!if $(DEBUG)
+OBJMODS = $(OBJMODS:.\=DEBUG\)
+!else
+OBJMODS = $(OBJMODS:.\=RELEASE\)
+!endif
+
+OTHERMODS=.\int21lfn.obj
+
+!ifndef MASM
+MASM=0
+!endif
+!ifndef MSLINK
+MSLINK=0
+!endif
+
+ASMOPT1= -c -coff -nologo -Sg -D_KERNEL32_=1 $(AOPTD) -I$(INC32DIR) -D?FLAT=1 -Fl$* -Fo$*
+ASMOPT2= -c -coff -nologo -Sg -D_KERNEL32_=1 $(AOPTD) -I$(INC32DIR) -D?FLAT=1 -Fl$* -Fo$* -D?DIRECTDISP=1 
+
+# option -zze for JWasm is required for IsProcessorFeaturePresent
+
+!if $(MASM)
+ASM1=@ml.exe $(ASMOPT1)
+ASM2=@ml.exe $(ASMOPT2)
+!else
+ASM1=@jwasm.exe -zze $(ASMOPT1)
+ASM2=@jwasm.exe -zze $(ASMOPT2)
+!endif
+
+LOPTS= /NOLOGO /MAP /SUBSYSTEM:CONSOLE /DLL
+
+.SUFFIXES: .asm .obj
+
+.asm{$(OUTD1)}.obj:
+	$(ASM1) $<
+
+.asm{$(OUTD2)}.obj:
+	$(ASM2) $<
+
+ALL: $(OUTD1) $(OUTD2) $(OUTD1)\$(NAME).DLL $(OUTD2)\$(NAME).DLL
+
+####################################################################
+
+$(OUTD1):
+	@mkdir $(OUTD1)
+
+# modules containing optional exports (IsProcessorFeaturePresent)
+# must be included explicitely!
+
+$(OUTD1)\$(NAME).DLL: $(OUTD1)\$(LIBNAME).lib $(OUTD1)\$(NAME).obj $(NAME).def $(NAME).rsp
+#	@link $(OUTD1)\$(NAME).obj $(OUTD1)\$(LIBNAME).lib $(LOPTS) $(LOPTD) /DEF:$(NAME).def /merge:.BASE=.data /OUT:$*.DLL /BASE:0xBFF00000
+!if $(MSLINK)
+	@link $(OUTD1)\$(NAME).obj $(OUTD1)\procfeat.obj $(OUTD1)\$(LIBNAME).lib $(LOPTS) $(LOPTD) /DEF:$(NAME).def /merge:.BASE=.data /OUT:$*.DLL
+!else
+	@$(LINKBIN) format windows pe dll f { $(OUTD1)\$(NAME).obj $(OUTD1)\procfeat.obj } lib $(OUTD1)\$(LIBNAME).lib name $*.DLL op q, map=$(OUTD1)\$(NAME).map @dkrnl32.rsp
+!endif
+
+######################################################
+
+OBJMODS2 = $(OUTD2)\thread.obj $(OUTD2)\thread3.obj
+
+$(OUTD2):
+	@mkdir $(OUTD2)
+
+$(OUTD2)\$(NAME).DLL: $(OBJMODS2) $(OUTD2)\$(LIBNAME).lib $(OUTD1)\$(NAME).obj $(NAME).def $(NAME).rsp
+#	@if exist $*.DLL erase $*.DLL
+!if $(MSLINK)
+	@link.exe $(OUTD1)\$(NAME).obj $(OUTD1)\procfeat.obj $(OUTD2)\$(LIBNAME).lib $(LOPTS) $(LOPTD) /DEF:$(NAME).def /merge:.BASE=.data /OUT:$*.DLL
+!else
+	@$(LINKBIN) format windows pe hx dll name $*.DLL f { $(OUTD1)\$(NAME).obj $(OUTD1)\procfeat.obj } lib $(OUTD1)\$(LIBNAME).lib op q, map=$*, implib=$* @dkrnl32.rsp
+!endif
+!if $(DEBUG)==0
+	@copy $*.DLL ..\..\Bin\*.* >NUL
+!ifdef DLL32DIR
+	@copy $*.DLL $(DLL32DIR)\*.* >NUL
+!endif 
+	@copy $*.LIB ..\..\Lib\*.* >NUL
+	@copy $(OUTD2)\$(LIBNAME).lib ..\..\Lib\*.* >NUL
+!endif    
+
+$(OBJMODS2): dkrnl32.inc
+
+######################################################
+
+WLIBMODS=$(SRCMODS:.\=+)
+
+$(OUTD1)\$(LIBNAME).lib: $(OBJMODS)
+	@cd ..\NTLFNHLP
+	@$(MAKE) DEBUG=$(DEBUG)
+	@cd ..\DKRNL32\$(OUTD1)
+	@if exist $(NAME).DLL rename $(NAME).DLL $(NAME).DL_
+	@$(LIBBIN) $(LIBNAME).lib @<<
+$(WLIBMODS:.ASM=.OBJ) $(OTHERMODS:.\=+) 
+<<
+	@if exist $(NAME).DL_ rename $(NAME).DL_ $(NAME).DLL
+	@cd ..
+
+######################################################
+
+$(OUTD2)\$(LIBNAME).lib: $(OUTD1)\$(LIBNAME).lib
+	@cd $(OUTD2)
+	@copy ..\$(OUTD1)\$(LIBNAME).lib .\$(LIBNAME).lib >NUL
+	@if exist $(NAME).DLL rename $(NAME).DLL $(NAME).DL_
+#	@$(LIBBIN) $(LIBNAME).lib /REMOVE:.\thread.obj /REMOVE:.\thread3.obj .\thread.obj .\thread3.obj /OUT:$(LIBNAME).lib
+# dont use $(LIBBIN), it contains the -n switch!
+	@$(OWDIR)\binnt\wlib -q $(LIBNAME).lib -+thread.obj -+thread3.obj
+	@if exist $(NAME).DL_ rename $(NAME).DL_ $(NAME).DLL
+	@cd ..
+
+$(OBJMODS): dkrnl32.inc
+
+$(OUTD1)\$(NAME).obj: version.inc dkrnl32.inc
+
+clean:
+	@del $(OUTD1)\*.obj >NUL
+	@del $(OUTD1)\*.dll >NUL
+	@del $(OUTD1)\*.lib >NUL
+	@del $(OUTD1)\*.map >NUL
+	@del $(OUTD1)\*.lst >NUL
+	@del $(OUTD1)\*.exp >NUL
+	@del $(OUTD2)\*.obj >NUL
+	@del $(OUTD2)\*.dll >NUL
+	@del $(OUTD2)\*.lib >NUL
+	@del $(OUTD2)\*.map >NUL
+	@del $(OUTD2)\*.lst >NUL
+	@del $(OUTD2)\*.exp >NUL

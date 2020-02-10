@@ -1,0 +1,1884 @@
+
+  0. Contents
+
+  1.    About
+  2.    Requirements
+  3.    Win32 Emulation Notes
+   3.1  Shared File Access
+   3.2  Time Zones
+   3.3  Structured Exception Handling (SEH)
+   3.4  Long Filenames (LFN)
+   3.5  Threads
+   3.6  Pipes
+   3.7  File Mapping
+   3.8  Debugging API
+   3.9  Virtual Memory
+   3.10 Devices
+   3.11 Detecting DKRNL32
+  4.    Environment Variables known by DKRNL32
+   4.1  Variable DKRNL32
+   4.2  Variable TZ
+   4.3  Variables DKRNLLOG and DKRNLDBG
+  5.    Function List
+  6.    History
+  7.    License
+
+
+  1. About
+
+  DKRNL32.DLL is the main part of HX DOS extender's Win32 emulation.
+  It will be loaded by PE loader DPMILD32.EXE instead of KERNEL32.DLL.
+
+
+  2. Requirements
+
+  DKRNL32 expects to find the following environment:
+
+  þ CPU: 80386+, FPU optional. 
+  þ DOS: version >= 5. FAT32 and LFN support optional.
+  þ DPMI: version 0.9, full API translation for int 21h,
+    CS,SS,DS,ES=flat, FS=unused. Version 1.0 optional.
+  þ DPMILD32: version >= 3.3, used for dynamic link support, optional.
+  þ Keyboard: KB controller 8042 at IRQ 1, direct hardware access
+    + keyboard BIOS variable in segment 0040h.
+  þ Mouse: int 33h (optional)
+  þ Video: VGA (text mode only), direct hardware access
+    + video BIOS variable in segment 0040h.
+  þ Timer: RTC timer at IRQ 8, direct hardware access
+    + PIT timer BIOS variable in segment 0040h (optional).
+  þ Serial: DOS device AUX/COMx (optional)
+  þ Printer: DOS devices PRN/LPTx (optional)
+  þ ASPI: DOS device SCSIMGR$ (optional)
+
+  When DKRNL32.DLL is loaded, it requires about 96 kB memory.
+
+
+  3. Win32 Emulation Notes
+
+  3.1 Shared File Access
+
+  The Win32 file access API is implemented, of course, but when running
+  in plain DOS there may be no SHARE.EXE installed, because AFAIK there
+  is none available for versions of MS-DOS supporting FAT32. This may
+  cause an application to behave differently if a file is accessed by more
+  than one handle (it needn't be a file on a network drive!). For FreeDOS
+  there is a SHARE.COM available which works with FAT32, but some versions
+  are buggy. Then try http://www.japheth.de/Download/share.zip [FreeDOS only].
+
+  3.2 Time Zones
+
+  To ensure that the time functions work properly you should set
+  environment variable TZ. Please note that DKRNL32 currently ignores
+  the daylight saving rules.
+
+  3.3 Structured Exception Handling (SEH)
+
+  SEH is supported, but due to some differences between Win32 and DOS
+  memory organization there may exist Win32 apps which cannot run in DOS.
+  The most remarkable difference is that linear address region 0-FFFFh
+  is committed memory in DOS and will not cause a page exception.
+
+  If FPU error conditions cause an exception 10h in the DPMI client, they
+  are fully compatible with SEH as implemented by DKRNL32. Regretably most
+  servers don't do it that way, instead they report FPU errors by IRQ 13
+  (interrupt 75h), even if this interrupt is masked - thus causing the
+  machine to hang. HDPMI since version 1.8.7 by default set the NE bit
+  in CR0, which is required to generate FPU exception 10h.
+
+  3.4 Long Filenames (LFN)
+
+  DKRNL32 will always try to use the LFN versions of DOS file functions.
+  If these calls return with an error indicating LFN is not installed, 
+  the older, non-LFN versions are used. 
+   When running on NT platforms, the situation is slightly different. Here
+  LFN support is installed, but no translation services for protected mode
+  applications are implemented. For DKRNL32 versions < 2.8.16 this meant
+  that LFN didn't work on NT/2K/XP. Since version 2.8.16 DKRNL32 will 
+  install its own translation services in this case (NTLFNHLP) and thus
+  LFN works.
+
+  3.5 Threads
+
+  The thread API implementation in DKRNL32 requires the DPMI server to
+  preserve the TF flag when switching back from the locked stack. This is
+  true for the Windows 9x built-in server, HDPMI and DPMIONE. It doesn't
+  work with NT/2K/XP's DOSX, though, but this may be not too relevant
+  because the binary usually will run as Win32 app and DKRNL32 isn't
+  involved then. For DOSEMU it will possibly work with versions > 1.3.3 only.
+
+  Some thread functions are non-functional, setting the thread priority
+  will possibly not make any difference.
+
+  Furthermore, the dispatcher is implemented in ring 3. So if some code
+  stores values below current ESP (i.e. at [esp-4]), it may be destroyed
+  if threads are switched. 
+
+  3.6 Pipes
+
+  There is some very basic support for anonymous pipes in DKRNL32. 
+  CreatePipe will create a file in the temp directory and open 2 handles,
+  one with read-only, the other with write-only access to this file. 
+  The handles returned by CreatePipe may be used inside the process or
+  by CreateProcess to redirect the childs output to the "pipe". Presumably
+  this requires shared file access to be installed (see note 3.1). 
+   This support is very limited, but since there is currently no support for
+  multiple processes in HX, pipes cannot be used as in Win32.
+
+  3.7 File Mapping
+
+  The File Mapping API is implemented, but if it is to be used as
+  interprocess communication means it will possibly not work as expected,
+  since processes will not run concurrently. Furthermore, if a file is 
+  mapped more than once, support for shared file access should be installed
+  to make this work as expected (see note 3.1).
+  
+  3.8 Debugging API
+
+  The Win32 debugging API is implemented as dummies. So Win32 debuggers
+  running in console mode (TD32, some versions of GDB) will not run with
+  DKRNL32. Since HX supports the Open Watcom full screen debugger WD,
+  there are currently no plans to implement this API.
+
+  3.9 Virtual Memory
+
+  The virtual memory API is supported, but the DPMI 0.9 specification 
+  doesn't define calls for allocating uncommitted memory or to allocate
+  memory at a given linear address. This may result in some Win32 API
+  calls to fail or increased committed memory consumption if DKRNL32 is
+  running on 0.9 hosts not installing these functions.
+
+  3.10 Devices
+
+  The CreateFile() implementation knows these "devices":
+
+  - "\\.\VWIN32" : Win9x VWIN32 device to access certain DOS interrupts
+  - "\\.\APIX"   : Win9x APIX device for ASPI interface access
+  - "\\.\PhysicalDriveX": WinNT way to access physical disks
+  - "\\.\X:"            : WinNT way to access drives
+
+  The DeviceIoControl() implementation knows these NT control codes:
+
+  -  IOCTL_DISK_GET_DRIVE_GEOMETRY
+  -  IOCTL_DISK_GET_DRIVE_GEOMETRY_EX
+
+  if used for physical disks handles.
+
+  The APIX device usually isn't accessed directly, but through WNASPI32.DLL,
+  a dll located in the windows system directory. There exist quite some
+  versions of this dll and some may not work with HX. The versions included
+  in Windows 95b/98 do work, the version from Adaptec is using unknown
+  control codes and therefore doesn't work!
+  The APIX emulation requires a DOS ASPI driver (ASPI.SYS) to be loaded
+  in config.sys, which must install a DOS device named "SCSIMGR$".
+  Due to restrictions of the DOS driver model one may get problems burning
+  CDs with high speed. In any case there should be no HD cache (SMARTDRV,
+  LBACACHE,...) active when burning. OTOH, installing tools like UDMA/XDMA
+  should improve things and is recommended.
+
+  3.11 Detecting DKRNL32
+
+  To detect that DKRNL32.DLL is running a program may use Win32 API
+  GetVersionExA. DKRNL32 will return 2222 in low word of 
+  OSVERSIONINFO.dwBuildNumber - this is the same as Windows 98 SE - and 
+  OSVERSIONINFO.szCSDVersion[0] will be 0.
+  Since version 2.8.28 one can detect DKRNL32 by calling GetProcAddress
+  with string "GetDKrnl32Version". If this call returns with EAX != 0,
+  DKRNL32 is installed, and calling this address will return the current
+  DKRNL32 version, the major version no in AL, the minor version no in AH 
+  and any subminor version no in HIWORD(EAX).
+
+
+  4. Environment Variables known by DKRNL32
+
+  4.1 Variable DKRNL32
+
+  When initializing DKRNL32.DLL will read environment variable DKRNL32.
+  The value must be a number (for example, DKRNL32=1), which consists of
+  individual bits (or flags). The following flags are currently known:
+
+  0001: 1=DKRNL32 remains active when a new process is starting. If set 
+        to 0 (the default), DKRNL32 disables its IRQ handlers just before
+        a new process is launched and reenables them when the process has
+        finished. This avoids possible conflicts, but may be unwanted if
+        the launching Win32 application shall provide services for the
+        new process (kind of a "Win32 TSR") or must stay active for other
+        reasons.
+  0002: 1=DKRNL32 does not hook exceptions 1 and 3. This might be useful
+        if the application is to run under a debugger.
+  0004: 1=threads will get full default stack size. 0=threads get a
+        default stack size of 96 kB.
+  0008: not used.
+  0016: 1=DKRNL32 will always use the RTC for GetTickCount, the PIT timer
+        isn't used at all then.
+  0032: 1=DKRNL32 will hook no exceptions (for debugging).
+
+  4.2 Variable TZ
+
+  With this variable the time zone is set.
+
+  4.3 Variables DKRNLLOG and DKRNLDBG
+
+  DKRNLLOG is only useful if a debug version of a Win32 dll must
+  be tested. It will redirect debug output of this dll to the file defined
+  with this variable, for example:
+
+  SET DKRNLLOG=C:\TEMP\DKRNL32.LOG
+
+  DKRNLDBG are various flags for fine-tuning debug output. It is useful
+  only if a debug version of DKRNL32 itself is tested.
+
+
+  5. Function List
+
+  The following functions are currently exported by DKRNL32.DLL. The
+  behaviour is not always exactly identical compared with their Win32
+  conterparts. Some procs are just dummies. For more details you will
+  need HXSRC package, which contains the full MASM source code.
+
+
+  Function                       Comment
+ ---------------------------------------------------------------------------
+  AddAtomA
+  AllocConsole
+  AreFileApisANSI
+  AttachConsole
+  BackupRead                     dummy
+  BackupSeek                     dummy
+  BackupWrite                    dummy
+  Beep
+  Borland32
+  BuildCommDCB
+  BuildCommDCBAndTimeouts
+  CancelIo
+  CancelWaitableTimer
+  ClearCommBreak
+  ClearCommError
+  CloseHandle
+  CmdBatNotification             dummy
+  CompareFileTime
+  CompareStringA
+  CompareStringW
+  ContinueDebugEvent             dummy 
+  CopyFileA
+  CopyFileW
+  CreateConsoleScreenBuffer
+  CreateDirectoryA
+  CreateDirectoryW
+  CreateDirectoryExA
+  CreateDirectoryExW
+  CreateEventA
+  CreateEventW
+  CreateFileA
+  CreateFileW
+  CreateFileMappingA 
+  CreateFileMappingW
+  CreateMailslotA                dummy
+  CreateMutexA
+  CreateMutexW
+  CreateNamedPipeA               dummy
+  CreatePipe
+  CreateProcessA
+  CreateProcessW
+  CreateSemaphoreA
+  CreateSemaphoreW
+  CreateSocketHandle
+  CreateTapePartition            dummy
+  CreateThread
+  CreateToolhelp32Snapshot
+  CreateWaitableTimerA
+  DebugActiveProcess             dummy 
+  DebugBreak
+  DefineDosDeviceA               dummy
+  DeleteAtom
+  DeleteCriticalSection
+  DeleteFileA
+  DeleteFileW
+  DeviceIoControl
+  DisableThreadLibraryCalls
+  DosDateTimeToFileTime
+  DuplicateHandle                file handles only
+  EnterCriticalSection
+  EnumCalendarInfoA              dummy 
+  EnumResourceLanguagesA
+  EnumResourceNamesA
+  EnumResourceTypesA
+  EnumSystemLocalesA             dummy
+  EnumSystemLocalesW             dummy
+  EraseTape                      dummy
+  EscapeCommFunction
+  ExitProcess
+  ExitThread
+  ExpandEnvironmentStringsA
+  ExpandEnvironmentStringsW
+  FatalAppExitA
+  FileTimeToDosDateTime
+  FileTimeToLocalFileTime
+  FileTimeToSystemTime
+  FillConsoleOutputAttribute
+  FillConsoleOutputCharacterA
+  FillConsoleOutputCharacterW
+  FindAtomA
+  FindClose
+  FindFirstFileA
+  FindFirstFileW
+  FindNextFileA
+  FindNextFileW
+  FindResourceA
+  FindResourceW
+  FindResourceExA
+  FindResourceExW
+  FlushConsoleInputBuffer
+  FlushFileBuffers
+  FlushViewOfFile
+  FormatMessageA
+  FormatMessageW
+  FreeConsole
+  FreeEnvironmentStringsA
+  FreeEnvironmentStringsW
+  FreeLibrary
+  FreeResource
+  GenerateConsoleCtrlEvent
+  GetACP
+  GetAtomNameA
+  GetBinaryTypeA
+  GetBinaryTypeW
+  GetCPInfo
+  GetCommConfig
+  GetCommMask
+  GetCommProperties
+  GetCommState
+  GetCommTimeouts
+  GetCommandLineA
+  GetCommandLineW
+  GetCommModemStatus
+  GetCompressedFileSizeA
+  GetComputerNameA
+  GetConsoleCP
+  GetConsoleCursorInfo
+  GetConsoleMode
+  GetConsoleOutputCP
+  GetConsoleScreenBufferInfo
+  GetConsoleTitleA               dummy
+  GetConsoleTitleW               dummy
+  GetCurrentDirectoryA
+  GetCurrentDirectoryW
+  GetCurrentProcess
+  GetCurrentProcessId
+  GetCurrentThread
+  GetCurrentThreadId
+  GetDateFormatA
+  GetDateFormatW
+  GetDiskFreeSpaceA
+  GetDiskFreeSpaceW
+  GetDiskFreeSpaceExA
+  GetDiskFreeSpaceExW
+  GetDriveTypeA                  
+  GetDriveTypeW
+  GetEnvironmentStrings
+  GetEnvironmentStringsA
+  GetEnvironmentStringsW
+  GetEnvironmentVariableA
+  GetEnvironmentVariableW
+  GetExitCodeProcess
+  GetExitCodeThread
+  GetFileAttributesA
+  GetFileAttributesW
+  GetFileAttributesExA
+  GetFileAttributesExW
+  GetFileInformationByHandle
+  GetFileSize
+  GetFileSizeEx
+  GetFileTime
+  GetFileType
+  GetFullPathNameA
+  GetFullPathNameW  
+  GetLargestConsoleWindowSize
+  GetLastError
+  GetLocaleInfoA
+  GetLocaleInfoW
+  GetLocalTime
+  GetLogicalDrives
+  GetLogicalDriveStringsA
+  GetMailslotInfo                dummy
+  GetModuleFileNameA
+  GetModuleFileNameW
+  GetModuleHandleA
+  GetModuleHandleW
+  GetNamedPipeHandleStateA       dummy
+  GetNumberFormatA               dummy
+  GetNumberFormatW               dummy
+  GetNumberOfConsoleInputEvents
+  GetNumberOfConsoleMouseButtons
+  GetOEMCP
+  GetOverlappedResult
+  GetPrivateProfileIntA
+  GetPrivateProfileSectionA
+  GetPrivateProfileSectionNamesA
+  GetPrivateProfileStringA
+  GetProcAddress
+  GetProcessHeap
+  GetProcessTimes                dummy
+  GetProcessVersion
+  GetProcessAffinityMask         dummy
+  GetProcessWorkingSetSize       dummy
+  GetShortPathNameA
+  GetShortPathNameW
+  GetStartupInfoA
+  GetStartupInfoW
+  GetStdHandle
+  GetStringTypeA
+  GetStringTypeExA
+  GetStringTypeExW
+  GetStringTypeW
+  GetSystemDefaultLangID
+  GetSystemDefaultLCID
+  GetSystemDefaultUILanguage
+  GetSystemDirectoryA
+  GetSystemDirectoryW
+  GetSystemInfo
+  GetSystemTime
+  GetSystemTimeAdjustment
+  GetSystemTimeAsFileTime
+  GetSystemWindowsDirectoryA
+  GetSystemWindowsDirectoryW
+  GetTapeParameters              dummy
+  GetTapePosition                dummy
+  GetTapeStatus                  dummy
+  GetTempFileNameA
+  GetTempFileNameW
+  GetTempPathA
+  GetTempPathW
+  GetThreadContext
+  GetThreadLocale
+  GetThreadPriority
+  GetThreadSelectorEntry
+  GetTickCount
+  GetTimeFormatA
+  GetTimeFormatW
+  GetTimeZoneInformation
+  GetUserDefaultLangID
+  GetUserDefaultLCID
+  GetUserDefaultUILanguage
+  GetVDMCurrentDirectories       dummy
+  GetVersion
+  GetVersionExA
+  GetVolumeInformationA
+  GetVolumeInformationW
+  GetWindowsDirectoryA
+  GetWindowsDirectoryW
+  GlobalAddAtomA
+  GlobalAddAtomW
+  GlobalAlloc
+  GlobalCompact                  dummy
+  GlobalFlags                    dummy
+  GlobalFree
+  GlobalGetAtomNameA
+  GlobalGetAtomNameW
+  GlobalHandle
+  GlobalLock
+  GlobalMemoryStatus
+  GlobalReAlloc
+  GlobalSize
+  GlobalUnlock
+  Heap32First                    dummy
+  Heap32ListFirst                dummy
+  Heap32ListNext                 dummy
+  Heap32Next                     dummy
+  HeapAlloc
+  HeapCompact
+  HeapCreate
+  HeapDestroy
+  HeapFree
+  HeapLock
+  HeapReAlloc
+  HeapSize
+  HeapUnlock
+  HeapValidate
+  HeapWalk
+  InitializeCriticalSection
+  InitializeCriticalSectionAndSpinCount
+  InterlockedCompareExchange
+  InterlockedDecrement
+  InterlockedExchange
+  InterlockedIncrement
+  IsBadCodePtr
+  IsBadReadPtr
+  IsBadStringPtrA
+  IsBadStringPtrW
+  IsBadWritePtr
+  IsDBCSLeadByte
+  IsDBCSLeadByteEx
+  IsDebuggerPresent
+  IsProcessorFeaturePresent
+  IsValidCodePage
+  IsValidLocale
+  LCMapStringA
+  LCMapStringW
+  LeaveCriticalSection
+  LoadLibraryA
+  LoadLibraryExA
+  LoadLibraryExW
+  LoadLibraryW
+  LoadResource
+  LocalAlloc
+  LocalFileTimeToFileTime
+  LocalFlags                     dummy
+  LocalFree
+  LocalLock
+  LocalReAlloc
+  LocalSize
+  LocalUnlock
+  LockFile
+  LockFileEx                     dummy
+  LockResource
+  MapViewOfFile
+  MapViewOfFileEx
+  Module32First
+  Module32Next
+  MoveFileA
+  MoveFileExA
+  MoveFileExW
+  MoveFileW
+  MulDiv
+  MultiByteToWideChar
+  NtCurrentTeb
+  OpenEventA
+  OpenEventW
+  OpenFile
+  OpenFileMappingA
+  OpenFileMappingW
+  OpenMutexA                     dummy
+  OpenMutexW                     dummy
+  OpenProcess                    dummy
+  OpenSemaphoreA
+  OpenWaitableTimerA
+  OutputDebugStringA
+  OutputDebugStringW
+  PeekConsoleInputA
+  PeekConsoleInputW
+  PeekNamedPipe
+  PrepareTape                    dummy
+  Process32First
+  Process32Next                  dummy 
+  PulseEvent
+  PurgeComm
+  QueueUserAPC
+  QueryDosDeviceA                dummy
+  QueryPerformanceCounter
+  QueryPreformanceFrequency      dummy
+  RaiseException
+  ReadConsoleA
+  ReadConsoleW
+  ReadConsoleInputA
+  ReadConsoleInputW
+  ReadConsoleOutputA
+  ReadConsoleOutputW
+  ReadConsoleOutputAttribute
+  ReadConsoleOutputCharacterA
+  ReadConsoleOutputCharacterW
+  ReadFile
+  ReadProcessMemory
+  ReleaseMutex
+  ReleaseSemaphore
+  RemoveDirectoryA
+  RemoveDirectoryW
+  RequestWakeupLatency
+  ResetEvent
+  ResumeThread
+  RtlExAllocateHeap
+  RtlExFreeHeap
+  RtlExReAllocateHeap
+  RtlFillMemory
+  RtlGetNtVersionNumbers
+  RtlMoveMemory
+  RtlUnwind
+  RtlZeroMemory
+  ScrollConsoleScreenBufferA
+  ScrollConsoleScreenBufferW
+  SearchPathA
+  SearchPathW
+  SetCommBreak
+  SetCommConfig
+  SetCommMask
+  SetCommState
+  SetCommTimeouts
+  SetConsoleActiveScreenBuffer
+  SetConsoleCP
+  SetConsoleCtrlHandler
+  SetConsoleCursorInfo
+  SetConsoleCursorPosition
+  SetConsoleMode
+  SetConsoleOutputCP
+  SetConsoleScreenBufferSize
+  SetConsoleTextAttribute
+  SetConsoleTitleA               dummy
+  SetConsoleTitleW               dummy
+  SetConsoleWindowInfo
+  SetCurrentDirectoryA
+  SetCurrentDirectoryW
+  SetEndOfFile
+  SetEnvironmentVariableA
+  SetEnvironmentVariableW
+  SetErrorMode
+  SetEvent
+  SetFileApisToANSI              dummy
+  SetFileApisToOEM               dummy
+  SetFileAttributesA
+  SetFileAttributesW
+  SetFilePointer
+  SetFilePointerEx
+  SetFileTime
+  SetHandleCount
+  SetHandleInformation           dummy
+  SetLastError
+  SetLocalTime                   dummy
+  SetMailslotInfo                dummy
+  SetNamedPipeHandleState        dummy
+  SetPriorityClass               dummy
+  SetProcessAffinityMask         dummy
+  SetProcessWorkingSetSize       dummy
+  SetStdHandle
+  SetSystemTime                  dummy
+  SetTapeParameters              dummy
+  SetTapePosition                dummy
+  SetThreadAffinityMask          dummy
+  SetThreadContext
+  SetThreadLocale                dummy
+  SetThreadPriority
+  SetUnhandledExceptionFilter
+  SetupComm
+  SetVolumeLabelA                dummy
+  SetWaitableTimer
+  SizeofResource
+  Sleep
+  SuspendThread
+  SwitchToThread
+  SystemTimeToFileTime
+  SystemTimeToTzSpecificLocalTime
+  TerminateProcess               dummy
+  TerminateThread
+  Thread32First                  dummy  
+  Thread32Next                   dummy
+  TlsAlloc                       maximum 64 slots
+  TlsFree
+  TlsGetValue
+  TlsSetValue
+  TransmitCommChar
+  UnhandledExceptionFilter
+  UnlockFile
+  UnlockFileEx                   dummy
+  UnmapViewOfFile
+  VirtualAlloc
+  VirtualFree
+  VirtualLock
+  VirtualProtect
+  VirtualQuery                   
+  VirtualQueryEx                 dummy
+  VirtualUnlock
+  WaitCommEvent
+  WaitForDebugEvent              dummy
+  WaitForMultipleObjects
+  WaitForMultipleObjectsEx
+  WaitForSingleObject
+  WaitForSingleObjectEx
+  WaitNamedPipeA                 dummy
+  WideCharToMultiByte
+  WinExec
+  WriteConsoleA
+  WriteConsoleW
+  WriteConsoleInputA
+  WriteConsoleOutputA
+  WriteConsoleOutputAttribute
+  WriteConsoleOutputCharacterA
+  WriteConsoleOutputCharacterW
+  WriteConsoleOutputW
+  WriteFile
+  WriteFileEx
+  WritePrivateProfileStringA
+  WriteProfileStringA            dummy
+  WriteProcessMemory
+  WriteTapemark                  dummy
+  _lclose
+  _lcreat
+  _llseek
+  _lopen
+  _lread
+  _lwrite
+  lstrcat
+  lstrcatA
+  lstrcatW
+  lstrcmp
+  lstrcmpA
+  lstrcmpW
+  lstrcmpi
+  lstrcmpiA
+  lstrcmpiW
+  lstrcpy
+  lstrcpyA
+  lstrcpyn
+  lstrcpynA
+  lstrcpynW
+  lstrcpyW
+  lstrlen
+  lstrlenA
+  lstrlenW
+
+
+  6. History
+
+  01/05/2014: version 3.5
+
+  þ bugfix: DuplicateHandle() didn't work for mutexes and waitable timers.
+  þ bugfix: the kernel heap was defined incorrectly, which raised the risk
+    that part of its content was corrupted if an application created lots
+    of kernel objects.
+  þ bugfix: low-level disk write access (LBA) was often rejected because
+    invalid flags may have been set for int 13h, ah=43h.
+  þ GlobalAddAtomW() added.
+  þ GetNumberFormatW() added (stub).
+  þ GetCurrencyFormatA() + GetCurrencyFormatW() added (stubs).
+  þ OpenWaitableTimerA() added.
+  þ heaps are now serialized with a mutex instead of a semaphore.
+  þ the default exception handler will display contents of CS:EIP and SS:ESP.
+  þ SetEvent() will switch threads if a thread is waiting for the event.
+  þ mouse wheel events supported
+  þ save/restore FS register when another program is launched. This is needed
+    when DPMILD32 is to run another Win32 application in the same client.
+  þ bugfix: WaitForSingleObject/WaitForMultipleObjects didn't set last error
+    when returning WAIT_FAILED.
+  þ bugfix: WriteConsoleOutputA/W didn't calculate the intersect correctly.
+  þ bugfix: CreateFile() for physical disks did always succeed for disks 0-9.
+
+  11/16/2009: version 3.4
+
+  þ bugfix: GetFileType() didn't set last error, thus making return value
+    of FILE_TYPE_UNKNOWN ambiguous.
+  þ bugfix: virtual key codes were wrong for numpad-0 - numpad-9 if
+    NUMLOCK was on.
+  þ bugfix: GetDateFormat() and GetTimeFormat() caused buffer overflows.
+  þ bugfix: SetCurrentDirectory() sometimes didn't work.
+  þ bugfix: FormatMessage() max line length handling was wrong.
+  þ bugfix: ack from kbd (0FAh) during LED update wasn't ignored.
+  þ bugfix: WritePrivateProfileString() failed if file didn't exist yet.
+  þ bugfix: GetPrivateProfileSectionNames() returned size 1 too high.
+  þ bugfix: adding a new key with WritePrivateProfileString() did delete
+    all following sections.
+  þ bugfix: Peek-/ReadConsoleInput(): pressed right ALT key has to set
+    status RIGHT_ALT_PRESSED *and* LEFT_CTRL_PRESSED for 100% Windows 
+    compatibility. The latter wasn't implemented.
+  þ bugfix: GetPrivateProfileSectionA() skipped lines which didn't follow
+    the <key>=<value> format.
+  þ GetBinaryTypeW added.
+  þ GetVDMCurrentDirectories, CmdBatNotification added (dummies).
+  þ support for LOCALE_SSHORTDATE implemented.
+  þ GetLocaleInfoW implemented (was previously a dummy).
+  þ switch DKRNL32=8 removed.
+  þ DefineDosDeviceA added (dummy).
+  þ WritePrivateProfileString(): deleting a section/key is now supported.
+  þ GetProcessTimes() now returns some values if process handle is
+    valid.
+  þ GetThreadSelectorEntry() implemented.
+  þ IsProcessorFeaturePresent() activated.
+  þ SetFilePointer(), parameter 'origin': validity check added.
+  þ HeapSize(): small check for released items implemented. It's still
+    unable to catch most error conditions.
+  þ HeapSetInformation() added (stub)
+  þ EncodePointer, DecodePointer added (stubs)
+  þ RtlUnWind: made compatible with SEH of Borland C++.
+  þ GetSystemWindowsDirectoryA/W added.
+  þ FindResourceExW added.
+
+  01/20/2009: version 3.3
+
+  þ source assembled with JWasm.
+  þ bugfix: thread idle detection code might have caused a GPF.
+  þ bugfix: exception handler destroyed content of application's EFlags
+    register.
+  þ bugfix: physical disk access didn't work with non-LBA HDs.
+  þ bugfix: source of v3.2 gave assembly errors, STARTUPINFO changed to
+    STARTUPINFOA.
+  þ DeviceIoControl: support for IOCTL_STORAGE_CHECK_VERIFY
+
+  03/02/2008: version 3.2
+
+  þ bugfix: IOCTL_DISK_GET_DRIVE_GEOMETRY_EX didn't return the drive
+    parameters due to an alignment error.
+  þ bugfix: dkrnl's exception handler destroyed content of EAX.
+  þ bugfix: the CreateThread's "stack size" parameter was interpreted
+    as full size of stack, but it is meant as committed size only.
+  þ stack guard page implemented if DKRNL32 runs on HDPMI, which may
+    reduce the memory footprint of threads significantly.
+  þ value at FS:[8] now holds the committed stack bottom as in Win32.
+  þ committing a previously reserved large memory block does not longer
+    require + use large stack space.
+  þ bugfix: SearchPath() no longer fails if a full path is given as filename.
+  þ another PIT timer fix. Now the timer counter is just read again if a
+    wrap occured during the read.
+  þ exception 11h is caught and translated to EXCEPTION_DATATYPE_MISALIGNMENT.
+  þ bugfix: FormatMessageA() interpreted the nSize parameter wrong if a buffer
+    is to be allocated.
+  þ bugfix: FormatMessageW() did allocate the buffer in bytes, not words.
+  þ bugfix: DKRNL32 initialization disabled a possibly installed FPU emulator.
+  þ DKRNL32 will call the DPMILD32 API only if DPMILD32 is present.
+  þ switch DKRNL32=32 added.
+  þ bugfix: GetDiskFreeSpace/GetDiskFreeSpaceEx was restricted to 2 GB in
+    MS-DOS (not in FreeDOS).
+  þ bugfix: GetLocaleInfo returned codepages in hexadecimal (ie. 352 instead
+    of 850).
+  þ GetLocaleInfo: added support for 
+    - LOCALE_ICOUNTRY
+    - LOCALE_STHOUSAND, LOCALE_SDECIMAL,
+    - LOCALE_SCURRENCY, LOCALE_ICURRENCY, LOCALE_ICURRDIGITS,
+    - LOCALE_SDATE, LOCALE_IDATE, LOCALE_ILDATE,
+    - LOCALE_STIME, LOCALE_ITIME.
+  þ GetStartupInfoW added.
+  þ WaitForSingleObjectEx/WaitForMultipleObjectEx: parameter "Alertable" == 1
+    is now supported.
+
+  01/11/2008: version 3.1
+
+  þ WriteFileEx added.
+  þ CancelIo, GetOverlappedResult implemented.
+  þ bugfix: GetDiskFreeSpaceW didn't expect NULL as first parameter
+  þ GetDiskFreeSpaceExW added.
+  þ Ctrl-Break signal handling is now always done by a separate thread.
+    If there is no thread when int 23h is called, it is created on the fly.
+  þ bugfix: BREAK was set to off and not restored on exit.
+  þ new DKRNL32 environment switch 0008 will cause DKRNL32 to disable the
+    keyboard before reading port 60h. This might make the keyboard work better
+    in virtual machines which don't emulated this device correctly (Qemu).
+  þ bugfix: 2 dwords should be reserved at the stack top, but this wasn't
+    true in v3.0.0 after ExitProcess has been called. Problem: Delphi 
+    generates an exception 0eh.
+  þ better protection of text screen resolution changes against buggy BIOSes.
+  þ bugfix [OMF dkrnl32s.lib only]: InitStaticTLSthread was not deactive.
+  þ bugfix [OMF dkrnl32s.lib only]: GPF on init when clearing TIB.
+  þ bugfix [OMF dkrnl32s.lib only]: GPF in Ctrl-Break handler.
+  þ bugfix: GetFileAttributes("C:\") failed (should return DIRECTORY attr).
+  þ UTF-16 "box drawing" support implemented for WriteConsoleOutputW()
+  þ bugfix: GetFileInformationByHandle, file times weren't set to zero
+    if times not available.
+  þ OpenProcess, TerminateProcess will now work with current process.
+  þ bugfix: Process32First didn't return filename and process id was wrong.
+  þ WriteProfileStringA added (dummy)
+  þ GetPrivateProfileStringW, WritePrivateProfileStringW added
+  þ GetStringTypeExW added
+  þ OpenEventW added
+  þ EnumSystemLocalesW added (dummy)
+  þ SwitchToThread added
+  þ bugfix: CreateFile didn't set last error if CREATE_ALWAYS or OPEN_ALWAYS
+    was set and function succeeded (ZERO or ERROR_ALREADY_EXISTS).
+  þ DeviceIoControl now understands IOCTL_DISK_GET_DRIVE_GEOMETRY and
+    IOCTL_DISK_GET_DRIVE_GEOMETRY_EX.
+  þ low-level disk access with \\.\PhysicalDriveN and \\.\X: implemented.
+  þ bugfix: SetFilePointer: offsets >= 100000000h will return an error now.
+    Previously the higher 32bits were just ignored.
+  þ the kernel heap can grow now and its default size is smaller.
+  þ timer used for thread switching is now created and deleted just once.
+  þ bugfix: ResumeThread() might have caused all but one thread to be
+    inactive.
+  þ CreateDirectoryExW added
+  þ option DKRNL32=16 added to allow to avoid using the PIT timer.
+  þ if the PIT timer is used - which is standard when running in true DOS -
+    it's no longer assumed that counter mode 3 is set. 
+  þ GetSystemTimeAdjustment now implemented
+  þ SystemTimeToTzSpecificLocalTime added
+
+  07/15/2007: version 3.0
+
+  þ function GetSystemDefaultUILanguage was missing.
+  þ GetSystemDefaultUILanguage/GetUserDefaultUILanguage now return the
+    same value as GetSystemDefaultLangID/GetUserDefaultLangID.
+  þ bugfix: GetFullPathNameW has caused a GPF if lpFilePart param was NULL.
+  þ TIB now handled entirely by DKRNL32. Furthermore, each thread gets
+    its own TIB (previously there was just one and values were copied on
+    thread switches) and its own selector for FS.
+  þ RequestWakeupLatency added (dummy).
+  þ GlobalHandle and LocalHandle now call HeapValidate() for the handle.
+    Previously they didn't check if the handle was valid.
+  þ ReadConsoleOutputW, ReadConsoleOutputCharacterW added.
+  þ WritePrivateProfileSectionA added.
+  þ GetComputerNameW added.
+  þ implementation of toolhelp functions improved.
+  þ bugfix: ReadConsole implementation changed. It no longer uses int 16h,
+    but ReadConsoleInput.
+  þ bugfix: GetVolumeInformation with lpFileSystemNameBuffer parameter == NULL
+    caused a GPF.
+  þ SetProcessShutdownParameters added (dummy). 
+  þ GetWindowsDirectory now returns directory where DKRNL32 has been loaded
+    from. Previously it returned fix "C:\", but some applications don't expect
+    this string to end with a backslash.
+  þ mouse wheel support prepared.
+  þ last error now stored in TIB (Win9x compatible).
+  þ bugfix: GetProcessVersion didn't work and often caused a GPF.
+  þ bugfix: static TLS was handled for the main thread only.
+  þ ReadFile changed so that if it reads from std input it doesn't has to
+    wait in DOS.
+  þ _hread, _hwrite added (synonyms for _lread, _lwrite).
+  þ GetFileInformationByHandle now uses the SFT to get file attributes
+    if int 21h, ax=71A6h failed (which fails even if DOSLFN is loaded!).
+
+  03/15/2007: version 2.9.13
+
+  þ bugfix: CreateProcess didn't set last error.
+  þ bugfix: SetFilePointerEx returned -1 for failure, and if parameter 3
+    was NULL it caused a GPF.
+  þ bugfix: FlushConsoleInputBuffer may have caused a lock.
+  þ bugfix: ReadConsoleInput with a buffer > 1 returned only after
+    buffer has been filled, not just after at least 1 event has been read.
+  þ to determine the end of process initialization, int 41h is hooked.
+    Previously DKRNL32 relied on a flag set by DPMILD32 in the image's
+    MZ header.
+  þ DKRNL32 does no longer use image's MZ header to store the PROCESS object.
+  þ ExitProcess switches to application stack before running int 21h, ah=4Ch.
+  þ resource id names starting with '#' now supported.
+  þ ReadConsoleInputW implemented, PeekConsoleInputW and WriteConsoleInputW
+    added.
+  þ IsBadStringPtrW added, IsBadCodePtr implemented.
+  þ int 21h is hooked to catch ah=4Ch. This improves stability on exit if
+    the call is done from outside of DKRNL32.
+  þ LocalHandle added (dummy)
+  þ ReadFile/WriteFile now handle an "Overlapped" parameter <> NULL.
+  þ GetSystemDirectory now returns directory where DKRNL32 has been loaded
+    from, not the current directory.
+  þ GlobalGetAtomNameW added.
+  þ DKRNL32 uses new DPMILD32 API int 21h, ax=4b95h to set a "system 
+    directory" (which is searched when loading dlls just before the PATH
+    is scanned).  
+
+  12/14/2006: version 2.9.12
+
+  þ bugfix: calling ReadFile/WriteFile with a handle of -1 caused a GPF.
+  þ bugfix: if huge amounts of memory where allocated and application stack
+    was relatively small, there could have been a stack overflow inside
+    VirtualAlloc if a thread switch occured.
+  þ CreateMailslotA, GetMailslotInfo, SetMailslotInfo added (dummies)
+  þ some values returned by GetSystemInfo adjusted:
+     dwAllocationGranularity     now 0x10000, prev. 0x1000
+     lpMinimumApplicationAddress now 0x110000, prev. 0x10000
+     lpMaximumApplicationAddress now 0xFEFFFFFF, prev. 0xFFFFFFFF
+     wProcessorLevel             now cpu 3/4/5, prev. 0
+  þ bugfix: some functions which expect a process handle as parameter
+    failed because the handle was regarded as invalid.
+  þ CreateSemaphoreW added
+  þ GetDateFormatW, GetTimeFormatW added
+  þ GetFileSizeEx, GetDiskFreeSpaceW, SetFilePointerEx added
+  þ new value 2 for DKRNL32 environment variable
+
+  10/15/2006: version 2.9.11
+
+  þ bugfix: FillConsoleOutputAttribute/FillConsoleOutCharacterA caused
+    a crash if length parameter was zero.
+  þ bugfix: space used by items released by HeapFree was not recovered
+    in all cases.
+  þ bugfix: in HeapRealloc, if item size growed and was able to grow
+    in place, it may have corrupted heap. 
+  þ bugfix: GlobalFree/LocalFree returned eax == 1 on success and
+    NULL on failure.
+  þ bugfix: calling ReadFile() with an anonymous pipe handle will now wait
+    if pipe is empty (might require SHARE to be loaded!).
+  þ SetThreadPriority with a value THREAD_PRIORITY_TIME_CRITICAL *2 
+    will prevent thread switches. This is a hack for HXGUIHLP when it
+    is showing it's menu (and will most likely be changed).
+  þ FillConsoleOutputCharacterW, ScrollConsoleScreenBufferW added
+  þ GetVolumeInformationW added
+  þ GetPrivateProfileSectionA added
+  þ Environment variable DKRNL32 implemented. Value 1 is valid.
+
+  09/14/2006: version 2.9.10
+
+  þ WriteConsoleOutputW, WriteConsoleOutputCharacterW added
+
+  08/15/2006: version 2.9.9
+
+  þ GetPrivateProfileSectionNamesA added
+  þ console signals (Ctrl-Break,...) now handled in a separate thread
+    as it is done in Win32.
+  þ GetNamedPipeInfo, DisconnectNamedPipe added (dummies)
+  þ SetProcessAffinityMask added (dummy)
+  þ bugfix: non-flat code (used for HX MZ binaries only) screen output
+    didn't work in last version.
+  þ bugfix: previous version's WriteConsole() didn't work with non
+    black-white default screen attribute or if screen was in graphics mode.
+  þ bugfix: setting attributes for directories didn't work.
+  þ bugfix: WriteConsoleOutput()/ReadConsoleOutput() used current screen
+    size variables, not the values of current screen buffer.
+  þ bugfix: some additional security checks added to WriteConsoleOutput().
+  þ bugfix: GetFileType() may have returned file type "device" if the file
+    was indeed "remote".
+
+  07/15/2006: version 2.9.8
+
+  þ bugfix: GetTempPath didn't return the current directory if both TMP and
+    TEMP environment variables weren't defined.
+  þ bugfix: if flags ENABLE_LINE_INPUT and/or ENABLE_ECHO_INPUT were reset,
+    ReadConsole didn't work as expected.
+  þ bugfix: TlsGetValue, TlsSetValue didn't set last error.
+  þ bugfix: TlsFree didn't set last error. And value wasn't reset to 0
+    for current thread.
+  þ console text attributes are no longer global and work with WriteConsole
+  þ AttachConsole added (works with parameter ATTACH_PARENT_CONSOLE only)
+  þ debug output via OutputDebugString() or Int 41h now written to a file
+    in release version if environment variable DKRNLLOG is set.
+  þ thread code splitted which makes MZ binaries smaller if no threads are
+    used/created.
+
+  06/14/2006: version 2.9.7
+
+  þ bugfix: WriteConsole didn't work with console screen buffer handles.
+  þ bugfix: GetConsoleScreenBufferInfo and SetConsoleScreenBufferSize didn't
+    work with inactive screen buffers.
+  þ bugfix: PeekConsoleInput was unable to peek anything but the first event
+    in the queue.
+  þ bugfix: OpenFile was unable to create a nonexisting file.
+  þ bugfix: GetPrivateProfileStringA with parameter lpAppName or lpKeyName
+    == NULL didn't return the bytes copied to the return buffer.
+  þ bugfix: if type or name parameters in FindResource were strings, the
+    search was done case-sensitively.
+  þ bugfix: MoveFile didn't work if old file and new file were on
+    different volumes. 
+  þ MoveFileEx implemented
+  þ GetCurrentDirectoryW, GetDriveTypeW, ExpandEnvironmentStringsW,
+    SetEnvironmentVariableW, CreateProcessW, GetTempFileNameW, SearchPathW,
+    OpenFileMappingW, GetTempPathW, CopyFileW, MoveFileExW implemented
+  þ if running in a WinXP DOS box call int 16h, ah=01 to indicate idle state
+    (int 2Fh, ax=1680h doesn't work in this environment)
+
+  05/15/2006: version 2.9.6
+
+  þ bugfix: GetVolumeInformationA on some conditions returned 0 although
+    the given path was valid.    
+  þ bugfix: GetLogicalDrives didn't return network or cd-rom drives.
+  þ ConnectNamedPipe added (dummy)
+  þ CommConfigDialogA, SetupComm, GetDefaultCommConfigA added (dummies)
+  þ GetSystemTimeAdjustment added (dummy)
+  þ InterlockedExchangeAdd added
+  þ GetProcessVersion added
+  þ refuse to write-protect PE header of current application. The header
+    is used by DKRNL32 to store some important infos (UPX v2).
+  þ FormatMessageA emulation improved.
+
+  05/02/2006: version 2.9.5
+
+  þ flush console input buffer if ReadFile has read the current console
+    and buffer input is active.
+
+  04/21/2006: version 2.9.4
+
+  þ GetProcessWorkingSetSize, SetProcessWorkingSetSize,
+    GetProcessAffinityMask, GetProcessTimes now accept a hard-coded
+    process pseudo handle (-1).
+
+  03/21/2006: version 2.9.3
+
+  þ DeleteFileA, MoveFileA, CreateDirectoryA, RemoveDirectoryA: save/restore 
+    EBX to make these functions compatible with FreeDos + MS-DOS < 7.
+
+  03/18/2006: version 2.9.2
+
+  þ GetNumberFormatA added
+  þ GetEnvironmentVariableW, GetSystemDirectoryW, GetBinaryTypeA added
+  þ a hack implemented to ensure that the thread dispatcher is deactive
+    during DLL_PROCESS_ATTACH.. DPMILD32 will then enable the dispatcher
+    just before it jumps to the app's initial entry .
+  þ GlobalCompact added (dummy)
+  þ CreateProcess: if bInheritHandles parameter is false, file handle table
+    is reset to default values so redirected handles will not be used by
+    the child.
+  þ GetPrivateProfileStringA/WritePrivateProfileString now cache the 
+    last accessed file.
+  þ now DKRNL32 frees all memory blocks when being unloaded. This is
+    usually done by the dpmi host, but only if the client terminates, which
+    may not be true in all cases.
+  þ DKRNL32 tried to detect the idle state when multiple threads were running
+    and gave up the time slice then (calling int 2Fh, ax=1680h). This
+    apparently caused problems on FreeDOS and Win9x DOS boxes.
+  þ bugfix: WaitForSingleObject/WaitForMultipleObjects didn't know
+    process handles.
+  þ bugfix: ExpandEnvironmentStringsA was documented as implemented, but
+    in fact just copied the source string. Now implemented.
+  þ bugfix: SetStdHandle didn't accept a console screen buffer handle.
+  þ bugfix: SetConsoleCursorPosition, SetConsoleCursorInfo and 
+    GetConsoleCursorInfo now check if the handle is the active screen
+    buffer. If not, the physical cursor is untouched.
+  þ bugfix: code which notified dll entries about thread start/termination
+    didn't test if dll entry point is NULL.
+  þ better support for LCIDs in GetUserDefaultLCID + GetSystemDefaultLCID.
+  þ CreateSocketHandle added. This is an undocumented KERNEL32 function, but
+    needed, because it allows CloseHandle/DuplicateHandle to accept socket
+    handles. Used by WSOCK32.DLL.
+  þ bugfix: calling GetPrivateProfileStringA with parameter lpAppName==NULL 
+    destroyed content of EBX register. 
+  þ GetFullPathNameA: save/restore EBX to make this function compatible
+    with FreeDos + MS-DOS < 7.
+  þ bugfix: SetStdHandle directly modified the file handle table, which
+    confused DOS. Now it uses standard DOS calls only.
+  þ bugfix: calling WaitForMultipleObjects with a file handle may have
+    caused a GPF.
+  þ IsBadReadPtr, IsBadWritePtr, IsBadStringPtrA implemented.
+  þ CreateDirectoryExA added
+  þ MoveFileExA added (dummy)
+  þ FindFirstChangeNotificationA, FindNextChangeNotification, 
+    FindCloseChangeNotification added (dummies)
+  þ CreateNamedPipeA, SetNamedPipeHandleState, WaitNamedPipeA added (dummies)
+  þ CreateTapePartition, EraseTape, GetTapeParameters, GetTapePosition,
+    GetTapeStatus, PrepareTape, SetTapeParameters, SetTapePosition, 
+    WriteTapemark added (dummies)
+  þ GetProcessTimes, GetThreadTimes, SetThreadAffinityMask added (dummies)
+  þ SetCommBreak, ClearCommBreak, ClearCommError, GetCommModemStatus,
+    GetCommState, SetCommState, GetCommMask, SetCommMask, PurgeComm,
+    WaitCommEvent, TransmitCommChar, SetCommTimeouts, EscapeCommFunction
+    added (dummies).
+  þ bugfix: console screen buffer handling didn't work with Turbo Vision.
+  þ waitable timers now really count down in ms, previously they count down
+    in RTC timer ticks (which last 0.977 ms).
+  þ some places which temporarily disable interrupts modified in a way 
+    so they now use the DPMI virtual interrupt functions. This is required
+    by WinXP and DosEmu, where the IF doesn't tell the state of the VIF.
+  þ bugfix: int 21h, ah=1Ah (set DTA, used by findfirst/findnext if LFN is 
+    not installed) was not thread-safe.
+  þ bugfix: there was a slight chance that the dispatcher called CloseHandle
+    while the kernel heap was locked, causing a deadlock.
+  þ bugfix: exception handler expected DS to be zero-based flat.
+  þ bugfix: thread context saving in version 2.9.1 always did a FNINIT,
+    which should only be done on float exceptions.
+  þ moved the code which divides large blocks of data to be read/write
+    into smaller chunks into the thread dispatcher int 21h hooker, where
+    it belongs.
+
+  02/06/2006: version 2.9.1
+
+  þ bugfix: save/restore current directory if CreateProcess is called.
+  þ dispatcher changed to use the RTC timer. So now a time slice is 20 ms,
+    previously it was 55 ms.
+  þ default exception handler now displays module name + offset of
+    exception address.
+  þ GetThreadContext/SetThreadContext implemented
+  þ bugfix: WaitForSingleObject/WaitForMultipleObjects now don't wait at
+    least 55 ms if the wait parameter is smaller.
+  þ GetTickCount resolution improved (previously was 55 ms, now 1 ms)
+  þ PulseEvent no longer dummy
+  þ DOS LFN API translation now activated if host is DPMIONE (which
+    has no such services implemented)
+  þ bugfix: the RTC timer may have been deactivated when another
+    program has been launched.
+
+  01/22/2006: version 2.9
+
+  þ use PIC mappings reported by DPMI host for keyboard and timer hooks.
+  þ bugfix: GetTempPathA did not append a '\' if it was missing.
+  þ bugfix: virtual key VK_OEM_MINUS not recognised
+  þ key event hookers may now set the carry flag to cause
+    dkrnl32 standard processing. This is an issue with the
+    DirectInput emulation, which previously swallowed all
+    key presses even if in non-exclusive mode.
+  þ if all threads are blocked, the dispatcher will now 
+    release the time slice. Previously this only worked for
+    single-threaded apps.
+  þ bugfix: if values read with GetPrivateProfileString were 
+    enclosed in quotation marks, these marks weren't skipped.
+  þ Size of stack for new threads which don't specify the stack
+    size now is 96 kB (previously it was 64 kB). The first 4 kB
+    are still uncommitted. This avoids problems with OW's stack
+    checking routine. And value at FS:[8] is now set for each
+    thread accordingly.
+  þ bugfix: usage of stack space for VirtualAlloc, VirtualFree,
+    VirtualProtect and VirtualQuery was restricted to max 2 kB
+    (bugfix of 2005.08.11), but this made it impossible to 
+    return to the previous state if an error occured during the
+    operation. So now stack usage is limited to available stack
+    space.
+  þ GetProfileStringA added (dummy)
+  þ GlobalAddAtomA, GlobalDeleteAtom, GlobalFindAtomA, 
+  þ GlobalGetAtomNameA added (code for these functions is the same
+    as for the local [without "Global" prefix] ones)
+  þ bugfix: GetCurrentThreadId may have returned 0 as thread id
+  þ bugfix: calling ExitThread for the main thread didn't work
+
+  01/02/2006: version 2.8.36
+
+  þ DbgPrint, GetVersionExW added
+  þ bugfix: thread exit code lost in version 2.8.34-2.8.35
+  þ GetProcessAffinityMask, VirtualProtectEx added
+  þ GetPrivateProfileString/WritePrivateProfileString no longer
+    have a 64 kB limitation
+  þ bugfix: WritePrivateProfileString did not reduce file size
+    if necessary. And replacing the value of an existing key
+    may have produced garbage in the following line.
+  þ LoadModule added
+  þ GetVolumeInformationA now returns volume label for CDROMS
+    (at least if DOSLFN+SHSUCDX is installed)
+
+  12/20/2005: version 2.8.35
+
+  þ now DKRNL32 should be compatible with MS mouse drivers when
+    a VESA graphics modes is active.
+  þ bugfix: when running on hosts which don't support setting  
+    page attributes, VirtualAlloc may not have zeroed the memory.
+  þ GetPriorityClass added 
+  þ IsProcessorFeaturePresent implemented (deactivated)
+
+  12/07/2005: version 2.8.34
+
+  þ bugfix: GetDriveTypeA now can detect RamDisk + CDROM drives
+  þ bugfix: GetVolumeInformationA modified register ESI
+  þ DLL_THREAD_ATTACH/DLL_THREAD_DETACH now supported
+  þ DisableThreadLibraryCalls no longer dummy
+  þ lstrcpyW added
+  þ MakeCriticalSectionGlobal added (dummy)
+
+  11/24/2005: version 2.8.33
+
+  þ lstrcatW added
+  þ added 49 dummy exports without names (ordinals 1 to 49) to
+    avoid problems with applications using undocumented exports. 
+  þ BackupWrite added (dummy)
+  þ GetLogicalDriveStringsA added
+  þ Sleep() now uses a cached timer if interval to sleep is < 110 ms
+
+  11/18/2005: version 2.8.32
+
+  þ MulDiv added
+  þ bugfix: Ctrl-Break/Ctrl-C signals no longer allow thread
+    context switches.
+  þ bugfix: thread stack wasn't freed in any case
+  þ bugfix: Sleep() with a parameter of < 55 ms didn't wait at
+    all if more than one thread was running.
+  þ bugfix: SetEndOfFile() didn't set last error code
+  þ bugfix: GetFullPathNameA didn't expect NULL as lpFilePart
+    parameter
+  þ bugfix: APIX device may have used DOS (to free memory) when
+    it was already in use.
+  þ bugfix: WaitForSingleObject/WaitForMultipleObjects didn't wait
+    the specified amount of milliseconds if more than one thread
+    was running.
+
+  11/07/2005: version 2.8.31
+
+  þ Support for device APIX added
+  þ QueryDosDeviceA, GetProcessWorkingSetSize, GetOverlappedResult
+    added (dummies)
+  þ exception 0C now caught (useful if DPMILDR=2048 is set)
+  þ default exception handler now writes to stderr, not stdout
+  þ setting/getting keyboard/mouse event handler simplified
+  þ bugfix: the lowest 4k of a thread's stack was allocated 
+    as uncommitted memory in any case, regardless if a stack
+    size was given or not.
+  þ save/restore console mode when launching another process
+    (to reenable mouse input)
+  þ bugfix: extended keys may have caused function ToAscii() 
+    return ascii code 0E0h.
+  þ bugfix: DKRNL32 exception handler still handled exception
+    if DKRNL32 was disabled.
+
+  10/24/2005: version 2.8.30
+
+  þ Virtual keys VK_LWIN, VK_RWIN and VK_APPS supported
+    in PeekConsoleInput/ReadConsoleInput.
+  þ PAUSE key event handling improved. For GUI apps, real-mode
+    keyboard driver is NOT called for this key.
+  þ Size of stack for new threads which don't specify the stack
+    size now is 64 kB (previously it was 16 kB). The first 4 kB
+    may be uncommitted memory (if dpmi host supports this).
+  þ full support for key up events implemented.
+  þ mouse event queue implemented (previously just the last event
+    was saved)
+  þ CancelIo added (dummy)
+  þ CreateWaitableTimerA, SetWaitableTimer, CancelWaitableTimer
+    implemented
+    QueueUserAPC added (dummy)
+  þ HeapValidate now catches exceptions
+  þ bugfix: Mutexes didn't work as expected.
+
+  09/28/2005: version 2.8.29
+
+  þ added export Borland32. This will cause powerpack apps to
+    realize that they are running in DOS, not Win32. 
+  þ Ctrl+Break now signaled asynchronously if running under HDPMI
+    and indos flag is zero. This is restricted to HDPMI because
+    many hosts don't like the client to terminate while on the
+    locked stack.
+  þ QueryPerformanceFrequency no longer dummy
+  þ QueryPerformanceTimer now reads timer 0 counter + BIOS variable
+
+  09/19/2005: version 2.8.28
+
+  þ bugfix: SetCurrentDirectory() didn't work in plain DOS if
+    last character was a '\' ("X:\" worked, however)
+  þ GetDKrnl32Version function added.
+  þ for .model SMALL only: process heap initialization is now done
+    before any initializers were called in the kernel. Previously
+    it was done in the CRT startup module. As well some bugfixes
+    for this model added concerning virtual memory allocation.
+  þ HeapCreate: parameter 'initial size' now used. Previously there
+    was always at least 1 MB committed memory allocated. Now most of
+    the heap space initially is allocated as uncommitted memory - if
+    the DPMI host supports this feature. This should reduce memory
+    load, which may be significant on machines with less than 32 MB
+    of memory.
+  þ reserved heap area now rounded up to a 64 kB boundary. 
+  þ bugfix: VirtualAlloc with a base != 0 and MEM_RESERVE did
+    round down the base to a 64 kB boundary, but requested size
+    wasn't adjusted accordingly, so VirtualAlloc(8001000h,1000h)
+    returned a region starting at 8000000h with size 1000h, but
+    size should have been 2000h.
+  þ GetConsoleTitleW, SetConsoleTitleW added (dummy)
+  þ lstrcmpW added
+
+  09/06/2005: version 2.8.27
+
+  þ FlushViewOfFile now really writes modifications back to file.
+  þ CreateMutexW, InterlockedCompareExchange, GetModuleHandleW,
+    CreateEventW, GetFileAttributesExW, lstrcmpiW added
+  þ bugfix: CreateFileMapping with a name parameter checked 
+    existance of this object, but didn't check the type.
+    Now if type doesn't match, last error = 6 is set.
+
+  08/28/2005: version 2.8.26
+
+  þ DOS extended break checking turned off on initialization
+
+  08/14/2005: version 2.8.25
+
+  þ HeapCreate, HeapAlloc, HeapFree and HeapReAlloc: support for 
+    flag HEAP_NO_SERIALIZE added. HeapCreate, HeapAlloc and
+    HeapReAlloc: support for flag HEAP_GENERATE_EXCEPTIONS added.
+  þ bugfix: VirtualAlloc, VirtualFree, VirtualProtect and
+    VirtualQuery may have used a large amount of stack space if
+    memory region to commit/uncommit/protect/query was big
+    (64 kB of stack space for a 128 MB memory region). This may
+    have caused a stack overflow. Now stack usage is limited
+    to 2 kB.
+  þ VirtualFree now supports decommitting pages on a 1.0 host
+  þ bugfix: VirtualFree didn't fail if dwFreeType was 0
+  þ bugfix: if allocating large items with HeapAlloc caused the
+    heap to grow, the growing strategy didn't take into account
+    the size of a possibly free item at the end of the heap.
+    This may have caused inefficient memory usage.
+  þ bugfix:calling WaitForSingleObject with a file handle 
+    (!= stdin) didn't work
+
+  08/06/2005: version 2.8.24
+
+  þ debugger exception notification changed to int 41h, ax=7Fh
+    (check if debugger wants fault notification) and int 41h,
+    ax=83h (notify debugger of fault). previously was just a
+    GO TO (ax=F003h).
+
+  08/01/2005: version 2.8.23
+
+  þ bugfix: forgot to adjust SetFileTime :((
+
+  08/01/2005: version 2.8.22
+
+  þ bugfix: there was still an error in local time zone handling
+    which caused functions GetFileTime, GetFileAttributesEx,
+    FindFirstFile/FindNextFile and GetFileInformationByHandle
+    to return wrong times :(.
+  þ previous versions of GetStartupInfo cleared all fields
+    of STARTUPINFO parameter. Now some fields are set only
+    (some apps don't supply a full STARTUPINFO structure!)
+  þ NtCurrentTeb added. Required by MS C v8.0 16-bit compiler.
+  þ RtlExAllocateHeap, RtlExFreeHeap and RtlExReAllocateHeap   
+    added, which call HeapAlloc, HeapFree, HeapReAlloc.
+    Required by MS C v8.0 16-bit compiler (DOSXNT).
+  þ FormatMessage now knows how to scan message table resources
+    and will handle message insert arguments.
+  þ int 23h handler will only switch stacks if current stack
+    is the locked protected-mode stack.
+  þ bugfix: VirtualQuery now knows memory block used for images
+  þ bugfix: in VirtualQuery some fields were not set in all cases.
+  þ save/restore esp when calling Ctrl-C handler procs.
+  þ bugfix: in default console attributes flags ENABLE_LINE_INPUT
+    and ENABLE_ECHO_INPUT were not set.
+
+  07/20/2005: version 2.8.21
+
+  þ bugfix: FileTimeToDosDateTime/DosDateTimeToFileTime no longer
+    make conversions to/from local time
+  þ environment variable TZ will now be read early in DKRNL32
+    initialization. Previously it was read when the first
+    time zone related function was called, but some apps 
+    (InfoZip's Unzip.exe) delete TZ as one of their first tasks?!
+  þ bugfix: GetTimeZoneInformation now returns Bias and name
+    of time zone if environment variable TZ is set
+  þ RtlGetNtVersionNumbers added so MSVCRT.DLL of WinXP
+    will load successfully
+  þ GetSystemDirectoryA, WaitForMultipleObjectsEx,
+    FreeLibraryAndExitThread, SleepEx added
+  þ bugfix: if the target region of ScrollConsoleScreenBufferA 
+    was outside of the screen dimensions, it wasn't clipped. 
+  þ bugfix: CreateFileMappingA returned an error if named
+    mapping object already existed. 
+  þ CreateSemaphoreA now accepts a name parameter != NULL
+  þ OpenSemaphoreA added
+
+  07/14/2005: version 2.8.20
+
+  þ application will be notified now of EXCEPTION_INT_OVERFLOW
+    (exc 04) and EXCEPTION_ARRAY_BOUNDS_EXCEEDED (exc 05)
+  þ bugfix: exception translation was deactivated, so the 
+    application got exception code 0Eh instead of C0000005h
+
+  07/13/2005: version 2.8.19
+
+  þ bugfix: GetEnvironmentVariable didn't expect nSize parameter
+    to be 0.
+  þ dkrnl32's internal heap size has been enlarged from 32768
+    to 49152 bytes. Since the kernel heap objects are very small,
+    this should be more than enough, but apparently there exist
+    apps which require this size.
+  þ bugfix: WinExec used CreateProcess, but didn't close the
+    hProcess and hThread handles returned in PROCESS_INFORMATION
+  þ bugfix: CreateProcess didn't return a valid handle for
+    hThread in PROCESS_INFORMATION
+  þ CreateProcess now checks for std handles to be inherited in
+    STARTUPINFO parameter. 
+  þ PeekNamedPipe no longer dummy
+  þ CreatePipe no longer dummy (but only limited usability)
+  þ bugfix: open a file with read access and share-mode write, then
+    open it with write access and share-mode read failed.
+  þ bugfix: GetTempFileName did use only 2 bytes from prefix string
+  þ bugfix: closing a thread's handle shouldn't release the
+    memory until the thread is terminated.
+  þ bugfix: GetCommandLine didn't add a trailing space to the
+    program path if the "real" command line was "empty"
+  þ bugfix: MapViewOfFile returned 0 on further calls with the same
+    offset and just desired access changed.
+  þ OpenFileMappingA no longer dummy
+  þ dkrnl32's exception handler now checks if current Esp can
+    be used. If no, a small helper stack is used. This should
+    catch stack overflows, which in previous versions caused a
+    infinite loop.
+
+  07/06/2005: version 2.8.18
+
+  þ bugfix: PeekConsoleInputA returned eax=0 if nothing was read
+  þ bugfix: ReadFile on console handle now checks for
+    ENABLE_LINE_INPUT and ENABLE_ECHO_INPUT
+  þ flush the dos input buffer on FlushConsoleInputBuffer
+  þ GenerateConsoleCtrlEvent added 
+  þ FlushInstructionCache dummy added 
+  þ GetProcAddress info: dpmild32 now supports ordinal numbers
+    for its int 21h, ax=4b81h API. Since this API is used by 
+    dkrnl32's GetProcAddress, this function now supports ordinals
+    as well. Required by the delay loading of dlls.
+  þ catch single-step + breakpoint exceptions (INT 01/INT 03)
+  þ floating point status saved in SEH context if FPU is
+    present
+  þ bugfix: notifying the debugger of exceptions didn't work
+    in the previous version.
+
+  06/27/2005: version 2.8.17
+
+  þ WriteConsoleInputA no longer dummy
+  þ bugfix: Ctrl-Break now is always signaled and it is
+    indicated correctly for Ctrl Handlerprocs        
+
+  06/23/2005: version 2.8.16
+
+  þ bugfix: ENHANCED_KEY flag now set for right Alt/Ctrl
+  þ bugfix: wrong virtual key/scan code created F11/F12
+  þ bugfix: wrong virtual key/scan code created Ctrl-Numpad5
+  þ bugfix: wrong virtual key code created for Alt-Del 
+  þ thread dispatcher now generates a single-step exception
+    in any case (previously it omits that step when IOPL was 3).
+    This will restrict LPMS usage to a minimum.
+  þ bugfix: primary exception hander no longer pushes anything
+    onto the client stack. This silently assumed that a stack
+    switch has occured, which may *not* be true if LPMS is used
+    already.
+  þ bugfix: wrong VK code generated for Ctrl + Ins/Del/Home/End/Tab 
+  þ bugfix: numlock/capslock/scrolllock control states not set
+  þ bugfix: keys '+' , '-', '*', '/' on numpad were translated to
+    wrong virtual key codes. numpad-/ will return VK_DIVIDE
+    as in XP, not VK_OEM_MINUS as in 9x
+  þ bugfix: VK_CLEAR (numpad-5) wasn't recognized
+  þ bugfix: KEY_EVENT_RECORD.dwControlKeyState: ENHANCED_KEY 
+    flag was never set.
+  þ bugfix: AddAtomA, DeleteAtom, FindAtomA, GetAtomNameA
+    were mistakenly documented as dummies.
+  þ SetCurrentDirectoryW no longer dummy
+  þ LFN support when running on NT platforms implemented
+  þ clear TF in internal exception handler proc so a
+    debugger doesn't stop there.
+
+  06/14/2005: version 2.8.15
+
+  þ SEH now supports floating point exceptions if such 
+    exceptions are reported by Exception 10h. Regretably
+    this isn't the case with most DPMI servers, but the 
+    standard way - FPU exceptions reported by IRQ 0Dh - will
+    definitely not work because of DPMI's stack switching
+    thing :-(.
+  þ Win32 exception handler now can work even if called with
+    an invalid FS segment register.
+  þ init mouse with soft reset and use int 33h, ax=0014h to
+    set/restore mouse event proc.
+  þ HeapCreate: non-growable heaps implemented
+  þ if DKRNL32 gets out of its internal heap space, an error
+    msg is displayed. Previously just a debug message was
+    written in the debug version.
+  þ SetConsoleMode: allow mouse to be deactivated
+
+  06/07/2005: version 2.8.14
+
+  þ CreateFileMappingW no longer dummy (but CreateFileMapping
+    still doesn't support object name != NULL)
+
+  06/05/2005: version 2.8.13
+
+  þ bugfix: UnhandledExceptionFilter didn't call RtlUnwind if
+    exception filter function returned EXCEPTION_EXECUTE_HANDLER
+  þ bugfix: EXCEPTION_RECORD.ExceptionRecord wasn't initialized
+  þ bugfix: if exception filter function in UnhandledExceptionFilter
+    returned with EXCEPTION_EXECUTE_HANDLER this was handled like
+    EXCEPTION_CONTINUE_SEARCH.
+
+  06/02/2005: version 2.8.12
+
+  þ bugfix: HeapDestroy may have failed to free all resources
+  þ bugfix: HeapValidate didn't work for items located in other
+    than the first region
+  þ HeapWalk no longer dummy
+  þ bugfix: HeapWalk destroyed stack because of wrong parameter
+    declaration
+  þ OutputDebugStringW now exported
+  þ bugfix: if RemoveDirectory() failed it freezed the machine
+    in versions 2.8.10 - 2.8.11.
+  þ bugfix: DosDateTimeToFileTime() failed if seconds were just 60
+  þ local times are supported if TZ environment variable is set.
+    Daylight Saving Time is not supported.
+  þ bugfix: SetFileTime() indicated a failure if "last access"
+    or "creation" date/time couldn't be written. Now this
+    errors are ignored if at least "last write" could be set.
+  þ GetVolumeInformationA no longer dummy
+
+  05/22/2005: version 2.8.11
+
+  þ bugfix: SEH didn't work for more than one exception frame.
+  þ RtlUnwind no longer dummy
+  þ bugfix: if parameter lpDistancetoMoveHigh in function
+    SetFilePointer isn't NULL, the dword it is pointing to
+    now is set to ZERO on exit.
+
+  05/20/2005: version 2.8.10
+
+  þ bugfix: SetFilePointer didn't work with negative offsets
+  þ bugfix: CreateDirectory set wrong error code [5] if directory
+    already exists
+  þ bugfix: WaitForMultipleObjects didn't return the correct
+    value if parameter fWaitAll==FALSE
+  þ bugfix: SetEvent/ResetEvent returned 0 even if event 
+    handle was valid. 
+  þ lstrcpynW added
+  þ GetEnvironmentStringsW, FreeEnvironmentStringsW,
+    no longer dummies
+  þ Functions SetFileAttributesW, CreateDirectoryW, MoveFileW, 
+    RemoveDirectoryW, GetCommandLineW, GetFullPathNameW,
+    FindFirstFileW, FindNextFileW no longer dummies.                 
+  þ LoadLibraryW, LoadLibraryExW added
+  þ GetTempPathW, GetTempFileNameW, SearchPathW added (dummies)
+  þ GetWindowsDirectoryA, GetWindowsDirectoryW (dummy) added
+  þ AreFileApisANSI added
+  þ VirtualQuery now works with separate stack region. This
+    avoids fatal errors on some circumstances when running
+    OW stack checking code. Works with DPMILD32 V2.8.7+.
+
+  05/14/2005: version 2.8.9
+
+  þ bugfix: GetCompressedFileSizeA now works with LFN
+    and returns -1 on errors.
+  þ EXCEPTION_ACCESS_VIOLOATION: EXCEPTION_RECORD now with
+    2 arguments in ExceptionInformation field, as it may be
+    expected (for most DPMI servers these fields are NULL, though)
+
+  01/08/2005: version 2.8.8
+
+  þ CompareFileTime added
+  þ SetFileApisToOEM + SetFileApisToANSI (dummies) added
+  þ bugfix: CreateThread didn't accept stack size 0 and
+    caused a memory leak
+
+  12/03/2004: version 2.8.7
+
+  þ dummy exports GetThreadSelectorEntry + DebugActiveProcess
+    added. Allows TD32.EXE to be loaded (doesn't work yet)
+  þ don't assume certain values for segment registers when 
+    int 23h handler is called. Required for dosx and dosemu.
+    (static lib dkrnl32s.lib only)    
+
+  11/25/2004: version 2.8.6
+
+  þ some error checking in CreateProcess added
+  þ BugFix: screen buffer created with CreateConsoleScreenBuffer
+    had default attribute 00
+  þ if 1. param in SearchPath was NULL an Int 3 was performed
+
+  10/10/2004: version 2.8.5
+
+  þ BugFix: SearchPathA didn't work with lpPath parameter = NULL
+  þ SearchPathA now uses GetFileAttributes function
+  þ OpenFile added
+  þ CreateProcess: application name converted to short file name
+    before calling int 21h, ax=4B00h
+  þ BugFix: SetFilePointer didn't return an error if new file 
+    pointer value would be before start of file (is no error for
+    int 21h, ah=42h)
+  þ BugFix: GetFileAttributesA failed if a path ended with a '\'
+  þ AddAtomA, DeleteAtom, FindAtomA, GetAtomNameA added
+  þ UnlockFileEx added (dummy)
+
+  10/04/2004: version 2.8.4
+
+  þ Read/WriteConsoleOutputAttribute added
+  þ FreeConsole added
+  þ GetPrivateProfileIntA added
+  þ OpenMutexA, LockFileEx added (dummies)
+
+  09/30/2004: version 2.8.3
+
+  þ BugFix: LockFile+UnlockFile called wrong DOS function
+  þ BugFix: WriteConsoleOutputA ignored dwBufferCoord parameter
+  þ file "CONOUT$" wasn't recognized by CreateFile
+  þ console handling improved so it should work now with more
+    than 1 console screen buffers.
+  þ WriteConsoleInputA (dummy) added to support TDUMP.EXE
+
+  09/18/2004: version 2.8.2
+
+  þ SetThreadLocale (dummy) added to support NASMW.EXE
+  þ VirtualQuery now works with any address in range 0-BFFFFFFF
+    (fix for ILINK32.EXE). This works reliable in plain DOS only.
+  þ bugfix: VirtualAlloc with BaseAddress <> NULL didn't fail
+    if memory region was reserved already.
+  þ GetFileSize now uses int 21h, ax=71A6h if LFN supported
+  þ GetFileInformationByHandle now uses int 21h, ax=71A6h if
+    LFN installed. Else sets at least the date/time and size fields
+  þ BugFix: FindFirstFileA: translate error code 0012 returned
+    by int 21h, ax=4E00 to 0002
+  þ Bugfix: FindFirstFileA set wrong error code if LFN wasn't
+    installed.
+  þ Bugfix: CreateFileMapping with a file of size 0 fails now
+  þ EnumResourceTypesA, EnumResourceNamesA, EnumResourceLanguagesA
+    added (required by ILINK32.EXE)
+  þ Local/GlobalFlags + Local/GlobalSize added
+  þ GetSystemDefaultLangID+GetUserDefaultLangID added
+  þ LockResource + FreeResource added
+  þ kernel heap doubled to 32kb, MS LINK.EXE seems to need that
+    if large libraries are to be build (FLAT version only)
+  þ exception C0000017 thrown if out of kernel heap space
+  þ makefile now creates DKRNL32.DLL and COFF object modules.
+    For OMF support there exist TEXT.MAK and ESP16.MAK.
+
+  09/01/2004: version 2.8.1
+
+  þ bugfix: GetLongPathNameA/W no longer returns full path in 
+    any case
+
+  08/30/2004: version 2.8.0
+
+  þ bugfix: GetFileAttributesExA may have destroyed SI
+  þ bugfix: calling VirtualAlloc with low 12 bits of address
+    not equal zero may have caused a page error because 1 page
+    too less may have been committed
+
+  08/29/2004: version 2.7.9
+
+  þ CreateFileW no longer dummy. This is a bugfix as well, because
+    the old dummy stub returned 0, not -1.
+  þ bugfix: GetDiskFreeSpaceExA parameter dwTotalNumberOfFreeBytes
+    now checked for NULL
+  þ GetStringTypeW no longer dummy
+  þ GetLongPathNameA + GetLongPathNameW added
+  þ GetShortPathNameW added
+  þ LCMapStringW no longer dummy
+  þ GetFileAttributesW no longer dummy
+  þ FormatMessageW added (dummy)
+
+  08/21/2004: version 2.7.8
+
+  þ bugfix: FindFirstFile/FindNextFile didn't call SetLastError
+  þ bugfix: CreateFileA didn't clear HIWORD(eax) before SetLastError
+  þ workaround: SC.EXE requires filed MEMSTAT.dwAvailPageFile > 0
+  þ calling VirtualAlloc with size=0 now returns NULL in all cases
+  þ GetLocalTime: DayOfWeek now set
+  þ GetDiskFreeSpaceExA added
+  þ FindResourceW added
+  þ InitializeCriticalSectionAndSpinCount added
+  þ DosDateTimeToFileTime: add 1 to seconds to get the average
+  þ bugfix: DeleteFile didn't work with LFN (win9x)
+  þ bugfix: ScrollConsoleScreenBuffer now hides mouse during scroll
+  þ bugfix: int 21h, ah=60 fails on NT platforms. Workaround added.
+  þ bugfix: int 21h, ax=7160 often failed in GetFullPathName()
+    because register CH was undefined
+
+  05/29/2004: version 2.7.7
+
+  þ SetErrorMode no longer called in LibEntry of Kernel32!
+  þ bugfix: ScrollConsoleScreenBuffer scrolled 1 row/col too less
+  þ 34 text rows mode now with 34*14=476 scan lines
+  þ AllocConsole added
+
+  05/01/2004: version 2.7.6
+
+  þ bugfix: GetStringTypeW wrongly expected a LCID parameter
+  þ bugfix: GetCurrentProcess didn't work for MZ executables
+  þ refer to external __USESEH to ensure SEH is included in MZ exes
+  þ in SEH: dont touch nonexisting fields in TIB for MZ executables
+  þ QueryPerformanceFrequency added (dummy)
+
+  04/22/2004: version 2.7.5
+
+  þ CreateEventA now works with names, OpenEventA no longer dummy
+  þ GetNamedPipeHandleStateA added (dummy)
+  þ SetHandleInformation added (dummy)
+  þ debug support functions activated (dummy)
+  þ SetSystemTime added (dummy)
+  þ WinExec added
+  þ init of static TLS now done later after os check is done
+    because of problems on NT for such PEs (DCC32.EXE)
+
+  04/19/2004: version 2.7.4
+
+  þ CreateEvent with empty string now returns no error
+    and sets last error to 0. Named events still fail.
+  þ UnhandledExceptionFilter: general registers are displayed
+  þ GetFullPathNameA didn't set last error code
+  þ EnumCalendarInfoA added (dummy)
+  þ GlobalHandle added
+  þ FindResourceA now works with strings as names/types
+  þ bugfix: FindResourceExA now works
+  þ bugfix: MapViewOfFileEx didn't work with base address != 0
+  þ Beep now uses timer 2 (works with DOSEMU)
+  þ bugfix: VirtualSetPageAttr returns no error if host is V0.9
+  þ On initialization of DKRNL32.DLL error mode is set so as
+    default DPMILD32 file load errors aren't displayed any more.
+    (DCC32.EXE tries to load some strange dlls and this really
+    shouldn't be displayed to the user).
+  þ SetErrorMode now will handle SEM_NOOPENFILEERRORBOX
+  þ GetStringTypeExA added
+  þ FindResourceExA added
+  þ Local/GlobalReAlloc added
+  þ VirtualQuery now implemented partially
+  þ GetConsoleTitleA added
+  þ avoid CLI/STI if app is single-threaded
+  þ Sleep with parameter != 0 now works on NT platform as well
+  þ bugfix: ScrollConsoleScreenBuffer scrolled 1 line too much
+  þ SetConsoleScreenBufferSize now accepts 30 and 34 lines
+  þ Ctrl-Break signaled in Read/PeekConsoleInput
+  þ for NT platforms, install a INT 31 interrupt handler
+    and return C for DPMI 1.0 functions, which dont exist here.
+  þ SetConsoleCursorInfo: make cursor invisible now works correctly
+  þ Sleep now checks parameter
+  þ FillConsoleOutputxxx now checks for buffer overflow
+  þ ReadConsoleInput now signals Ctrl-C as well
+  þ bugfix: SetConsoleCtrlHandler didnt check for NULL as 
+    handler routine
+  þ ReadConsoleOutputCharacterA added
+  þ SetConsoleTitleA added (dummy)
+  þ bugfix: SetUnhandledExceptionFilter didn't return previous
+    filter proc
+  þ app terminates when UnhandledExceptionFilter proc returns
+  þ RtlUnwind will NOT terminate app if it has nothing to do
+  þ VirtualAlloc: reserved memory now allocated on 64 kB boundary
+  þ OpenFileMappingA added (dummy)
+  þ GetComputerNameA added
+  þ GetThreadLocale added
+  þ SizeofResource added
+  þ LoadLibraryExA added
+  þ OpenEventA added (dummy)
+  þ bugfix: GetFullPathName handles ax=7160h returncode correctly
+  þ irq 01 handler no longer assumes DS=FLAT, uses csalias instead
+  þ bugfix: WaitForMultipleObjects returns correct index
+  þ disable interrupt handler routines in CreateProcess
+
+  03/14/2004: version 2.7.3
+
+  þ LCMapStringA and GetStringTypeA now partially supported
+  þ VirtualAlloc supports uncommitted memory (if supp. by dpmi host)
+  þ GetSystemDefaultLCID + IsBadStringPtrA added
+  þ bugfix: if DPMI function 0506h (get page attributes) was
+    implemented by DPMI host but didn't also supply DIRTY bits,
+    MapViewOfFile failed for writable files.
+  þ bugfix: GlobalMemoryStatus returned wrong virtual mem values
+  þ bugfix: VirtualAlloc: committing memory for a reserved memory
+    area returned wrong base address.
+  þ HeapReAlloc: if item is shrinking address doesnt change anymore
+  þ HeapFree: return error if item is already marked as free
+  þ GetNumberOfConsoleMouseButtons, FlushConsoleInputBuffer added
+  þ mouse event proc now called as real mode callback, since this
+    works for winnt/2k/xp as well
+  þ bugfix: ReadConsoleInput now waits if no event is available
+  þ mouse support for console functions
+
+  02/01/2004: version 2.7.2
+
+  þ bugfix: HeapReAlloc may have caused GPFs and didnt free old block
+  þ FILETIME now really has 100-nanoseconds intervals since 1.1.1601
+  þ SetFileTime now real
+  þ GetShortPathNameA added
+  þ bugfix: ScrollConsoleScreenBuffer
+  þ bugfix: Peek/ReadConsoleInput now more compatible
+  þ bugfix: FindFirstFile with filespec="*" works now
+  þ OutputDebugString doesnt display strings to dos
+  þ bugfix: PeekConsole doesnt update control key status
+  þ dummy CreateConsoleScreenBuffer + SetActiveConsoleScreenBuffer
+  þ WaitForMultipleObjects added
+  þ CreateEvent, SetEvent, ResetEvent added
+  þ SetConsoleCP + SetConsoleOutputCP added
+  þ Global/LocalLock + Global/LocalUnlock added
+
+  01/24/2004: version 2.7.1
+
+  þ IsDebuggerPresent added
+  þ flag ENABLE_PROCESSED_xxxPUT is a handle related attribute now
+  þ bugfix: CreateFile returned file handles with HIWORD(eax) != 0
+  þ initTLS added: DKRNL32.DLL now supports static TLS in executable
+  þ dummy procs BackupRead and BackupSeek added
+  þ dummy proc SetVolumeLabelA added
+  þ WriteFile checks flag ENABLE_PROCESSED_INPUT for console handles
+  þ ReadConsole examines flag ENABLE_PROCESSED_INPUT
+  þ bugfix: GetLargestConsoleWindowSize returned rubbish
+  þ GetConsoleScreenBufferInfo: member srWindow now set
+  þ WriteConsole examines flag ENABLE_PROCESSED_OUTPUT
+    if set, translates lf to crlf
+  þ IsDBCSLeadByte added
+  þ dummy ExpandEnvironmentStringsA, ExpandEnvironmentStringsW added
+  þ dummy procs CreateFileMappingW, CopyFileW added
+  þ bugfix: GetDateFormatA didnt copy string to output buffer 
+  þ GetConsoleOutputCP, GetTimeFormatA added
+  þ procs ReadConsoleW and WriteConsoleW added
+  þ bugfix: kernel process detach routines destroyed ebx register
+  þ WritePrivateProfileString works partly (no deletion yet)
+  þ GetPrivateProfileString works now
+  þ VirtualProtect now able to write-protect pages
+  þ Added GetConsoleCP
+  þ Bug in DuplicateHandle fixed
+  þ read16.asm no longer needed (now included in readfile.asm)
+  þ RtlMoveMemory now works with overlapping areas
+  þ GetEnvironmentVariableA no longer uses GetEnvironmentStringsA
+    (which requires to alloc heap memory)
+  þ SetEnvironmentVariableA now located in separate file
+  þ FormatMessageA added.
+  þ LoadLibraryA adds ".dll" extension if none is supplied
+  þ DeleteFileA supports long filenames
+  þ ReadProcessMemory/WriteProcessMemory now added (simple)
+  þ GetPrivateProfileString/WritePrivateProfileString added (dummy)
+  þ TLS now located on stack, FS:[002Ch] points to slots.
+    THREAD.ASM modifies this value on thread switches
+  þ New functions GetDateFormatA, FileTimeToDosDateTime 				  
+  þ bugfix: GetTempFileName didnt create the file
+  þ VirtualAlloc with address specified: it will be
+    checked now if block exists already.
+
+  12/11/2003: version 2.7
+
+
+  7. License
+
+  DKRNL32.DLL is part of HX DOS extender. This extender is freeware. 
+  View HXRT.TXT for license details and copyrights.
+
+  Japheth (http://www.japheth.de)
+
