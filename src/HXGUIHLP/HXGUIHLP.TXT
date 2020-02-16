@@ -1,0 +1,121 @@
+
+ 1. About
+ 
+ HXGUIHLP is a dll to support running Win32 GUI apps with HX.
+ It is loaded automatically by DPMILD32 if a Win32 GUI app is to be
+ launched. Its purpose is
+ 
+  - to set the screen in graphics mode
+  - optionally register a hotkey to display a menu
+  - optionally load some fonts 
+  - route some parameters found in hxguihlp.ini to VESA32.DLL
+ 
+ The hotkey to display the menu is the APPS key. This may be changed
+ in hxguihlp.ini.
+ 
+ The menu which will be displayed is:
+ 
+    ÚÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ¿
+    ³  F3: Maximize main window         ³
+    ³  F4: Send close request to window ³
+    ³  F5: Save screen in BMP file      ³
+    ³  F6: Save main window in BMP file ³
+    ³  F9: DOS shell                    ³
+    ³ F12: Terminate application        ³
+    ³ ESC: Cancel                       ³
+    ÀÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÙ
+ 
+
+ 2. History
+
+ 05/27/2011: V2.5
+ 
+ ş "Maximize main window" added to menu.
+
+ 01/20/2009: V2.4
+ 
+ ş source assembled with JWasm.
+ 
+ 07/15/2007: V2.3
+ 
+ ş if stderr is not redirected to a file, but stdout is, redirect
+   stderr to stdout.
+ ş bugfix: the "temporary" filename created to save bitmaps might have
+   contained a "\\" instead of just "\".
+ 
+ 03/15/2007: V2.2
+ 
+ ş bugfix: bitmap saved into a file might have been top-down, 
+   that is, the height value is negative. Many viewer programs have
+   problems with such files.
+ ş bugfix: CreateCompatibleBitmap was called with a memory context
+   as parameter, which isn't a good idea.
+ ş new option "DirectDACAccess" to access DAC directly instead of using
+   VESA functions.
+ 
+ 10/15/2006: V2.1
+ 
+ ş load optional additional fonts in [fonts] section
+ ş prevent thread switches when the menu is displayed
+ 
+ 08/15/2006: V2.0
+ 
+ ş new option "menu" in hxguihlp.ini to control how to enter
+   the hxguihlp menu.
+ ş as default the APPS key will now show the menu.
+ 
+ 07/15/2006: V1.9
+ 
+ ş flush stderr file buffer before opening a DOS shell.
+ 
+ 03/04/2006: V1.8
+ 
+ ş bugfix: content of stderr may not have been displayed on exit
+   if file share was active.
+ ş value for stderr option goes thru ExpandEnvironmentStrings()
+ ş set palette when displaying the menu
+ ş FlipStatus option added
+ ş pause sound modified so it "directly" speaks with the SB code.
+ 
+ 02/06/2006: V1.7
+ 
+ ş pause wave sound if a DOS shell is launched
+ ş bugfix: display menu even if a DirectDraw flipping surface is active
+ ş bugfix: saving 8-bit bitmaps didn't save the color table.
+ ş bugfix: size of bitmap in BITMAPFILEHEADER was wrong.
+    
+ 01/21/2006: V1.6
+ 
+ ş added SetVesa32Options call
+ 
+ 01/02/2006: V1.5
+ 
+ ş saving/restoring video state a bit more fool-proved.
+ 
+ 12/07/2005: V1.4
+ 
+ ş stderr file displayed on console after previous video
+   mode has been restored and file is not too big.
+   
+ 11/22/2005: V1.3
+ 
+ ş stderr log file deleted at exit if size == 0
+ 
+ 11/12/2005: V1.2
+ 
+ ş bugfix: mouse state wasn't saved/restored correctly
+   when a DOS shell was opened/closed.
+   
+ 11/01/2005: V1.1
+ 
+ ş Some bugfixes. New entries in [Display]: xmax, ymax
+ ş New entries in [options]: stderr
+ 
+ 10/24/2005: V1.0
+ 
+ 
+ 3. Copyright
+ 
+ HXGUIHLP is part of HX DOS extender. This extender is freeware.
+ View HXRT.TXT or HXGUI.TXT for licence details.
+ 
