@@ -6,6 +6,7 @@
 #  - JWLib | WLib (Open Watcom) | MS OMF LIB (lib16.exe)
 #  - JWLink v1.9beta 14
 #  - EditPE
+#  - PEStub
 # EditPE is used to extract the 16-bit code section from the PE binary
 # and then add it again, as a so-called "stub".
 
@@ -33,7 +34,7 @@ AOPTD=
 !endif
 
 ASM   = jwasm.exe
-LINK  = jwlink.exe
+LINK  = Tools\jwlink.exe
 
 AOPT   = -nologo -c -Cp -Sg -D?32BIT=1 $(AOPTD) -I$(INC32DIR) -Fl$* -Fo$* -D?PE
 
@@ -61,11 +62,11 @@ $(OBJMODS): $(DEPS0)
 # 5. the stub must be attached to the PE binary
 
 $(OUTD)\$(NAME).EXE: $(OUTD)\$(NAME).TMP
-	@editpe a 3=0  $(OUTD)\$(NAME).TMP $(OUTD)\$(NAME).EXE
-	@editpe x 3 /m $(OUTD)\$(NAME).EXE $(OUTD)\stub.bin
-	@editpe d 3    $(OUTD)\$(NAME).EXE $(OUTD)\$(NAME).EXE
-	@editpe d 3    $(OUTD)\$(NAME).EXE $(OUTD)\$(NAME).EXE
-	@pestub -n     $(OUTD)\$(NAME).EXE $(OUTD)\stub.bin
+	@Tools\editpe a 3=0  $(OUTD)\$(NAME).TMP $(OUTD)\$(NAME).EXE
+	@Tools\editpe x 3 /m $(OUTD)\$(NAME).EXE $(OUTD)\stub.bin
+	@Tools\editpe d 3    $(OUTD)\$(NAME).EXE $(OUTD)\$(NAME).EXE
+	@Tools\editpe d 3    $(OUTD)\$(NAME).EXE $(OUTD)\$(NAME).EXE
+	@Tools\pestub -n     $(OUTD)\$(NAME).EXE $(OUTD)\stub.bin
 !if $(DEBUG)==0
 	@copy $*.EXE ..\..\BIN\*.* >NUL
 !endif     

@@ -61,11 +61,11 @@ $(OBJMODS): $(DEPS0)
 # 5. the stub must be attached to the PE binary
 
 $(OUTD)\$(NAME).EXE: $(OUTD)\$(NAME).TMP
-	@editpe a 3=0  $(OUTD)\$(NAME).TMP $(OUTD)\$(NAME).EXE
-	@editpe x 3 /m $(OUTD)\$(NAME).EXE $(OUTD)\stub.bin
-	@editpe d 3    $(OUTD)\$(NAME).EXE $(OUTD)\$(NAME).EXE
-	@editpe d 3    $(OUTD)\$(NAME).EXE $(OUTD)\$(NAME).EXE
-	@pestub -n     $(OUTD)\$(NAME).EXE $(OUTD)\stub.bin
+	@Tools\editpe a 3=0  $(OUTD)\$(NAME).TMP $(OUTD)\$(NAME).EXE
+	@Tools\editpe x 3 /m $(OUTD)\$(NAME).EXE $(OUTD)\stub.bin
+	@Tools\editpe d 3    $(OUTD)\$(NAME).EXE $(OUTD)\$(NAME).EXE
+	@Tools\editpe d 3    $(OUTD)\$(NAME).EXE $(OUTD)\$(NAME).EXE
+	@Tools\pestub -n     $(OUTD)\$(NAME).EXE $(OUTD)\stub.bin
 !if $(DEBUG)==0
 	@copy $*.EXE ..\..\BIN\*.* >NUL
 !endif     
