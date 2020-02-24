@@ -48,9 +48,10 @@ TIBSEG ends
 ;--- best would be to mask IRQ 0D and rely on exception 10h
 ;--- but regretably this doesnt work on many platforms (HDPMI does!)
 
-?IRQ0DSUPP	equ 0	;std=0, 1=install handler for int 75h.
+?IRQ0DSUPP	equ 1	;std=0, 1=install handler for int 75h.
 					;since there is no way to switch stacks back
 					;it's a not so good idea to use INT 75h at all.
+?MASKIRQ0D	equ 0
 
 ?USECLIENTSTACK	equ 0	;std=0, dont set to 1!
 
@@ -147,7 +148,9 @@ oldint75 df 0
 dwExcEip dd 0
 endif
 if ?FLOATSUPP
+ if ?MASKIRQ0D
 bIrq0DMasked db 0
+ endif
 	public g_bFPUPresent
 g_bFPUPresent  db 0
 endif
@@ -564,25 +567,42 @@ endif
 	mov exc03.bException,-2
 @@:
 	mov esi,offset exclist
-@@:
+nextitem:
 	mov bl,[esi].EXCDESC.bException
 	cmp bl,-1
 	jz exit
 	cmp bl,-2
 	jz skip
 	mov ax,0202h
+	test g_bHost, HF_HDPMI
+	jz @F
+	cmp bl,14
+	jnz @F
+	mov al,10h	;use DPMI extended exception handling for exc 14
+@@:
 	int 31h
+	jc skip
 	mov dword ptr [esi].EXCDESC.oldhandler+0,edx
 	mov dword ptr [esi].EXCDESC.oldhandler+4,ecx
 	test byte ptr g_dwFlags,DKF_NOEXCHOOK
 	jnz skip
 	mov ecx,cs
 	mov edx,[esi].EXCDESC.newhandler
-	mov ax,0203h
+;	mov ax,0203h
+	cmp al,3
+	cmc
+	adc al,1	;switch from 02h to 03h, or 10h to 12h
 	int 31h
+	jnc skip
+	sub esp,128
+	mov ecx, esp
+	movzx ebx,bl
+	invoke _sprintf, ecx, CStr(<"dkrnl32: error setting handler for exception 0x%X",lf>), ebx
+	invoke Display_szString, esp
+	add esp,128
 skip:
 	add esi,sizeof EXCDESC
-	jmp @B
+	jmp nextitem
 exit:
 if ?FLOATSUPP
 	mov ax,0E00h	;this function will fail on NT platforms
@@ -593,7 +613,13 @@ if ?FLOATSUPP
 @@:
 	and al,4		;FPU present?
 	mov g_bFPUPresent,al
-if ?IRQ0DSUPP
+	mov ax,0e00h	;get FPU status
+	int 31h
+	mov ebx,eax
+	or bl,1		;client uses FPU
+	mov ax,0e01h
+	int 31h
+ if ?IRQ0DSUPP
 	in al,0A1h
 	and al,not 20h	;unmask int 75h
 	out 0A1h,al
@@ -606,22 +632,12 @@ if ?IRQ0DSUPP
 	mov edx, offset myint75
 	mov ax,0205h
 	int 31h
-else
-	mov ax,0e00h	;get FPU status
-	int 31h
-	mov ebx,eax
-	or bl,1		;client uses FPU
-	mov ax,0e01h
-	int 31h
+ elseif ?MASKIRQ0D
 ;--- one cannot rely on NE bit causing exception 10h for dpmi clients
-;--- but at least mask IRQ 13 for HDPMI
+;--- but at least mask IRQ 13 (for HDPMI only?) if NE=1
 	smsw ax
 	test al,20h		;NE bit set?
 	jz @F
-if 0
-	cmp g_bHost, HF_HDPMI
-	jnz @F
-endif
 	in al,0A1h
 	test al,20h		;is masked already?
 	jnz @F
@@ -629,7 +645,7 @@ endif
 	out 0A1h,al		;mask IRQ 0D
 	mov bIrq0DMasked, 1
 @@:
-endif
+ endif
 endif
 if 0
 ;--- this should happen for every task/thread
@@ -662,7 +678,7 @@ next:
 	jmp next
 exit:
 if ?FLOATSUPP
-if ?IRQ0DSUPP
+ if ?IRQ0DSUPP
 	mov cx,word ptr oldint75+4
 	jcxz @F
 	mov edx, dword ptr oldint75+0
@@ -670,14 +686,14 @@ if ?IRQ0DSUPP
 	mov ax,0205h
 	int 31h
 @@:
-else
+ elseif ?MASKIRQ0D
 	cmp bIrq0DMasked,0
 	jz @F
 	in al,0A1h
 	and al,not 20h
 	out 0A1h,al
 @@:
-endif
+ endif
 endif
 	@strace <"ExitException exit">
 	popad
@@ -987,7 +1003,7 @@ _exc0E:
 if ?CLEARHIGHEBP
 		push ebp
 		movzx ebp,sp
-		mov [ebp+4].DPMIEXC.rEip, LOWWORD(offset afterstacktest)
+		mov [ebp+4].DPMIEXC.rEip, LOWWORD offset afterstacktest
 		pop ebp
 		db 66h
 else
@@ -1165,11 +1181,15 @@ endif
 
 	xor eax,eax
 	mov [edi].MYEXC.dwFlags,eax
-	.if (([ebx].EXCDESC.bException == 0Eh) || ([ebx].EXCDESC.bException == 0Ch))
+;	.if (([ebx].EXCDESC.bException == 0Eh) || ([ebx].EXCDESC.bException == 0Ch))
+	.if ( [ebx].EXCDESC.bException == 0Eh )
 		mov [edi].MYEXC.numArgs,2
 		mov [edi].MYEXC.pArgs,offset g_Args
 		.if (g_bHost == HF_HDPMI)
-			mov edx, cr2
+;--- since v3.18, if option -s is used with HDPMI, the special regs emulation
+;--- is deactivated. It isn't needed either, since HDPMI supports DPMI v1.0 exc
+;--- handling, which supplies the value of CR2
+			mov edx,[ebp].DPMI10EXC.rCR2
 			mov g_Args+1*4,edx
 if ?FLAT
 			and dx,0f000h
@@ -1250,6 +1270,7 @@ endif
 			mov [edi].MYEXC.dwExcNo, EXCEPTION_STACK_OVERFLOW
 		.endif
 	.else
+		;--- it's NOT exception 0Eh
 		mov [edi].MYEXC.numArgs,eax
 		mov [edi].MYEXC.pArgs,eax
 if ?CATCHEXC0C
@@ -1294,7 +1315,7 @@ myint75:
 ;--- But even then it's a bad idea, because it only
 ;--- works if a stack switch has been done. This is
 ;--- *not* always true.
-if 0
+if 1
 	cmp cs:[g_bHost], HF_HDPMI
 	jnz nohdpmi
 	pushad
@@ -1315,7 +1336,7 @@ if 0
 	mov eax, [ebp+8*4+sizeof IRETDS]	;and EIP is above IRET frame
 @@:     
 	mov [dwExcEip], eax
- if ?CLEARHIGHEBP		 
+ if ?CLEARHIGHEBP
 	mov word ptr [ebp+8*4+sizeof IRETDS], offset myint75ex
  else
 	mov dword ptr [ebp+8*4+sizeof IRETDS], offset myint75ex
@@ -1332,6 +1353,7 @@ endif
 	out 0A0h,al
 	out 20h,al
 	pop eax
+	sti
 	@iret
 	align 4
         
@@ -1358,7 +1380,7 @@ endif
 	pop eax
 	push cs
 	push cs:[dwExcEip]
-	sti					;we only get called if interrupts were enabled
+;	sti					;we only get called if interrupts were enabled
 	call doexc2
 endif						;endif IRQ0DSUPP
 

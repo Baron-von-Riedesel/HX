@@ -134,9 +134,9 @@ checkcpuid_ex:
 checkcpuid endp
 
 Install proc
-	@noints
+;	@noints
 	invoke checkcpuid
-	@restoreints
+;	@restoreints
 	ret
 	align 4
 Install endp

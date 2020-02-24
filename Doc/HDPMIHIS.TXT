@@ -1,12 +1,23 @@
  
  History HDPMI 
 
-  04.07.2018, version 3.18
+  08.09.2018, version 3.18
 
   þ bugfix: nested real-mode stack handling did not work reliably
     if nesting level was > 1.
   þ bugfix: TLB was not allocated in an UMB if HDPMI itself was loaded
     low.
+  þ bugfix: options -a and -i were incompatible and caused a crash if 
+    nested execution of two clients occured.
+  þ bugfix: int 33h API translation for mouse event procs may not have
+    worked reliably if the clients did set the event procs concurrently.
+  þ bugfix: in exception frame for DPMI v1.0 the field PTE wasn't set
+    for page faults.
+  þ bugfix: int 31h, ax=8 (set limit of descriptor): if limit was >= 1 MB,
+    it wasn't checked that lowest 12 bits of DX were all 1.
+  þ bugfix: if a client allocated large amounts of descriptors and then
+    launched another client, the descriptors that this new client allocated
+    weren't automatically released.
   þ HDPMI will now use DOS for its output if an exception occurs.
     There is no longer any query if the client or the server is to
     be terminated; also, video mode is never altered by the host, making
@@ -21,7 +32,12 @@
   þ if option -a is used ( or HDPMI=32 is set ), the first client won't 
     need additional DOS memory for a "cloned host".
   þ the standard version of HDPMI will now allocate the host stack in
-    extended memory. The size of the stack is now 4 kB instead of 2 kB.
+    extended memory. The host stack size has been increased from 2 to 4 kB.
+  þ HDPMI does no longer respond to int 2Fh, ax=160Ah. So emvironment switch
+    HDPMI=16384 is obsolete and has been removed.
+  þ special register moves are no longer emulated if option -s is given.
+  þ hdpmixx.exe are now linked as PE binaries in the "standard" version. This
+    ensures that 32-bit code and data won't share pages.
 
   09.10.2013, version 3.17
 
