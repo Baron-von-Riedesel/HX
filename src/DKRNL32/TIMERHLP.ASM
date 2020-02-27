@@ -25,7 +25,7 @@ endif
 
 	.data
 
-g_dwGetTimerValue dd offset _GetTimerValue		  
+g_dwGetTimerValue dd offset _GetTimerValue
 g_dwGetTimerValuems dd offset _GetTimerValuems
 if ?INIT
 g_bInit	db 0
@@ -111,6 +111,7 @@ _GetTimerValuems proc
 	mov edx, 55
 	mul edx
 	add eax, ecx	;step 3
+	adc edx, 0
 	ret
 	align 4
 _GetTimerValuems endp

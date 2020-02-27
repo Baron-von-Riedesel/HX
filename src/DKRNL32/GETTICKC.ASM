@@ -17,6 +17,8 @@ endif
 ;--- this function may be called during interrupt time
 ;--- SS is unknown
 
+GetTickCount64 proc public
+GetTickCount64 endp	;fall thru
 GetTickCount proc public
 
 	call g_dwGetTimerValuems	;this gets ticks in 1/1000 sec units
@@ -27,7 +29,7 @@ ifdef _DEBUG
 endif
 	ret
 	align 4
-
 GetTickCount endp
+
 
 	end

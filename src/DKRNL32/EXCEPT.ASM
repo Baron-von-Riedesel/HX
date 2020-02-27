@@ -620,6 +620,8 @@ if ?FLOATSUPP
 	mov ax,0e01h
 	int 31h
  if ?IRQ0DSUPP
+	cmp [g_bHost], HF_HDPMI
+	jz noirq0dtrapping
 	in al,0A1h
 	and al,not 20h	;unmask int 75h
 	out 0A1h,al
@@ -646,6 +648,7 @@ if ?FLOATSUPP
 	mov bIrq0DMasked, 1
 @@:
  endif
+noirq0dtrapping:
 endif
 if 0
 ;--- this should happen for every task/thread
@@ -1315,7 +1318,10 @@ myint75:
 ;--- But even then it's a bad idea, because it only
 ;--- works if a stack switch has been done. This is
 ;--- *not* always true.
-if 1
+if 0
+;--- since HDPMI v3.19, this is obsolete, since HDPMI's
+;--- default int 75 handler will trigger an exc 10h, regardless
+;--- what the CR0.NE bit tells.
 	cmp cs:[g_bHost], HF_HDPMI
 	jnz nohdpmi
 	pushad
@@ -1361,6 +1367,7 @@ endif
 ;--- now build a MYEXC frame and call doexc2
 ;--- we should be able to safely reenable interrupts here
 
+if 0
 myint75ex:
 ifdef _DEBUG
 	push ds
@@ -1382,6 +1389,7 @@ endif
 	push cs:[dwExcEip]
 ;	sti					;we only get called if interrupts were enabled
 	call doexc2
+endif						;endif 
 endif						;endif IRQ0DSUPP
 
 ;--- return win32 exception in ECX

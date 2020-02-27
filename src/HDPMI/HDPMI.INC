@@ -222,7 +222,7 @@ endif
 ?RESIDENT		equ 1	;std 1: support -r switch
 ?LOCALINT2324	equ 1	;std 1: init int 23/24 locally for each client
 ?SUPPDISABLE	equ 1	;std 1: support -d and -e command line switches
-?CR0_NE 		equ 1	;std 1: support -t and HDPMI=32768
+?CR0_NE 		equ 0	;std 0: 0 since 3.19; support -t and HDPMI=32768
 ?CR0_EM 		equ 0	;std 0: support -w ( clear EM bit on host init )
 ?CSIPFROMTOP	equ 1	;std 1: get CS:E/IP from top of LPMS
 ?CLEARHWESPRM	equ 1	;std 1: clear highword(esp) in real mode
@@ -441,7 +441,9 @@ ENVF2_CLRHIWORD equ 08h ;  2048 clear hiword of esi/edi
 ENVF2_SYSPROT	equ 10h ;  4096 alloc pages for GDT/IDT/LDT readonly
 ENVF2_DEBUG  	equ 20h ;  8192 assume a (kernel) debugger is present
 ;ENVF2_NOI2F160A	equ 40h	; 16384 don't respond to int 2fh, ax=160Ah
+if ?CR0_NE
 ENVF2_NOCR0NE  	equ 80h	; 32768 don't touch CR0 NE bit
+endif
 
 ;------------------------ flags in fDebug
 

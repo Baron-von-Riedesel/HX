@@ -124,9 +124,6 @@
          this option will HPDMI cause to set the WP bit in CR0, thus 
          preventing write access to read-only pages even for the host.
          This option is similar to environment switch HDPMI=4096.
-     -t: don't touch NE bit in CR0. Without this option HDPMI will set
-         the NE bit so floating point errors will cause an exception 0x10.
-         Similar to environment switch HDPMI=32768.
      -u: this switch will uninstall a running instance of HDPMI.
      -v: if both XMS and VCPI hosts were detected, use VCPI memory allocation
          and ignore XMS host. 
@@ -143,6 +140,14 @@
          be set (some security checks are implemented, but it isn't
          fool-proved). If in doubt run tool DPMI.EXE to see if the value
          is reasonable.
+
+    [-t: removed since v3.19! Previously, it told HDPMI not to set the 
+         CR0.NE and thus make the cpu generate an Irq 0Dh instead of a
+         numeric exception on FP errors. Since v3.19, HDPMI will not touch
+         CR0.NE and the default handler for Irq 0Dh will trigger an 
+         exception 10h, which is supposed to be more compatible. However,
+         Irq 0Dh is not called if interrupts are disabled or Irq 0Dh has
+         been masked, so the behavior of HDPMI has slightly changed.]
    
    (*) Please note: Since HDPMI modifies some real mode interrupt vectors,
        it cannot terminate if any other application (it needn't be a
@@ -216,8 +221,8 @@
    HDPMI=16384: obsolete since HDPMI v3.18. Previously, it caused HDPMI not
              to respond to int 2Fh, ax=160Ah. This allowed to start Windows
              3.1 WIN.COM while HDPMI was loaded resident.
-   HDPMI=32768: prevents HDPMI from modifying CR0 NE bit. Same effect as
-             command line option -t.
+   HDPMI=32768: obsolete since HDPMI v3.19. Previously, it prevented HDPMI
+             from modifying CR0 NE bit; same effect as command line option -t.
 
 
  5. Returncodes and Messages

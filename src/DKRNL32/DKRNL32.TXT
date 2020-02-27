@@ -452,6 +452,7 @@
   GetThreadPriority
   GetThreadSelectorEntry
   GetTickCount
+  GetTickCount64
   GetTimeFormatA
   GetTimeFormatW
   GetTimeZoneInformation

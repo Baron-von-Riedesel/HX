@@ -1,6 +1,15 @@
  
  History HDPMI 
 
+  __.__.____, version 3.19
+
+  þ DPMI function 0Eh (get coprocessor state): a 80487 is returned
+    instead of an 80387 if cpu is 80486+.
+  þ CR0.NE flag is no longer modified; that makes cmdline option -t 
+    obsolete. It has been removed, as well as environment switch 
+    HDPMI=32768. Instead, the default handler for interrupt 75h (Irq 0Dh)
+    will trigger a numeric exception 10h.
+
   08.09.2018, version 3.18
 
   þ bugfix: nested real-mode stack handling did not work reliably

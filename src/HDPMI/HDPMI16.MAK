@@ -33,7 +33,7 @@ AOPTD=
 !endif
 
 ASM   = jwasm.exe
-LINK  = jwlink.exe
+LINK  = Tools\jwlink.exe
 
 AOPT   = -nologo -c -Cp -Sg -D?32BIT=0 $(AOPTD) -I$(INC32DIR) -Fl$* -Fo$* -D?PE
 

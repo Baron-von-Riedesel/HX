@@ -291,6 +291,7 @@ EXPORT {
  GetThreadSelectorEntry
  GetThreadTimes
  GetTickCount
+ GetTickCount64
  GetTimeFormatA
  GetTimeFormatW
  GetTimeZoneInformation

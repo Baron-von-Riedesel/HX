@@ -980,8 +980,13 @@ bExcEntry	db -1				;entries default exception handler
 fHost		db 0				;1=xms,2=vcpi,4=raw,8=dpmi,...
 fXMSQuery	db 8				;default function code for XMS query
 fXMSAlloc	db 9				;default function code for XMS alloc
+if 0 ;0 since v3.19
 bFPUAnd		db not (CR0_EM or CR0_TS or CR0_NE)
 bFPUOr		db CR0_NE
+else
+bFPUAnd		db not (CR0_EM or CR0_TS)
+bFPUOr		db 0
+endif
 
 if ?KDSUPP
 fDebug	  db 0					;kernel debugger present?
@@ -2871,7 +2876,54 @@ endif
 	@callrmproc 72,<ss:[intrmcbrs+10*size INTRMCBr].rm_vec>
 	@callrmproc 73,<ss:[intrmcbrs+11*size INTRMCBr].rm_vec>
 	@callrmproc 74,<ss:[intrmcbrs+12*size INTRMCBr].rm_vec>
+if 0 ;v3.19
 	@callrmproc 75,<ss:[intrmcbrs+13*size INTRMCBr].rm_vec>
+else
+defint75:
+;--- new for v3.19:
+;--- default int 75h handler
+;--- send EOI to FPU and PICs
+	push eax
+	mov al,0
+	out 0F0h,al
+	mov al,20h
+	out 0a0h,al
+	push eax
+	in al,80h
+	pop eax
+	out 20h,al
+	pop eax
+;--- and now launch an numeric exception (10h) as if CR0.NE is 1
+;	iretd
+  if 0
+	_LTRACE_ = 1
+	push ebp
+	mov ebp,esp
+	@strout <"int 75: sp-4=%lX,[sp]=%lX %lX %lX %lX %lX",lf>,\
+		ebp, dword ptr [ebp+4], dword ptr [ebp+8], dword ptr [ebp+12],\
+		dword ptr [ebp+16], dword ptr [ebp+20]
+	pop ebp
+  endif
+	cmp [esp].IRET32.rCS, _INTSEL_		;is the stack to be switched? (LPMS->PMS)
+	jnz @F
+	push ds
+	push eax
+	push _LPMSSEL_
+	pop ds
+	mov ss:[bLPMSused],0
+	mov eax,dword ptr ds:[?LPMSSIZE-8]	;EIP
+	mov [esp+8].IRET32.rIP,eax
+	mov eax,dword ptr ds:[?LPMSSIZE-4]	;CS
+	mov [esp+8].IRET32.rCSd,eax
+	mov eax,dword ptr ss:spPMS+0		;ESP
+	mov [esp+8].IRET32.rSP,eax
+	mov eax,dword ptr ss:spPMS+4		;SS
+	mov [esp+8].IRET32.rSSd,eax
+	pop eax
+	pop ds
+@@:
+	@exception 10
+endif
 	@callrmproc 76,<ss:[intrmcbrs+14*size INTRMCBr].rm_vec>
 	@callrmproc 77,<ss:[intrmcbrs+15*size INTRMCBr].rm_vec>
 	@callrmproc 1C,<ss:[intrmcbrs+16*size INTRMCBr].rm_vec>
@@ -3318,6 +3370,7 @@ callrmprocintern endp
 ;*** proc called by macro @simrmint 
 ;--- esp+0 -> return address
 ;--- esp+4 -> DWORD intno
+;--- flags must be preserved ( see int21api.asm, rmdoswithcarry )
 
 	@ResetTrace
 
@@ -5732,10 +5785,12 @@ endif
 	jmp int2f_default
 
 int2f1687:
+;--- ES:DI = initial switch to protected-mode
 	push cs
 	pop es				;PM Entry
 	mov di,offset _initclient_rm
-	mov si,?RMSTKSIZE/10h  ;task bytes
+
+	mov si,?RMSTKSIZE/10h  ;task bytes in paragraphs
 ;PatchRMStkSize label word
 if ?VM
 	cmp cs:cApps,0
@@ -5743,6 +5798,7 @@ if ?VM
 	add si,cs:wCloneSize
 @@:
 endif
+
 	mov dx,cs:[wVersion]
 	mov cl,cs:[_cpu]	;processor
 if ?32BIT
@@ -5750,7 +5806,7 @@ if ?32BIT
 else
 	mov bx,0			;no 32-Bit Apps
 endif
-	xor ax,ax
+	xor ax,ax           ;ax=0 -> call supported
 	iret				;real-mode int ret!
 if ?SUPP32RTM
 int2f168a:
