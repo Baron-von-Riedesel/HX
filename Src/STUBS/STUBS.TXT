@@ -1,0 +1,59 @@
+
+
+ 1. About the Stubs
+
+ The binaries which are created from the DPMISTUB.ASM/LOADPE.ASM sources
+ are "stubs". Such stubs don't run as standalone binaries but are added 
+ - usually by the linker - to other binaries. They will only run if the
+ operating system doesn't understand the file format of the target binary.
+
+ Makefile will create 5 stubs, DPMIST32.BIN, DPMIST16.BIN, LOADPE.BIN,
+ LOADPEX.BIN and LOADPXNR.BIN.
+
+
+ 2. DPMIST32.BIN
+ 
+ DPMIST32.BIN is a stub file supposed to replace the default stub of
+ Win32 console mode apps. The replacement is done by:
+
+   - for new executables use a linker option (i.e. /STUB:DPMIST32.BIN)
+   - for existing apps use tool PEStub.exe
+
+ The modified application should run as before as long as it runs in a
+ Win32 environment. In true DOS, however, the stub will gain control
+ and try to find and launch HX's PE file loader DPMILD32.EXE. DPMILD32
+ will be searched in the current directory and then in the directories
+ of the PATH environment variable. 
+
+
+ 3. DPMIST16.BIN
+
+ This is a stub intended to be added to 16-bit NE binaries. Instead of
+ searching DPMILD32.EXE, this stub searches DPMILD16.EXE, which is HX's
+ NE file loader. It's only of interest if a 16-bit HX binary is created,
+ which requires the HXDEV16 package. See documentation of this package
+ for more details.
+
+
+ 4. LOADPE.BIN, LOADPEX.BIN and LOADPXNR.BIN
+
+ These stubs contain a simplified PE loader by itself. So - unlike 
+ DPMIST32.BIN - no external binary is needed to load the application.
+ However, the application must be a DOS binary and must NOT contain 
+ references to other PE modules (no imports). LOADPE.BIN will load
+ HDPMI32 if no DPMI host is installed, LOADPEX.BIN contains HDPMI32
+ already and will activate it if no host is active. LOADPXNR.BIN is
+ like LOADPE.BIN, but lacks the ability to relocate the binary; it
+ mostly exists for testing purposes only. 
+
+
+ 5. History
+
+ 05/2018: added another version of LOADPE: LOADPXNR.BIN.
+ 03/2008: "out of memory" error msg added to LOADPE.
+          DPMIST32.ASM can be assembled with WASM now.
+ 02/2008: bugfix: DPMISTUB.ASM assumed a max. short path length of
+          70, but it is 80 (64+3+12+1).
+ 01/2008: added LOADPE.ASM and stubs LOADPE.BIN/LOADPEX.BIN.
+
+ Japheth 

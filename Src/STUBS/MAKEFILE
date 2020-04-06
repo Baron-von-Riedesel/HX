@@ -1,0 +1,96 @@
+
+# nmake makefile
+# creates stubs: DPMISTxx.BIN, LOADPE.BIN, LOADPEX.BIN, LOADPXNR.BIN
+# for HX 32-bit and 16-bit applications.
+# just JWasm with option -mz is used.
+
+# stubs DPMILDxx and HDLDxx are created in subdir DPMILDR.
+
+!include <..\dirs>
+
+DEVDRV = 0
+
+NAME16=DPMIST16
+NAME32=DPMIST32
+
+!ifndef DEBUG
+DEBUG=0
+!endif
+
+!if $(DEBUG)
+OUTDIR=Debug
+!else
+OUTDIR=Release
+!endif
+
+ASM=jwasm.exe
+
+#LOPT=/NOLOGO/NON/MAP:FULL/KNOWEAS/ST:1024
+
+ALL: $(OUTDIR) $(OUTDIR)\$(NAME32).BIN $(OUTDIR)\$(NAME16).BIN $(OUTDIR)\LOADPE.BIN $(OUTDIR)\LOADPEX.BIN $(OUTDIR)\LOADPXNR.BIN
+
+$(OUTDIR):
+	@mkdir $(OUTDIR)
+
+#--- DPMIST32.BIN
+
+$(OUTDIR)\$(NAME32).BIN: dpmistub.asm Makefile
+	@$(ASM) -c -nologo -mz -Fl$* -Fo$*.BIN -D?DEVDRV=$(DEVDRV) -D?32BIT=1 -I..\..\Include dpmistub.asm
+!if $(DEBUG)==0
+	@copy $*.BIN ..\..\Bin\*.* >NUL
+!ifdef TOOLSDIR
+	@copy $*.BIN $(TOOLSDIR)\*.* >NUL
+!endif
+!endif
+
+#--- DPMIST16.BIN
+
+$(OUTDIR)\$(NAME16).BIN: dpmistub.asm Makefile
+	@$(ASM) -c -nologo -mz -Fl$* -Fo$*.BIN -D?DEVDRV=$(DEVDRV) -D?32BIT=0 -I..\..\Include dpmistub.asm
+!if $(DEBUG)==0
+	@copy $*.BIN ..\..\Bin\*.* >NUL
+!ifdef TOOLSDIR
+	@copy $*.BIN $(TOOLSDIR)\*.* >NUL
+!endif
+!endif
+
+LOPT2=/NOLOGO/NON/MAP:FULL/KNOWEAS
+
+#--- LOADPE.BIN
+#--- uses MZSUPP/loadsrvr.inc to optionally load hdpmi
+
+$(OUTDIR)\LOADPE.BIN: LoadPE.asm Makefile
+	@$(ASM) -c -nologo -mz -Fl$* -Fo$*.BIN -I..\..\Include -I..\MZSUPP LoadPE.asm
+!if $(DEBUG)==0
+	@copy $*.BIN ..\..\Bin\*.* >NUL
+!ifdef TOOLSDIR
+	@copy $*.BIN $(TOOLSDIR)\*.* >NUL
+!endif
+!endif
+    
+#--- LOADPEX.BIN
+
+$(OUTDIR)\LOADPEX.BIN: LoadPE.asm Makefile ..\HDPMI\STUB32\HDPMI32.INC
+	@$(ASM) -c -nologo -mz -D?HDPMI=1 -Fl$* -Fo$*.BIN -I..\HDPMI\STUB32 -I..\..\Include -I..\MZSUPP LoadPE.asm
+!if $(DEBUG)==0
+	@copy $*.BIN ..\..\Bin\*.* >NUL
+!ifdef TOOLSDIR
+	@copy $*.BIN $(TOOLSDIR)\*.* >NUL
+!endif
+!endif
+    
+#--- LOADPXNR.BIN
+
+$(OUTDIR)\LOADPXNR.BIN: LoadPE.asm Makefile
+	@$(ASM) -c -nologo -mz -D?NORELOCS=1 -Fl$* -Fo$*.BIN -I..\..\Include -I..\MZSUPP LoadPE.asm
+!if $(DEBUG)==0
+	@copy $*.BIN ..\..\Bin\*.* >NUL
+!ifdef TOOLSDIR
+	@copy $*.BIN $(TOOLSDIR)\*.* >NUL
+!endif
+!endif
+    
+clean:
+	@del $(OUTDIR)\*.bin
+	@del $(OUTDIR)\*.lst
+
