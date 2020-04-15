@@ -1,0 +1,439 @@
+
+ 1. About
+ 
+ DGDI32 is part of HX's Win32 emulation. DPMILD32 will load this dll if 
+ module GDI32 is imported. Support for GDI32 is only rudimentary, though,
+ and most Win32 GUI apps won't run. Main purpose is to support simple
+ applications which just need the basics (bitmaps, pens, brushes,...).
+ 
+
+ 2. Supported Functions
+ 
+ Please note that if a function is not marked as dummy this doesn't mean
+ it is fully implemented. 
+
+  Name                     Dummy
+ ----------------------------------
+  AddFontResourceA         
+  AnimatePalette
+  Arc                      Y
+  BitBlt                   
+  ChoosePixelFormat        Y
+  CloseEnhMetaFile         Y
+  CopyEnhMetaFileA         Y
+  CopyEnhMetaFileW         Y
+  CopyMetaFileA            Y
+  CopyMetaFileW            Y
+  CombineRgn
+  CreateBitmap
+  CreateBrushIndirect
+  CreateColorSpaceA        Y
+  CreateColorSpaceW        Y
+  CreateCompatibleBitmap
+  CreateCompatibleDC
+  CreateDC                 
+  CreateDIBitmap
+  CreateDIBSection
+  CreateEnhMetaFileA       Y
+  CreateFontA
+  CreateFontW
+  CreateFontIndirectA
+  CreateFontIndirectW
+  CreateMetaFileA          Y
+  CreateMetaFileW          Y
+  CreatePalette
+  CreatePatternBrush
+  CreatePen
+  CreateRectRgn
+  CreateRectRgnIndirect
+  CreateSolidBrush
+  DeleteDC
+  DeleteEnhMetaFile        Y
+  DeleteObject
+  DescribePixelFormat      Y
+  Ellipse                  Y
+  EnumFontFamiliesA        Y
+  EnumFontFamiliesExA      Y
+  ExtCreatePen
+  ExtCreateRegion
+  ExtTextOutA
+  ExtTextOutW
+  FillRgn
+  FloodFill                Y
+  GdiFlush                 Y
+  GdiSetBatchLimit         Y
+  GetBitmapBits
+  GetBitmapDimensionEx     Y
+  GetBkColor
+  GetCharacterPlacementA   Y
+  GetCharacterPlacementW   Y
+  GetCharABCWidthsA        Y
+  GetCharABCWidthsW        Y
+  GetCharWidth32A
+  GetCharWidth32W
+  GetCharWidthA
+  GetCharWidthW
+  GetClipBox
+  GetCurrentObject
+  GetCurrentPositionEx
+  GetDCOrgEx    
+  GetDCBrushColor
+  GetDCPenColor
+  GetDeviceCaps
+  GetDeviceGammaRamp       Y
+  GetDIBColorTable
+  GetDIBits
+  GetEnhMetaFileBits       Y
+  GetEnhMetaFileHeader     Y
+  GetFontData              Y
+  GetMapMode
+  GetNearestPaletteIndex
+  GetObjectA
+  GetObjectType
+  GetOutlineTextMetricsA   Y
+  GetOutlineTextMetricsW   Y
+  GetPaletteEntries
+  GetPixel
+  GetPixelFormat           Y
+  GetRegionData
+  GetRgnBox
+  GetROP2                  Y
+  GetStockObject
+  GetSystemPaletteEntries
+  GetSystemPaletteUse
+  GetTextAlign
+  GetTextCharset
+  GetTextCharsetInfo
+  GetTextColor
+  GetTextExtentPoint32A
+  GetTextExtentPoint32W
+  GetTextExtentPointA
+  GetTextExtentPointW
+  GetTextFaceA
+  GetTextFaceW
+  GetTextMetricsA
+  GetViewportExtEx
+  GetViewportOrgEx
+  GetWindowExtEx
+  GetWindowOrgEx
+  GetWorldTransform        Y
+  IntersectClipRect
+  LineTo
+  MaskBlt                  Y
+  MoveToEx
+  OffsetClipRgn
+  OffsetRgn
+  OffsetViewportOrgEx
+  OffsetWindowOrgEx
+  PaintRgn
+  PatBlt
+  Pie                      Y
+  PlayEnhMetaFile          Y
+  PlayEnhMetaFileRecord    Y
+  Polygon
+  Polyline
+  PolyPolyline             Y
+  PtVisible                Y
+  RealizePalette
+  Rectangle
+  RectVisible              Y
+  ResizePalette
+  ScaleViewportExtEx       Y
+  ScaleWindowExtEx         Y
+  SelectObject
+  SelectPalette
+  SetBitmapBits
+  SetBitmapDimensionEx     Y
+  SetBkColor
+  SetBkMode
+  SetDCBrushColor
+  SetDCPenColor
+  SetDeviceGammaRamp       Y
+  SetDIBColorTable
+  SetDIBits
+  SetDIBitsToDevice
+  SetEnhMetaFileBits       Y
+  SetMapMode
+  SetPaletteEntries
+  SetPixel
+  SetPixelFormat           Y
+  SetRectRgn 
+  SetROP2                  Y
+  SetStretchBltMode
+  SetTextAlign
+  SetTextColor
+  SetViewportExtEx
+  SetViewportOrgEx
+  SetWindowExtEx
+  SetWindowOrgEx
+  SetWorldTransform        Y
+  StartDocA                Y
+  StartDocW                Y
+  StretchBlt               Y
+  StretchDIBits            Y
+  SwapBuffers              Y
+  TextOutA    
+  TextOutW
+  TranslateCharsetInfo     Y
+  UnrealizeObject          Y
+  UpdateColors             Y
+
+
+ 3. History
+
+ 2011/05/27:  V1.13
+
+ þ BitBlt: allow negative numbers for x-coord and/or y-coord or destination.
+ þ BitBlt: direction flag is cleared on entry (SDL.DLL might set it!?).
+ þ AbortDoc(), SetAbortProc() added (dummies)
+ 
+ 2009/01/20:  V1.12
+
+ þ source assembled with JWasm.
+ 
+ 2008/03/01:  V1.11
+ 
+ þ TextOut: mouse cursor hidden+restored only if output is to screen.
+ þ PatBlt: mouse cursor hidden+restored only if output is to screen.
+ 
+ 2008/01/11:  V1.10
+ 
+ þ if the vesa mode doesn't support BIOS output, the infos for cell
+   height/width and int 43h are ignored and the ROM 16x8 font is used 
+   instead. This makes text shown correctly in GUI apps running in
+   VMware (Player + Workstation).
+ þ CreateFontW, CreateFontIndirectW, GetObjectW added.
+ þ GetOutlineTextMetricsW added (dummy).
+ þ GetGammaRamp implemented (required by SDL 1.12)
+ þ mapping implemented for polygon drawing
+ þ LPtoDP added (dummy)
+ þ CreateEnhMetaFileA/W, CloseEnhMetaFile, DeleteEnhMetaFile,
+   PlayEnhMetaFile, PlayEnhMetaFileRecord, CopyEnhMetaFileA/W,
+   GetEnhMetaFileBits, SetEnhMetaFileBits, GetEnhMetaFileHeader,
+   EnumEnhMetaFile, GetEnhMetaFilePaletteEntries added (dummies)
+ þ GetWinMetaFileBits, SetWinMetaFileBits added (dummies) 
+ þ CreateMetaFileA/W, CloseMetaFile, DeleteMetaFile,
+   PlayMetaFile, PlayMetaFileRecord, CopyMetaFileA/W,
+   GetMetaFileBitsEx, SetMetaFileBitsEx, EnumMetaFile added (dummies)
+ þ GetTextExtentPointA/W added
+ þ CreateHalftonePalette added (dummy) 
+ þ GetTextMetricsW added (dummy) 
+ þ GetTextFaceW added
+ þ EnumFontFamiliesW, EnumFontFamiliesExW added (dummies) 
+ þ GetCharWidth32A/W added
+ þ GetCharacterPlacementA/W added (dummies)
+ þ CreateColorSpaceA/W added (dummies)
+ þ StartDocW added (dummy)
+ þ CreateICA/W added (dummies)
+ 
+ 2007/07/15:  V1.9.8
+ 
+ þ bugfix: BitBlt(): if the source was a bitmap with a height lower
+   than the screen and the lines in BOTTOM-UP order, a GPF occured.
+ þ CreateBrushIndirect added.
+ þ bugfix: GetDIBits: the color table is now also filled if lpvBits is
+   <> NULL.
+ þ CreateDIBitmap rewritten. It is now equivalent to calling 
+   CreateCompatibleBitmap + SetDIBits.
+ þ bugfix: SetDIBits just copied bitmap data, without converting it
+   from DIB to DDB format.
+ þ SetDIBitsToDevice rewritten.
+ þ BitBlt: copy of 1 bpp bitmaps supported.
+ 
+ 2007/03/15:  V1.9.7
+
+ þ bugfix: GetDIBits did just copy bitmap data, without changing the
+   line order (bottom-up / top-down) if requested.
+ þ bugfix: CreateCompatibleDC copied the palette from the source DC.
+   Now the default palette is set.
+ þ bugfix: if CreateCompatibleBitmap was called with a memory DC, it
+   did not use the bitcount value of the currently selected bitmap, but
+   used the device context's bpp.
+ þ bugfix: GetDIBits might have directly returned the value stored
+   in BITMAPINFOHEADER.biHeight, even if this value was negative.
+ þ bugfix: GetDIBits might have read 1 line past end of bitmap, thus
+   increasing the risk for a GPF.
+ þ bugfix: GetTextExtentPoint32 may have caused a GPF.
+ þ bugfix: default palette had colors red and blue exchanged for entries 9-20.
+ þ RealizePalette for a memory DC now uses the system palette as source.
+ þ StartDocA, EndDoc, StartPage, EndPage, Escape added (dummies)
+ þ ScaleWindowExtEx, ScaleViewportExtEx added (dummies)
+ þ PtVisible, RectVisible added (dummies)
+ þ pfnRealizePalette and pfnSelectPalette exported
+ þ palette translation supported (previously only identity palettes
+   did work in 8 bpp modes).
+ 
+ 2006/10/15:  V1.9.6
+ 
+ þ bugfix: GetStockObject(NULL_PEN) returned NULL
+ þ bugfix: CreateDIBSection didn't use colors of current palette in hdc
+   if iUsage parameter was DIB_PAL_COLORS.
+ þ bugfix: the memory allocated for the bitmap bits of a DIB in 
+   CreateDIBSection may have been too small, which then may have resulted
+   in a GDI heap curruption.
+ þ bugfix: if a pattern Brush was selected in the device context, PatBlt
+   may not have filled the whole region.
+ þ SetRectRgn added
+ þ CombineRgn partly implemented
+ þ EnumFontFamiliesExA implemented
+ þ CreatePen now accepts any width and style (but still draws with
+   width=1 and style=solid only)
+ þ GetDeviceCaps understands LOGPIXELSX/SY now.
+ 
+ 2006/09/14:  V1.9.5
+ 
+ þ StretchBlt implemented, but just calls BitBlt
+ þ StretchDIBits implemented (to some extent)
+ 
+ 2006/08/15:  V1.9.4
+ 
+ þ bugfix: GetDIBColorTable ignored biClrUsed field
+ þ bugfix: CreateBitmap did not set the correct direction
+ 
+ 2006/07/15:  V1.9.3
+ 
+ þ MaskBlt added (just calls BitBlt) 
+ þ GetClipBox added
+ þ IntersectClipRect added
+ þ ExtCreateRegion added (works with simple rectangular region only)
+ þ GetCharWidthA, GetCharWidthW implemented
+ þ CombineRgn added (dummy)
+ þ TranslateCharsetInfo added (dummy)
+ þ Get/SetBitmapDimensionEx added (dummies)
+ 
+ 2006/06/14:  V1.9.2
+
+ þ bugfix: LineTo may have looped if a line length of zero was calculated
+ þ bugfix: under some conditions RealizePalette did nothing
+ þ bugfix: SetPaletteEntries may have set wrong colors if start index was != 0
+ þ bugfix: SetPaletteEntries ignored PC_EXPLICIT flag
+ þ CreateFontA implemented
+ þ CreatePatternBrush implemented
+ þ CreateDIBSection now accepts usage DIB_PAL_COLORS
+ þ PatBlt now works with a pattern brush
+ þ GetCurrentPositionEx added
+ þ GetTextExtentPoint32A + GetTextExtentPoint32W added
+ þ SetWindowOrgEx, SetWindowExtEx, SetViewportOrgEx, SetViewportExtEx added
+ þ OffsetWindowOrgEx, OffsetViewportOrgEx added
+ þ GetRgnBox, FillRgn, PaintRgn added, GetRegionData implemented
+ þ clipping partly implemented
+ þ ExtCreatePen added, it just calls CreatePen though
+ þ SaveDC, RestoreDC added
+ þ GetTextCharset, GetTextCharsetInfo, GetTextFaceA added
+ þ TextOutW added, ExtTextOutW implemented
+ þ FloodFill added (dummy)
+ þ Arc, Pie, Ellipse added (dummies)
+ 
+ 2006/04/21:  V1.9.1
+
+ þ GetRegionData added (dummy)
+ 
+ 2006/03/14:  V1.9
+ 
+ þ CreateRectRgnIndirect(), OffsetRgn() added
+ þ GdiSetBatchLimit() added (dummy)
+ þ UpdateColors() added (dummy)
+ þ ResizePalette() added
+ þ Rectangle(), Polyline(), Polygon() added
+ þ GetGraphicsMode, SetGraphicsMode, SetWorldTransform added (dummies)
+ þ GetFontData added (dummy)
+ þ EnumFontFamiliesA added
+ þ EnumFontFamiliesExA added (dummy)
+ 
+ 2006/02/06:  V1.8
+ 
+ þ export _SetDCBitPtr added to allow DDDRAW to create DCs for any surfaces.
+ 
+ 2006/01/22:  V1.7
+ 
+ þ DPtoLP added (dummy)
+ þ bugfix: SetSystemPaletteUse set an invalid value for system palette usage.
+ þ CreatePatternBrush added (dummy)
+ þ GetObjectA now supports BRUSH objects
+ 
+ 2006/01/02:  V1.6
+ 
+ þ AnimatePalette added (dummy)
+ þ UnrealizeObject added (dummy)
+ þ CreateFondA added (dummy)
+ þ StretchBlt, StretchDIBits, SetStretchBltMode added (dummies)
+ þ GetSystemPaletteUse added
+ 
+ 2005/12/20:  V1.5
+ 
+ þ some speed optimisations in PatBlt + BitBlt
+ 
+ 2005/12/07:  V1.4
+ 
+ þ bugfix: RealizePalette didn't work for memory context and
+   didn't return the number of entries mapped to system palette
+ þ SetSystemPaletteUse added (dummy)
+ þ bugfix: GetObjectTypeA returned OBJ_DC for memory DCs
+ þ mapping mode initialized to MM_TEXT (previously 0)
+ þ GetObjectA now supports BITMAP objects
+ þ GetStockObject(SYSTEM_FONT) now never fails (uses OEM-VGA font
+   if no system font has been loaded.
+ þ GetDeviceCaps(TECHNOLOGY) supported
+ þ bugfix: CreateDC changed to CreateDCA
+ þ GetROP2, SetROP2 added (dummies)
+ þ SetDIBitsToDevice added (dummy)
+ þ ExtEscape added (dummy)
+ þ GDIFlush added (dummy)
+ þ PolyPolyline added (dummy)
+ þ GetGlyphOutlineA, GetGlyphOutlineW added (dummies)
+ þ GetWorldTransform, ModifyWorldTransform added (dummies)
+ þ GetViewportOrgEx, GetViewportExtEx added (dummies)
+ þ GetWindowOrgEx, GetWindowExtEx added (dummies)
+ þ GetOutlineTextMetricsA added (dummies)
+ þ GetCharABCWidthsA, GetCharABCWidthsW added (dummies)
+ þ GetCharWidthA, GetCharWidthW added (dummies)
+ þ ExtTextOutA, ExtTextOutW added (dummies)
+ þ GetClipRgn, SelectClipRgn added (dummies)
+ þ GetMapMode, SetMapMode added
+ þ GetTextAlign, SetTextAlign added
+ þ CreateRectRgn added
+ þ bugfix: SetPixel, GetPixel returned 0 in case of an error,
+   not CLR_INVALID (=-1)
+ þ CreatePen, CreateBitmap, GetBitmapBits, SetBitmapBits added
+ 
+ 2005/11/24:  V1.3
+ 
+ þ SetDIBits, GetDIBColorTable added
+ þ GetPixelFormat added (dummy)
+ þ stock objects BLACK_PEN and WHITE_PEN added
+ þ GetDCBrushColor, SetDCBrushColor added
+ þ GetDCPenColor, SetDCPenColor added
+ þ GetPixel, SetPixel, MoveToEx, LineTo, GetObjectType added
+ þ display contexts now aware of changes in display start scan line.
+              
+ 2005/11/18:  V1.2
+ 
+ þ SetDIBColorTable no longer dummy
+ þ GetCurrentObject, GetPaletteEntries added
+ þ GetBkColor, GetTextColor, GetNearestPaletteIndex added
+ 
+ 2005/10/21:  V1.1
+ 
+ þ GetTextMetricsA added
+ þ GetDCOrgEx added
+ þ GetDeviceGammaRamp, SetDeviceGammaRamp added (dummies)
+ þ ChoosePixelFormat, DescribePixelFormat, SetPixelFormat,
+   SwapBuffers added (dummies)
+ þ CreateDIBSection, SetDIBColorTable added
+ þ GetDeviceCaps added
+ þ CreatePalette, RealizePalette, SelectPalette, SetPaletteEntries,
+   GetSystemPaletteEntries added
+ þ CreateCompatibleBitmap added
+ þ GetDIBits added
+ 
+ 2005/09/28:  V1.0
+
+ 
+ 4. Copyright
+ 
+ DGDI32 is part of HX DOS extender. This extender is freeware.
+ View HXRT.TXT for licence details.
+ 
+ Japheth
+
+ 

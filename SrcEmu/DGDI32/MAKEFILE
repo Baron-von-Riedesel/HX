@@ -1,0 +1,94 @@
+
+# this will create DGDI32.DLL
+# adjust paths in file "..\dirs" first!
+# to create a debug version use "nmake debug=1"
+# output will be in subdir RELEASE or DEBUG, format
+# of object modules is COFF format, true flat
+
+!include <..\dirs>
+
+!ifndef DEBUG
+DEBUG=0
+!endif
+
+!if $(DEBUG)
+AOPTD=-D_DEBUG
+OUTDIR=DEBUG
+!else
+AOPTD=
+OUTDIR=RELEASE
+!endif
+
+SRCMODS = \
+!include modules.inc
+
+OBJMODS = $(SRCMODS:.ASM=.OBJ)
+!if $(DEBUG)
+OBJMODS = $(OBJMODS:.\=DEBUG\)
+!else
+OBJMODS = $(OBJMODS:.\=RELEASE\)
+!endif
+
+!ifndef MASM
+MASM=0
+!endif
+MSLINK=0
+
+ASMOPT= -c -coff -nologo -Cp -Sg -D_GDI32_=1 $(AOPTD) -I$(INC32DIR) -D?FLAT=1 -Fl$* -Fo$*
+!if $(MASM)
+ASM=@ml.exe $(ASMOPT) 
+!else
+ASM=@jwasm.exe $(ASMOPT) 
+!endif
+
+NAME=DGDI32
+LIBNAME=DGDI32S
+LIBS=dkrnl32.lib
+
+#LINK=link.exe
+#LIBBIN=lib.exe /NOLOGO
+
+.SUFFIXES: .asm .obj
+
+.asm{$(OUTDIR)}.obj:
+	$(ASM) $<
+
+ALL: $(OUTDIR) $(OUTDIR)\$(NAME).DLL
+
+$(OUTDIR):
+	@mkdir $(OUTDIR)
+
+$(OUTDIR)\$(NAME).DLL: $(OUTDIR)\$(LIBNAME).LIB $(OUTDIR)\$(NAME).obj $(NAME).rsp $(NAME).def Makefile
+!if $(MSLINK)
+	@link.exe /NOLOGO /MAP /DLL /LIBPATH:$(LIBCOFF) /OUT:$*.DLL $(OUTDIR)\$(NAME).obj $(OUTDIR)\$(LIBNAME).LIB $(LIBS) /DEF:$(NAME).def
+!else
+	@$(LINKBIN) format win pe dll f $(OUTDIR)\$(NAME).obj name $*.DLL libpath $(LIBCOFF) lib { $(OUTDIR)\$(LIBNAME).LIB $(LIBS) } op q, map=$*, implib=$* @$(NAME).rsp
+!endif
+!if $(DEBUG)==0
+	@copy $*.DLL ..\..\bin\*.* >NUL
+!ifdef DLL32DIR
+	@copy $*.DLL $(DLL32DIR)\*.* >NUL
+!endif
+	@copy $*.LIB $(LIBCOFF)\*.* >NUL
+	@copy $(OUTDIR)\$(LIBNAME).LIB $(LIBCOFF)\*.* >NUL
+!endif
+
+WLIBMODS=$(SRCMODS:.\ASM=+)
+
+$(OUTDIR)\$(LIBNAME).LIB: $(OBJMODS)
+	@cd $(OUTDIR)
+	@$(LIBBIN) @<<
+$(LIBNAME).LIB $(WLIBMODS:.ASM=.OBJ)
+<<
+	@cd ..
+
+$(OBJMODS): dgdi32.inc
+
+clean:
+	@del $(OUTDIR)\*.obj
+	@del $(OUTDIR)\*.dll
+	@del $(OUTDIR)\*.lib
+	@del $(OUTDIR)\*.map
+	@del $(OUTDIR)\*.lst
+	@del $(OUTDIR)\*.exp
+

@@ -1,0 +1,288 @@
+
+ 1. About
+ 
+ DADVAPI is HX's emulation of ADVAPI32.DLL. The registry API is 
+ implemented to some degree, the rest are just dummies.
+ 
+ The content of the registry is stored in private profile files. This is
+ a simple approach and it also makes it easy to add new entries, because
+ this format is supported when a registry branch is to be exported.
+
+ The profile files must be located in the same directory where DADVAPI.DLL
+ is stored, and the filenames are:
+
+ root key             filename
+ --------------------------------------------
+ HKEY_CLASSES_ROOT    "Classes"
+ HKEY_LOCAL_MACHINE   "System"
+ HKEY_CURRENT_USER    %USERNAME% (or "DOS")
+
+
+ 2. Supported Functions
+ 
+ Name                              Dummy
+ --------------------------------------------------
+ AddAccessAllowedAce               Y
+ AdjustTokenPrivileges             Y
+ AllocateAndInitializeSid          Y
+ AllocateLocallyUniqueId           Y
+ CloseServiceHandle                Y
+ ControlService                    Y
+ CopySid                           Y
+ CreateServiceA                    Y
+ CryptAcquireContextA              Y
+ CryptAcquireContextW              Y
+ CryptCreateHash                   Y
+ CryptDecrypt                      Y
+ CryptDeriveKey                    Y
+ CryptDestroyHash                  Y
+ CryptDestroyKey                   Y
+ CryptEncrypt                      Y
+ CryptEnumProvidersA               Y
+ CryptExportKey                    Y
+ CryptGenKey                       Y
+ CryptGenRandom                    Y
+ CryptGetHashParam                 Y
+ CryptGetKeyParam                  Y
+ CryptGetProvParam                 Y
+ CryptGetUserKey                   Y
+ CryptHashData                     Y
+ CryptImportKey                    Y
+ CryptReleaseContext               Y
+ CryptSetHashParam                 Y
+ CryptSetKeyParam                  Y
+ CryptSignHashA                    Y
+ CryptProvKeyParam                 Y
+ CryptVerifySignatureA             Y
+ DeleteAce                         Y
+ DeleteService                     Y
+ DuplicateToken                    Y
+ DuplicateTokenEx                  Y
+ EqualSid                          Y
+ FreeSid                           Y
+ GetAce                            Y
+ GetFileSecurityA                  Y
+ GetFileSecurityW                  Y
+ GetKernelObjectSecurity           Y
+ GetLengthSid                      Y
+ GetSecurityDescriptorControl      Y
+ GetSecurityDescriptorDacl         Y
+ GetSecurityDescriptorGroup        Y
+ GetSecurityDescriptorLength       Y
+ GetSecurityDescriptorOwner        Y
+ GetSecurityDescriptorSacl         Y
+ GetSidIdentifierAuthority         Y
+ GetSidSubAuthority                Y
+ GetSidSubAuthorityCount           Y
+ GetTokenInformation               Y
+ GetUserNameA                       
+ GetUserNameW
+ ImpersonateLoggedOnUser           Y
+ InitializeAcl                     Y
+ InitializeSecurityDescriptor      Y
+ InitializeSid                     Y
+ IsValidAcl                        Y
+ IsValidSecurityDescriptor         Y
+ IsValidSid                        Y
+ LookupAccountSidA                 Y
+ LookupAccountSidW                 Y
+ LookupPrivilegeValueA             Y
+ LookupPrivilegeValueW             Y
+ MakeAbsoluteSD                    Y
+ OpenProcessToken                  Y
+ OpenSCManagerA                    Y
+ OpenSCManagerW                    Y
+ OpenServiceA                      Y
+ OpenServiceW                      Y
+ QueryServiceStatus                Y
+ RegCloseKey
+ RegConnectRegistryA               Y
+ RegCreateKeyA
+ RegCreateKeyExA
+ RegCreateKeyExW
+ RegCreateKeyW
+ RegDeleteKeyA
+ RegDeleteKeyW
+ RegDeleteValueA
+ RegDeleteValueW
+ RegEnumKeyA
+ RegEnumKeyExA
+ RegEnumKeyExW
+ RegEnumKeyW
+ RegEnumValueA
+ RegEnumValueW
+ RegFlushKey                       Y
+ RegOpenKeyA
+ RegOpenKeyExA
+ RegOpenKeyExW
+ RegOpenKeyW
+ RegQueryInfoKeyA                  Y
+ RegQueryInfoKeyW                  Y
+ RegQueryValueA
+ RegQueryValueExA
+ RegQueryValueExW
+ RegQueryValueW
+ RegRestoreKeyA                    Y
+ RegSaveKeyA                       Y
+ RegSetValueA
+ RegSetValueExA
+ RegSetValueExW                    Y
+ RegSetValueW                      Y
+ RevertToSelf                      Y
+ SetFileSecurityA                  Y
+ SetFileSecurityW                  Y
+ SetKernelObjectSecurity           Y
+ SetSecurityDescriptorDacl         Y
+ StartServiceA                     Y
+ SystemFunction036
+
+
+ 3. History
+
+ 2013/01/02:  V2.11
+
+ þ SystemFunction036 added (RtlGenRandom).
+ þ LookupPrivilegeValueW added.
+
+ 2009/11/16:  V2.10
+
+ þ bugfix: RegEnumKey/RegEnumKeyEx didn't work.
+ þ bugfix: RegDeleteKey didn't work.
+ þ RegSetValueEx+RegQueryValueEx support REG_BINARY and REG_DWORD types.
+ þ RegConnectRegistryA added (dummy)
+ þ DuplicateTokenEx added (stub)
+ þ OpenServiceW, OpenSCManagerW, LookupAccountNameW added (stub)
+ 
+ 2009/01/20:  V2.9
+ 
+ þ source assembled with JWasm.
+ 
+ 2008/01/11:  V2.8
+ 
+ þ RegEnumKeyW, RegEnumKeyExW and RegEnumValueW implemented
+ þ RegisterEventSourceW, ReportEventW added (dummies)
+ þ OpenThreadToken, SetThreadToken added (dummies)
+ þ CryptDestroyKey, CryptImportKey, CryptExportKey, CryptDeriveKey,
+   CryptGenKey, CryptDecrypt, CryptEncrypt, CryptSetKeyParam,
+   CryptGetKeyParam, CryptSetProvParam, CryptGetProvParam, CryptGetUserKey,
+   CryptSetHashParam, CryptVerifySignatureA, CryptSignHashA,
+   CryptEnumProvidersA added (dummies)
+ þ GetAce, DeleteAce added (dummies)
+ þ GetSidIdentifierAuthority, GetSidSubAuthority, GetSidSubAuthorityCount,
+   LookupAccountSidA, LookupAccountSidW added (dummies)
+ þ DuplicateToken added (dummies)
+ þ RevertToSelf added
+ þ GetSecurityInfo added (dummy)
+ þ SetEntriesInAclW added (dummy)
+ þ QueryServiceStatus added (dummy)
+ 
+ 2007/07/15:  V2.7
+ 
+ þ RegQueryInfoKeyW added (dummy)
+ þ RegEnumKeyA and RegEnumKeyExA implemented
+ 
+ 2007/03/15:  V2.6
+ 
+ þ CreateServiceA, StartServiceA, DeleteService, OpenServiceA, ControlService,
+   CloseServiceHandle, OpenSCManagerA added (dummies)
+ þ RegisterEventSourceA, DeregisterEventSource, ReportEventA added (dummies)
+ þ RegSaveKeyA, RegRestoreKeyA added (dummies)
+ 
+ 2006/12/14:  V2.5
+ 
+ þ ImpersonateLoggedOnUser added (dummy)
+ 
+ 2006/07/15:  V2.4
+ 
+ þ RegCreateKeyW, RegDeleteKeyW, RegDeleteValueW, RegOpenKeyW,
+   RegOpenKeyExW implemented
+ þ RegFlushKey added (dummy)
+ þ CopySid, GetLengthSid added (dummy)
+ þ InitializeAcl, AddAccessAllowedAce added (dummy)
+ 
+ 2006/06/14:  V2.3
+ 
+ þ LookupAccountNameA added (dummy)
+ 
+ 2006/05/15:  V2.2
+ 
+ þ support for HKEY_CURRENT_USER added (file %USERNAME% or "DOS")
+ þ RegCreateKeyA, RegSetValueA added
+ þ RegDeleteKeyA, RegDeleteValueA, RegEnumValueA implemented
+ þ RegSetValueExA implemented for string values (REG_SZ)
+ þ RegCreateKeyW, RegCreateKeyExW, RegOpenKeyW, RegDeleteKeyW, RegQueryValueW,
+   RegSetValueW, RegSetValueExW, RegDeleteValueW, RegEnumKeyW, RegEnumKeyExW
+   added (dummies)
+ þ GetUserNameA now returns value of environment variable USERNAME (or "DOS")
+ 
+ 2006/03/18:  V2.1
+ 
+ þ GetUserNameW added
+ þ RegOpenKeyA, RegQueryValueA check for NULL key handle parameter
+ þ RegQueryValueExA implemented for string type (just calls RegQueryValueA)
+ þ RegOpenKeyExA implemented (just calls RegOpenKeyA)
+ þ support for HKEY_LOCAL_MACHINE added.
+ þ set hKey to 0 as default for RegOpenKeyXX.
+ þ InitializeSid added (dummy)
+ þ catch invalid handle 0 in RegCloseKey
+ þ clear handle in RegCreateKeyExA if function fails (which currently is
+   always the case because it is not implemented)
+ þ RegDeleteValueA added (dummy)
+ þ bugfix: function AllocateLocallyUniqueId had no RET
+ 
+ 2006/01/22:  V2.0
+ 
+ þ RegOpenKeyA, RegQueryValueA and RegCloseKey now work with HKEY_CLASSES_ROOT.
+ 
+ 2005/11/24:  V1.9
+ 
+ þ AllocateLocallyUniqueId added (dummy)
+ þ RegEnumValueA added (dummy)
+ þ AllocateAndInitializeSid, FreeSid added (dummy)
+ 
+ 2005/11/03:  V1.8
+ 
+ þ MakeAbsoluteSD, EqualSid added (dummy)
+ 
+ 2005/09/01:  V1.7
+ 
+ þ CryptAquireContextW, CryptCreateHash, CryptDestroyHash,
+   CryptHashData, CryptGetHashParam, RegOpenKeyExW,
+   RegQueryValueExW added (dummies)
+   
+ 2005/07/17:  V1.6
+ 
+ þ RegDeleteKeyA + RegEnumKeyExA added (dummies)
+ þ SetSecurityDescriptorDacl added (dummy)
+ 
+ 2005/05/14:  V1.5
+ 
+ þ GetUserNameA added (returns "DOS")
+ 
+ 2004/11/25:  V1.4
+ 
+ þ RegQueryInfoKeyA added (dummy)
+ 
+ 2004/10/12:  V1.3
+ 
+ þ RegCreateKeyExA + RegSetValueExA added (dummies)
+ þ InitializeSecurityDescriptor added
+ 
+ 2004/09/23:  V1.2
+ 
+ þ RegOpenKeyA + RegEnumKey added (dummies)
+ 
+ 2004/03/21:  V1.1
+ 
+ þ CryptGenRandom, CryptAquireContextA, CryptReleaseContext added
+ 
+ 2003/12/03:  V1.0
+
+ 
+ 4. Copyright
+ 
+ DADVAPI is part of HX DOS extender. This extender is freeware.
+ View file HXRT.TXT for license details.
+ 
+ Japheth
+ 

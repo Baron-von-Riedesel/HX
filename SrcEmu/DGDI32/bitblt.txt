@@ -1,0 +1,15 @@
+
+there a 4 locations where to set the direction
+bitblt.asm ?SIMPLEINVERT (0)
+compdc.asm ?RESETFLAGS (1)
+bitmap.asm ?SETDIRECTION (0)
+object.asm
+
+
+color translation:
+
+bitblt.asm: Blt
+bitmap.asm: CreateCompatibleBitmap
+palette.asm: RealizePalette
+
+
