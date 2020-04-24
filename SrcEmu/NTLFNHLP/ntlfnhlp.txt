@@ -1,0 +1,32 @@
+
+  About
+
+  NTLFNHLP implements translation services for DOS LFN (long filename)
+  functions. The code will only get active if it runs in a DOS box on
+  NT platforms, because in Windows 9x, DOSEMU or HDPMI these services
+  are already part of the DPMI server.
+
+  The Makefile will create a PE DLL named NTLFNHLP.DLL. Currently the
+  object modules will be statically linked with DKRNL32.DLL, so there
+  is no need to use NTLFNHLP.DLL if DKRNL32.DLL is loaded. But it may
+  be useful to load for true DOS apps not using DKRNL32.DLL.
+  
+  For MZ executables use TEXT.MAK. The object modules will be copied
+  to dkrnl32\Text, and ..\DKRNL32\TEXT.MAK will include them in dkrnl32s.lib.
+
+  Since NTLFNHLP currently is an integral part of DKRNL32, it also
+  supports 16-bit clients. For this use ESP16.MAK.
+
+  History
+  
+  2006/01/29: make NTLFNHLP also work for DPMIONE, which has no LFN
+              translation.
+  2005/08/01: switch ?CLI added to disable interrupts because the code
+              is not reentrant.
+
+  Copyright
+  
+  NTLFNHLP is part of HX DOS extender. This extender is freeware.
+  
+  Japheth
+  
