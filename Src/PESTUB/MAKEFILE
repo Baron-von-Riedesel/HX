@@ -1,0 +1,120 @@
+
+# nmake makefile to create PESTUB.EXE
+# tools used:
+# - JWasm
+# - JWlink
+
+name = PESTUB
+
+#--- this app may be generated as standard MZ executable as well.
+#--- however, OW WLink complains about multiple start addresses.
+#--- so another OMF linker is required.
+
+MZAPP=0
+USEDLL=0
+
+!ifndef MASM
+MASM=0
+!endif
+
+!ifndef DEBUG
+DEBUG=0
+!endif
+
+!if $(MZAPP)
+OUTDIR=OMF
+AOPTD=
+!elseif $(DEBUG)
+OUTDIR=DEBUG
+AOPTD=-Zi -D_DEBUG
+!else
+OUTDIR=RELEASE
+AOPTD=
+!endif
+
+!include <..\dirs>
+
+!if $(MZAPP)
+
+LOPTD=
+
+ASMOPT= -c -nologo -Sg -Fl$* -Fo$* -D?FLAT=0 -D_ML $(AOPTD) -I$(INC32DIR)
+
+!if $(MASM)
+ASM = @ml.exe $(ASMOPT)
+!else
+ASM = @jwasm.exe $(ASMOPT)
+!endif
+
+LIBS=$(LIBOMF)\jmppm32.lib $(LIBOMF)\dkrnl32s.lib $(LIBOMF)\libc32.lib
+LINK=jwlink.exe
+MODS=$*.obj $(LIBOMF)\jmppm32.obj
+
+!else
+
+!if $(DEBUG)
+LOPTD=/DEBUG
+!else
+LOPTD=
+!endif
+
+ASMOPT2= -c -coff -nologo -Sg -Fl$* -Fo$* -D?FLAT=1 $(AOPTD) -I$(INC32DIR)
+!if $(MASM)
+ASM = @ml.exe $(ASMOPT2)
+!else
+ASM = @jwasm.exe $(ASMOPT2)
+!endif
+MSLINK=0
+
+!if $(USEDLL)
+CRTLIB=$(LIBCOFF)\crtdll.lib
+!else
+CRTLIB=$(LIBCOFF)\libc32s.lib
+!endif
+LIBS= $(LIBCOFF)\dkrnl32.lib $(LIBCOFF)\duser32s.lib $(CRTLIB)
+LOPT=/OUT:$*.EXE /NOLOGO /NODEFAULTLIB /MAP:$*.map /SUBSYSTEM:CONSOLE $(LOPTD) /FIXED:NO  /STUB:..\..\bin\dpmist32.bin /MERGE:.rdata=.data /MERGE:.reloc=.text /OPT:NOWIN98 /STACK:0x4000
+
+!endif
+
+ALL: $(OUTDIR) $(OUTDIR)\$(name).EXE
+
+$(OUTDIR):
+	@mkdir $(OUTDIR)
+
+!if $(MZAPP)
+
+$(OUTDIR)\$(name).EXE: $*.obj makefile
+	@$(LINK) @<<
+format dos
+op q
+file {$(MODS)}
+name $*.EXE
+op map=$*.MAP
+lib {$(LIBS)}
+<<
+
+!else
+
+$(OUTDIR)\$(name).EXE: $*.obj makefile
+!if $(MSLINK)
+	@link $* $(LIBS) $(LOPT)
+!else
+	@$(LINKBIN) format win pe file $* lib { $(LIBS) } op q, stub=..\..\bin\dpmist32.bin, map=$*
+!endif
+!if $(DEBUG)==0
+	@copy $*.EXE ..\..\bin\*.* >NUL
+!ifdef TOOLSDIR
+	@copy $*.EXE $(TOOLSDIR)\$(name).EXE >NUL
+!endif    
+!endif
+!endif
+
+$(OUTDIR)\$(name).obj: $(name).asm makefile
+	$(ASM) $(name).asm
+
+clean:
+	@del $(OUTDIR)\*.obj
+	@del $(OUTDIR)\*.exe
+	@del $(OUTDIR)\*.lst
+	@del $(OUTDIR)\*.map
+

@@ -1,0 +1,154 @@
+
+
+  1. About PEStub
+
+   PEStub may be used to replace the stub file of a PE executable.
+  The replacement is done by typing:
+
+   PESTUB <name of executable to modify> <name of new stub>
+
+   Main purpose of PEStub is to replace the current stub of
+  Win32 console applications by stub DPMIST32.BIN. This stub
+  is part of HX runtime and will, in conjunction with PE file
+  loader DPMILD32 and its Win32 emulation dlls, enable this app
+  to run in plain DOS provided that all Win32 functions used by 
+  the app are properly emulated.
+
+   A backup copy of the modified executable with extension .BAK
+  will be written when PEStub modifies the file.
+
+  ----------------------------------------------------------------
+  PLEASE NOTE: It may be more conveniant now to use tool HXLDR32
+  instead of PEStub to run Win32 console applications in plain dos.
+  HXLDR32 is loaded resident, does the same job as stub DPMIST32
+  and does NOT require to modify existing PE executables.
+  ----------------------------------------------------------------
+
+  2. PE Loader Compatibility Test
+
+   The HX PE loader has some restrictions which may prevent it
+   from successfully loading a PE binary. PEStub knows (some of) these
+   restrictions and can be used to check if 
+
+   -  the binary has a chance to run with DPMILD32
+   -  can successfully be modified by PEStub
+
+   To start a check, run PEStub with option -r (and possibly option
+   -v). If warnings are displayed the binary cannot be loaded with
+   the current loader. If no warnings are displayed, there is still
+   no guarantee that the binary will be loaded, it's just that the
+   loader most likely won't get in the way. The binary may 
+   use an API not emulated (yet) or only partly emulated or many
+   other reasons. To be sure you will have to launch the loader.
+
+
+  3. Verifying a PE executable can run in plain DOS
+
+   To verify the application can be loaded in plain DOS enter:
+
+   DPMILD32 <name of PE executable>
+
+   This should be done in plain DOS as well, because the built-in
+  windows DPMI server has some severe restrictions (this is valid
+  for both win9x and winnt platforms). So it is not possible to
+  load a PE executable without relocation info in this environment,
+  because the loader cannot allocate memory with a specific base
+  address (0x400000 in this case).
+
+  If the console app was able to run one may enter:
+
+   PEStub.exe <name of PE-executable>
+
+   This will exchange the stub of the executable by default stub
+  DPMIST32.BIN. The modified binary remains a valid Win32 executable,
+  so nothing will change while running it in a Win32 environment.
+   When running in native DOS it has to be ensured that the HX runtime
+  binaries are located in a directory being included in your PATH
+  environment variable.
+
+
+  4. Known Problems
+
+   If the new stub written to a binary is larger than the old one,
+  the binary may become unloadable by the Windows NT/XP loader. On
+  these systems the header may not become larger than the lowest RVA
+  in the section table (error message is "access denied"). This should
+  be no issue with DPMIST32.BIN, which just is 200h bytes long, but
+  may be a problem if the new stub is to be DPMILD32.BIN.
+
+
+  5. History
+
+  2018/08/25: V3.1
+
+  þ accept PX file format as well.
+
+  2010/__/__: V3.0
+
+  þ ???
+
+  2009/01/20: V2.9
+
+  þ source assembled with JWasm.
+
+  2007/03/18: V2.8
+
+  þ bugfix: V2.7 didn't work.
+
+  2007/03/15: V2.7
+
+  þ additional infos displayed with option -v.
+  þ remainings of a section cleared with zeroes.
+  þ -q and -w options added.
+
+  2006/07/18: V2.6
+
+  þ now linked with POLINK. Some sections merged to reduce size.
+
+  2006/03/19: V2.5
+
+  þ bugfix: final binary had a bug in its malloc function.
+
+  2006/03/13: V2.4
+
+  þ small size reduction
+  þ now using WriteFile, not WriteConsole for displays
+
+  2005/12/27: V2.3
+
+  þ additional check if RVA of a section is beyond image size. This works
+    with windows, but does not with HX.
+
+  2005/11/24: V2.2
+
+  þ bugfix: warning "relocs stripped" was ignored and the binary patched
+    nevertheless.
+
+  2005/07/12: V2.1
+
+  þ bugfix: don't tell the binary is compatible if it isn't found.
+
+  2005/06/28: V2.0
+
+  þ OptionalHeader.SizeOfHeader doesn't tell the truth in any case (UPX
+    packed binaries for example). This caused invalid binaries being created
+    by PEStub.
+  þ new command line options -v, -r, and -s.
+  þ warning displayed if cmdline switch -x was set and relocation infos
+    are missing.
+
+  2004/11/13: V1.9  
+
+  þ name of new stub is optional, default is DPMIST32.BIN.
+
+  2004/10/13: V1.8  
+
+  þ new command line switch -x.
+
+
+  6. Licence
+
+  PEStub is part of HX DOS extender. This extender is freeware.
+  View HXRT.TXT for licence details.
+
+  Japheth
