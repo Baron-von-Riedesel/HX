@@ -1,0 +1,56 @@
+
+ MZ Format Support for HX DOS Extender
+
+  This is some simple startup code for 32 bit dpmi clients linked as
+ MZ executables. It supports a flat, non-zero based 32-bit memory model.
+ The PE format - supported by DPMILD32 and the LOADPE[x].BIN stubs - is
+ more powerful, but for small tools the MZ format might be ok.
+
+ The startup code, after having finished its job,  will jump to entry
+ mainCRTStartup with registers set to:
+
+   - cs= 32 bit code selector
+   - ds/es/ss= 32 bit data selector (same base as CS)
+   - fs is NULL
+   - gs holds flat, zero-based 4 GB selector
+   - esp -> top of stack (default of stack size is 512 kB)
+   - ecx contains heap size allocated (default size is 512 kB)
+
+ Stack and heap size defaults may be overridden by defining publics
+ in the source code. See STKSIZE.ASM for details.
+
+ The program will be loaded by the dos program loader in conventional memory,
+ so it is limited in size to free amount of this memory.
+ As default, the startup code will move the image to extended memory, 
+ although this may be avoided (see LOADEXT.ASM for details).
+
+
+ I have tried out 6 OMF linkers how they work with 32bit MZ object modules:
+
+ - WLINK.EXE from Open Watcom. This open source linker has improved recently,
+   since v1.6 it can handle 32bit object modules. Since v1.8 it also accepts
+   32bit segments and DGROUP with size > 64 kB.
+
+ - LINK.EXE from Digital Mars. Is free and does a good job.
+
+ - TLINK.EXE from Borland: with switch /3 this linker is able to handle 
+   32-bit segments of any size, but at least versions up to 7.1 have
+   difficulties calculating correct value of stack segment. This may
+   be corrected by patching stack offset (word at offset 0Eh) in
+   executable (has to be same value as in .MAP file).
+
+ - QLINK.EXE from Qualitas. Does a good job, but when using a response
+   file it has problems with multiple libraries. Also it doesn't work on
+   Win NT/2K/XP.
+
+ - LINK.EXE from Microsoft: there is a limitation of 64 kB size for segments,
+   even it is marked as 32-bit. This is true for groups as well.
+
+ - ALINK.EXE: seems to have problems with externals, so I wasn't able
+   to successfully link a binary. Hints about this issue are welcome.
+
+ Samples for MZ format are supplied in Samples directory. The support for
+ Win32 emulation in MZ has been abandoned with v2.14.
+
+ Japheth
+

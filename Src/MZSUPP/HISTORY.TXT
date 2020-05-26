@@ -1,0 +1,21 @@
+
+2008/01/31: deleted support for Win32 emulation.
+            added support for loading PE images within an MZ binary
+            (loadpe.asm)
+2007/08/11: added support for stand-alone MZ binaries (loadsrvr.asm)
+2006/11/28: added test for 80386 in jmppm32.asm
+2006/07/17: added .BASE$D, .BASE$DA and .BASE$DZ segments in jmppm32.
+2006/04/12: don't save base address in ESI during initial switch to
+            protected mode.
+2006/03/06: bugfix: jmppm32 used wrong value for heap size
+            if the binary was moved in extended memory.
+2006/02/10: edi now contains stack size for init 
+2005/09/14: fatal error "out of memory" if alloc stack/heap memory failed.
+2005/08/18: small change to keep stack dword aligned
+2005/08/08: if the image is loaded in extended memory, there is now
+            one memory block allocated for the image, stack and heap,
+            and the stack is allocated right behind the _BSS section.
+            This makes MZ binaries compatible with Open Watcom CRT.
+            Previously stack/heap were allocated separately.
+2004/06/02: code segment used by jmppm32 now _TEXT32, so the app
+            will use _TEXT for its own.
