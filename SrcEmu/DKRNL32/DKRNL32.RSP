@@ -519,6 +519,7 @@ EXPORT {
  TlsGetValue
  TlsSetValue
  TransmitCommChar
+ TryEnterCriticalSection
  UnhandledExceptionFilter
  UnlockFile
  UnlockFileEx

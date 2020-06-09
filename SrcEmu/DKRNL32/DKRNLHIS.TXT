@@ -5,6 +5,9 @@
     This is also an adaption to the changed behavior of HDPMI32.EXE, which
     will no longer modify CR0.NE.
   þ GetTickCount64 added.
+  þ GetFileType() will no longer return FILE_TYPE_REMOTE (this value is
+    "unused" according to docs.
+  þ TryEnterCriticalSection added.
   
   07/28/2018: version 3.6
 

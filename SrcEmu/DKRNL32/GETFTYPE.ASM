@@ -11,8 +11,6 @@ endif
 	include winbase.inc
 	include macros.inc
 
-	.DATA
-
 	.CODE
 
 ;--- if FILE_TYPE_UNKNOWN is returned, last error has to be set!
@@ -28,10 +26,12 @@ GetFileType proc public uses ebx handle:dword
 	test dl,80h				;device?
 	mov eax,FILE_TYPE_CHAR
 	jnz exit
+if 0	;v3.7: type FILE_TYPE_REMOTE is "unused"
 	test dh,80h				;remote flag set?
-	mov eax,FILE_TYPE_DISK
-	jz exit
 	mov eax,FILE_TYPE_REMOTE
+	jnz exit
+endif
+	mov eax,FILE_TYPE_DISK
 	jmp exit
 unknown:
 	invoke SetLastError, NO_ERROR

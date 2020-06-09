@@ -77,6 +77,36 @@ exit:
 
 LeaveCriticalSection endp
 
+;--- BOOL TryEnterCriticalSection(pCS)
+;--- returns true if CS was unowned or was already owned by this thread
+;--- else false
+
+TryEnterCriticalSection proc public uses ebx esi pCS:ptr CRITICAL_SECTION
+	mov ebx,pCS
+if ?GBLCURRENT
+	mov esi, [g_hCurThread]
+else
+	invoke _GetCurrentThread
+	mov esi, eax
+endif
+	call EnterSerialization
+	xor eax, eax
+	cmp esi, [ebx].CRITICAL_SECTION.OwningThread
+	jz is_ours
+	cmp [ebx].CRITICAL_SECTION.OwningThread, eax
+	jnz exit
+	mov [ebx].CRITICAL_SECTION.OwningThread,esi
+	inc [ebx].CRITICAL_SECTION.LockCount
+is_ours:
+	inc eax
+exit:
+	call LeaveSerialization
+;	@strace <"TryEnterCriticalSection(", pCS, ")=", eax>
+	ret
+	align 4
+TryEnterCriticalSection endp
+
+
 ;--- void InitializeCriticalSection(pCS)
 ;--- the event initial state is signaled
 
