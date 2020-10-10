@@ -1,0 +1,170 @@
+
+  1. About
+  
+  DDDRAW.DLL is part of HX's Win32 emulation. It will be loaded by
+  DPMILD32 instead of the Win32 DirectDraw dll DDRAW.DLL.
+  
+  DDDRAW.DLL requires VESA linear frame buffer (LFB) to work. The DirectDraw
+  emulation has to work without hardware acceleration, so it cannot be as
+  fast as in windows. But for 2D graphics this should be no problem.
+  
+
+  2. DirectDraw Functions 
+
+  Interfaces implemented are:
+  
+  - IDirectDraw
+  - IDirectDraw2
+  - IDirectDraw4
+  - IDirectDraw7
+  - IDirectDrawSurface
+  - IDirectDrawSurface2
+  - IDirectDrawSurface3
+  - IDirectDrawSurface4
+  - IDirectDrawSurface7
+  - IDirectDrawPalette
+  - IDirectDrawClipper
+
+  But even if the interfaces are implemented, this doesn't mean that
+  all methods are implemented as well. Especially all new methods 
+  introduced with IDirectDraw4, IDirectDraw7, IDirectDrawSurface4 and
+  IDirectDrawSurface7 will return error "not implemented".
+
+
+  3. History
+  
+  2009/01/20: Version 2.8
+  
+  þ source assembled with JWasm.
+ 
+  2008/01/11: Version 2.7
+  
+  þ Blt doesn't hide + redraw cursor if no primary surface is involved.
+  
+  2007/03/15: Version 2.6
+
+  þ DirectDrawPalette will use the GDI palette functions now.
+    This ensures that GDI always knows the correct state of the palette.
+  þ DirectDrawGammaControl interface implemented (dummy)
+    
+
+  2006/09/14: Version 2.5
+
+  þ DirectDrawEnumerateEx added
+  
+  2006/06/14: Version 2.4
+
+  þ bugfix: IDirectDrawPalette::SetEntries may have written beyond 
+    the palette table
+  
+  2006/04/21: Version 2.3
+  
+  þ IDirectDraw4 and IDirectDrawSurface4 implemented (dummy)
+  þ IDirectDraw7 and IDirectDrawSurface7 implemented (dummy)
+  
+  2006/02/24: Version 2.2
+  
+  þ IDirectDrawSurface::GetDDInterface implemented.
+  þ IDirectDrawSurface::Initialize now returns DDERR_ALREADYINITIALIZED.
+  
+  2006/02/06: Version 2.1
+  
+  þ IDirectDrawSurface::GetColorKey/SetColorKey now return DD_OK.
+    But colorkeys still are ignored in DDDRAW.
+  þ bugfix: IDirectDrawSurface::GetDC didn't work for off-video surfaces.
+  þ bugfix: IDirectDrawSurface::GetDC always returned DC for current
+    primary surface memory.
+  þ bugfix: IDirectDrawSurface::Flip with triple buffers didn't work
+  þ IDirectDrawSurface::GetFlipStatus now calls GetVesaFlipStatus.
+  þ bugfix: video mode wasn't restored for IDirectDraw2 objects
+    if SetCooperativeLevel was set back to normal.
+  þ video mode automatically restored if directdraw object is released.
+              
+  2006/01/22: Version 2.0
+  
+  þ call DisableThreadLibraryCalls in DllMain
+  þ bugfix: IDirectDrawSurface::Flip didn't work with more than
+    one backbuffer. 
+  þ bugfix: IDirectDrawPalette::GetCaps returned wrong value
+  þ bugfix: IDirectDrawSurface::GetPixelFormat didn't set  
+    correct flags for 8-bit palette modes.
+  þ DllGetClassObject added to make DDDRAW.DLL COM compatible.
+  þ DirectDrawEnumerateA added
+  
+  2006/01/02: Version 1.9
+  
+  þ bugfix: Restoring video state didn't always work.
+  
+  2005/12/20: Version 1.8
+  
+  þ IDirectDrawSurface::Blt speed optimisation for P4 CPUs.
+  þ bugfix: creating a surface with flag DDSCAPS_OFFSCREENPLAIN 
+    set allocated the surface memory in video memory. Now this
+    is only done for DDSCAPS_VIDEOMEMORY. 
+  þ IDirectDrawSurface::Blt speed optimisation for CPUs < P4.
+  þ bugfix: IDirectDrawSurface::Blt colorfill didn't work for 24 bpp
+  þ IDirectDrawSurface::IsLost implemented
+  
+  2005/12/07: Version 1.7
+  
+  þ IDirectDrawSurface::BltFast implemented
+  þ bugfix: USER32 function address "SendMessage" was not found
+    (correct name is "SendMessageA")
+  þ IDirectDrawSurface:GetSurfaceDesc returns lpSurface.
+  
+  2005/11/24: Version 1.6
+  
+  þ bugfix: IDirectDrawSurface::Flip didn't work as expected
+  þ bugfix: the mouse cursor wasn't shown on flipping surfaces.
+  þ IDirectDrawSurface::GetFlipStatus implemented
+  þ bugfix: hiding mouse cursor didn't work for GUI apps
+  þ bugfix: IDirectDraw2::GetAvailableVidMem returned wrong
+    values.
+    
+  2005/11/18: Version 1.5
+  
+  þ IDirectDraw::GetGDISurface implemented
+  þ IDirectDrawSurface::GetPixelFormat implemented
+  þ IDirectDrawSurface::Blt now works with DDBLT_COLORFILL
+  þ bugfix: destroying a DirectDraw object may have deactivated the mouse.
+    
+  2005/11/01: Version 1.4
+  
+  þ IDirectDraw::EnumDisplayModes: only enum gfx modes with LFB
+    support
+  þ bugfix: use ChangeDisplaySettingsA to change video mode if
+    a GUI app is running.
+  þ bugfix: IDirectSurface:GetCaps wrote to a wrong address
+  
+  2005/10/24: Version 1.3
+  
+  þ IDirectDrawSurface2, IDirectDrawSurface3, IDirectDrawClipper
+    implemented.
+  þ DDDRAW.DLL linked dynamically with VESA32.
+  
+  2005/09/25: Version 1.2
+  
+  þ DDDRAW.DLL now linked statically with VESA32.
+  þ IDirectDrawSurface: methods Blt, Flip, GetAttachedSurface,
+    EnumAttachedSurfaces, DeleteAttachedSurface, GetSurfaceDesc,
+    GetDC, ReleaseDC implemented.
+    IDirectDraw2: methods GetAvailableVideoMemory implemented.
+    
+  2005/06/14: Version 1.1
+  
+  þ IDirectDraw::RestoreDisplayMode now uses VESA save/restore
+    state functions. 
+  þ IDirectDraw::GetCaps implemented
+  þ IDirectDraw::GetCurrentMode implemented
+  þ IDirectDraw::EnumDisplayModes implemented
+  
+  2005/06/07: Version 1.0
+
+
+  4. Copyright
+  
+  DDDRAW.DLL is part of HX DOS extender. This extender is freeware.
+  View HXRT.TXT for licence details.
+  
+  Japheth ( http://www.japheth.de )
+

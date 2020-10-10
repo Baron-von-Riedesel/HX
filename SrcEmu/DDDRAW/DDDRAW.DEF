@@ -1,0 +1,12 @@
+
+LIBRARY DDRAW
+
+EXPORTS
+ DDHAL32_VidMemAlloc
+ DDHAL32_VidMemFree 
+ DirectDrawCreate
+ DirectDrawCreateEx 	;requires ?DD7 to be set in DDDRAW.INC
+ DirectDrawEnumerateA
+ DirectDrawEnumerateExA
+ DllGetClassObject
+

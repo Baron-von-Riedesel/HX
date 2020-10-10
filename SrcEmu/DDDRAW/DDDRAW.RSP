@@ -1,0 +1,12 @@
+
+#LIBRARY DDRAW
+OPTION FUZZYEXPORT
+EXPORT {
+ DDHAL32_VidMemAlloc
+ DDHAL32_VidMemFree 
+ DirectDrawCreate
+ DirectDrawCreateEx
+ DirectDrawEnumerateA
+ DirectDrawEnumerateExA
+ DllGetClassObject
+}
