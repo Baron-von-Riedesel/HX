@@ -1,0 +1,19 @@
+
+LIBRARY SB16
+
+EXPORTS
+ SndClearBuffer
+ SndContinue
+ SndDeinit
+ SndFillDMABuffer
+ SndGetDMABuffer
+ SndGetPlayCsrPos
+ SndGetCaps
+ SndGetMidiPort
+ SndInit
+ SndPause
+ SndReinit
+ SndSetEventProc
+ SndSetWaveFormat
+ SndSetMidiDevice
+

@@ -1,0 +1,20 @@
+
+#LIBRARY SB16
+OP MODNAME=SB16
+OP FUZZYEXPORT
+EXPORT {
+ SndClearBuffer
+ SndContinue
+ SndDeinit
+ SndFillDMABuffer
+ SndGetDMABuffer
+ SndGetPlayCsrPos
+ SndGetCaps
+ SndGetMidiPort
+ SndInit
+ SndPause
+ SndReinit
+ SndSetEventProc
+ SndSetWaveFormat
+ SndSetMidiDevice
+}

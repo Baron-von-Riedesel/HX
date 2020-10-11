@@ -1,0 +1,27 @@
+
+ 1. About
+ 
+ SB16 is part of HX DOS extender. It contains code to access a SB 16/SB Pro.
+ 
+
+ 2. History
+ 
+ 01/20/2009:  v1.2
+
+ þ source assembled with JWasm.
+ 
+ 07/15/2007:  v1.1
+ 
+ þ bugfix: play cursor was returned wrong.
+ þ bugfix: 8bit sound didn't use 8bit DMA channel.
+ þ bugfix: sound IRQ > 7 didn't work.
+ 
+ 03/15/2007:  version 1.0
+
+ 
+ 3. Copyright
+ 
+ SB16 is part of HX DOS extender. This extender is freeware.
+ View HXRT.TXT or HXGUI.TXT for licence details.
+ 
+ Japheth
