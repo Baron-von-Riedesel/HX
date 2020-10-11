@@ -1,0 +1,223 @@
+
+ 1. About
+ 
+ WINMM is part of HXGUI, an HX extension to run Win32 GUI applications under
+ DOS.
+ 
+
+ 2. Supported Functions
+
+  Name                     Dummy
+ ----------------------------------
+ auxGetDevCapsA            Y
+ auxGetNumDevs             Y
+ auxGetVolume              Y
+ auxSetVolume              Y
+ joyGetDevCapsA            Y
+ joyGetNumDevs             Y
+ joyGetPos                 Y
+ joyGetPosEx               Y
+ joyReleaseCapture         Y
+ joySetCapture             Y
+ mciGetErrorStringA        Y
+ mciSendCommandA           Y
+ mciSendStringA            Y
+ midiInAddBuffer           Y
+ midiInClose               Y
+ midiInGetDevCapsA         Y
+ midiInGetErrorTextA       Y
+ midiInGetNumDevs          Y
+ midiInOpen                Y
+ midiInPrepareHeader       Y
+ midiInReset               Y
+ midiInStart               Y
+ midiInStop                Y
+ midiInUnprepareHeader     Y
+ midiOutClose
+ midiOutGetDevCapsA
+ midiOutGetErrorTextA      Y
+ midiOutGetNumDevs
+ midiOutGetVolume          Y
+ midiOutLongMsg
+ midiOutOpen
+ midiOutPrepareHeader
+ midiOutReset
+ midiOutSetVolume          Y
+ midiOutShortMsg
+ midiOutUnprepareHeader
+ midiStreamClose           Y
+ midiStreamOpen            Y
+ midiStreamOut             Y
+ midiStreamPause           Y
+ midiStreamProperty        Y
+ midiStreamRestart         Y
+ midiStreamStop            Y
+ mixerClose                Y
+ mixerGetControlDetails    Y
+ mixerGetDevCapsA          Y
+ mixerGetLineControlsA     Y
+ mixerGetLineInfoA         Y
+ mixerGetNumDevs           Y
+ mixerOpen                 Y
+ mixerSetControlDetails    Y
+ timeBeginPeriod           Y
+ timeEndPeriod             Y
+ timeGetDevCaps
+ timeGetTime
+ timeKillEvent
+ timeSetEvent
+ waveInAddBuffer           Y
+ waveInClose               Y
+ waveInGetDevCapsA         Y
+ waveInGetNumDevs          Y
+ waveInOpen                Y
+ waveInPrepareHeader       Y
+ waveInReset               Y
+ waveInStart               Y
+ waveInStop                Y
+ waveInUnprepareHeader     Y
+ waveOutClose              
+ waveOutGetDevCapsA
+ waveOutGetErrorTextA      Y
+ waveOutGetID              Y
+ waveOutGetNumDevs         
+ waveOutGetPosition
+ waveOutGetVolume          Y
+ waveOutOpen               
+ waveOutPause
+ waveOutPrepareHeader      
+ waveOutReset
+ waveOutRestart
+ waveOutSetVolume          Y
+ waveOutUnprepareHeader    
+ waveOutWrite              
+
+
+ 3. History
+
+ 2009/11/16:  version 2.14
+ 
+ þ bugfix: "one shot" timers might have caused a GPF.
+ 
+ 2009/01/20:  version 2.13
+ 
+ þ source assembled with JWasm.
+ 
+ 2008/01/11:  version 2.12
+ 
+ þ mm helper thread is no longer created/destroyed whenever it's
+   needed, but just suspended/resumed.
+ þ there were unnecessary thread switches when multimedia timer
+   were destroyed.
+ 
+ 2007/07/15:  version 2.11
+ 
+ þ ensured that waveoutGetPosition returnes consistent data
+ þ sndPlaySoundA implemented
+ 
+ 2007/03/15:  version 2.10
+ 
+ þ bugfix: freeing DMA memory didn't work and destroyed value of EBX
+ þ SB specific code moved to SB16.DLL
+ 
+ 2006/12/14:  version 2.9
+ 
+ þ joySetCapture, joyReleaseCapture added (dummies)
+ 
+ 2006/10/15:  version 2.8
+ 
+ þ accept WAVE_FORMAT_UNKNOWN in waveOutOpen
+ þ mciSendStringA added (dummy)
+ þ mciSendCommandA now returns an error code, not ZERO.
+
+ 2006/08/15:  version 2.7
+ 
+ þ joyGetPos added (dummy)
+ 
+ 2006/07/15:  version 2.6
+ 
+ þ midiInReset, midiInPrepareHeader, midiInUnprepareHeader,
+   midiInGetErrorTextA, midiInAddBuffer added (dummies)
+ þ waveInStop added (dummy)
+ þ mixerGetDevCapsA added (dummy)
+ þ take into account that SB "high" DMA channel may be < 4
+ 
+ 2006/06/14:  version 2.5
+ 
+ þ midiInStop added (dummy)
+   
+ 2006/03/08:  version 2.4
+ 
+ þ timeSetEvent now accepts a delay of 1 ms, previously if had to be at
+   least 2 ms. Makes qemu 0.8.0 to work with hx.
+ þ modified the code so it uses the DPMI virtual interrupt flag functions
+   to temporarily disable interrupt. WinXP and DosEmu require to use
+   these because the IF itself will not tell the truth.
+ þ the previous version used undocumented DSP command FBh get status
+   to be able to continue sound output even after another app has
+   reprogrammed or reset the DSP. Using this feature is not recommended.
+ 
+ 2006/02/06:  version 2.3
+
+ þ continue playing sound now checks if another app has done a SB reset.
+   If yes, sound is reinitialized.
+ þ WOM_OPEN/WOM_CLOSE notifcations for waveOut implemented.
+ þ timeGetTime now uses GetTickCount, which has been improved to provide
+   a 1 ms resolution. Previously resolution was 55 ms.
+ þ timeGetDevCaps now implemented
+ þ just one helper thread - if any - now created to handle all multimedia
+   functions currently implemented (time, wave, midi).
+ þ some midiOutXXX functions implemented. SB MPU 401 output should work now
+   on SB 16 compatible cards.
+ þ waveOutGetDevCapsA now implemented
+ þ bugfix: waveOutGetNumDevs returned MMSYSERR_NODRIVER instead of NULL
+   if no sound device was available.
+ þ bugfix: if there was anything else in the BLASTER environment variable
+   except Axxx, Ix, Dx, Hx, Pxxx and Tx, the scan was skipped and the 
+   sound card not accepted.
+   
+ 2006/01/22:  version 2.2
+ 
+ þ waveOutGetPosition added (with TIME_BYTES type)
+ þ waveOutPause, waveOutRestart added
+ þ waveOutGetDevCapsA, waveOutGetVolume added (dummies)
+ þ auxGetDevCapsA, auxGetNumDevs, auxSetVolume, auxGetVolume added (dummies)
+ 
+ 2006/01/02:  version 2.1
+ 
+ þ mixerOpen added (dummy)
+ þ wave support for SoundBlaster Pro added.
+ þ midiInOpen, midiInClose, midiInStart, midiInGetNumDevs, midiInGetDevCapsA
+   added (dummies)
+ þ waveOutSetVolume, waveOutGetID added
+ þ bugfix: waveOut window callback with wrong lParam
+ þ bugfix: waveOutReset didn't dequeue buffers
+ 
+ 2005/12/20:  version 2.0
+ 
+ þ waveOutOpen, waveOutClose, waveOutReset, waveOutWrite,
+   waveOutPrepareHeader, waveOutUnprepareHeader now work
+   with SoundBlaster 16 compatible device.
+ þ midiOutOpen, midiOutClose, midiOutGetVolume (dummies)
+ þ midiOutGetNumDevs, waveOutGetNumDevs added
+ þ midiStreamPause, midiOutShortMsg added (dummies
+ þ timeGetDevCaps, midiOutGetDevCapsA added (dummies)
+ þ midiOutReset added (dummy)
+ 
+ 2005/12/07:  V1.2
+ 
+ þ waveOutReset (dummy) added
+ 
+ 2005/11/24:  V1.1 
+ 
+ þ midiXXX functions (dummy) added
+ 
+ 2005/10/10:  version 1.0
+
+ 
+ 4. Copyright
+ 
+ WINMM is part of HX DOS extender. This extender is freeware.
+ View HXRT.TXT or HXGUI.TXT for licence details.
+ 
+ Japheth
