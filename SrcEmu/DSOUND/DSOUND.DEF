@@ -1,0 +1,10 @@
+
+LIBRARY
+
+
+EXPORTS
+ DirectSoundCaptureCreate  @6
+ DirectSoundCreate         @1
+ DirectSoundEnumerateA     @2
+ DllGetClassObject         @5
+
