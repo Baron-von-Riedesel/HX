@@ -12,12 +12,12 @@ DEBUG = 0
 !endif
 
 !if $(DEBUG)
-ODIR1 = DEBUG32
+ODIR1 = STD32D
 ODIR2 = STUB32D
 ODIR3 = NOLFN32D
 ODIR4 = STUBX32D
 !else
-ODIR1 = REL32
+ODIR1 = STD32
 ODIR2 = STUB32
 ODIR3 = NOLFN32
 ODIR4 = STUBX32
@@ -83,7 +83,7 @@ $(ODIR1)\$(NAME).EXE: $(MODS1) $(NAME).mak
 !endif
 
 $(ODIR1)\dpmildr.OBJ: dpmildr.asm dpmildr.inc peload.inc kernel16.inc version.inc $(INCTR)
-	$(ASM) -D?STDERR=1 dpmildr.asm
+	$(ASM) dpmildr.asm
 
 $(ODIR1)\kernel16.OBJ: kernel16.asm dpmildr.inc peload.inc kernel16.inc version.inc $(INCTR)
 	$(ASM) kernel16.asm

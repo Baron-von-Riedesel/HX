@@ -34,7 +34,7 @@ endm
 
 ; @printf: print formated strings
 ; understands %X, %lX, %s, %S, %ls, %lS
-; %s  = near16 string
+; %s  = near16 string, DS must be preset
 ; %S  = like %s, inits DS to DGROUP internally
 ; %ls = far16 string
 ; %lS = near32 string, DS must be preset
@@ -45,27 +45,11 @@ if _TRACE_
 	  echo too many parameters for @printf
 	  .err1
 	endif
-	ifnb <a7>
-	  push a7
-	endif
-	ifnb <a6>
-	  push a6
-	endif
-	ifnb <a5>
-	  push a5
-	endif
-	ifnb <a4>
-	  push a4
-	endif
-	ifnb <a3>
-	  push a3
-	endif
-	ifnb <a2>
-	  push a2
-	endif
-	ifnb <a1>
-	  push a1
-	endif
+	for arg,<a7,a6,a5,a4,a3,a2,a1>
+	 ifnb <arg>
+	  push arg
+	 endif
+	endm
 	push CStr(<xx>)
 	call _stroutx
 endif

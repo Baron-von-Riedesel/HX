@@ -125,10 +125,10 @@ nextchar:
 	cmp al,lf
 	jnz @F
 	mov al,cr
-	call cs:printproc
+	call cs:tprintproc
 	mov al,lf
 @@:
-	call cs:printproc
+	call cs:tprintproc
 	jmp nextchar
 done:
 	ret
@@ -195,10 +195,10 @@ nextitem:
 	cmp al,lf
 	jnz @F
 	mov al,cr
-	call cs:printproc
+	call cs:tprintproc
 	mov al,lf
 @@:
-	jmp cs:printproc
+	jmp cs:tprintproc
 special:
 	mov bl,0
 	lods byte ptr cs:[si]
@@ -223,9 +223,9 @@ endif
 @@:
 	push ax
 	mov al,'%'
-	call cs:printproc
+	call cs:tprintproc
 	pop ax
-	call cs:printproc
+	call cs:tprintproc
 	retn
 stroutx_s:						;%s get near16 string
 	@getwordfromstack bx

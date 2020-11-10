@@ -5,8 +5,10 @@
   
   2. History
   
-  06/14/2018, V1.7:  -b, -n options added, timer resolution now in ms,
-                     print i15 memory, link step removed
+  11/08/2020, V1.8:  simplified display of int 15h, ax=e820h.
+  06/22/2018, V1.7:  -b, -n, -t options added, timer resolution now in ms;
+                     i15 extended memory is displayed; link step removed.
+                     -f now also works with option -s.
   06/16/2008, V1.6:  assembled with JWasm
   07/14/2007, V1.5:  -i option added
   02/26/2007, V1.4:  display compressed so it needs less lines

@@ -1061,7 +1061,7 @@ textX   db HDPMI,": $"
 szHDPMIx db HDPMI,"$"
 text4	db "insufficient memory",0
 text5	db "A20 gate cannot be enabled",0
-text6	db "VCPI host has remapped PICs",0
+text6	db "VCPI host reports remapped IRQs",0
 text7	db "CPU is in V86 mode, but no VCPI/DPMI host detected",0
 if ?SUPPDOS33
 text8	db "DOS v3.3+ needed",0

@@ -130,6 +130,9 @@ externdef	wLdrPSP:word
 externdef	fLoadMod:byte
 externdef	wEquip:word
 externdef	printproc:word
+if _TRACE_
+externdef	tprintproc:word
+endif
 if ?32BIT
 externdef	dStktop:dword
 else

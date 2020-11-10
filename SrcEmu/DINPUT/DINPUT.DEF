@@ -1,0 +1,9 @@
+
+LIBRARY
+
+
+EXPORTS
+ DirectInputCreateA
+ DirectInputCreateEx
+ DllGetClassObject
+

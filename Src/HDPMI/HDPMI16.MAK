@@ -4,7 +4,7 @@
 # tools used:
 #  - JWasm | Masm
 #  - JWLib | WLib (Open Watcom) | MS OMF LIB (lib16.exe)
-#  - JWLink v1.9beta 14
+#  - JWLink v1.9beta 15 (NODOSSEG option needed)
 #  - EditPE
 # EditPE is used to extract the 16-bit code section from the PE binary
 # and then add it again, as a so-called "stub".
@@ -33,7 +33,7 @@ AOPTD=
 !endif
 
 ASM   = jwasm.exe
-LINK  = Tools\jwlink.exe
+LINK  = jwlink.exe
 
 AOPT   = -nologo -c -Cp -Sg -D?32BIT=0 $(AOPTD) -I$(INC32DIR) -Fl$* -Fo$* -D?PE
 
@@ -71,7 +71,7 @@ $(OUTD)\$(NAME).EXE: $(OUTD)\$(NAME).TMP
 !endif     
 
 $(OUTD)\$(NAME).TMP: $(OUTD)\$(SRC).obj $(OUTD)\$(NAME).lib $(NAME).mak 
-	@$(LINK) format win pe hx ru native f $(OUTD)\$(SRC) n $*.TMP lib $(OUTD)\$(NAME).lib op q, map=$*.MAP, stack=0, offset=0, align=0x100
+	@$(LINK) format win pe hx ru native f $(OUTD)\$(SRC) n $*.TMP lib $(OUTD)\$(NAME).lib op q, map=$*.MAP, nodosseg, stack=0, offset=0, align=0x100
 #	link /subsystem:native $(OUTD)\$(SRC).obj $(OUTD)\$(NAME).lib /OUT:$*.TMP /MAP:$*.map /STACK:0,0 /BASE:0 /FILEALIGN:0x100
 
 $(OUTD)\$(NAME).lib: $(OBJMODS) $(NAME).mak

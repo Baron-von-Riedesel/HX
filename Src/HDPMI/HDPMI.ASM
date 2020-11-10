@@ -2888,9 +2888,6 @@ defint75:
 	out 0F0h,al
 	mov al,20h
 	out 0a0h,al
-	push eax
-	in al,80h
-	pop eax
 	out 20h,al
 	pop eax
 ;--- and now launch an numeric exception (10h) as if CR0.NE is 1
@@ -2904,7 +2901,9 @@ defint75:
 		dword ptr [ebp+16], dword ptr [ebp+20]
 	pop ebp
   endif
-	cmp [esp].IRET32.rCS, _INTSEL_		;is the stack to be switched? (LPMS->PMS)
+;--- if the stack is to be switched from LPMS to PMS,
+;--- there's _INTSEL_:_RTINT_ as CS:IP onto the stack
+	cmp [esp].IRET32.rCS, _INTSEL_
 	jnz @F
 	push ds
 	push eax

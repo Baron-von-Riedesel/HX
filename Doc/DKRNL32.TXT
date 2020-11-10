@@ -452,6 +452,7 @@
   GetThreadPriority
   GetThreadSelectorEntry
   GetTickCount
+  GetTickCount64
   GetTimeFormatA
   GetTimeFormatW
   GetTimeZoneInformation
@@ -663,6 +664,7 @@
   TlsGetValue
   TlsSetValue
   TransmitCommChar
+  TryEnterCriticalSection
   UnhandledExceptionFilter
   UnlockFile
   UnlockFileEx                   dummy

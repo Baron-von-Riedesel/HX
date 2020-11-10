@@ -79,7 +79,7 @@ OP2_NESTED	equ 1	;nested execution test
 wOpt		label word
 bOpt1		db 0
 bOpt2		db 0
-bFill		db 0	;fill allocated memory
+bFill		db 0	;fill memory allocated with options -m or -s
 bWaitKey	db 0	;wait for a key press in pm
 bNestLvl	db 2	;nesting level for -t
 
@@ -97,7 +97,7 @@ szHelp label byte
 	db "  -16: use entry for 16-bit client in any case",lf
 	db "  -b: allocate real-mode callbacks until error",lf
 	db "  -c: measure enable/disable interrupt execution time in protected mode",lf
-	db "  -f: fill allocated memory block (-m) with value 'DPMI'",lf
+	db "  -f: fill allocated memory block (-m, -s) with value 'DPMI'",lf
 	db "  -i<port>: measure execution time of IN opcode in protected-mode",lf
 	db "  -l: alloc 1000h bytes at 400000h with AX=0504",lf
 	db "  -m: alloc largest free block with AX=0501",lf
@@ -192,13 +192,21 @@ startshell proc
 	mov eax, dwAlloc
 	and eax, eax
 	jz @F
-	shl eax, 10
+	shl eax, 10		;convert kB to bytes
 	push eax
 	pop cx
 	pop bx
 	mov ax,0501h
 	int 31h
 	jc exit1
+	cmp bFill,0
+	jz @F
+	push bx
+	push cx
+	pop eax
+	mov edx,dwAlloc
+	shl edx,10
+	call fillblock 
 @@:
 	mov es, wEnv
 	xor di,di
@@ -278,41 +286,70 @@ dwType		dd ?
 E820ENTRY ends
 
 i15_e820 proc
-	mov ebx,0	;0 = start scan
+
+local dwTotal:dword
+local dwAddr:dword
+local dwSTotal:dword
+local dwSMax:dword
+local dwSAddr:dword
+
+	xor esi,esi		;esi=Max
+	mov dwTotal,esi
+	mov dwAddr,esi
+	mov dwSTotal,esi
+	mov dwSMax,esi
+	mov dwSAddr,esi
+	xor ebx,ebx		;ebx=0 -> start scan
 	push ds
 	pop es
-	mov di, offset buff2	;es:di = buffer
 	.while (1)
 		mov ecx, sizeof E820ENTRY
 		mov edx,"SMAP"
 		mov eax,0E820h
+		mov di, offset buff2	;es:di = buffer
 		clc
 		int 15h
 		.break .if (eax != "SMAP")
-		.break .if (ebx == 0)
-		push ebx
-		mov eax, [di.E820ENTRY.dwType]
-		.if (eax == 1)
+		.if ([di].E820ENTRY.dwType == 1)
 			mov eax, es:[di].E820ENTRY.dwLenLow
 			mov edx, es:[di].E820ENTRY.dwLenHigh
-			mov ecx, edx
-			shl ecx, 22
-			shr eax, 10
-			or  eax, ecx
-			shr edx, 10
-			mov ecx, es:[di].E820ENTRY.dwAddrHigh
-			.if ecx == 0 && es:[di].E820ENTRY.dwAddrLow < 100000h
-				;no conventional memory
-			.elseif dx
-				@printf <"Int 15h, ax=e820h, available memory at %lX, size %lXh kB",lf>,\
-					cx, es:[di].E820ENTRY.dwAddrLow, dx, eax
+			mov ecx, es:[di].E820ENTRY.dwAddrLow
+			mov edi, es:[di].E820ENTRY.dwAddrHigh
+			shrd eax,edx,10
+			.if edi == 0
+				.if ecx < 100000h
+				;	;skip conventional memory
+				.else
+					add dwTotal, eax
+					.if eax > esi
+						mov esi, eax
+						mov dwAddr, ecx
+					.endif
+				.endif
 			.else
-				@printf <"int 15h, ax=e820h, available memory at %lX, size %lu kB",lf>,\
-					cx, es:[di].E820ENTRY.dwAddrLow, eax
+				add dwSTotal, eax
+				.if eax > dwSMax
+					mov dwSMax, eax
+					shrd ecx,edi,10
+					mov dwSAddr, ecx
+				.endif
 			.endif
 		.endif
-		pop ebx
+		.break .if (ebx == 0)
 	.endw
+	@printf <"Int 15h, ax=e820h, free ext. memory:",lf>
+	.if dwTotal
+		@printf <"  below 4GB: total %lu kB, largest %lu kB at %lx",lf>, dwTotal, esi, dwAddr
+	.endif
+	.if dwSTotal
+		mov eax, dwSAddr
+		xor cx,cx
+		shld ecx,eax,10
+		shl eax,10
+		@printf <"  above 4GB: total %lu kB, largest %lu kB at %lX",lf>, dwSTotal, dwSMax, cx, eax
+	.else
+		@printf <"  above 4GB: none",lf>
+	.endif
 	ret
 i15_e820 endp
 
@@ -377,7 +414,7 @@ xms proc
 	mov wXMSVer, ax
 	movzx cx,al
 	movzx ax,ah
-	@printf <"XMS v%u.%u host found">, ax, cx
+	@printf <"XMS v%u.%x host found">, ax, cx
 
 	mov ah,08h				;query free memory
 	cmp byte ptr wXMSVer+1,3
@@ -1061,7 +1098,7 @@ stdalloc proc
 	int 31h
 	ret
 memalloc_failed:
-	@printf <"alloc largest block failed, AX=%x",lf>,ax
+	@printf <"alloc largest block (%lx) failed, AX=%x",lf>,meminf.maxBlock, ax
 	ret
 stdalloc endp
 
@@ -1115,6 +1152,49 @@ linalloc_failed:
 	@printf <"alloc linear memory failed, AX=%x",lf>,ax
 	ret
 linalloc endp
+
+;--- check for vendor MS-DOS
+
+chk2f168a proc
+	push 0
+	pop es
+	xor edi, edi
+	mov ax,168Ah
+	mov esi, offset szMSDOS
+	int 2Fh
+	cmp al,0
+	jnz failed
+	@printf <"vendor 'MS-DOS' API entry: %x:%lx",lf>,es,edi
+	cmp b16Bit,0
+	jnz @F
+	push es
+	push edi
+	mov ax,100h		;get LDT selector
+	call far32 ptr [esp]
+	lea esp, [esp+6]
+	jc failed2
+	jmp ok
+@@:
+	push es
+	push di
+	mov ax,100h		;get LDT selector
+	mov bp,sp
+	call far16 ptr [bp]
+	sahf
+	add sp,4
+	test ah,1
+	jnz failed2
+ok:
+	@printf <"'MS-DOS' API, ax=100h (get LDT selector): %x",lf>, ax
+done:
+	ret
+failed:
+	@stroutc <"no API entry for vendor 'MS-DOS' found",lf>
+	ret
+failed2:
+	@stroutc <"call 'MS-DOS' API, ax=100h failed",lf>
+	ret
+chk2f168a endp
 
 ;*** main for protected-mode 
 
@@ -1261,19 +1341,7 @@ fpudone:
 	pop ax
 	@printf <"capabilities: %x",lf>, ax
 no401:
-	push 0
-	pop es
-	xor edi, edi
-	mov ax,168Ah
-	mov esi, offset szMSDOS
-	int 2Fh
-	cmp al,0
-	jnz i2f168a_failed
-	@printf <"vendor 'MS-DOS' API entry: %x:%lx",lf>,es,edi
-	jmp i2f168a_done
-i2f168a_failed:
-	@stroutc <"no API entry for vendor 'MS-DOS' found",lf>
-i2f168a_done:
+	call chk2f168a
 
 status_displayed:
 	test bOpt1, OP_ALLOC
@@ -1480,8 +1548,10 @@ displ:
 	push ds
 	pop es
 
-if 1		;notify real-mode debugger
+if 0	;notify real-mode debugger
 	mov edi,offset rmcs
+	pushf
+	pop es:[edi].RMCS.rFlags
 	mov es:[edi].RMCS.rSSSP,0
 	mov cx,0
 	mov bl,1

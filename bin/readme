@@ -1,5 +1,0 @@
-binaries will be placed here.
-
-HXRT218 contains the HX runtime, including the DPMI host HDPMI, the PE program loader DPMILD32 and the basic Win32 emulation.
-
-hxtrap is a so-called trap file for the Open Watcom debugger WD.

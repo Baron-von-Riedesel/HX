@@ -19,7 +19,8 @@ endif
 ?SFLAGS		= 20h		;20h open executable with "deny write"
 ?DBGBREAK	= 0			;0, 1=set some breakpoints 
 ?BREAK4C	= 0			;0, 1=breakpoint on int 21, ah=4Ch
-?CHECKSUBSYS = 1		;1, 1=check for cpu 386
+?CHECKMACH   = 1		;1, 1=check for cpu 386
+?CHECKSUBSYS = 1		;1, 1=check for native subsys
 ?CHECKGUI    = 0		;0, 1=check for GUI subsys
 ?SAVESP      = 0		;0, 1=save SP (required by VC?)
 ?SAVEFL      = 1		;1, 1=don't modify Flags
@@ -151,11 +152,7 @@ rDS equ <[bp-2]>
 	int 21h
 	jc notape
 	mov dx,di
-if ?CHECKSUBSYS
 	mov cx,SIZERB
-else
-	mov cx,4		;just read the Signature and rely on DPMILD32
-endif
 	mov ah,3Fh
 	int 21h
 	jc notape
@@ -163,13 +160,17 @@ endif
 	jnz notape
 	cmp [di].IMAGE_NT_HEADERS.Signature,"EP"
 	jnz notape
-if ?CHECKSUBSYS        
+if ?CHECKMACH
 	cmp [di].IMAGE_NT_HEADERS.FileHeader.Machine,IMAGE_FILE_MACHINE_I386
 	jnz notape
 endif
-if ?CHECKGUI
+if ?CHECKSUBSYS
+	cmp [di].IMAGE_NT_HEADERS.OptionalHeader.Subsystem,IMAGE_SUBSYSTEM_NATIVE
+	jz notape			;is an unknown subsystem
+ if ?CHECKGUI
 	cmp [di].IMAGE_NT_HEADERS.OptionalHeader.Subsystem,IMAGE_SUBSYSTEM_WINDOWS_GUI
 	jz notape			;is a windows GUI app
+ endif
 endif
 	mov ah,3eh
 	int 21h
@@ -289,8 +290,12 @@ endif
 
 ;*** variables ***
 
-if ?CHECKGUI or ?CHECKSUBSYS
+if ?CHECKSUBSYS
 SIZERB	equ 4 + sizeof IMAGE_FILE_HEADER + IMAGE_OPTIONAL_HEADER.Subsystem + 2
+elseif ?CHECKMACH
+SIZERB	equ 4 + sizeof IMAGE_FILE_HEADER
+else
+SIZERB	equ 4			;just read the Signature and rely on DPMILD32
 endif
 
 ReadBuffer label byte	;size SIZERB (==5Eh)!

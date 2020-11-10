@@ -8,7 +8,7 @@
 !include <..\dirs>
 
 # define directory for OMF libs/modules
-#LIBOMF=..\..\lib
+LIBOMF=..\..\LibOMF
 
 !ifdef TRACE
 ASMT=-D?TRACE=1

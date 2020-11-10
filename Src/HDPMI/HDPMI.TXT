@@ -239,7 +239,7 @@
         the application since the DPMI API is available
    04   error: not enough memory for host initialization
    05   error: A20 cannot be enabled
-   06   error: VCPI host has remapped IRQs
+   06   error: VCPI host reports remapped IRQs
    07   error: CPU in V86 mode, but no VCPI or DPMI host found
    08   error: DOS version isn't 3.3 or higher
    09   error: CPU not 80386 or better
@@ -348,10 +348,10 @@
    Conventional memory (address space 0-10FFFFh) is under control of DOS.
    In XMS and raw mode HDPMI will initialize the page table for this region
    so that physical memory addresses and linear memory addresses are identical.
-   For its API translation HDPMI will use a DOS memory block of 8 kB.
-   Additionally some host code has to be run in real/v86-mode, and a 2 kB
-   host stack also is located in conventional memory to make it accessible
-   for both modes. All in all HDPMI will use about 13 kB of DOS memory.
+   DOS memory usage of HDPMI is just about 10 kB, of which 8 kB are used
+   as a "translation buffer" (TLB) - hence using cmdline option -b will reduce
+   the conventional memory footprint of HDPMI while no client is running to 
+   a little more than 2 kB!
 
 
  6.2 Interrupts
@@ -374,6 +374,11 @@
 
    Besides the hardware interrupts there are 3 software interrupts which
    will be routed to protected-mode as well: Int 1Ch, Int 23h and Int 24h.
+
+   Since version 3.19, the HDPMI default handler for IRQ 13 (FPU exception)
+   will trigger an exception 10h (numeric exception), as if the NE bit in 
+   register CR0 has been set. Previously, HDPMI had set CR0.NE to 1 and thus
+   no IRQ 13 had occured at all.
 
 
  6.3 Exceptions
@@ -405,6 +410,11 @@
    This is not what DPMI docs are telling, but it wouldn't make sense,
    since these exceptions are faults and the exception cause must be cured
    to continue execution. This can't be done by a real-mode interrupt handler.
+
+   A special case is interrupt 75h (coprocessor numeric error). Since v3.19,
+   the default handler for this protected-mode interrupt will trigger an 
+   exception 10h. OTOH, HDPMI does not longer set the CR0.NE bit when 
+   starting.
 
    If a client is terminated, a register dump is displayed. If HDPMI is
    installed residently, it will first try to terminate the client with

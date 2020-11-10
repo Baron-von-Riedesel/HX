@@ -16,6 +16,7 @@ $(OUTDIR):
 
 $(OUTDIR)\$(name).exe: $(name).asm printf.inc makefile
 	$(ASM) $(name).asm
+	copy $*.exe ..\..\test
 
 clean:
 	erase $(OUTDIR)\*.exe

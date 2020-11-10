@@ -1,0 +1,74 @@
+
+  1. About
+  
+  DINPUT.DLL is part of HX's GUI extension. SDL will preferably use
+  DINPUT.DLL and DDRAW.DLL if they are compatible. Else GDI32 (DIB)
+  and USER32 keyboard/mouse messages will be used.
+  
+
+  2. DirectInput Functions 
+
+  Interfaces implemented are:
+  
+  - IDirectInputA
+  - IDirectInput2A
+  - IDirectInput7A
+  - IDirectInputDeviceA
+  - IDirectInputDevice2A
+  - IDirectInputDevice7A
+
+  Currently only the keyboard and mouse devices work.
+  Some methods are not implemented yet, though.
+  
+  Properties which are implemented are BUFFERSIZE and AXISMODE.
+
+
+  3. History
+  
+  2009/01/20: Version 1.6
+  
+  þ source assembled with JWasm.
+  
+  2007/07/15: Version 1.5
+  
+  þ DirectInput::EnumDevices implemented.
+  þ DirectInputDevice::EnumObjects implemented.
+  þ mouse Z axis added
+  
+  2006/04/21: Version 1.4
+  
+  þ DirectInputCreateEx added
+  
+  2006/04/04: Version 1.3
+  
+  þ IDirectInputDevice::GetCapabilities implemented
+  
+  2006/01/22: Version 1.2
+  
+  þ IDirectInput2, IDirectInput7, IDirectInputDevice7 support
+    added (dummies)
+  þ now the keyboard event hooker sets Carry flag if in 
+    non-exclusive mode (same as with the mouse device).  
+  þ bugfix: IDirectInputDevice::GetDeviceState was implemented
+    for the mouse only!
+  þ DllGetClassObject added to make DINPUT.DLL COM compatible
+  
+  2005/11/01: Version 1.1
+  
+  þ Mouse device implemented.
+  þ Property AXISMODE implemented.
+  þ IDirectInputDevice::GetDeviceState implemented.
+              
+  2005/10/24: Version 1.0
+  
+  þ Keyboard device implemented.
+  þ Property BUFFERSIZE implemented.
+
+
+  4. Copyright
+  
+  DINPUT.DLL is part of HX DOS extender. This extender is freeware.
+  View HXRT.TXT or HXGUI.TXT for licence details.
+  
+  Japheth ( http://www.japheth.de )
+

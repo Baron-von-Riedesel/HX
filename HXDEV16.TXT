@@ -1,0 +1,170 @@
+ 
+  1. About
+
+   This package is for HX's support for 16-bit protected-mode applications.
+  It is far more difficult to get (free) tools for creating such binaries
+  than for 32-bit. As far as C is concerned, Open Watcom and Digital Mars
+  are the only free ones I know of, but for both a 16-bit DOS extender is
+  missing. This package contains:
+  
+   þ some OMF libraries and startup modules
+   þ samples in ASM, C, Pascal and Cobol
+   þ source code of the modules and libraries in Lib16
+   þ support to use Open Watcom's WD for debugging 16-bit DPMI clients
+   þ OS/2 and RTM emulation dlls.
+  
+
+  2. Installation
+  
+   First ensure that the HX runtime (HXRT) is already installed. It
+  contains HX's 16-bit DPMI server HDPMI16.EXE and the 16-bit DPMI loader
+  DPMILD16.EXE. You might get it from http://www.japheth.de/Download/hxrt.zip.
+
+   This package (HXDV16) should then be unzipped in the same directory where
+  HXRT has been installed. If you have installed the 32bit developer support
+  you may be asked to overwrite some files (PatchNE.exe, PatchNE.txt,
+  Dpmild16.txt). If HXDEV and HXDV16 have identical version numbers, the
+  files are also identical. Else keep the newer ones. 
+
+  
+  3. Creating 16bit Binaries
+
+  HX supports 2 file formats for 16-bit code, MZ and NE. The 16-bit
+  NE format should be prefered, it allows to use dlls and the image
+  is not restricted in size. A small catch is that to load such binaries
+  a loader, DPMILD16.EXE, is required. It might be supplied as external 
+  binary or it can be linked into the target as MZ stub. The simple MZ 
+  format might just be a better choice for very small tools. It is 
+  restricted to the small memory model anyway.
+  
+  Generally, the following environments have been tested to be able to
+  create valid 16-bit HX binaries:
+  
+  - MASM, TASM, WASM, FASM, NASM, ...
+  - Open Watcom C V1.3, V1.4 and V1.5
+  - Borland C++ V3.0, V3.1 and V4.0 (see below)
+  - MS C 6.00, MS VC++ V1.5 
+  - Digital Mars C++ V8.4x
+  - Borland Pascal 7.0 (see below)
+  - MS Cobol V4.5
+  
+  View README.TXT and the samples in the SAMPLE16 subdir for more details.
+  In README.TXT there is also a chapter which describes the tools available
+  to debug 16-bit protected-mode binaries.
+  
+  Borland has supplied a 16-bit extender for both Borland C++ and Borland
+  Pascal. However, one might consider to abandon the built-in extender and
+  switch to HX. The Borland binaries (DPMI16BI.OVL and RTM.EXE) are
+  known to have some bugs and are restricted to 64 MB extended memory.
+  Tool patchNE may be able to make such applications compatible with
+  HX's DPMI loader. Thus one can get rid of RTM.EXE and DPMI16BI.OVL.
+
+
+  4. OS/2 Emulation - Why?
+  
+  The HX DOS extender has no C runtime library on its own and always
+  relies on the native C RTL. This native C RTL must be protected-mode
+  compatible to work with HX. With MS VC and Borland C++, there is 
+  a simple solution by using the 16-bit Windows CRT libraries, but
+  for Open Watcom and MS Cobol this approach won't work. For these
+  environments the 16-bit OS/2 CRT has to be used instead. To resolve
+  references to the OS/2 API, an OS/2 emulation has to be used. For
+  more details see SAMPLE16\README.TXT
+  
+  
+  5. Files Overview
+
+ - BIN subdirectory:
+ 
+   + DPMIST16.BIN, DPMILD16.BIN, HDLD16.BIN: MZ stubs to be used by the
+     linker. DPMIST16.BIN will search for DPMILD16.EXE, DPMILD16.BIN will
+     search for HDPMI16.EXE. HDLD16.BIN needs no external modules.
+   + PATCHNE.EXE: tool to set some flags in a NE header. Might also be
+     used to replace the MZ stub of a NE binary.
+   + USER.DLL, RTM.DLL: required for Borland PowerPack compatibility.
+     Native PowerPack applications load RTM.EXE, which contains some
+     Win16 exports found in KERNEL, USER, KEYBOARD and additionally some
+     exports unique to RTM. In HX, the KERNEL emulation is included in 
+     DPMILD16.EXE, but exports of other modules are missing and therefore
+     these dll are needed.
+   + DOSCALLS.DLL, NLS.DLL, KBDCALLS.DLL, VIOCALLS.DLL:
+     OS/2 16-bit emulation dlls needed to run HX NE binaries which were
+     created by linking with DOSXXX.LIB.
+
+ - DOC subdirectory: descriptions of NE loader DPMILD16 and PATCHNE.
+           
+ - LIB16 subdirectory: modules and libraries in OMF format.
+
+   + SLX.LIB: modules to be used when using MS VC 1.5 small model
+   + LLX.LIB: modules to be used when using MS VC 1.5 large model
+   + KERNEL16.LIB: import library containing the windows 16-bit exports
+     emulated by DPMILD16.EXE. 
+   + DOSXXX.LIB: import library for OS/2 emulation dlls, to be used
+     if Open Watcom (WCC + WLINK) or MS Cobol is to create a NE binary
+     and the OS/2 emulation layer should not be included in the binary.
+   + DOSXXXS.LIB: static library containing OS/2 emulation code. Will 
+     cause the linker to add the emulation layer into the binary.
+   + JMPPM16.OBJ: startup module for simple MZ binaries (ASM).
+   + JMPPM16W.OBJ: startup module to be used if Open Watcom (WCC + WLINK)
+     is to create a MZ binary.
+   + JMPPM16M.OBJ: startup module to be used if MS VC 1.5 is to create
+     a MZ binary.
+   + CSTRT16X.OBJ: modified OW CSTRTO16.ASM module for HX NE format.
+   + CSTRT16Z.OBJ: modified OW CSTRTO16.ASM module for HX MZ format.
+   + BCHELP.OBJ: helper module to make object modules compiled with
+     Borland C++ compatible with MS VC runtime.
+
+ - OWSUPP16 subdirectory: helper files to support Open Watcom tools
+   WD (debugger) and WLINK (linker).
+
+ - SAMPLE16 subdirectory: samples in ASM, C, Pascal and COBOL.
+   
+ - SRC subdirectory: source code of 
+   + MZ Startup: JMPPM16.OBJ, JMPPM16m.OBJ and JMPPM16w.OBJ
+   + DOSXXX: OS/2 emulation, DOSXXX.LIB, DOSXXXS.LIB, DOSCALLS.DLL, ... 
+   + RTMSUBST: RTM substitution, RTM.DLL and USER.DLL
+
+
+  6. History
+  
+  05/27/2011, V2.17: -
+  11/16/2009, V2.16: HDLD16.BIN updated.
+  01/20/2009, V2.15: stub HDLD16.BIN added.
+  03/02/2008, V2.14: Support for OW updated.
+  01/11/2008, V2.13: -
+  07/15/2007, V2.12: Sample9 added.
+  03/15/2007, V2.11: DPMILD16 included as a MZ stub.
+  12/14/2006, V2.10: additions and bugfixes in the OS/2 emulation layer.
+                     DPMILD16 now calls OS/2 NE binaries the same way as
+                     OS/2 does (fixes and patches by ChowGuy. Thanks!).
+                     OS/2 emulation source added. DPMILD16 optionally loads
+                     Borland Pascal DPMI applications.
+                     Source for USER.DLL/RTM.DLL added.
+  10/15/2006, V2.9:  bugfixes in OW support.
+  09/18/2006, V2.8:  creating HX 16-bit MZ binaries with Open Watcom
+                     didn't work in v2.7.
+                     System "hx16mz" added to simplify creating MZ 
+                     binaries with OW.
+  09/05/2006, V2.7:  Bin\USER.DLL added. Example for Borland C++
+                     adjusted.
+  09/19/2005, V1.33: Source of MSHELP.OBJ added.
+  08/28/2005, V1.31: Open Watcom is now able to create HX 16-bit MZ
+                     binaries. DOSXXXS.LIB added. LLX.LIB added. 
+                     Samples smpl2mzm, smpl2mzw, sample2l added.
+                     LIBW.LIB replaced by KERNEL16.LIB.
+  08/21/2005, V1.30.2: bugfix: DPMIST16.BIN was missing. Sample4 added.
+  08/19/2005, V1.30.1: bugfix: HX trap helper modified
+  08/14/2005, V1.30: Open Watcom support added.
+  08/06/2005, V1.28: update to match HXRT v1.28
+  07/04/2005, V1.23: OS/2 emulation dlls added. PatchNE added.
+  06/25/2005, V1.22: Sample3 (MS Cobol) added. Sampl1mz added.
+  10/03/2004, V1.17: Sample1 modified.
+  10/02/2004, V1.16: (initial)
+  
+  
+  7. Copyright
+ 
+  The HX DOS extender is freeware. Copyright Japheth 1993-2010.
+  Files in BIN may be shipped with any application.
+  
+  Japheth

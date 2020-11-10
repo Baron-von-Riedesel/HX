@@ -74,7 +74,9 @@ rSS     dw ?
 ends
 rSSSP	dd ?
 ends
+
 else
+
 dpmiip  dd ?	;+0
 dpmics  dd ?	;+4
 errc    dd ?	;+8
@@ -93,6 +95,28 @@ ends
 ends
 endif
 DPMIEXC ends
+
+DPMI10EXC struct
+		DPMIEXC <>
+if ?CLEARHIGHEBP
+		db 10h dup (?)
+endif
+rDPMIIPx	dd ?	;+20h
+rDPMICSx	dd ?	;+24h
+rErrx		dd ?	;+28h	;filled with dr6 if exc 01
+rEIPx		dd ?	;+2Ch
+rCSx		dw ?	;+30h
+rInfoBits	dw ?	;+32h
+rEFLx		dd ?	;+34h
+rESPx		dd ?	;+38h
+rSSx		dd ?	;+3Ch
+rESx		dd ?	;+40h
+rDSx		dd ?	;+44h
+rFSx		dd ?	;+48h
+rGSx		dd ?	;+4Ch
+rCR2		dd ?	;+50h	;exc 0E only
+rPTE		dd ?	;+54h	;exc 0E only, bits 0-8 of PTE only
+DPMI10EXC ends
 
 PF16	typedef far16 ptr
 PF32	typedef far32 ptr

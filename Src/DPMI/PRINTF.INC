@@ -4,7 +4,7 @@
 ;--- define and print a string
 
 @stroutc macro xx
-	push CStr(<xx>)
+	mov ax,CStr(<xx>)
 	call _strout
 endm
 
@@ -40,10 +40,6 @@ endm
 	push CStr(<xx>)
 	call _printf
 endm
-
-CONST segment
-szlf	db 13,10,0
-CONST ends
 
 _BSS segment
 buff1 db 10h dup (?)
@@ -95,23 +91,40 @@ _putchar endp
 ;--- display a near16 string
 ;--- modifies AX
 
-_strout proc
-	push bp
-	mov bp,sp
-	push bx
-	mov bx,[bp+4]
+_strout proc uses bx
+	mov bx, ax
 nextchar:
 	mov al,[bx]
 	and al,al
 	jz done
+	cmp al,10
+	jnz @F
+	mov al,13
+	call _putchar
+	mov al,10
+@@:
 	call _putchar
 	inc bx
 	jmp nextchar
 done:
-	pop bx
-	pop bp
-	ret 2
+	ret
 _strout endp
+
+skipzeros proc uses di
+	mov di,ax
+	dec di
+nextitem:
+	inc di
+	mov al,[di]
+	cmp al,'0'
+	jz nextitem
+	cmp al,0
+	jnz @F
+	dec di
+@@:
+	mov ax,di
+	ret
+skipzeros endp
 
 ;--- display dword in EAX, hexadecimal
 
@@ -120,9 +133,21 @@ _dwordout proc uses di
 	push di
 	call dw_2_str
 	mov byte ptr [di],0
+	pop ax
+	call skipzeros
 	call _strout
 	ret
 _dwordout endp
+
+_dwordout2 proc uses di
+	mov di, offset buff1
+	push di
+	call dw_2_str
+	mov byte ptr [di],0
+	pop ax
+	call _strout
+	ret
+_dwordout2 endp
 
 ;--- display word in AX, hexadecimal
 
@@ -131,6 +156,8 @@ _wordout proc uses di
 	push di
 	call w_2_str
 	mov byte ptr [di],0
+	pop ax
+	call skipzeros
 	call _strout
 	ret
 _wordout endp
@@ -142,58 +169,17 @@ _byteout proc uses di
 	push di
 	call b_2_str
 	mov byte ptr [di],0
+	pop ax
 	call _strout
 	ret
 _byteout endp
 
 ;--- print number in AX, decimal
 
-_wordout_d proc
+_wordout_d:
+	movzx eax,ax
 
-	push ax
-	push bx
-	push cx
-	push dx
-	mov bx,0001
-	push bx
-	mov bx,0010
-	push bx
-	mov bx,0100
-	push bx
-	mov bx,1000
-	push bx
-	mov bx,10000
-	push bx
-	mov ch,0
-nextdigit:
-	mov cl,'0' - 1
-	pop bx
-@@:
-	inc cl
-	sub ax,bx
-	jnc @B
-	add ax,bx
-	cmp cl,'0'		;current digit <> 0?
-	jnz print
-	cmp ch,0		;already printed a digit?
-	jnz print
-	cmp bx,1
-	jnz noprint		;is it the last digit?
-print:
-	push ax
-	mov al,cl
-	call _putchar
-	pop ax
-	mov ch,01		;a digit was printed
-noprint:
-	cmp bx,0001
-	jnz nextdigit
-	pop dx
-	pop cx
-	pop bx
-	pop ax
-	ret
-_wordout_d endp
+	;fall thru!
 
 ;--- print number in EAX, decimal
 
@@ -235,8 +221,10 @@ noprint:
 	pop bx
 	ret
 
+CONST segment
 tab1 dd 1000000000,100000000,10000000,1000000,100000,10000,1000,100,10,1
 MAXDWDIGITS equ ($ - tab1) shr 2
+CONST ends
 
 _dwordout_d endp
 
@@ -271,8 +259,13 @@ nextitem:
 	jz done
 	push offset nextitem
 	cmp al,'%'
+	jz special
+	cmp al,lf
 	jnz _putchar
-
+	mov al,13
+	call _putchar
+	mov al,lf
+	jmp _putchar
 special:
 	lodsb
 	cmp al,'x'
@@ -292,6 +285,8 @@ special:
 	jz printf_lu
 	cmp al,'s'
 	jz printf_ls
+	cmp al,'X'
+	jz printf_lX
 @@:
 	push ax
 	mov al,'%'
@@ -300,14 +295,12 @@ special:
 	jmp _putchar
 printf_s:						;%s : near16 string
 	@getwordfromstack ax
-	push ax
 	call _strout
 	retn
 printf_ls:						;%ls display far16 string
 	push ds
 	@getwordfromstack ds
 	@getwordfromstack ax
-	push ax
 	call _strout
 	pop ds
 	retn
@@ -319,7 +312,13 @@ printf_lx:						;%lx : dword
 	@getdwordfromstack eax
 	call _dwordout
 	retn
-printf_u:						;%x : word
+printf_lX:						;%lX : fword
+	@getwordfromstack ax
+	call _wordout
+	@getdwordfromstack eax
+	call _dwordout2
+	retn
+printf_u:						;%u : word
 	@getwordfromstack ax
 	call _wordout_d
 	retn
@@ -351,12 +350,6 @@ done:
 	pop sp
 	ret
 _printf endp
-
-_crout proc
-	push offset szlf
-	call _strout
-	ret
-_crout endp
 
 _TEXT ends
 

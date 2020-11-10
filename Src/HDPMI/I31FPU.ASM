@@ -1,5 +1,7 @@
 
 ;--- ax=0Exx (fpu support)
+;--- just allows to set bits MP and EM in CR0
+;--- bit NE is not affected.
 ;--- todo: check if FPU really exists (on 80386)
 
 	.386P
@@ -32,20 +34,29 @@ i31f0E proc public
 
 i31f0E endp		;fall through
 
-;--- int 31h, ax=0900h
+;--- int 31h, ax=0e00h
 ;--- out: flags in AX
 
 getcostate proc
 	smsw ax
 	shr al,1
 	and al, FPU_MPV or FPU_EMV
-	or al, FPU_80387 or FPU_MPR   ;set fpu 80387 + fpu exists
+if 0 ;v2.19
+	or al,FPU_80387 or FPU_MPR
+else
+	mov ah,FPU_80387 or FPU_MPR
+	test byte ptr ss:[dwFeatures],1
+	jz @F
+	mov ah, FPU_80487 or FPU_MPR   ;set fpu 80487 + fpu exists
+@@:
+	or al,ah
+endif
 	xor ah,ah
 	ret
 	align 4
 getcostate endp
 
-;--- int 31h, ax=0901h
+;--- int 31h, ax=0e01h
 ;--- BX=coprocessor bit flags
 
 setcostate proc

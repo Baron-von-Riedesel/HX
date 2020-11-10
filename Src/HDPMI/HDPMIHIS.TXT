@@ -9,6 +9,8 @@
     obsolete. It has been removed, as well as environment switch 
     HDPMI=32768. Instead, the default handler for interrupt 75h (Irq 0Dh)
     will trigger a numeric exception 10h.
+  þ error msg "VCPI host has remapped PICs" changed to "VCPI host reports
+    remapped IRQs".
 
   08.09.2018, version 3.18
 

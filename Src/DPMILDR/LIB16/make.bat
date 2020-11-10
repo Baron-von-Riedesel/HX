@@ -1,8 +1,7 @@
 @echo off
-ml -c -nologo -Fl -Sg hmemset.asm
-ml -c -nologo -Fl -Sg lstrcat.asm
-ml -c -nologo -Fl -Sg lstrcpy.asm
-ml -c -nologo -Fl -Sg lstrlen.asm
-ml -c -nologo -Fl -Sg profstrg.asm
-erase ldr16.lib
-lib16 ldr16.lib +hmemset.obj +lstrcat.obj +lstrcpy.obj +lstrlen.obj +profstrg.obj;
+jwasm -c -nologo -Fl -Sg hmemset.asm
+jwasm -c -nologo -Fl -Sg lstrcat.asm
+jwasm -c -nologo -Fl -Sg lstrcpy.asm
+jwasm -c -nologo -Fl -Sg lstrlen.asm
+jwasm -c -nologo -Fl -Sg profstrg.asm
+jwlib -b -n ldr16.lib +hmemset.obj +lstrcat.obj +lstrcpy.obj +lstrlen.obj +profstrg.obj

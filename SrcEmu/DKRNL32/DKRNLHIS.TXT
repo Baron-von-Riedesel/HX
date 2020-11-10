@@ -8,6 +8,8 @@
   þ GetFileType() will no longer return FILE_TYPE_REMOTE (this value is
     "unused" according to docs.
   þ TryEnterCriticalSection added.
+  þ file TIMERHLP, function _GetTimerValue(): interrupts no longer disabled
+    during PIT register read.
   
   07/28/2018: version 3.6
 

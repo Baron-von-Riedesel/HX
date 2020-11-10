@@ -1,0 +1,28 @@
+
+#LIBRARY
+OPTION FUZZYEXPORT
+EXPORT {
+ EnumVesaModes
+ GetVesaDisplayStart
+ GetVesaFlipStatus
+ GetVesaInfo
+ GetVesaMode
+ GetVesaModeInfo
+ GetVesaMemoryBufferSize
+ GetVesaPaletteEntries
+ GetVesaStateBufferSize
+ GetVesaVideoMemorySize
+ RestoreVesaVideoMemory
+ RestoreVesaVideoState
+ SaveVesaVideoMemory
+ SaveVesaVideoState
+ SearchVesaMode
+ SetCursorPaletteEntries
+ SetMaxVideoResolution
+ SetVesa32Options
+ SetVesaDisplayStart
+ SetVesaMode
+ SetVesaPaletteEntries
+ VesaMouseExit
+ VesaMouseInit
+}

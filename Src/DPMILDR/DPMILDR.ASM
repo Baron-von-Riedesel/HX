@@ -3214,7 +3214,7 @@ SearchFileInPath endp
 ;*** inp: ds=loader dataseg
 ;--- szName= file to search
 ;*** C if error, then dos error code in AX
-;*** modifies SI
+;*** modifies BX, SI
 
 ScanPath proc near
 
@@ -3254,11 +3254,9 @@ else
 ;--- terminates.
 	mov es, [wCurPSP]
  else
-	push bx
 	mov ah,51h
 	int 21h
 	mov es,bx
-	pop bx
  endif
 	call GetEnvironmentVariable  ;DI=^Path
 endif

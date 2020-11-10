@@ -201,13 +201,13 @@ if ?DIRECTDISP
 ;----- currently there is no longer a switch from LPMS since it seems to
 ;----- be not stable, even in HDPMI.
 
-  if ?HDPMISPEC
+ if ?HDPMISPEC
 hxdispproc::
 win9xdispproc::
-if ?TRACE
+  if ?TRACE
 	call trace2
-endif
-if ?CHECKCS
+  endif
+  if ?CHECKCS
 	cmp esp,1000h - (sizeof HXLPMSTOP)
 	jnz nolpms2
 	push eax
@@ -218,9 +218,9 @@ if ?CHECKCS
 	mov eax,cs
 	cmp ax,word ptr [esp+1*4].HXLPMSTOP._CsPms	;is a client CS on TOP?
 	jnz nodisp
-else
+  else
 	push eax
-endif
+  endif
 	mov eax, [esp+1*4].HXLPMSTOP._EipPms
 
 	push ds
@@ -228,17 +228,17 @@ endif
 	mov [esp+2*4].HXLPMSTOP._EipPms,offset calldispatch2
 	mov g_ConCtrl.rEip, eax
 	mov g_bDispReq,1+2
-ife ?CHECKCS   
+  ife ?CHECKCS   
 	mov eax, cs
 	xchg eax, [esp+2*4].HXLPMSTOP._CsPms
 	mov g_ConCtrl.SegCs, eax
-endif
-if ?SAVEFLAGS
+  endif
+  if ?SAVEFLAGS
 	mov eax, [esp+2*4].HXLPMSTOP.rEflags
 	mov g_ConCtrl.EFlags, eax
 ;	and byte ptr [esp+2*4].HXLPMSTOP.rEflags+1,not 2	;clear IF
 	and byte ptr [esp+2*4].HXLPMSTOP.rEflags+1,not 1	;clear TF
-endif
+  endif
 	pop ds
 nolpms:
 nodisp:
@@ -247,8 +247,8 @@ nolpms2:
 	sti
 	@iret
 	align 4
-  endif
-endif
+ endif	;?HDPMISPEC
+endif	;?DIRECTDISP
 Dispatchprocs endp
 
 ife ?USERTC

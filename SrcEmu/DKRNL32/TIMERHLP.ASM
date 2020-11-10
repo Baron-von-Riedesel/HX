@@ -44,7 +44,9 @@ endif
 
 _GetTimerValue proc
 tryagain:
-	@noints
+
+;	@noints			;22.10.2020 disabled
+
 	mov edx,@flat:[046ch] 
 	mov al,0C2h		;read timer 0 status + value low/high
 	out 43h, al
@@ -56,7 +58,9 @@ tryagain:
 	mov ah, al		;AH = value low
 	xchg edx, edx
 	in al,40h		;AL = value high
-	@restoreints
+
+;	@restoreints	;22.10.2020 disabled
+
 	test cl,40h		;was latch valid?
 	jnz tryagain
 	cmp edx,@flat:[046ch]	;did an interrupt occur in the meantime?

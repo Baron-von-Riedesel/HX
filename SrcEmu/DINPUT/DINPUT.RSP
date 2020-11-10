@@ -1,0 +1,9 @@
+
+#LIBRARY
+OP MODNAME=DINPUT
+OP FUZZYEXPORT
+EXPORT {
+ DirectInputCreateA
+ DirectInputCreateEx
+ DllGetClassObject
+}

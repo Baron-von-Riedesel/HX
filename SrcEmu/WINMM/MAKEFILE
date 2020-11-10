@@ -45,7 +45,7 @@ LOPTS= /NOLOGO /MAP /SUBSYSTEM:CONSOLE /DLL /LIBPATH:$(LIBCOFF)
 
 NAME=WINMM
 LIBNAME=WINMMS
-LIBS=dkrnl32.lib duser32.lib ..\SB16\RELEASE\sb16.lib
+LIBS=dkrnl32.lib duser32.lib ..\..\src\SB16\RELEASE\sb16.lib
 
 .SUFFIXES: .asm .obj
 

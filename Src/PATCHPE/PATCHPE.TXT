@@ -1,0 +1,45 @@
+
+ 1. About PatchPE
+
+ PatchPE is used to change magic bytes of a PE executable
+ to "PX", so it is no longer recognized as a Win32 app.
+ Use this tool only for PE apps which should run as DPMI
+ clients in any case!
+
+ View DPMILD32.TXT for about how to apply this tool
+
+
+ 2. History
+ 
+ 2009/06/05, V1.5
+
+ þ JWasm's -mz option used to create PatchPE.EXE.
+
+ 2009/01/20, V1.4
+ 
+ þ now assembled with JWasm
+
+ 2007/08/22, V1.3
+ 
+ þ file name argument may be enclosed in double quotes.
+
+ 2007/03/15, V1.2
+ 
+ þ added "patchPE:" prefix on error displays.
+ 
+ 2005/08/03, V1.1
+ 
+ þ command line option -w added.
+ þ security check implemented so Win32 GUI apps won't be patched. 
+   
+ 2003/12/03, V1.0
+
+ 
+ 3. Copyright
+ 
+ PatchPE is part of HX DOS extender. This extender is freeware.
+ View HXRT.TXT for licence details.
+ 
+ Japheth
+
+

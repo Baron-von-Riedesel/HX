@@ -3697,7 +3697,7 @@ getunmanagedmem proc
 	test [fHost],FH_XMS30	;xms driver 3.0+?
 	jz @F
 	mov ah, fXMSQuery
-	call xmsaddr
+	call [xmsaddr]
 	cmp ecx,110000h
 	jb error
 	mov ax,cx

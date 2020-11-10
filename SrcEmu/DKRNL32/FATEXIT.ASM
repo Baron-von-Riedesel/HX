@@ -41,8 +41,10 @@ FatalAppExitA proc public dwAction:dword, pString:ptr BYTE
 
 	@strace <"FatalAppExit(", dwAction, ", ", pString, ")">
 	invoke Display_szString, pString
+	invoke GetCurrentProcess
 	invoke ExitProcess,-1
 	ret
+;--- ExitProcess caused a GPF, so exit the kernel and do a hard termination
 	align 4
 
 FatalAppExitA endp

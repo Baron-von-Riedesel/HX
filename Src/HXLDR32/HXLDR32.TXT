@@ -61,6 +61,10 @@
  
  5. History
  
+ 2018/08/17: version 1.13
+
+ þ binaries with subsystem 'native' will be ignored.
+
  2009/11/16: version 1.12
 
  þ linker changed to OW WLink.

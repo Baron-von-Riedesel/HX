@@ -1,0 +1,104 @@
+
+# this will create VESA32.DLL
+# adjust paths in file "..\dirs" first!
+# to create a debug version use "nmake debug=1"
+# output will be in subdir RELEASE or DEBUG, format
+# of object modules is COFF format, true flat
+
+# two libraries are created as well:
+# - VESA32s.LIB: static lib, COFF format, all modules included
+# - VESA32.LIB: lib if VESA32.DLL is to be used
+
+!include <..\dirs>
+
+!ifndef DEBUG
+DEBUG=0
+!endif
+
+!if $(DEBUG)
+AOPTD=-D_DEBUG
+OUTDIR=DEBUG
+!else
+AOPTD=
+OUTDIR=RELEASE
+!endif
+
+SRCMODS = \
+!include modules.inc
+
+OBJMODS = $(SRCMODS:.ASM=.OBJ)
+!if $(DEBUG)
+OBJMODS = $(OBJMODS:.\=DEBUG\)
+!else
+OBJMODS = $(OBJMODS:.\=RELEASE\)
+!endif
+
+!ifndef MASM
+MASM=0
+!endif
+MSLINK=0
+
+ASMOPT= -c -coff -nologo -D?FLAT=1 -Fl$* -Fo$* -Sg $(AOPTD) -D_VESA32_=1 -I$(INC32DIR)
+!if $(MASM)
+ASM=@ml.exe $(ASMOPT)
+!else
+ASM=@jwasm.exe $(ASMOPT) 
+!endif
+
+LOPTS= /NOLOGO /MAP /SUBSYSTEM:CONSOLE /DLL /NOD /ENTRY:DllMain
+
+NAME=VESA32
+LIBNAME=VESA32S
+!if $(DEBUG)
+LIBS=..\dkrnl32\release\dw2a.obj
+!else
+LIBS=
+!endif
+
+.SUFFIXES: .asm .obj
+
+.asm{$(OUTDIR)}.obj:
+	$(ASM) $<
+
+ALL: $(OUTDIR) $(OUTDIR)\$(NAME).DLL
+
+$(OUTDIR):
+	@mkdir $(OUTDIR)
+
+$(OUTDIR)\$(NAME).DLL: $(OUTDIR)\$(LIBNAME).lib $(OUTDIR)\$(NAME).obj $(NAME).def Makefile
+!if $(MSLINK)
+	@link @<<
+$(OUTDIR)\$(NAME).obj $(OUTDIR)\$(LIBNAME).LIB $(LIBS)
+$(LOPTS)
+/DEF:$(NAME).def /OUT:$*.DLL
+<<
+!else
+	@$(LINKBIN) format win pe dll name $*.DLL f $(OUTDIR)\$(NAME).obj lib {$(OUTDIR)\$(LIBNAME).LIB $(LIBS)} op q, map=$*, implib=$* @$(NAME).rsp
+!endif
+!if $(DEBUG)==0
+	@copy $*.DLL ..\..\bin\*.* >NUL
+!ifdef DLL32DIR
+	@copy $*.DLL $(DLL32DIR)\*.* >NUL
+!endif
+	@copy $*.LIB $(LIBCOFF)\*.* >NUL
+	@copy $(OUTDIR)\$(LIBNAME).LIB $(LIBCOFF)\*.* >NUL
+!endif
+
+WLIBMODS=$(SRCMODS:.\=+)
+
+$(OUTDIR)\$(LIBNAME).LIB: $(OBJMODS)
+	@cd $(OUTDIR)
+	@$(LIBBIN) @<<
+$(LIBNAME).LIB $(WLIBMODS:.ASM=.OBJ)
+<<
+	@cd ..
+
+vesa32.asm $(OBJMODS): equates.inc
+
+clean:
+	@del $(OUTDIR)\*.obj
+	@del $(OUTDIR)\*.dll
+	@del $(OUTDIR)\*.lib
+	@del $(OUTDIR)\*.lst
+	@del $(OUTDIR)\*.exp
+	@del $(OUTDIR)\*.map

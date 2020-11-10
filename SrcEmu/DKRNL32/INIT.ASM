@@ -546,7 +546,8 @@ endif
 	mov edi, offset startdeinit
 	.while (esi > edi)
 		sub esi, 4
-		mov eax, [esi]
+		xor eax, eax	;v3.6: ensure the termination is called just once!
+		xchg eax, [esi]
 		.if (eax)
 			@strace <"kernel32 termination: calling ", eax, " terminator">
 			call eax

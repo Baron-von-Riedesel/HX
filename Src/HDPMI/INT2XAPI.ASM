@@ -106,8 +106,8 @@ intr241:
 	mov al,2			;will NOT work
 	jmp intr24x
 intr242:
-	mov al,1		   ;AL=1 (Retry)
-	jmp intr24x		;will NOT work
+	mov al,1			;AL=1 (Retry)
+	jmp intr24x			;will NOT work
 intr243:
 	mov al,0			;AL=0 (Ignore)
 	jmp intr24x

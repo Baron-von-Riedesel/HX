@@ -1,0 +1,151 @@
+
+  1. About
+
+  This package contains the source code of HX DOS extender.
+  It should be unzipped in HX's runtime directory. Furthermore, the 
+  HX developer support is needed to get the include files used by
+  this source. Download it from 
+
+   http://www.japheth.de/Download/hxdev.zip
+
+  Most likely it will be necessary to slightly modify the Makefiles
+  supplied. Please read the comments in SRC\Makefile and Src\Dirs
+  first.
+  Please note that the WSOCK32 binary won't build because some modules are
+  missing due to copyright issues.
+
+
+  2. Requirements
+
+  The tools required to build the binaries, modules and libraries are listed
+  in SRC/MAKEFILE. For detailed info see SRC/README.TXT.
+
+
+  3. Files Overview
+
+  þ Bin\SHRMZHDR.EXE: simple tool to shink the size of the DOS MZ header
+    to the minimum.
+
+  þ Bin\SETMZHDR.EXE: simple tool to modify the DOS MZ header for the
+    HDPMI binary. This is done immediately after the link step.
+
+  þ Src: this sub directory finally contains the HX source itself:
+
+    directory    source code of
+   -----------------------------------------------------------------
+    DOSX         DOSX.exe, HX's DOSX substitute for Windows 3.1
+    DPMILdr      NE/PE binary loader DPMILD16.EXE/DPMILD32.EXE
+    DPMIStub     MZ stubs DPMIST16.BIN/DPMIST32.BIN
+    HDPMI        HX's DPMI host HDPMI
+    HXHelp       Open Watcom WD trap file for HX binaries
+    HXLdr32      HXLdr32.exe + HXDOSLD.exe
+    MZSupp       HX's MZ file format support
+    NTLfnHlp     NTLFNHLP, part of DKRNL32 + separate DLL
+    PatchNE      PatchNE.exe
+    PatchPE      PatchPE.exe
+    PEStub       PEStub.exe
+    SHDPMI       SHDPMI.exe + SHDPMIR.EXE
+    Vesa32       Vesa32.dll/Vesa32s.lib
+    VesaMTRR     VesaMTRR.EXE
+
+    The source code of the Win32 emulation dlls is:
+
+    directory    Module    Win32 name (if it differs)
+   -----------------------------------------------------------------
+    Comctl32     COMCTL32
+    Comdlg32     COMDLG32
+    DAdvapi      DADVAPI   ADVAPI32
+    DCIMan32     DCIMAN32
+    DDDraw       DDDRAW    DDRAW
+    DGDI32       DGDI32    GDI32
+    DInput       DINPUT
+    DKrnl32      DKRNL32   KERNEL32
+    DSound       DSOUND
+    DUser32      DUSER32   USER32
+    IPHLPAPI     IPHLPAPI
+    MPR          MPR
+    MSACM32      MSACM32
+    Ole32        OLE32
+    OleAut32     OLEAUT32
+    Shell32      SHELL32
+    Version      VERSION
+    WinMM        WINMM
+    WS2_32       WS2_32
+    WSock32      WSOCK32
+
+
+  4. History
+
+  08/11/2011, V2.17: in v2.16, directory DUSER32\RES was missing.
+                     JWlink is used exclusively, MS link no longer used.
+  11/16/2009, V2.16: Source for VERSION.DLL added.
+                     Required set of tools to make the HX binaries reduced:
+                     Linkers: MS link (COFF) and (J)WLink (OMF) are used.
+                     Librarians: WLib is used for both COFF and OMF.
+                     Resource compiler: WRC is used.
+  01/20/2009, V2.15: All ASM sources assembled with JWasm.
+                     source for MPR.DLL added.
+  03/02/2008, V2.14: directory DPMISTUB renamed to STUBS.
+                     NESUPP removed.
+  01/11/2008, V2.13: -
+  07/15/2007, V2.12: -
+  03/15/2007, V2.11: source SB16 added.
+  12/14/2006, V2.10: bugfix: some Makefiles still contained $(MSDKLIBS),
+                     which was abandoned in v2.9.
+                     COMCTL32 and COMDLG32 source added.
+  10/15/2006, V2.9:  -
+  09/14/2006, V2.8:  -
+  08/15/2006, V2.7:  -
+  07/15/2006, V2.6:  VESAMTRR source added.
+                     HDPMI now linked with VALX linker.
+                     Some tools in subdirectory Bin added.
+  06/14/2006, V2.5:  -
+  05/15/2006, V2.4:  -
+  05/02/2006, V2.3:  -
+  04/21/2006, V2.2:  -
+  04/04/2006, V2.1:  -
+  03/18/2006, V2.0:  HDPMI source added. WSock32 source added.
+                     WS2_32 source added. DCIMan32 source added. 
+                     MSACM32 source added. IPHLPAPI source added.
+                     SHELL32 source added. HXGUIHLP source added.
+                     SHDPMI source added. Global Makefile added.
+                     All Makefiles understand the "clean" parameter.
+  02/06/2006, V1.43: -
+  01/22/2006, V1.42: DSound source added.
+  01/02/2006, V1.41: WinMM source added. 
+                     DInput source added.
+  12/20/2005, V1.40: -
+  12/07/2005, V1.39: -
+  11/24/2005, V1.38: -
+  11/18/2005, V1.37: -
+  11/07/2005, V1.36: -
+  10/24/2005, V1.35: -
+  09/29/2005, V1.34: Source of DGDI32.DLL added.
+  09/19/2005, V1.33: Source of DOSX.EXE added. 
+  09/05/2005, V1.32: Source of DPMILDxx.EXE added. 
+  08/28/2005, V1.31: -
+  08/14/2005, V1.30: Source of OLE32.DLL added. 
+                     NESupp source added. 
+                     Source of PatchPE and PatchNE added. 
+  08/06/2005, V1.29: -
+  08/01/2005, V1.28: -
+  06/23/2005, V1.21: DUser32 source added.
+                     DAdvapi source added. 
+                     NTLfnHlp source added.
+  06/14/2005, V1.20: -
+  06/07/2005, V1.19: VESA32.DLL/VESA32S.LIB source added.
+                     DDDraw source added.
+  05/22/2005, V1.16: Source of OLEAUT32.DLL added.
+  10/24/2004, V1.10: File Src\DKrnl32\kernel32.def was missing.
+                     HxLdr32 source added.
+  10/06/2004, V1.8:  Makefile for DKrnl32 simplified.
+  09/03/2004, V1.2:  PEStub source added. DPMIStub source added  
+                     Inc subdir deleted.
+  08/28/2004, V1.0:  first release. Previously HX source code
+                     was in DKRNL32.ZIP and JMPPM32.ZIP.
+
+  5. License
+
+  The HX DOS extender is freeware. Copyright 1996-2010 Japheth.
+
+  Japheth ( http://www.japheth.de )
