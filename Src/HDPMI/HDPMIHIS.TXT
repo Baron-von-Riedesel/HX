@@ -3,6 +3,8 @@
 
   __.__.____, version 3.19
 
+  þ fixed regression in v2.18: HDPMI32 & HDPMI16 couldn't be installed 
+    simultaneously.
   þ DPMI function 0Eh (get coprocessor state): a 80487 is returned
     instead of an 80387 if cpu is 80486+.
   þ CR0.NE flag is no longer modified; that makes cmdline option -t 

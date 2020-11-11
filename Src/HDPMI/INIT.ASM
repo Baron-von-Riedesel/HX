@@ -649,6 +649,7 @@ endif
 	assume es:nothing
 @@:
 	@stroutrm <"-but mode is different",lf>
+	and fHost,not FH_DPMI
 nohdpmi:
 nodpmi:
 	mov ax,4300h		;check for XMS host
