@@ -1481,7 +1481,7 @@ endif
 	inc di
 @@:
 	pop bx
-	@printf <"dpmildr: calling dos set PSP, bx=%X", lf>, bx
+	@printf <"dpmildr: calling dos set PSP, bx=%X si=%X di=%X [di=0 if 'kill' failed]", lf>, bx, si, di
 	mov ah,50h				;set "new" PSP directly
 	call doscall
 

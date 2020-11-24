@@ -337,6 +337,9 @@ local dwSAddr:dword
 		.endif
 		.break .if (ebx == 0)
 	.endw
+	cmp dwTotal,0
+	stc
+	jz exit
 	@printf <"Int 15h, ax=e820h, free ext. memory:",lf>
 	.if dwTotal
 		@printf <"  below 4GB: total %lu kB, largest %lu kB at %lx",lf>, dwTotal, esi, dwAddr
@@ -350,12 +353,15 @@ local dwSAddr:dword
 	.else
 		@printf <"  above 4GB: none",lf>
 	.endif
+	clc
+exit:
 	ret
 i15_e820 endp
 
 ;--- get extended memory via int 15h
 
-int15mem proc
+int15mem proc uses bp
+	xor bp,bp
 ;--- first try int 15h ax=e801h
 	xor cx,cx
 	xor dx,dx
@@ -382,6 +388,7 @@ int15mem proc
 	.if ((ax < 3C00h) && bx)
 		jmp noe801
 	.endif
+	inc bp
 	movzx ebx, bx
 	shl ebx, 6		;64 kB blocks -> 1 kB blocks
 	movzx eax, ax
@@ -390,6 +397,14 @@ int15mem proc
 	@printf <"Int 15h, ax=e801h, extended memory: %lu kB",lf>, ebx
 noe801:
 	call i15_e820
+	jnc @F
+	and bp,bp  
+	jnz @F
+	mov ah,88h
+	int 15h
+	jc @F
+	@printf <"Int 15h, ah=88h, extended memory: %u kB",lf>, ax
+@@:
 	ret
 int15mem endp
 

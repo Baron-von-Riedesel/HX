@@ -237,17 +237,18 @@ intr214C:
 ;--- + close open files
 ;*** + activate parent psp at PSP:[0016h]. may be a segment or selector.
 ;*** unlike the real-mode version this function returns to the caller,
-;*** and the MCB of the PSP is *not* freed.
+;*** (and the MCB of the PSP is *not* freed???)
 ;*** to achieve this goal the int 22h vector in the current psp
 ;*** is set to an address which returns to protected mode. In real-mode
 ;*** an int 21h, ah=4Ch function is executed.
 
 	@ResetTrace
+;_LTRACE_ = 1
 
 	assume es:SEG16
 
 intr2100:
-	@strout <"i21,00: entry ebx=%lX esi=%lX edi=%lX ebp=%lX",lf>,ebx,esi,edi,ebp
+	@strout <"#i21,00: entry ebx=%lX esi=%lX edi=%lX ebp=%lX",lf>,ebx,esi,edi,ebp
 	pushad
 	push es
 
@@ -257,7 +258,8 @@ intr2100:
 	movzx ebx,word ptr es:[eax].DOSSDA.wPSP	;get current psp in bx
 	shl ebx,4
 
-if 1;ife ?32BIT	;v3.18: 16-bit only
+;ife ?32BIT	;tried 16-bit only in v3.18, but has problems!
+if 1
 
 ;--- someone (Win31!) may have converted the parent psp segment to a
 ;--- selector, but now real-mode DOS will use it (and expect a segment
@@ -265,7 +267,7 @@ if 1;ife ?32BIT	;v3.18: 16-bit only
 ;--- and if true, transform it back to a segment
 
 	mov ax,es:[ebx+16h]
-	@strout <"#i21,00: parent psp value %X",lf>,bx
+	@strout <"#i21,00: curr psp linear addr=%lX, parent psp=%X",lf>,ebx,ax
 
 	verw ax			;is a valid data selector?
 	jnz @F
@@ -282,19 +284,24 @@ if 1;ife ?32BIT	;v3.18: 16-bit only
 @@:
 endif
 
-	@strout <"#i21,00: will simulate a dos call 4Ch, esp=%lX",lf>, esp
+	@strout <"#i21,00: simulating i21, ax=4C00, [psp+18]=%lX, [psp-0F]=%X, esp=%lX",lf>, dword ptr es:[ebx+18h], word ptr es:[ebx-0Fh], esp
 	mov eax, ss:[dwHostSeg]
 	shl eax,16
 	mov ax,offset callrmintintern_rm_exit
 	mov es:[ebx+000Ah], eax
 	mov ax,4C00h
+if _LTRACE_
+	push ebx
+endif
 	call rmdos
-	@strout <"#i21,00: back from real mode, esp=%lX",lf>, esp
+if _LTRACE_
+	pop ebx
+endif
+	@strout <"#i21,00: back from real mode, ebx=%lX [psp+18]=%lX [psp-0F]=%X esp=%lX",lf>, ebx, dword ptr es:[ebx+18h], word ptr es:[ebx-0Fh], esp
 
-intr2100_ex:
+	@strout <"#i21,00: exit ebx=%lX esi=%lX edi=%lX ebp=%lX",lf>,ebx,esi,edi,ebp
 	pop es
 	popad
-	@strout <"#i21,00: exit ebx=%lX esi=%lX edi=%lX ebp=%lX",lf>,ebx,esi,edi,ebp
 	ret
 	align 4
 
@@ -310,7 +317,7 @@ getDTA proc
 	mov ss:[dwDTA], eax
 	popad
 	ret
-	align	4
+	align 4
 getDTA endp
 endif
 

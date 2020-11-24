@@ -411,21 +411,27 @@ RMCALLS ends
 ;--- CX = words to copy to real-mode stack
 
 _callrmproc proc public
-if ?32BIT
-	@strout <"call rm RMS=%X:%X rmcs: a-d=%X %X %X %X, d-e=%X %X, stk=%X:%X",lf>, ss:v86iret.rSS, ss:v86iret.rSP,\
-		es:[edi].RMCS.rAX, es:[edi].RMCS.rBX, es:[edi].RMCS.rCX, es:[edi].RMCS.rDX,\
-		es:[edi].RMCS.rDS, es:[edi].RMCS.rES, es:[edi].RMCS.rSS, es:[edi].RMCS.rSP
-else
-	@strout <"rm call, RMS=%X:%X rmcs: a-d=%X %X %X %X, d-e=%X %X, stk=%X:%X",lf>, ss:v86iret.rSS, ss:v86iret.rSP,\
-		es:[di].RMCS.rAX, es:[di].RMCS.rBX, es:[di].RMCS.rCX, es:[di].RMCS.rDX,\
-		es:[di].RMCS.rDS, es:[di].RMCS.rES, es:[di].RMCS.rSS, es:[di].RMCS.rSP
-endif
 	pushad
 	push ds
 	push es
 ife ?32BIT
 	movzx edi,di
 endif
+if _LTRACE_
+	mov eax,es
+	lsl eax,eax
+	cmp eax,edi
+	ja @F
+;--- bug in borland's 32rtm: hiword(edi) isn't cleared in all cases.
+;--- set environment variable HDPMI=2048 to catch this error!
+	@strout <"call rm: EDI[=%lX] exceeds ES segment limit %lX !!!",lf>, edi, eax
+	stc
+	jmp error1x
+@@:
+endif
+	@strout <"call rm RMS=%X:%X rmcs: a-d=%X %X %X %X, d-e=%X %X, stk=%X:%X",lf>, ss:v86iret.rSS, ss:v86iret.rSP,\
+		es:[edi].RMCS.rAX, es:[edi].RMCS.rBX, es:[edi].RMCS.rCX, es:[edi].RMCS.rDX,\
+		es:[edi].RMCS.rDS, es:[edi].RMCS.rES, es:[edi].RMCS.rSS, es:[edi].RMCS.rSP
 	mov ebp,esp
 	push ss:v86iret.rSS
 	push ss:v86iret.rSP
@@ -527,6 +533,7 @@ endif
 error1:
 	pop ss:v86iret.rSP
 	pop ss:v86iret.rSS
+error1x:
 	pop es
 	pop ds
 	popad

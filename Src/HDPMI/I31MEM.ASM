@@ -1383,7 +1383,7 @@ if 1
 	mov eax, [ebx].MEMITEM.dwBase
 	mov ecx, [ebx].MEMITEM.dwSize
 	call _FreeUserSpace
-	mov	pMemItems,0
+	mov pMemItems,0
 	push ebx
 	call _freememhandle
 @@:

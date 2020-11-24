@@ -294,10 +294,11 @@ if ?VIODIROUT
   else
 	mov bx,es:[BIOSCOLS]
   endif
-	add ebx,ebx
+;	add ebx,ebx			:NO (problem if BX=0080h -> BL=0)
 	mov eax,edi
 	and ax,7FFFh
 	div bl				;current row -> al
+	shr al,1            ;divide by 2 (neutralises the missing "add ebx,ebx" above)
 	xchg al,ah
 	mov al,00
 	inc ah
@@ -331,6 +332,7 @@ putchr1:
 	mov al,00h
 putchr2:
 	@setcursorpos
+	@slowdown
 	jmp putchrex
 endif		;?VIODIROUT
 if ?DOSOUTPUT

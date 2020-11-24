@@ -151,7 +151,7 @@ resizedos_err3:
 ;--- due to a bug in many DOSes even if the call failed the block has been
 ;--- resized to the max size possible. It might be good to reset it now to
 ;--- its original size, but this is NOT done by other hosts (Win9x).
-	@strout <"resize dos: error %X, BX=%X",lf>,ax,bx
+	@strout <"#resizedos: error %X, BX=%X",lf>,ax,bx
 	mov [esp].PUSHADS.rBX, bx
 	mov [esp].PUSHADS.rAX, ax
 	popad
