@@ -67,9 +67,6 @@ $(OUTD)\$(NAME).EXE: $(OUTD)\$(NAME).TMP
 	@Tools\editpe d 3    $(OUTD)\$(NAME).EXE $(OUTD)\$(NAME).EXE
 	@Tools\editpe d 3    $(OUTD)\$(NAME).EXE $(OUTD)\$(NAME).EXE
 	@Tools\pestub -n     $(OUTD)\$(NAME).EXE $(OUTD)\stub.bin
-!if $(DEBUG)==0
-	@copy $*.EXE ..\..\BIN\*.* >NUL
-!endif     
 
 $(OUTD)\$(NAME).TMP: $(OUTD)\$(SRC).obj $(OUTD)\$(NAME).lib $(NAME).mak 
 	@$(LINK) format win pe hx ru native f $(OUTD)\$(SRC) n $*.TMP lib $(OUTD)\$(NAME).lib op q, map=$*.MAP, nodosseg, stack=0, offset=0, align=0x100

@@ -76,10 +76,6 @@ $(LOPTS)
 	@$(LINKBIN) format win pe dll name $*.DLL f $(OUTDIR)\$(NAME).obj lib {$(OUTDIR)\$(LIBNAME).LIB $(LIBS)} op q, map=$*, implib=$* @$(NAME).rsp
 !endif
 !if $(DEBUG)==0
-	@copy $*.DLL ..\..\bin\*.* >NUL
-!ifdef DLL32DIR
-	@copy $*.DLL $(DLL32DIR)\*.* >NUL
-!endif
 	@copy $*.LIB $(LIBCOFF)\*.* >NUL
 	@copy $(OUTDIR)\$(LIBNAME).LIB $(LIBCOFF)\*.* >NUL
 !endif

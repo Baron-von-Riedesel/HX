@@ -63,6 +63,47 @@ ALL:
     @$(MAKE) DEBUG=$(DEBUG) 
     cd ..
 
+install: 
+	@copy HDPMI\STD16\HDPMI16.EXE   ..\Bin
+	@copy HDPMI\STD32\HDPMI32.EXE   ..\Bin
+	@copy HDPMI\HDPMIST\HDPMIST.EXE ..\Bin
+	@copy HDPMI\HDPMI.TXT           ..\Doc
+	@copy HDPMI\HDPMIHIS.TXT        ..\Doc
+
+	@copy DPMILDR\STD16\DPMILD16.EXE   ..\Bin
+	@copy DPMILDR\STD32\DPMILD32.EXE   ..\Bin
+	@copy DPMILDR\STUB16\DPMILD16.BIN  ..\Bin
+	@copy DPMILDR\STUB32\DPMILD32.BIN  ..\Bin
+	@copy DPMILDR\STUBX16\HDLD16.BIN   ..\Bin
+	@copy DPMILDR\STUBX32\HDLD32.BIN   ..\Bin
+	@copy DPMILDR\NOLFN32\DPMILD32.EXE ..\UnSupp
+	@copy DPMILDR\DPMILD16.TXT         ..\Doc
+	@copy DPMILDR\DPMILD32.TXT         ..\Doc
+
+	@copy STUBS\Release\DPMIST16.BIN ..\Bin
+	@copy STUBS\Release\DPMIST32.BIN ..\Bin
+	@copy STUBS\Release\LOADPE.BIN   ..\Bin
+	@copy STUBS\Release\LOADPEX.BIN  ..\Bin
+	@copy STUBS\Release\LOADPXNR.BIN ..\Bin
+	@copy STUBS\STUBS.TXT            ..\Doc
+
+	@copy HXLDR32\Release\HXLDR32.EXE ..\Bin
+	@copy HXLDR32\Release\HXDOSLD.EXE ..\Bin
+	@copy HXLDR32\HXLDR32.TXT         ..\Doc
+	@copy HXLDR32\HXDOSLD.TXT         ..\Doc
+
+	@copy PATCHPE\Release\PATCHPE.EXE ..\Bin
+	@copy PATCHPE\PATCHPE.TXT         ..\Doc
+
+	@copy PESTUB\Release\PESTUB.EXE   ..\Bin
+	@copy PESTUB\PESTUB.TXT           ..\Doc
+
+	@copy SB16\Release\SB16.DLL       ..\Bin
+#	@copy SB16\SB16.TXT               ..\Doc
+
+	@copy VESA32\Release\VESA32.DLL   ..\Bin
+	@copy VESA32\VESA32.TXT           ..\Doc
+
 clean: 
     cd    HDPMI
     @$(MAKE) DEBUG=$(DEBUG) clean

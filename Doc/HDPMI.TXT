@@ -239,7 +239,7 @@
         the application since the DPMI API is available
    04   error: not enough memory for host initialization
    05   error: A20 cannot be enabled
-   06   error: VCPI host has remapped IRQs
+   06   error: VCPI host reports remapped IRQs
    07   error: CPU in V86 mode, but no VCPI or DPMI host found
    08   error: DOS version isn't 3.3 or higher
    09   error: CPU not 80386 or better

@@ -79,10 +79,6 @@ op q, map=$*, implib=$*.lib @$(NAME).rsp
 <<
 !endif
 !if $(DEBUG)==0
-	@copy $*.DLL ..\..\bin\*.* >NUL
-!ifdef DLL32DIR
-	@copy $*.DLL $(DLL32DIR)\*.* >NUL
-!endif
 	@copy $*.lib $(LIBCOFF)\*.* >NUL
 	@copy $(OUTDIR)\$(LIBNAME).lib $(LIBCOFF)\*.* >NUL
 !endif

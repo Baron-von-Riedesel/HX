@@ -75,12 +75,6 @@ $(ODIR4):
 
 $(ODIR1)\$(NAME).EXE: $(MODS1) $(NAME).mak
 	@$(LINK16BIN) format dos file {$(MODS1)} name $*.EXE op q, map=$*.MAP
-!if $(DEBUG)==0
-	@copy $*.EXE ..\..\Bin\*.* >NUL
-!ifdef TOOLSDIR
-	@copy $*.EXE $(TOOLSDIR)\*.* >NUL
-!endif
-!endif
 
 $(ODIR1)\dpmildr.OBJ: dpmildr.asm dpmildr.inc peload.inc kernel16.inc version.inc $(INCTR)
 	$(ASM) dpmildr.asm
@@ -98,12 +92,6 @@ $(ODIR1)\trace.OBJ: trace.asm dpmildr.inc trace.inc
 
 $(ODIR2)\$(NAME).BIN: $(MODS2) $(NAME).mak
 	@$(LINK16BIN) format dos file {$(MODS2)} name $*.BIN op q, knoweas, map=$*.MAP
-!if $(DEBUG)==0
-	@copy $*.BIN ..\..\Bin\*.* >NUL
-!ifdef TOOLSDIR
-	@copy $*.BIN $(TOOLSDIR)\*.* >NUL
-!endif
-!endif
 
 $(ODIR2)\dpmildr.obj: dpmildr.asm dpmildr.inc peload.inc version.inc $(INCTR)
 	$(ASM) -D?STUB=1 -D?KERNEL16=0 -D?LOADDBGDLL=0 dpmildr.asm
@@ -118,9 +106,6 @@ $(ODIR2)\trace.OBJ: trace.asm dpmildr.inc trace.inc
 
 $(ODIR3)\$(NAME).EXE: $(MODS3) $(NAME).mak
 	@$(LINK16BIN) format dos file {$(MODS3)} name $*.EXE op q, map=$*.MAP
-!if $(DEBUG)==0
-	@copy $*.EXE ..\..\Unsupp\*.* >NUL
-!endif
 
 $(ODIR3)\dpmildr.obj: dpmildr.asm dpmildr.inc peload.inc kernel16.inc version.inc $(INCTR)
 	$(ASM) -D?LFN=0 dpmildr.asm
@@ -138,14 +123,8 @@ $(ODIR3)\trace.OBJ: trace.asm dpmildr.inc trace.inc
 
 $(ODIR4)\HDLD32.BIN: $(MODS4) $(NAME).mak
 	@$(LINK16BIN) format dos file {$(MODS4)} name $*.BIN op q, map=$*.MAP, knoweas 
-!if $(DEBUG)==0
-	@copy $*.BIN ..\..\Bin\*.* >NUL
-!ifdef TOOLSDIR
-	@copy $*.BIN $(TOOLSDIR)\*.* >NUL
-!endif
-!endif
 
-$(ODIR4)\dpmildr.obj: dpmildr.asm dpmildr.inc peload.inc version.inc ..\HDPMI\STUB32\HDPMI32.INC $(INCTR)
+$(ODIR4)\dpmildr.obj: dpmildr.asm dpmildr.inc peload.inc version.inc ..\..\Include\HDPMI32.INC $(INCTR)
 	$(ASM) -D?STUB=1 -D?KERNEL16=0 -D?LOADDBGDLL=0 -D?SERVER=0 -D?HDPMI=1 -D?NEAPPS=0 dpmildr.asm
 
 $(ODIR4)\peload.obj: peload.asm dpmildr.inc peload.inc mzhdr32.inc $(INCTR)

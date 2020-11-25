@@ -4288,17 +4288,19 @@ if ?HSINEXTMEM
 if ?MAPDOSHIGH
 ;?STACKPAGES equ 2+3+1		;2 for host's DOS code, 3 for TSS, 1 for hs 
 ?STACKPAGES equ 2+1			;2 for host's DOS code, 1 for hs 
+else
+?STACKPAGES equ 1			;1 for hs 
 endif
 
 setuphoststack proc public
-	@strout <"#setuphoststack: reserve 3 pages for host stack",lf>
+	@strout <"#setuphoststack: reserve %X pages for host stack",lf>, word ptr ?STACKPAGES
 if _LTRACE_
 	mov eax, dwSSBase
 	mov eax, es:[eax+offset ltaskaddr]
 	@strout <"#setuphoststack: dwSSBase=%lX ltaskaddr=%lX wLDTLimit=%X",lf>,dwSSBase, eax, wLDTLimit
 endif
 if ?MAPDOSHIGH
-	mov ecx,?STACKPAGES		;reserve 6 pages
+	mov ecx,?STACKPAGES		;reserve 3|6 pages
 	call _AllocSysAddrSpace
 	jc error
 	mov edx, eax
@@ -4306,7 +4308,7 @@ if ?MAPDOSHIGH
 	mov eax,dwSSBase
 	call _CopyPTEs
 	lea eax,[edx + 2 * 1000h]
-	mov ecx,?STACKPAGES - 2	;the rest is used for TSS and host stack
+	mov ecx,?STACKPAGES - 2	;the rest is used for (TSS and) host stack
 	push edx
 	mov dl,PTF_PRESENT or PTF_WRITEABLE
 	call _CommitRegionZeroFill
@@ -4332,10 +4334,10 @@ if ?MAPDOSHIGH
 	mov es:[ecx+_SSSEL_].DESCRPTR.A1623, al
 	mov es:[ecx+_SSSEL_].DESCRPTR.A2431, ah
 else
-	mov ecx,1
+	mov ecx,?STACKPAGES
 	call _AllocSysPagesX
 	jc error
-	lea ebx, [eax+1000h]
+	lea ebx, [eax+?STACKPAGES*1000h]
 	sub ebx, dwSSBase
 endif
 	mov eax,ebx
@@ -4608,7 +4610,7 @@ if ?HSINEXTMEM
 	pop ss
 	mov esp, dwHostStack
 	@makeinitclpmframe
-	@strout <"#CreateVM: hoststack init, ss/ds reloaded, dwSSBase=%lX ltaskaddr=%lX",lf>, dwSSBase, ltaskaddr
+	@strout <"#CreateVM: hoststack init, ss/ds reloaded, hoststack=%lX dwSSBase=%lX ltaskaddr=%lX",lf>, dwHostStack, dwSSBase, ltaskaddr
 endif
 
 

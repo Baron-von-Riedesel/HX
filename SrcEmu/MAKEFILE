@@ -13,9 +13,7 @@
 # OMF linker   $(LINK16BIN) JWlink            MS LINK (OMF)
 # OMF lib      $(LIB16BIN)  OW WLib           MS LIB (OMF)
 
-# JWasm and JWlink can be found at http://www.japheth.de.
-# The Open Watcom (OW) tools WLib and WRC may also be found
-# there - or just download the full OW package.
+# JWasm and JWlink can be found at https://github.com/Baron-von-Riedesel.
 
 # About WSOCK32 target:
 # The WSOCK32 target has to be excluded, because some object
@@ -79,6 +77,32 @@ ALL:
     cd ..\WS2_32
     @$(MAKE) DEBUG=$(DEBUG) 
     cd ..
+
+install: 
+	@copy DKRNL32\RELEASE\DKRNL32.DLL ..\Bin
+	@copy DKRNL32\DKRNL32.TXT         ..\Doc
+	@copy DKRNL32\DKRNLHIS.TXT        ..\Doc
+
+	@copy NTLFNHLP\RELEASE\NTLFNHLP.DLL ..\Bin
+
+	@copy DGDI32\RELEASE\DGDI32.DLL   ..\Bin
+	@copy DGDI32\DGDI32.TXT           ..\Doc
+
+	@copy DUSER32\RELEASE\DUSER32.DLL ..\Bin
+	@copy DUSER32\DUSER32.TXT         ..\Doc
+
+	@copy DADVAPI\RELEASE\DADVAPI.DLL ..\Bin
+	@copy DADVAPI\DADVAPI.TXT         ..\Doc
+
+	@copy DDDRAW\RELEASE\DDDRAW.DLL   ..\Bin
+	@copy DDDRAW\DDDRAW.TXT           ..\Doc
+	@copy DINPUT\RELEASE\DINPUT.DLL   ..\Bin
+	@copy DINPUT\DINPUT.TXT           ..\Doc
+	@copy DSOUND\RELEASE\DSOUND.DLL   ..\Bin
+	@copy DSOUND\DSOUND.TXT           ..\Doc
+	@copy WINMM\RELEASE\WINMM.DLL     ..\Bin
+	@copy WINMM\WINMM.TXT             ..\Doc
+
 
 clean: 
     cd COMCTL32

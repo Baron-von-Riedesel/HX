@@ -42,9 +42,6 @@ file $*.obj
 name $*.EXE
 op map=$*.MAP
 <<
-!if $(DEBUG)==0
-	@copy $*.EXE ..\..\Bin\*.* >NUL
-!endif
 
 $(OUTDIR)\$(PGM).obj: $(PGM).asm makefile
 	$(ASM) $(PGM).asm
@@ -53,9 +50,6 @@ $(OUTDIR)\$(PGM).obj: $(PGM).asm makefile
 
 $(OUTDIR)\$(PGM).EXE: $(PGM).asm makefile
 	@jwasm -mz -c -nologo -Sg -Fl$* -Fo$*.EXE -I$(INC32DIR) $(PGM).asm
-!if $(DEBUG)==0
-	@copy $*.EXE ..\..\Bin\*.* >NUL
-!endif
 
 !endif
 

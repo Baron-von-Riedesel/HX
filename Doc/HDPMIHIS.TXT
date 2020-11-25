@@ -15,6 +15,7 @@
     remapped IRQs".
   þ hdpmi debug displays (debug version only) may have caused an exc 00 if
     the current screen resolution had 128 colums.
+  þ added HDPMIST.EXE, to display status of currently running HDPMI hosts.
 
   08.09.2018, version 3.18
 

@@ -171,15 +171,15 @@ STACK	segment para @use16 stack  'STACK'
 STACK	ends
 
 if ?HDPMI
-HDPMI	segment
+HDPMI segment
   if ?32BIT
-		include ..\hdpmi\stub32\hdpmi32.inc
+		include hdpmi32.inc
   else
-		include ..\hdpmi\stub16\hdpmi16.inc
+		include hdpmi16.inc
   endif
   		align 16
 endhdpmi label byte        
-HDPMI	ends
+HDPMI ends
 endif
 
 if ?STUB

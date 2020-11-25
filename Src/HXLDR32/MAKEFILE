@@ -47,12 +47,6 @@ name $*.EXE
 op q, norelocs, stub=$(OUTDIR)\$(STUBNAME).exe, map=$*.map
 <<
 !endif
-!if $(DEBUG)==0
-	@copy $*.EXE ..\..\Bin\*.* >NUL
-!ifdef TOOLSDIR
-	@copy $*.EXE $(TOOLSDIR)\*.* >NUL
-!endif
-!endif
 
 $(OUTDIR)\$(NAME).obj: $(NAME).asm $(NAME).inc makefile
 	@$(ASM) -nologo -c -Sg -Fl$* -Fo$* -I$(INC32DIR) $(NAME).asm

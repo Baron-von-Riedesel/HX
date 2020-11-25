@@ -42,7 +42,7 @@ if ?HDPMI	;include the HDPMI host as a binary object?
 
 HDPMI segment use16 public 'CODE'
 inithost:
-	include ..\hdpmi\stub32\hdpmi32.inc
+	include hdpmi32.inc
 	align 16
 endhdpmi label byte        
 HDPMI ends

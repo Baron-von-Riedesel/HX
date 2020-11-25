@@ -80,6 +80,7 @@ $(OBJMODS): $(DEPS0)
 
 $(OUTSTUB)\$(NAME).INC: $*.BIN $(NAME)s.mak
 	@..\..\TOOLS\EXTRMZ.EXE -q -i $*.BIN $*.INC
+	@copy $*.INC ..\..\Include
 
 $(OUTSTUB)\$(NAME).BIN: $(OUTSTUB)\$(SRC).obj $(OUTSTUB)\$(NAME).lib $(NAME)s.mak
 	$(LINK) @<<

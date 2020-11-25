@@ -101,12 +101,7 @@ $(OUTDIR)\$(name).EXE: $*.obj makefile
 !else
 	@$(LINKBIN) format win pe file $* lib { $(LIBS) } op q, stub=..\..\bin\dpmist32.bin, map=$*
 !endif
-!if $(DEBUG)==0
-	@copy $*.EXE ..\..\bin\*.* >NUL
-!ifdef TOOLSDIR
-	@copy $*.EXE $(TOOLSDIR)\$(name).EXE >NUL
-!endif    
-!endif
+
 !endif
 
 $(OUTDIR)\$(name).obj: $(name).asm makefile

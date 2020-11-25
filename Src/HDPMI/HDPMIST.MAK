@@ -1,41 +1,30 @@
 
-# nmake makefile, creates a HDPMI16.EXE that is linked as a PE binary;
-# This is the "standard" version since v3.18.
+# nmake makefile, creates HDPMIST.EXE.
 # tools used:
 #  - JWasm | Masm
 #  - JWLib | WLib (Open Watcom) | MS OMF LIB (lib16.exe)
 #  - JWLink v1.9beta 15 (NODOSSEG option needed)
 #  - EditPE
+#  - PEStub
 # EditPE is used to extract the 16-bit code section from the PE binary
 # and then add it again, as a so-called "stub".
 
 !include <..\dirs>
 
-!ifndef DEBUG
-DEBUG = 0
-!endif
-
-NAME = HDPMI16
+NAME = HDPMIST
 
 SRCMODS = \
 !include modules.inc
 OBJNAMES = $(SRCMODS:.ASM=.OBJ)
+OBJMODS = $(OBJNAMES:.\=HDPMIST\)
 
-!if $(DEBUG)
-OBJMODS = $(OBJNAMES:.\=STD16D\)
-AOPTD=-D_DEBUG
-#AOPTD=-D_DEBUG -D?DOSOUTPUT=0 -D?VIODIROUT=1 -D?SLOWDOWN=200
-OUTD=STD16D
-!else
-OBJMODS = $(OBJNAMES:.\=STD16\)
-OUTD=STD16
-AOPTD=
-!endif
+AOPTD= -D?DOSOUTPUT=1 -D?HDPMISTAT
+OUTD=HDPMIST
 
 ASM   = jwasm.exe
 LINK  = jwlink.exe
 
-AOPT   = -nologo -c -Cp -Sg -D?32BIT=0 $(AOPTD) -I$(INC32DIR) -Fl$* -Fo$* -D?PE
+AOPT   = -nologo -c -Cp -Sg -D?32BIT=1 $(AOPTD) -I$(INC32DIR) -Fl$* -Fo$* -D?PE
 
 SRC   = hdpmi
 
@@ -71,9 +60,10 @@ $(OUTD)\$(NAME).TMP: $(OUTD)\$(SRC).obj $(OUTD)\$(NAME).lib $(NAME).mak
 	@$(LINK) format win pe hx ru native f $(OUTD)\$(SRC) n $*.TMP lib $(OUTD)\$(NAME).lib op q, map=$*.MAP, nodosseg, stack=0, offset=0, align=0x100
 #	link /subsystem:native $(OUTD)\$(SRC).obj $(OUTD)\$(NAME).lib /OUT:$*.TMP /MAP:$*.map /STACK:0,0 /BASE:0 /FILEALIGN:0x100
 
-$(OUTD)\$(NAME).lib: $(OBJMODS) $(NAME).mak
+$(OUTD)\$(NAME).lib: $(OBJMODS)
 	@cd $(OUTD)
 	@$(LIB16BIN) $(NAME).lib $(OBJNAMES:.\=+)
+	@jwlib -q -b $(NAME).lib -$(SRC).OBJ
 	@cd ..
 
 clean:

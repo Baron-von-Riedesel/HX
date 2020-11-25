@@ -4,7 +4,6 @@
 # meaning is:
 # LIBCOFF: location where COFF libraries will be read from/copied to
 # LIBOMF:  location where OMF libraries will be read from/copied to
-# DLL32DIR: additional location where created dlls will be copied to
 # OWDIR: location of open watcom installation
 
 # please note: the names of LIBCOFF and LIBOMF should be different

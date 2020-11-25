@@ -113,9 +113,6 @@ $(LCMDS1)
 	@..\..\BIN\SHRMZHDR.EXE $*.exe
 !endif     
 	@..\..\BIN\SETMZHDR.EXE -q $*.EXE
-#!if $(DEBUG)==0
-#	@copy $*.EXE ..\..\Bin\*.* >NUL
-#!endif
 
 $(OUTD)\$(NAME).lib: $(OBJMODS) $(NAME)a.mak
 	@cd $(OUTD)
