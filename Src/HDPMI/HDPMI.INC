@@ -705,6 +705,7 @@ rES		dw ?		;+2
 rDS		dw ?		;+0
 ends
 ends
+
 union
 rFSGS	dd ?		;+4
 struct
@@ -713,7 +714,22 @@ rGS		dw ?		;+6
 ends
 ends
 
+rSSd	dd ?
+rESP	dd ?
+
 PMSTATE ends
+
+;--- store current client ss:esp into pmstate
+
+@store_ssesp macro
+	push ebp
+	mov ebp,ss:[dwHostStack]
+	push [ebp-sizeof IRET32].IRET32.rSP
+	mov ebp,[ebp-sizeof IRET32].IRET32.rSSd
+	pop ss:pmstate.rESP
+	mov ss:pmstate.rSSd, ebp
+	pop ebp
+endm
 
 ;--- structure for VCPI function DE0C (switch to protected mode)
 
@@ -1288,11 +1304,14 @@ endif
 
 	push ss:pmstate.rESDS
 	push ss:pmstate.rFSGS
+	push ss:pmstate.rESP
+	push ss:pmstate.rSSd
+
 	push ss:[dwHSExcR3]
-	push ss:taskseg._Esp0
-	mov ss:taskseg._Esp0, esp
+	push ss:[dwHostStack]
+	mov ss:[dwHostStack], esp
 	lea esp, [esp - sizeof R3FAULT32]
-	mov ss:dwHSExcR3, esp
+	mov ss:[dwHSExcR3], esp
 	lea esp, [esp + sizeof R3FAULT32]
 endm
 
@@ -1300,8 +1319,10 @@ endm
 ;--- this is used by internal and client real-mode callbacks
 
 @popstate macro bRMSegs
-	pop ss:taskseg._Esp0
+	pop ss:[dwHostStack]
 	pop ss:[dwHSExcR3]
+	pop ss:pmstate.rSSd
+	pop ss:pmstate.rESP
 	pop ss:pmstate.rFSGS
 	pop ss:pmstate.rESDS
 	pop ss:dwrmSSSPtmp
@@ -1312,17 +1333,6 @@ ifnb <bRMSegs>
 	pop ss:v86iret.rESd
 endif
 endm
-
-if 0
-;--- save protected-mode segregs in pmstate.
-;--- obsolete since v3.18
-@savepmstate macro
-	mov ss:pmstate.rES,es
-	mov ss:pmstate.rDS,ds
-	mov ss:pmstate.rFS,fs
-	mov ss:pmstate.rGS,gs
-endm
-endif
 
 ;--- real-mode to protected-mode break
 ;--- this prevents debuggers from stepping in untraceable code
@@ -1432,6 +1442,11 @@ endm
 @rawjmp_rm macro dest
 	mov ss:[wRmDest], offset dest
 	jmp _rawjmp_rm
+endm
+
+@rawjmp_rm_savesegm macro dest
+	mov ss:[wRmDest], offset dest
+	jmp _rawjmp_rm_savesegm
 endm
 
 ;-- switches to protected-mode

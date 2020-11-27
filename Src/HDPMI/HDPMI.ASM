@@ -907,6 +907,7 @@ endif
 v86iret		V86IRET <<offset rawjmp_rm_all>>
 ;--- pmstate must follow v86iret (see i31swt.asm, srtask)!
 pmstate		PMSTATE <>	; protected mode segment register values
+;dwHostStack	dd 0
 
 pdGDT	PDESCR <?GDTLIMIT,0>	;pseudo descriptor GDT
 	align 4
@@ -932,7 +933,6 @@ vcpiSeg		dw _VCPICS_ ;selector for VCPI code segment
 
 wHostPSP	dw 0        ;PSP segment of host
 v86iretesp	dd offset v86iret
-dwHostStack	dd 0
 
 	align 4
 
@@ -3081,26 +3081,39 @@ intrmcb_pm proc
 ;--- E/IP, CS and E/FLAGS will be copied to the LPMS/PMS
 ;--- after this is done, real-mode code can be called again
 
-	lea esp,[esp-sizeof IRET32]
-	mov [esp].IRET32.rIP, _FRTIN_
-	mov [esp].IRET32.rCS, _INTSEL_
-	push ebp
-	push eax
-	mov eax,ss:tmpFLRegD
-	mov [esp+8].IRET32.rFL, eax
-	mov ebp,[esp+8 + sizeof IRET32]	;get old taskseg._Esp0
-	mov eax,[ebp-sizeof IRET32].IRET32.rSP
-	mov ebp,[ebp-sizeof IRET32].IRET32.rSSd
-	mov [esp+8].IRET32.rSP,eax
-	mov [esp+8].IRET32.rSSd,ebp
-	pop eax
-	pop ebp
-
 ;	push ss:tskstate.rSS	;SS
 ;	push ss:tskstate.rESP	;ESP
 ;	push ss:tmpFLRegD		;EFL
 ;	push _INTSEL_			;CS
 ;	push _FRTIN_			;EIP
+
+	lea esp,[esp-sizeof IRET32]
+	mov [esp].IRET32.rIP, _FRTIN_
+	mov [esp].IRET32.rCS, _INTSEL_
+
+if 0
+	push ebp
+	push eax
+	mov eax,ss:tmpFLRegD
+	mov [esp+2*4].IRET32.rFL, eax
+
+	mov ebp,[esp+2*4+ sizeof IRET32]	;get previous dwHostStack
+	mov ebp,[ebp]                       ;v3.19: get pre-previous value
+
+	mov eax,[ebp-sizeof IRET32].IRET32.rSP
+	mov ebp,[ebp-sizeof IRET32].IRET32.rSSd
+	mov [esp+2*4].IRET32.rSP,eax
+	mov [esp+2*4].IRET32.rSSd,ebp
+	pop eax
+	pop ebp
+else
+	push ss:tmpFLRegD
+	pop [esp].IRET32.rFL
+	push ss:pmstate.rESP
+	pop [esp].IRET32.rSP
+	push ss:pmstate.rSSd
+	pop [esp].IRET32.rSSd
+endif
 
 ;--- now displays (via dos or bios) are possible again
 

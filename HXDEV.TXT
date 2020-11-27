@@ -248,6 +248,8 @@
 
  9. History
 
+  11/25/2020, V2.19: Src\MZSUPP\InitPM.asm added.
+  07/28/2018, V2.18: -
   12/18/2012, V2.17: OW WD trap helper file HXHELP.EXE updated to v1.3.
   11/16/2009, V2.16: InitW32x.obj added.
   01/20/2009, V2.15: All samples for Masm changed to use JWasm instead of

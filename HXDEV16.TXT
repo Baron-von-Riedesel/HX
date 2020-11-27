@@ -127,6 +127,7 @@
 
   6. History
   
+  07/28/2018, V2.18: -
   05/27/2011, V2.17: -
   11/16/2009, V2.16: HDLD16.BIN updated.
   01/20/2009, V2.15: stub HDLD16.BIN added.

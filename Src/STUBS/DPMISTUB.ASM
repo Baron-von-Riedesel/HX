@@ -1,6 +1,7 @@
 
-;*** MZ stub for HX DOS extended applications
-;*** to be assembled with Masm or JWasm
+;--- MZ stub for HX DOS extended applications
+;--- this stub loads the NE/PE loader DPMILD16/32.
+;--- to be assembled with Masm or JWasm
 
 _SFLAGS_   = 20h	;open with "deny write"
 

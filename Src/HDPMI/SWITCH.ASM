@@ -71,6 +71,7 @@ _jmp_pm_pm:
 	mov ds, ss:pmstate.rDS
 	mov fs, ss:pmstate.rFS
 	mov gs, ss:pmstate.rGS
+	pop ss:dwHostStack
 	jmp ss:dwPmDest
 	align 4
 _TEXT32 ends
@@ -222,7 +223,10 @@ endif
 ;--- - saved in wRmDest (see @jmp_rm)
 
 _jmp_rm proc public
-;	@savepmstate			; save es,ds,fs,gs in pmstate
+	@store_ssesp
+	push ss:[dwHostStack]	;v3.19: added
+	mov ss:[dwHostStack],esp;v3.19: added
+_rawjmp_rm_savesegm::       ;v3.19: added
 	mov ss:pmstate.rES, es
 	mov ss:pmstate.rDS, ds
 	mov ss:pmstate.rFS, fs
@@ -252,7 +256,7 @@ ife ?CR0COPY
 	mov eax, cr0
 	mov ss:dwCR0, eax
 endif
-	mov ss:[dwHostStack],esp
+;	mov ss:[dwHostStack],esp
 	jmp ss:[rawjmp_rm_vector]
 	align 4
 
@@ -341,9 +345,17 @@ endif
 	mov gs,cs:[v86iret.rGS]
 ;	popfd
 rawjmp_rm_all::		; this code runs for both xms and vcpi mode
+if 0
+;--- was active in v3.18, but in v3.19 ?RAW_SETDEFRMSINPM is 0 in I31swt.asm
+;--- which requires that nothing is pushed onto the default RMS here.
 	push word ptr cs:taskseg._Efl
 	mov eax, cs:taskseg._Eax
 	popf
+else
+	mov ah, byte ptr cs:taskseg._Efl
+	sahf
+	mov eax, cs:taskseg._Eax
+endif
 	jmp cs:[wRmDest]
 
 _TEXT16 ends

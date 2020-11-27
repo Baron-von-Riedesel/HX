@@ -1,5 +1,6 @@
         
-;--- stub to load a PX file 
+;--- stub to load a PX file.
+;--- the NE/PE loader DPMILDxx isn't used.
 ;--- imports are NOT supported, the binary
 ;--- must be "self-contained".
 

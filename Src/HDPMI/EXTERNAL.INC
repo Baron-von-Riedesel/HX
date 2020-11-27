@@ -208,6 +208,7 @@ _jmp_pm proto near16		;full switch to protected-mode
 _jmp_pmX proto near16		;do a INT 96h, then _jmp_pm
 
 _rawjmp_rm proto near		;@rawjmp_rm, raw jump real-mode
+externdef _rawjmp_rm_savesegm: near	;v3.19: added
 _jmp_rm proto near			;@jmp_rm, saves pm segregs
 
 vcpi_pmentry proto near
@@ -376,7 +377,8 @@ externdef v86iret:V86IRET		;client v86/real-mode segments
 externdef vcpiOfs:dword			;offset VCPI host entry
 externdef vcpicall:PF32			;address VCPI host entry (used by pm)
 externdef v86topm:VCPIRM2PM		;contains CR3
-externdef dwHostStack:dword		;value of host stack when switching to real-mode
+;externdef dwHostStack:dword		;value of host stack when switching to real-mode
+dwHostStack textequ <taskseg._Esp0>
 externdef dwHSExcR3:dword		;value of host stack if exception in r3 occured
 if ?HSINEXTMEM
 externdef dwStackTop:dword		;top of host stack

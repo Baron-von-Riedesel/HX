@@ -138,31 +138,45 @@ rmcb_pm proc
 
 	@pushstate	;save client state, without rm DS/ES/FS/GS
 
-	lea esp,[esp-sizeof IRET32]
-	mov [esp].IRET32.rIP, _RETCB_
-	mov [esp].IRET32.rCS, _INTSEL_
-	push ebp
-	push eax
-	pushfd
-	pop eax
-	mov [esp+8].IRET32.rFL, eax
-	mov ebp,[esp+8+sizeof IRET32]	;get old taskseg._Esp0
-	mov eax,[ebp-sizeof IRET32].IRET32.rSP
-	mov ebp,[ebp-sizeof IRET32].IRET32.rSSd
-	mov [esp+8].IRET32.rSP,eax
-	mov [esp+8].IRET32.rSSd,ebp
-	pop eax
-	pop ebp
-
-;--- set an IRET32 frame below taskseg.esp0
+;--- set an IRET32 frame below dwHostStack
 ;--- after this is done, real-mode code can be called again
 ;--- i.e. trace output to dos or bios.
+
 ;	push ss:tskstate.rSS	;SS
 ;	push ss:tskstate.rESP	;ESP
 ;	push ss:tmpFLRegD		;EFL
 ;	pushfd					;EFL
 ;	push _INTSEL_			;CS
 ;	push _RETCB_			;EIP
+
+	lea esp,[esp-sizeof IRET32]
+	mov [esp].IRET32.rIP, _RETCB_
+	mov [esp].IRET32.rCS, _INTSEL_
+
+if 0
+	push ebp
+	push eax
+	pushfd
+	pop eax
+	mov [esp+2*4].IRET32.rFL, eax
+
+	mov ebp,[esp+2*4+sizeof IRET32]	;get previous value of dwHostStack
+	mov ebp,[ebp]					;v3.19: get pre-previous value!
+
+	mov eax,[ebp-sizeof IRET32].IRET32.rSP
+	mov ebp,[ebp-sizeof IRET32].IRET32.rSSd
+	mov [esp+2*4].IRET32.rSP,eax
+	mov [esp+2*4].IRET32.rSSd,ebp
+	pop eax
+	pop ebp
+else
+	pushfd
+	pop [esp].IRET32.rFL
+	push ss:pmstate.rESP
+	pop [esp].IRET32.rSP
+	push ss:pmstate.rSSd
+	pop [esp].IRET32.rSSd
+endif
 
 	inc ss:[cRMCB]
 
@@ -253,7 +267,7 @@ endif
 	mov es:[edi].RMCS.rSP,si
 
 if _LTRACE_ and ?RMCBLOG
-	@strout <"#rmcb, rm ES-DS-FS-GS=%X %X %X %X",lf>, eax, ecx
+	@strout <"#rmcb, rm ES-DS-FS-GS=%X %X %X %X hs=%lX",lf>, eax, ecx, esp
 endif
 
 if ?CHECKHOSTSTACK
@@ -762,7 +776,8 @@ endif
 	align 4
 _srtask endp
 
-	.errnz sizeof PMSTATE - 8
+;	.errnz sizeof PMSTATE - 8
+	.errnz sizeof PMSTATE - 16	;v3.19
 
 srtask proc
 	push esi
@@ -798,6 +813,8 @@ srtask_restore:
 ;	mov edi, offset pmstate	;pmstate follows v86iret in memory
 exit:
 	movsd	; pmstate is 8 bytes!
+	movsd
+	movsd	;v3.19: pmstate is 16 bytes
 	movsd
 	pop edi
 	pop esi
@@ -900,6 +917,8 @@ srtask_restore:
 exit:
 	movsd
 	movsd
+	movsd	;v3.19 pmstate is 16 bytes
+	movsd
 	popa
 	pop es
 	pop ds
@@ -941,6 +960,14 @@ getrmsa endp
 
 _TEXT16 segment
 
+;--- ?RAW_SETDEFRMSINPM
+;--- = 0 prior to v3.18
+;--- = 1 in v3.18
+;--- = 0 in v3.19
+;--- a value of 0 requires that nothing is (temporarily) pushed onto the current RMS
+;--- in the low-level mode switch routines ( see switch.asm, rawjmp_rm_all )
+?RAW_SETDEFRMSINPM equ 0
+
 ;*** raw mode switch: real mode -> protected mode
 ;--- inp:
 ;--- ax=DS
@@ -960,11 +987,14 @@ ife ?DOSOUTPUT
 	@stroutrm <"-rm2pm: ">
 endif
 
-if 0	;changed in v3.18; also see changes in pm2rm below.
-;--- current real-mode SS:SP becomes RMS.
-;--- old value of v86iret.rSS/rSP is NOT saved here
+ife ?RAW_SETDEFRMSINPM
+
+;--- current real-mode SS:SP becomes default RMS.
+;--- old default RMS (v86iret.rSS/rSP) is NOT saved,
+;--- it has (should have) been saved in save/restore task state.
 	mov cs:v86iret.rSP,sp
 	mov cs:v86iret.rSS,ss
+
 endif
 
 ;--- switch to pm, leaves ds,es,fs,gs undefined
@@ -1019,10 +1049,6 @@ _TEXT16 ends
 ;--- ax=DS
 ;--- cx=ES
 
-;--- up to v3.17, this value was 0
-;--- since v3.18, it is 1
-?RAWSETNEWRMS equ 1
-
 	@ResetTrace
 
 _pm2rm proc near public
@@ -1035,7 +1061,7 @@ endif
 	@strout <"#pm2rm: CS:IP=%X:%X, SS:SP=%X:%X, DS=%X, FL=%X, hs=%lX",lf>,\
 		si, di, dx, bx, ax, ss:tmpFLReg, esp
 
-if ?RAWSETNEWRMS
+if ?RAW_SETDEFRMSINPM
 	mov ss:v86iret.rSP, bx
 	mov ss:v86iret.rSS, dx
 endif
@@ -1044,16 +1070,15 @@ endif
 	mov ss:v86iret.rFS, 0
 	mov ss:v86iret.rGS, 0
 
-;	@savepmstate			;store pm segregs in pmstate
-;	@rawjmp_rm pm2rm_rm
-	@jmp_rm pm2rm_rm		;v3.18: @jmp_rm the very same as the 2 lines above
+	@store_ssesp
+	@rawjmp_rm_savesegm pm2rm_rm
 
 	align 4
 
 _TEXT16 segment
 pm2rm_rm:
-ife ?RAWSETNEWRMS
-	mov ss,dx	;v3.18: now set above
+ife ?RAW_SETDEFRMSINPM
+	mov ss,dx
 	mov sp,bx
 endif
 ;	@stroutrm <"-pm2rm: cur RMS=%X:%X, SS:SP=%X:%X",lf>,\
