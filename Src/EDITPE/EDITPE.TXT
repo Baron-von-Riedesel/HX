@@ -20,8 +20,4 @@
 
   4. License
 
-  EDITPE is freeware.
-  Copyright Japheth.
-
-  Japheth   ( http://www.japheth.de )
-
+  EDITPE is Public Domain.

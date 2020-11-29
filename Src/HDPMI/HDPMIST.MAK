@@ -42,28 +42,17 @@ $(OUTD):
 
 $(OBJMODS): $(DEPS0)
 
-# the binary created by jwlink has to be adjusted
-# 1. the 16-bit code (segment 3) must get VA 0
-# 2. the 16-bit code must be extracted and written as a stub
-# 3. the 16-bit code section must be removed from the PE binary
-# 4. the .reloc section is removed
-# 5. the stub must be attached to the PE binary
-
 $(OUTD)\$(NAME).EXE: $(OUTD)\$(NAME).TMP
-	@Tools\editpe a 3=0  $(OUTD)\$(NAME).TMP $(OUTD)\$(NAME).EXE
-	@Tools\editpe x 3 /m $(OUTD)\$(NAME).EXE $(OUTD)\stub.bin
-	@Tools\editpe d 3    $(OUTD)\$(NAME).EXE $(OUTD)\$(NAME).EXE
-	@Tools\editpe d 3    $(OUTD)\$(NAME).EXE $(OUTD)\$(NAME).EXE
-	@Tools\pestub -n     $(OUTD)\$(NAME).EXE $(OUTD)\stub.bin
+	@EditPE a 3=0  $(OUTD)\$(NAME).TMP $(OUTD)\$(NAME).EXE
+	@EditPE x 3 /m $(OUTD)\$(NAME).EXE $(OUTD)\$(NAME).EXE
 
-$(OUTD)\$(NAME).TMP: $(OUTD)\$(SRC).obj $(OUTD)\$(NAME).lib $(NAME).mak 
+$(OUTD)\$(NAME).TMP: $(OUTD)\HDPMIST.obj $(OUTD)\$(SRC).obj $(OUTD)\$(NAME).lib $(NAME).mak 
 	@$(LINK) format win pe hx ru native f $(OUTD)\$(SRC) n $*.TMP lib $(OUTD)\$(NAME).lib op q, map=$*.MAP, nodosseg, stack=0, offset=0, align=0x100
-#	link /subsystem:native $(OUTD)\$(SRC).obj $(OUTD)\$(NAME).lib /OUT:$*.TMP /MAP:$*.map /STACK:0,0 /BASE:0 /FILEALIGN:0x100
 
-$(OUTD)\$(NAME).lib: $(OBJMODS)
+$(OUTD)\$(NAME).lib: $(OBJMODS) $(OUTD)\HDPMIST.obj
 	@cd $(OUTD)
 	@$(LIB16BIN) $(NAME).lib $(OBJNAMES:.\=+)
-	@jwlib -q -b $(NAME).lib -$(SRC).OBJ
+	@jwlib -q -b $(NAME).lib -$(SRC).OBJ -INIT.OBJ +HDPMIST.obj
 	@cd ..
 
 clean:

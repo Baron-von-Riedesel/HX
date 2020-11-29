@@ -3,11 +3,6 @@
 
 ;--- define and print a string
 
-@stroutc macro xx
-	mov ax,CStr(<xx>)
-	call _strout
-endm
-
 ; @printf: print formated strings
 ; understands %x, %lx, %u, %lu, %s, %ls, %b
 
@@ -16,38 +11,19 @@ endm
 	  echo too many parameters for @printf
 	  .err1
 	endif
-	ifnb <a7>
-	  push a7
-	endif
-	ifnb <a6>
-	  push a6
-	endif
-	ifnb <a5>
-	  push a5
-	endif
-	ifnb <a4>
-	  push a4
-	endif
-	ifnb <a3>
-	  push a3
-	endif
-	ifnb <a2>
-	  push a2
-	endif
-	ifnb <a1>
-	  push a1
-	endif
+	for arg, <a7,a6,a5,a4,a3,a2,a1>
+	  ifnb <arg>
+		push arg
+	  endif
+	endm
 	push CStr(<xx>)
 	call _printf
 endm
 
-_BSS segment
+	.data?
 buff1 db 10h dup (?)
-_BSS ends
 
-_TEXT segment
-
-	assume CS:DGROUP, DS:DGROUP, SS:DGROUP
+	.code
 
 ;--- dword/word/byte to string
 
@@ -197,9 +173,9 @@ nextdigit:
 	mov cl,'0' - 1
 @@:
 	inc cl
-	sub eax,cs:[si]
+	sub eax,[si]
 	jnc @B
-	add eax,cs:[si]
+	add eax,[si]
 	add si,4
 	cmp cl,'0'			;current digit a 0?
 	jnz print
@@ -221,10 +197,12 @@ noprint:
 	pop bx
 	ret
 
-CONST segment
+	.const
+	align word
 tab1 dd 1000000000,100000000,10000000,1000000,100000,10000,1000,100,10,1
 MAXDWDIGITS equ ($ - tab1) shr 2
-CONST ends
+
+	.code
 
 _dwordout_d endp
 
@@ -350,6 +328,4 @@ done:
 	pop sp
 	ret
 _printf endp
-
-_TEXT ends
 

@@ -639,7 +639,8 @@ CR0_MP	equ 02h			;math present
 CR0_EM	equ 04h			;emulate FPU
 CR0_TS	equ 08h			;task switch
 CR0_NE	equ 20h			;numeric exception (exc 10h instead of int 75h)
-CR0_WP	equ 10000h		;write to r/o pages not allowed in ring 0 (486+)
+;CR0_WP	equ 10000h		;write to r/o pages not allowed in ring 0 (486+)
+CR0_WPbit equ 16		;write to r/o pages not allowed in ring 0 (486+)
 CR0_PG	equ 80000000h   ;paging
 
 ;--- internal real-mode callbacks
@@ -1215,9 +1216,8 @@ endif
 
 ;--- formatted output in real-mode
 
-@stroutrm macro xx,a1,a2,a3,a4,a5,a6,a7,a8,a9,a10,a11,a12
+@rprintf macro xx,a1,a2,a3,a4,a5,a6,a7,a8,a9,a10,a11,a12
 local xxxx
-if _LTRACE_
 CONST16 segment byte use16 public 'CODE'
 xxxx   db xx,0
 CONST16 ends
@@ -1233,6 +1233,22 @@ GROUP16 group CONST16
   endm
 	call _$stroutx
 	dw offset xxxx
+endm
+
+@stroutrm macro strg:REQ, xx:VARARG
+if _LTRACE_
+	@rprintf <strg>,xx
+endif
+endm
+
+@checkhoststack macro
+if ?CHECKHOSTSTACK
+  if ?HSINEXTMEM
+	cmp esp, ss:dwStackTop
+  else
+	cmp esp, 80h
+  endif
+	jc _exitclientEx5
 endif
 endm
 

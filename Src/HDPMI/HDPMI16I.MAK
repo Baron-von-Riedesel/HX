@@ -67,7 +67,7 @@ $(OUTIOPL0)\$(NAME).EXE: $(OUTIOPL0)\$(SRC).obj $(OUTIOPL0)\$(NAME).lib
 	$(LINK) @<<
 $(LCMDS)
 <<
-	@..\..\BIN\SETMZHDR.EXE -q $*.EXE
+	@SetMZHdr.exe -q $*.EXE
 
 $(OUTIOPL0)\$(NAME).lib: $(OBJMODS) $(NAME)i.mak
 	@cd $(OUTIOPL0)

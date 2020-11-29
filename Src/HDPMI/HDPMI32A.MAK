@@ -6,10 +6,10 @@
 #  - JWasm | Masm
 #  - JWLib | WLib (Open Watcom) | MS OMF LIB (lib16.exe)
 #  - JWLink v1.8x
-#  - setmzhdr.exe, modifies exe so:
+#  - SetMZHdr.exe, modifies exe so:
 #       - dos will load the 16-bit part only
 #       - stack size will be 200h
-#  - shrmzhdr.exe, shrinks MZ header, used only if MS link is used.
+#  - ShrMZHdr.exe, shrinks MZ header, used only if MS link is used.
 
 # The current version of the HDPMI binary is a challenge for
 # all linkers, because it requires full control over segment ordering
@@ -137,9 +137,9 @@ $(OUTHSCM)\$(NAME).EXE: $(OUTHSCM)\$(SRC).obj $(OUTHSCM)\$(NAME).lib $(NAME)a.ma
 $(LCMDS1)
 <<
 !if $(LINKER)==2
-	@..\..\BIN\SHRMZHDR.EXE -d $*.EXE
+	@ShrMZHdr.exe -d $*.EXE
 !endif
-	@..\..\BIN\SETMZHDR.EXE -q $*.EXE
+	@SetMZHdr.exe -q $*.EXE
 
 $(OUTHSCM)\$(NAME).lib: $(OBJMODS) $(NAME)a.mak
 	@cd $(OUTHSCM)
@@ -154,9 +154,9 @@ $(OUTNOLFN)\$(NAME).EXE: $(OUTHSCM)\$(SRC).obj $(OUTNOLFN)\INT21API.obj $(OUTHSC
 $(LCMDS2)
 <<
 !if $(LINKER)==2
-	@..\..\BIN\SHRMZHDR.EXE -d $*.EXE
+	@ShrMZHdr.exe -d $*.EXE
 !endif    
-	@..\..\BIN\SETMZHDR.EXE -q $*.EXE
+	@SetMZHdr.exe -q $*.EXE
 
 $(OUTNOLFN)\INT21API.obj: INT21API.asm $(DEPS0)
 	$(ASM) $(AOPT) -D?LFNSUPPORT=0 INT21API.asm

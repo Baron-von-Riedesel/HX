@@ -41,6 +41,8 @@ ALL:
     @$(MAKE) DEBUG=$(DEBUG) 
     cd ..\HXLDR32
     @$(MAKE) DEBUG=$(DEBUG) 
+    cd ..\EDITPE
+    @$(MAKE) DEBUG=$(DEBUG) 
     cd ..\PESTUB
     @$(MAKE) DEBUG=$(DEBUG) 
     cd ..\HXGUIHLP
@@ -66,6 +68,8 @@ ALL:
 install: 
 	@copy HDPMI\STD16\HDPMI16.EXE   ..\Bin
 	@copy HDPMI\STD32\HDPMI32.EXE   ..\Bin
+	@copy HDPMI\STUB16\HDPMI16.INC  ..\Include
+	@copy HDPMI\STUB32\HDPMI32.INC  ..\Include
 	@copy HDPMI\HDPMIST\HDPMIST.EXE ..\Bin
 	@copy HDPMI\HDPMI.TXT           ..\Doc
 	@copy HDPMI\HDPMIHIS.TXT        ..\Doc
@@ -95,6 +99,9 @@ install:
 	@copy PATCHPE\Release\PATCHPE.EXE ..\Bin
 	@copy PATCHPE\PATCHPE.TXT         ..\Doc
 
+	@copy EDITPE\Release\EDITPE.EXE   ..\Bin
+	@copy EDITPE\Release\EXTRMZ.EXE   ..\Bin
+	@copy EDITPE\EDITPE.TXT           ..\Doc
 	@copy PESTUB\Release\PESTUB.EXE   ..\Bin
 	@copy PESTUB\PESTUB.TXT           ..\Doc
 
@@ -104,6 +111,8 @@ install:
 	@copy VESA32\Release\VESA32.DLL   ..\Bin
 	@copy VESA32\VESA32.TXT           ..\Doc
 
+	@copy DPMI\Release\DPMI.EXE       ..\Bin
+
 clean: 
     cd    HDPMI
     @$(MAKE) DEBUG=$(DEBUG) clean
@@ -112,6 +121,8 @@ clean:
     cd ..\VESA32
     @$(MAKE) DEBUG=$(DEBUG) clean 
     cd ..\HXLDR32
+    @$(MAKE) DEBUG=$(DEBUG) clean 
+    cd ..\EDITPE
     @$(MAKE) DEBUG=$(DEBUG) clean 
     cd ..\PESTUB
     @$(MAKE) DEBUG=$(DEBUG) clean 

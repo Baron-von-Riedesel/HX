@@ -1549,12 +1549,18 @@ else
 endif
 	and ah,not 3		;reset TF + IF
 	mov [esp].IRQFRAME.rEfl,eax
-if 0; _LTRACE_	;this might be called quite frequently, spoiling any useful log file
+if 0;_LTRACE_	;this might be called quite frequently, spoiling any useful log file
 	push ebp
 	mov ebp, esp
 	@strout <"#lpms_call_int, nosw:ip=%X:%lX fl=%lX nip=%X:%lX nsp=%X:%lX",lf>,\
 		[ebp+4].IRQFRAME.iret32.rCS,[ebp+4].IRQFRAME.iret32.rIP,[ebp+4].IRQFRAME.iret32.rFL,\
 		[ebp+4].IRQFRAME.retfs.rCS,[ebp+4].IRQFRAME.retfs.rIP,[ebp+4].IRQFRAME.retfs.rSS,[ebp+4].IRQFRAME.retfs.rSP
+	mov ds, [ebp+4].IRQFRAME.rDs
+	mov ds, [ebp+4].IRQFRAME.retfs.rSS
+	mov ds, [ebp+4].IRQFRAME.retfs.rCS
+	lsl eax, [ebp+4].IRQFRAME.retfs.rSSd
+	lar edx, [ebp+4].IRQFRAME.retfs.rSSd
+	@strout <"#lpms_call_int, nosw: nfl=%lX ds:esi=%X:%lX slSS=%lX arSS=%lX",lf>,[ebp+4].IRQFRAME.rEfl, word ptr [ebp+4].IRQFRAME.rDs, esi, eax, edx
 	pop ebp
 endif
 	jmp done
@@ -1597,10 +1603,10 @@ endif
 	mov [edi+sizeof IRETSPM+0], eax
 	mov [edi+sizeof IRETSPM+4], edx
 
-if 0; _LTRACE_	;this might be called quite frequently, spoiling any useful log file
+if 0;_LTRACE_	;this might be called quite frequently, spoiling any useful log file
 	push ebp
 	mov ebp,esp
-	@strout <"#lpms_call_int:ip=%X:%lX sp=%X:%lX fl=%lX ">,\
+	@strout <"#lpms_call_int, sw:ip=%X:%lX sp=%X:%lX fl=%lX ">,\
 		[ebp+4].IRQFRAME.iret32.rCS, [ebp+4].IRQFRAME.iret32.rIP,\
 		[ebp+4].IRQFRAME.iret32.rSS, [ebp+4].IRQFRAME.iret32.rSP,\
 		[ebp+4].IRQFRAME.iret32.rFL
@@ -3081,25 +3087,16 @@ intrmcb_pm proc
 ;--- E/IP, CS and E/FLAGS will be copied to the LPMS/PMS
 ;--- after this is done, real-mode code can be called again
 
-;	push ss:tskstate.rSS	;SS
-;	push ss:tskstate.rESP	;ESP
-;	push ss:tmpFLRegD		;EFL
-;	push _INTSEL_			;CS
-;	push _FRTIN_			;EIP
-
+if 0
+;--- pre v3.19 code
 	lea esp,[esp-sizeof IRET32]
 	mov [esp].IRET32.rIP, _FRTIN_
 	mov [esp].IRET32.rCS, _INTSEL_
-
-if 0
 	push ebp
 	push eax
 	mov eax,ss:tmpFLRegD
 	mov [esp+2*4].IRET32.rFL, eax
-
 	mov ebp,[esp+2*4+ sizeof IRET32]	;get previous dwHostStack
-	mov ebp,[ebp]                       ;v3.19: get pre-previous value
-
 	mov eax,[ebp-sizeof IRET32].IRET32.rSP
 	mov ebp,[ebp-sizeof IRET32].IRET32.rSSd
 	mov [esp+2*4].IRET32.rSP,eax
@@ -3107,12 +3104,12 @@ if 0
 	pop eax
 	pop ebp
 else
-	push ss:tmpFLRegD
-	pop [esp].IRET32.rFL
-	push ss:pmstate.rESP
-	pop [esp].IRET32.rSP
+;--- since v3.19: use new fields rESP, rSSd in pmstate
 	push ss:pmstate.rSSd
-	pop [esp].IRET32.rSSd
+	push ss:pmstate.rESP
+	push ss:tmpFLRegD
+	pushd _INTSEL_
+	pushd _FRTIN_
 endif
 
 ;--- now displays (via dos or bios) are possible again
@@ -3167,14 +3164,7 @@ irqrm2pm_1:
 	mov fs, ss:pmstate.rFS
 	mov gs, ss:pmstate.rGS
 
-if ?CHECKHOSTSTACK
-  if ?HSINEXTMEM
-	cmp esp, ss:dwStackTop
-  else
-	cmp esp, 80h
-  endif
-	jc _exitclientEx5
-endif
+	@checkhoststack
 
 if _LTRACE_ and IRQLOG
 	push eax
@@ -4286,7 +4276,7 @@ setcr0wpbit proc
 	cmp _cpu,4
 	jb @F
 	mov eax,cr0
-	or eax, CR0_WP	;set write protect bit
+	bts eax, CR0_WPbit	;set write protect bit
 	mov cr0,eax
 @@:
 	ret
@@ -4294,16 +4284,20 @@ setcr0wpbit endp
 
 if ?HSINEXTMEM
 
-;--- DS=GROUP16, ES=FLAT
-;--- dwSSBase must be set, will be set to new base in extended memory
-;--- modifies eax,ebx,ecx,edx
-
 if ?MAPDOSHIGH
 ;?STACKPAGES equ 2+3+1		;2 for host's DOS code, 3 for TSS, 1 for hs 
 ?STACKPAGES equ 2+1			;2 for host's DOS code, 1 for hs 
 else
 ?STACKPAGES equ 1			;1 for hs 
 endif
+
+;--- set a new host stack
+;--- in: dwSSBase
+;--- out: EAX=new host stack linear address
+;--- out: dwHostStack, dwStackTop, v86iretesp
+;--- out: dwSSBase: will be set to new base in extended memory
+;--- DS=GROUP16, ES=FLAT
+;--- modifies ebx,ecx,edx
 
 setuphoststack proc public
 	@strout <"#setuphoststack: reserve %X pages for host stack",lf>, word ptr ?STACKPAGES
@@ -5200,7 +5194,7 @@ if ?CR0COPY
 	and al, bFPUAnd
 	test bEnvFlags2,ENVF2_SYSPROT
 	jz @F
-	and eax,not CR0_WP
+	btr eax,CR0_WPbit
 @@:
 	or al, bCR0
 	mov cr0,eax
@@ -6055,7 +6049,7 @@ if ?STACKLAST
 ;--- if the stack is not the last segment, avoid it being physically
 ;--- in the binary. To achieve this do not define a stack size.
 ;--- the linker will then set the SS paragraph offset only, SP is 0,
-;--- and tool SETMZHDR will then set the stack size to 0x200.
+;--- and tool SetMZHdr will then set the stack size to 0x200.
 
 STACK segment use16 stack 'STACK'
 	db 200h dup (?)

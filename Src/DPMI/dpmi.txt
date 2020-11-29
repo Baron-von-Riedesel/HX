@@ -5,6 +5,7 @@
   
   2. History
   
+  27/11/2020, V1.9:  -e option added.
   11/08/2020, V1.8:  simplified display of int 15h, ax=e820h.
   06/22/2018, V1.7:  -b, -n, -t options added, timer resolution now in ms;
                      i15 extended memory is displayed; link step removed.

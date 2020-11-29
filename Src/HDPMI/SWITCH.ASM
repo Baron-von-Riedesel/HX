@@ -345,13 +345,12 @@ endif
 	mov gs,cs:[v86iret.rGS]
 ;	popfd
 rawjmp_rm_all::		; this code runs for both xms and vcpi mode
-if 0
-;--- was active in v3.18, but in v3.19 ?RAW_SETDEFRMSINPM is 0 in I31swt.asm
-;--- which requires that nothing is pushed onto the default RMS here.
+if 1
 	push word ptr cs:taskseg._Efl
 	mov eax, cs:taskseg._Eax
 	popf
 else
+;--- this version doesn't touch the real-mode stack
 	mov ah, byte ptr cs:taskseg._Efl
 	sahf
 	mov eax, cs:taskseg._Eax

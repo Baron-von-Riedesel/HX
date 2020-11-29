@@ -18,7 +18,7 @@
   
    First ensure that the HX runtime (HXRT) is already installed. It
   contains HX's 16-bit DPMI server HDPMI16.EXE and the 16-bit DPMI loader
-  DPMILD16.EXE. You might get it from http://www.japheth.de/Download/hxrt.zip.
+  DPMILD16.EXE.
 
    This package (HXDV16) should then be unzipped in the same directory where
   HXRT has been installed. If you have installed the 32bit developer support
@@ -165,7 +165,7 @@
   
   7. Copyright
  
-  The HX DOS extender is freeware. Copyright Japheth 1993-2010.
+  The HX DOS extender is freeware. Copyright Japheth 1993-2020.
   Files in BIN may be shipped with any application.
   
   Japheth

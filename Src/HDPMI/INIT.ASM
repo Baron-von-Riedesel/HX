@@ -1596,73 +1596,6 @@ ife ?STUB
 endif
 	mov wHostPSP, es
 
-ifdef ?HDPMISTAT
-_LTRACE_ = 1
-	mov ax,5802h			;get umb link status
-	int 21h
-	xor ah,ah
-	push ax
-	mov ax,5803h			;link umbs
-	mov bx,0001h
-	int 21h
-	mov ah,52h
-	int 21h
-	mov es,es:[bx-2]
-	xor bp,bp
-	xor bx,bx
-	.while (byte ptr es:[bx] != 'Z')
-		mov ax,es
-		inc ax
-		.if (ax == es:[bx+1])	;PSP MCB?
-			add ax,10h			;skip PSP
-			mov cx,cs
-			.if (ax != cx)		;skip our instance!
-				call checkinstance
-			.endif
-		.elseif word ptr es:[bx+1] != 0 && word ptr es:[bx+3] > 20h
-			add ax,20h		;a clone has no PSP, but a preceding 200h real-mode stack!
-			call checkinstance
-		.endif
-		mov ax,es:[bx+3]
-		mov cx,es
-		add ax,cx
-		inc ax
-		mov es,ax
-	.endw
-	pop bx				;restore umb link status
-	mov ax,5803h
-	int 21h
-	and bp,bp
-	jnz @F
-	@stroutrm <"no active hdpmi found",lf>
-@@:
-	mov ax,4C00h
-	int 21h
-checkinstance:
-	push es
-	push bx
-	mov es,ax
-	mov di,offset logo
-	mov si,di
-	mov cx,llogo+1
-	repz cmpsb
-	jnz noinstance
-	inc bp
-	push ds
-	push es
-	pop ds			;set DS to running instance
-	@stroutrm <"hdpmi instance found at %X",lf>, ax
-	movzx ax,cApps
-	@stroutrm <"host stack=%lX, Clients=%X, TLB=%X, rmStack=%X:%X",lf>, dwHostStack, ax, wSegTLB, v86iret.rSS, v86iret.rSP
-	@stroutrm <"hostPSP=%X, hostSeg=%X, mode=%X, envFlags=%X",lf>, wHostPSP, wHostSeg, word ptr fMode, wEnvFlags
-	@stroutrm <"CR3=%lX, GDT=%lX, IDT=%lX, LDT=%lX",lf>, v86topm._cr3, pdGDT.dwBase, pdIDT.dwBase, dwLDTAddr
-	pop ds
-noinstance:
-	pop bx
-	pop es
-	ret
-else
-
 if ?STUB
 	mov word ptr ds:[0],"DH"
 	mov byte ptr ds:[2],"P"
@@ -2117,7 +2050,6 @@ endif
 done:
 	int 21h
 endif
-endif ;?HDPMISTAT
 mystart endp
 
 _ITEXT16 ends

@@ -17,9 +17,8 @@
 
  2. Installation
 
-  First make sure the HX runtime (HXRT) is already installed (it can be found
-  at http://www.japheth.de/Download/hxrt.zip). Then extract HXDEV.ZIP in the 
-  same directory where the HX runtime has been unpacked.
+  First make sure the HX runtime (HXRT) is already installed. Then extract
+  HXDEV.ZIP in the same directory where the HX runtime has been unpacked.
 
 
  3. Compatible Compilers and Assemblers
@@ -248,7 +247,8 @@
 
  9. History
 
-  11/25/2020, V2.19: Src\MZSUPP\InitPM.asm added.
+  __/__/2020, V2.19: Src\MZSUPP\InitPM.asm added.
+                     PESTUB.EXE and DPMILD32.BIN added (was in HXRT).
   07/28/2018, V2.18: -
   12/18/2012, V2.17: OW WD trap helper file HXHELP.EXE updated to v1.3.
   11/16/2009, V2.16: InitW32x.obj added.
@@ -343,9 +343,8 @@
 
  10. License
 
-  The HX DOS extender is freeware. Copyright Japheth 1996-2010. HX can be 
-  used for any purpose. The HX development package can be freely distributed
-  for non-commercial purposes.
+  The HX DOS extender is freeware. Copyright Japheth 1996-2020. HX can be 
+  used for any purpose. The HX development package can be freely distributed.
 
-  Japheth ( http://www.japheth.de )
+  Japheth
 

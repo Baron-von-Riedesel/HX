@@ -62,11 +62,11 @@ $(OBJMODS): $(DEPS0)
 # 5. the stub must be attached to the PE binary
 
 $(OUTD)\$(NAME).EXE: $(OUTD)\$(NAME).TMP
-	@Tools\editpe a 3=0  $(OUTD)\$(NAME).TMP $(OUTD)\$(NAME).EXE
-	@Tools\editpe x 3 /m $(OUTD)\$(NAME).EXE $(OUTD)\stub.bin
-	@Tools\editpe d 3    $(OUTD)\$(NAME).EXE $(OUTD)\$(NAME).EXE
-	@Tools\editpe d 3    $(OUTD)\$(NAME).EXE $(OUTD)\$(NAME).EXE
-	@Tools\pestub -n     $(OUTD)\$(NAME).EXE $(OUTD)\stub.bin
+	@EditPE a 3=0  $(OUTD)\$(NAME).TMP $(OUTD)\$(NAME).EXE
+	@EditPE x 3 /m $(OUTD)\$(NAME).EXE $(OUTD)\stub.bin
+	@EditPE d 3    $(OUTD)\$(NAME).EXE $(OUTD)\$(NAME).EXE
+	@EditPE d 3    $(OUTD)\$(NAME).EXE $(OUTD)\$(NAME).EXE
+	@PEstub -n     $(OUTD)\$(NAME).EXE $(OUTD)\stub.bin
 
 $(OUTD)\$(NAME).TMP: $(OUTD)\$(SRC).obj $(OUTD)\$(NAME).lib $(NAME).mak 
 	@$(LINK) format win pe hx ru native f $(OUTD)\$(SRC) n $*.TMP lib $(OUTD)\$(NAME).lib op q, map=$*.MAP, nodosseg, stack=0, offset=0, align=0x100

@@ -108,7 +108,7 @@
 
     DPMILD32 will only load HDPMI if no DPMI host has been found. So
     other hosts should be disabled or uninstalled if DPMILD32 cannot
-    load a program. Use TEST\DPMI.EXE to find out if a host offers
+    load a program. Use DPMI.EXE to find out if a host offers
     the functions required by HX (being able to alloc linear memory at
     0x400000 is needed to load "fixed" Win32 binaries).
 
@@ -127,8 +127,7 @@
     of SHARE, which won't help at all.
 
   þ Virtual PC 2007 needs a modified version of HDPMI32, which runs clients
-    at IOPL 0. The binary is available at 
-    http://www.japheth.de/Download/hdpmivpc.zip
+    at IOPL 0.
 
 
   6. Files Overview
@@ -161,16 +160,15 @@
     Emulation dlls which have identical names as the dlls they are emulating.
     Rarely used.
 
-  þ DPMIST32.BIN: this is a MZ stub to be added to PE binaries to make them
-    run in DOS without help of HXLdr32. It is used either by PEStub.EXE or
-    the linker. View DPMIST32.TXT for more details.
-
   þ VESA32.DLL: helper dll for VESA support in protected mode. View Vesa32.txt
     for more details.
 
   þ HXVDD.DLL: a Win32 VDD (Virtual Device Driver). Implements support for
     Windows clipboard when running in a NT/2K/XP DOS box. Not needed for
     plain DOS.
+
+  þ HDPMIST.EXE: searches instances of HDPMI32 in conventional memory and
+    displays their status.
 
   b. Binaries for 16-Bit applications:
 
@@ -195,7 +193,8 @@
   7. History
 
   __/__/2020, V2.19: HDPMI V3.19, DKRNL32 V3.7.
-                     HDPMIST.EXE added.
+                     HDPMIST.EXE added. DPMI.EXE moved to Bin subdir.
+                     PESTUB.EXE and DPMIST32.BIN removed (added to HXDEV).
   07/28/2018, V2.18: HDPMI V3.18, DPMILD32 V3.9, DKRNL32 V3.6.
   05/27/2011, V2.17: DPMILD32 V3.8, DKRNL32 V3.5, DADVAPI V2.11,
                      DGDI32 V1.13, DUSER32 V2.14, OLE32 V1.10,
@@ -376,8 +375,8 @@
   8. License
 
   The HX DOS extender runtime is freeware and may be used for any purpose.
-  Copyright Japheth 1996-2010. The HX runtime can be freely distributed
+  Copyright Japheth 1996-2020. The HX runtime can be freely distributed
   with any application.
 
-  Japheth   ( http://www.japheth.de )
+  Japheth
 

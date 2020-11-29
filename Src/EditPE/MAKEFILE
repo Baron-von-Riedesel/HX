@@ -1,5 +1,5 @@
 
-# makefile (use wmake /ms) to create editbin.exe
+# makefile (use wmake /ms) to create EditPE.exe
 # tools needed:
 # - jwasm
 # - jwlink

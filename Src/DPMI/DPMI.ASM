@@ -1,6 +1,11 @@
 
 ;*** simple check of dpmi host ***
 
+	.286
+	.model small
+DGROUP group _TEXT
+	.stack 500h
+	.dosseg
 	option casemap:none
 	option proc:private
 
@@ -10,46 +15,30 @@
 
 lf	equ 10
 
-_TEXT segment dword use16 public 'CODE'
-_TEXT ends
-CONST segment dword use16 public 'CODE'
-CONST ends
-_DATA segment dword use16 public 'DATA'
-_DATA ends
-_BSS segment dword use16 public 'BSS'
-_BSS ends
-STACK segment para use16 stack 'STACK'
-	db 500h dup (?)
-STACK ends
-
-DGROUP group _TEXT, CONST, _DATA, _BSS, STACK
-
 PF16 typedef ptr far16
 
 ;--- CStr() define a string in .CONST
 
 CStr macro text:VARARG
 local sym
-CONST segment
+	.const
 sym db text,0
-CONST ends
+	.code
 	exitm <offset sym>
 endm
 
 	include dpmi.inc
-	include printf.inc
 
-_DATA segment
+	.data
 
 xmsaddr		PF16 0	;far16 address of XMS host
 dwXMSHighest dd 0	;highest physical address managed by XMS
-wXMSVer		dw 0
-bXMS		db 0	;XMS host found
-b16Bit		db 0	;1=start as 16bit client
-	align 4
 dwAlloc		dd 0	;amount of memory to alloc before starting shell
 dwI15		dd 0	;free memory in kB returned by Int 15h ax=e801
 dwPort		dd 21h	;default port used for IN benchmark
+wXMSVer		dw 0
+bXMS		db 0	;XMS host found
+b16Bit		db 0	;1=start as 16bit client
 
 ;--- exec parameter block used for shell option
 
@@ -75,6 +64,7 @@ OP_MODESW	equ 32	;mode switch benchmark
 OP_CLISTI	equ 64	;CLI/STI benchmark
 OP_IN		equ 128	;IN benchmark
 OP2_NESTED	equ 1	;nested execution test
+OP2_HSFATAL	equ 2	;host stack exhaustion
 
 wOpt		label word
 bOpt1		db 0
@@ -83,20 +73,20 @@ bFill		db 0	;fill memory allocated with options -m or -s
 bWaitKey	db 0	;wait for a key press in pm
 bNestLvl	db 2	;nesting level for -t
 
-_DATA ends
+	.const
 
-CONST segment
 szMSDOS	db "MS-DOS",0        
 szCOMSP	db "COMSPEC="
 fcb		db 0, "           ", 0, 0, 0, 0
 cmdl	db 0,13
 szHelp label byte
-	db "DPMI (c) japheth 2006-2018",lf
+	db "DPMI v1.9, Public Domain, written by Japheth",lf
 	db "displays infos about installed DPMI host",lf
 	db "usage: DPMI [ -options ]",lf
 	db "  -16: use entry for 16-bit client in any case",lf
 	db "  -b: allocate real-mode callbacks until error",lf
 	db "  -c: measure enable/disable interrupt execution time in protected mode",lf
+	db "  -e: provoke host stack exhaustion",lf
 	db "  -f: fill allocated memory block (-m, -s) with value 'DPMI'",lf
 	db "  -i<port>: measure execution time of IN opcode in protected-mode",lf
 	db "  -l: alloc 1000h bytes at 400000h with AX=0504",lf
@@ -108,9 +98,12 @@ szHelp label byte
 	db "  -w: wait in protected-mode for a keypress before terminating",lf
 	db 0
 
-CONST ends
+	.data?
 
-_BSS segment
+buffer	db 80h dup (?);used to save task state, and DPMI values
+blanks 	db ?MAXNEST * 4 + 1 dup (?)
+meminf	MEMINFO <>
+rmcs	RMCS <>	;real mode call structure used for mode switch benchmark
 
 ;--- values returned by int 2fh, ax=1687h
 wVersion	dw ?	;dpmi version
@@ -142,19 +135,10 @@ wParent		dw ?	;PSP's parent segment
 wDPMIFlgs	dw ?	;flags returned by DPMI function 0x400
 wPICs		dw ?	;master/slave PICs
 dwRMCB		dd ?	;realmode callback used for mode switch bench
-	align dword
-rmcs	RMCS <>	;real mode call structure used for mode switch benchmark
-meminf	MEMINFO <>
 
-buff2	db 80h dup (?);used to save task state, and DPMI values
-	org buff2
-blanks 	db ?MAXNEST * 4 + 1 dup (?)
+	.code
 
-_BSS ends
-
-_TEXT segment
-
-	assume CS:DGROUP, DS:DGROUP, SS:DGROUP, ES:DGROUP
+	include printf.inc
 
 ;--- in: bl=base (10 or 16)
 
@@ -228,7 +212,7 @@ found:
 	mov rmcs.rAX, 4B00h
 	mov rmcs.rBX, offset execparm
 
-	@stroutc <"type 'exit' to return to DPMI">
+	@printf <"type 'exit' to return to DPMI">
 
 	mov bx, es
 	mov ax, 6
@@ -265,13 +249,13 @@ found:
 	mov ax, wEnv
 	mov es:[002Ch], ax
 
-	@stroutc <"DPMI: back from shell",lf>
+	@printf <"DPMI: back from shell",lf>
 	ret
 exit1:
-	@stroutc <"unable to alloc memory",lf>
+	@printf <"unable to alloc memory",lf>
 	ret
 exit2:
-	@stroutc <"COMSPEC not found",lf>
+	@printf <"COMSPEC not found",lf>
 	ret
 startshell endp        
 
@@ -306,7 +290,7 @@ local dwSAddr:dword
 		mov ecx, sizeof E820ENTRY
 		mov edx,"SMAP"
 		mov eax,0E820h
-		mov di, offset buff2	;es:di = buffer
+		mov di, offset buffer	;es:di = buffer
 		clc
 		int 15h
 		.break .if (eax != "SMAP")
@@ -455,7 +439,7 @@ xms proc
 ;	mov [si + 26],edx		;total extended mem
 	jmp xmsdone
 noxms:
-	@stroutc <"No XMS host found",lf>
+	@printf <"No XMS host found",lf>
 	mov dwXMSHighest, 0
 	ret
 xmsdone:
@@ -486,7 +470,7 @@ vcpi proc
 	cmp ah,00
 	jz @F
 novcpi:
-	@stroutc <"No VCPI host found",lf>
+	@printf <"No VCPI host found",lf>
 	jmp vcpidone
 @@:
 	push bx
@@ -630,7 +614,7 @@ gettimer endp
 savereststate proc
 	cmp wSaveStateSize,0
 	jz done
-	mov edi, offset buff2
+	mov edi, offset buffer
 	cmp b16Bit,1
 	jz @F
 	call dfSaveStatePM
@@ -913,6 +897,8 @@ done:
 	ret
 rmcbtest endp
 
+;--- 32-bit real-mode callback
+
 rmcb32 proc
 
 	assume ds:nothing,es:nothing,ss:nothing
@@ -1038,6 +1024,48 @@ error:
 	ret
 nesttest endp
 
+;--- option -e
+
+hsfatal proc
+local loops:word
+local trmcs:RMCS
+
+	mov loops,0
+newloop:
+	mov ax,wDgrp
+	mov trmcs.rDX,sp
+	mov trmcs.rBP,bp
+	mov trmcs.rFlags,3202h
+	mov trmcs.rES,ax
+	mov trmcs.rDS,ax
+	mov trmcs.rIP,offset hsfatalrm
+	mov trmcs.rCS,ax
+	mov trmcs.rSSSP,0
+	push ss
+	pop es
+	lea edi,trmcs
+	mov bx,0
+	mov cx,0
+	mov ax,0301h
+	int 31h
+	ret
+hsfatalx:
+	inc loops
+	@printf <"%u. iteration",lf>, loops
+	jmp newloop
+hsfatalrm:
+	add sp,4			;no need to return from "far proc"
+	@printf <"in rm, ss:sp=%x:%x",lf>,ss,sp
+	movzx ebx,dx		;pm E/SP
+	mov dx,wSSSel		;pm SS
+	mov si,wCSSel		;pm CS
+	mov edi,offset hsfatalx;pm E/IP
+	mov ax,wDSSel		;pm DS
+	mov cx,ax			;pm ES
+	jmp dwRawSwitch2PM
+
+hsfatal endp
+
 ;--- get a flat selector
 
 getflatsel proc
@@ -1076,7 +1104,7 @@ fillblock proc uses es
 	cld
 	db 67h
 	rep stosd
-	@stroutc <"memory block filled with value 'DPMI'",lf>
+	@printf <"memory block filled with value 'DPMI'",lf>
 	push ds
 	pop es
 	mov ax,1
@@ -1148,7 +1176,7 @@ memalloc_failed:
 		pop esi
 		@printf <"realloc memory block (handle=%lx) failed, req. size=%lu kB",lf>, esi, eax
 	.else
-		@stroutc <"alloc memory block failed, size= 4 kB",lf>
+		@printf <"alloc memory block failed, size= 4 kB",lf>
 	.endif
 done:
 	ret
@@ -1204,10 +1232,10 @@ ok:
 done:
 	ret
 failed:
-	@stroutc <"no API entry for vendor 'MS-DOS' found",lf>
+	@printf <"no API entry for vendor 'MS-DOS' found",lf>
 	ret
 failed2:
-	@stroutc <"call 'MS-DOS' API, ax=100h failed",lf>
+	@printf <"call 'MS-DOS' API, ax=100h failed",lf>
 	ret
 chk2f168a endp
 
@@ -1325,23 +1353,23 @@ do_protmode proc
 	.endif
 	@printf <"total/free physical memory (kB): %lu/%lu",lf>, eax, ecx
 
-	@stroutc 'Coprocessor status: '
+	@printf 'Coprocessor status: '
 	mov ax,0E00h
 	stc
 	int 31h
 	jnc @F
-	@stroutc <" not supported">
+	@printf <" not supported">
 	jmp fpudone
 @@:
 	call _wordout	;display AX
 fpudone:
-	@stroutc <lf>
+	@printf <lf>
 
 ;--- get dpmi 1.0 infos into es:e/di
 ;--- make sure the first 3 bytes are cleared, since
 ;--- WinXP may return with Carry cleared!
 
-	mov di,offset buff2
+	mov di,offset buffer
 	movzx edi,di
 	mov word ptr [di],0
 	mov byte ptr [di+2],0
@@ -1349,9 +1377,9 @@ fpudone:
 	int 31h
 	jc no401
 	push ax
-	movzx ax, buff2+0
-	movzx cx, buff2+1
-	lea si, buff2+2
+	movzx ax, buffer+0
+	movzx cx, buffer+1
+	lea si, buffer+2
 	@printf <"vendor: %s, version: %u.%u",lf>, si, ax, cx
 	pop ax
 	@printf <"capabilities: %x",lf>, ax
@@ -1391,16 +1419,20 @@ status_displayed:
 	jz @F
 	call nesttest
 @@:
+	test bOpt2, OP2_HSFATAL
+	jz @F
+	call hsfatal
+@@:
 	test bOpt1, OP_SHELL
 	jz @F
 	call startshell
 @@:
 	cmp bWaitKey, 0
 	jz @F
-	@stroutc <"press a key to exit protected-mode...">
+	@printf <"press a key to exit protected-mode...">
 	mov ah,10h
 	int 16h
-	@stroutc <10>
+	@printf <lf>
 @@:
 	ret
 do_protmode endp
@@ -1427,6 +1459,8 @@ main proc c
 				or bOpt1, OP_RMCB
 			.elseif (al == 'l')
 				or bOpt1, OP_LINALLOC
+			.elseif (al == 'e')
+				or bOpt2, OP2_HSFATAL
 			.elseif (al == 'f')
 				mov bFill, 1
 			.elseif (al == 'c')
@@ -1578,13 +1612,13 @@ pmexit:
 	mov ax,4c00h
 	int 21h
 error1:
-	@stroutc <"No DPMI host found",lf>
+	@printf <"No DPMI host found",lf>
 	jmp exit
 error2:
-	@stroutc <"No more DOS memory for DPMI initial switch",lf>
+	@printf <"No more DOS memory for DPMI initial switch",lf>
 	jmp exit
 error3:
-	@stroutc <"Initial switch to protected mode failed",lf>
+	@printf <"Initial switch to protected mode failed",lf>
 exit:
 	ret
 main endp
@@ -1620,7 +1654,7 @@ start:
 
 	.386
 
-;--- release memory, set ss to dgroup
+;--- release memory
 
 	mov cx,es
 	mov ax,ss
@@ -1628,17 +1662,22 @@ start:
 	mov bx,sp
 	shr bx,4
 	add bx,ax	;bx now contains new block size in paras
-	sub ax,10h	;subtract 10h paragraphs for psp
-	shl ax,4	;convert to bytes (=size of dgroup without stack)
-	push ds
-	pop ss
-	add sp,ax
+	push bx
 	mov ah,4Ah
 	int 21h
+	pop bx
+	sub bx,10h
+	shl bx,4
+
+;--- set CS=DS=SS=DGROUP
+
+	push cs
+	pop ds
+	push ds
+	pop ss
+	mov sp,bx
 	call main
 	mov ax,4C00h
 	int 21h
-
-_TEXT ends
 
 	END start

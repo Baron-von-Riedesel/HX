@@ -71,14 +71,13 @@ $(OBJMODS): $(DEPS0)
 # -i: create include
 
 $(OUTSTUB)\$(NAME).INC: $*.BIN $(NAME)s.mak
-	@..\..\TOOLS\EXTRMZ.EXE -q -i $*.BIN $*.INC
-	@copy $*.INC ..\..\Include
+	@ExtrMZ.EXE -q -i $*.BIN $*.INC
 
 $(OUTSTUB)\$(NAME).BIN: $(OUTSTUB)\$(SRC).obj $(OUTSTUB)\$(NAME).lib $(NAME)s.mak
 	$(LINK) @<<
 $(LCMDS)
 <<
-	@..\..\BIN\SETMZHDR.EXE -q $*.BIN
+	@SetMZHdr.exe -q $*.BIN
 
 $(OUTSTUB)\$(NAME).lib: $(OBJMODS) $(NAME)s.mak
 	@cd $(OUTSTUB)

@@ -5,6 +5,7 @@
 
 	.386
 	option casemap:none
+	option proc:private
 
 ?LOADSERVER	equ 1	;try to find HDPMI if no DPMI host has been found
 ?TEST386	equ 1		;1=test for 386 cpu (needed?)

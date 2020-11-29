@@ -4,7 +4,7 @@
 #  - JWasm | Masm
 #  - JWLib | WLib (Open Watcom) | MS OMF LIB (lib16.exe)
 #  - JWLink v1.8x
-#  - setmzhdr.exe, modifies exe so:
+#  - SetMZHdr.exe, modifies exe so:
 #      - dos will load the 16-bit part only
 #      - stack size will be 200h
 
@@ -72,7 +72,7 @@ $(OUTIOPL0)\$(NAME).EXE: $(OUTIOPL0)\$(SRC).obj $(OUTIOPL0)\$(NAME).lib
 	$(LINK) @<<
 $(LCMDS)
 <<
-	@..\..\BIN\SETMZHDR.EXE -q $*.EXE
+	@SetMZHdr.exe -q $*.EXE
 
 $(OUTIOPL0)\$(NAME).lib: $(OBJMODS) $(NAME)i.mak
 	@cd $(OUTIOPL0)

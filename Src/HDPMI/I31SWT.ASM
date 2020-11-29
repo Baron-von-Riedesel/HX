@@ -142,27 +142,18 @@ rmcb_pm proc
 ;--- after this is done, real-mode code can be called again
 ;--- i.e. trace output to dos or bios.
 
-;	push ss:tskstate.rSS	;SS
-;	push ss:tskstate.rESP	;ESP
-;	push ss:tmpFLRegD		;EFL
-;	pushfd					;EFL
-;	push _INTSEL_			;CS
-;	push _RETCB_			;EIP
-
+if 0
+;--- this code worked in v3.18, but had problems with raw mode switches;
+;--- see regression test rawjmp6.asm
 	lea esp,[esp-sizeof IRET32]
 	mov [esp].IRET32.rIP, _RETCB_
 	mov [esp].IRET32.rCS, _INTSEL_
-
-if 0
 	push ebp
 	push eax
 	pushfd
 	pop eax
 	mov [esp+2*4].IRET32.rFL, eax
-
 	mov ebp,[esp+2*4+sizeof IRET32]	;get previous value of dwHostStack
-	mov ebp,[ebp]					;v3.19: get pre-previous value!
-
 	mov eax,[ebp-sizeof IRET32].IRET32.rSP
 	mov ebp,[ebp-sizeof IRET32].IRET32.rSSd
 	mov [esp+2*4].IRET32.rSP,eax
@@ -170,12 +161,12 @@ if 0
 	pop eax
 	pop ebp
 else
-	pushfd
-	pop [esp].IRET32.rFL
-	push ss:pmstate.rESP
-	pop [esp].IRET32.rSP
+;--- v3.19: use new fields rSSD and rESP in pmstate
 	push ss:pmstate.rSSd
-	pop [esp].IRET32.rSSd
+	push ss:pmstate.rESP
+	pushfd
+	pushd _INTSEL_
+	pushd _RETCB_
 endif
 
 	inc ss:[cRMCB]
@@ -191,6 +182,14 @@ endif
 ;--- Since Masm v6 prefers to use the GROUP for fixup calculation,
 ;--- the second override isn't necessary anyway.
 ;	les edi, fword ptr cs:[edi+offset clrmcbs].RMCB.rmcs
+if _LTRACE_
+	push 0
+	pop ds
+	push ds
+	pop es
+	@strout <"#rmcb, callerCS=%X, wHostSeg=%X, edi=%lX, rmcs=%X:%lX",lf>, \
+		ss:[MyRMCS.rCS], ss:[wHostSeg], edi, word ptr cs:[edi+offset clrmcbs].RMCB.rmcs+4, dword ptr cs:[edi+offset clrmcbs].RMCB.rmcs
+endif
 	les edi, fword ptr cs:[edi+offset clrmcbs].RMCB.rmcs
 	pop es:[edi].RMCS.rEDI
 	mov es:[edi].RMCS.rESI,esi
@@ -259,6 +258,7 @@ else
 	mov ds,eax			;now DS -> rm SS
 endif
 
+;--- store current real-mode segment values ES,DS,FS,GS in RMCS (ES:EDI)
 	movzx esi,ss:v86iret.rSP
 	mov eax, [esi-sizeof RMCBSF].RMCBSF.dwESDS
 	mov ecx, [esi-sizeof RMCBSF].RMCBSF.dwFSGS
@@ -270,15 +270,9 @@ if _LTRACE_ and ?RMCBLOG
 	@strout <"#rmcb, rm ES-DS-FS-GS=%X %X %X %X hs=%lX",lf>, eax, ecx, esp
 endif
 
-if ?CHECKHOSTSTACK
-  if ?HSINEXTMEM
-	cmp esp, ss:dwStackTop
-  else
-	cmp esp, 80h
-  endif
-	jc _exitclientEx5
-endif
+	@checkhoststack
 
+;--- set RMCS IP
 	mov ax, es:[edi].RMCS.rCS
 	sub ax, ss:[wHostSeg]			;seg RMSwitch
 	shl eax,4						;RMCS size is 16!
@@ -287,7 +281,7 @@ endif
 	add ax,offset RMSwitch
 	mov es:[edi].RMCS.rIP,ax		;IP is calculated from CS
 
-	movzx eax,cx						;callback handle
+	movzx eax,cx					;callback handle
 	add eax,offset clrmcbs
 
 if _LTRACE_ and ?RMCBLOG
@@ -1008,6 +1002,7 @@ _TEXT32 segment
 rm2pm_pm:
 	mov ds,eax
 	mov es,ecx
+
 	sub esp, sizeof IRET32
 	xor eax,eax
 ife ?32BIT
@@ -1025,6 +1020,9 @@ endif
 	mov [esp].IRET32.rFL, eax
 	mov [esp].IRET32.rSP, ebx
 	mov [esp].IRET32.rSSd, edx
+
+	@checkhoststack
+
 if ?32BIT
 	@strout <"#rm2pm: CS:Eip=%X:%lX, SS:Esp=%X:%lX, RMS=%X:%X",lf>,\
 		si, edi, dx, ebx, ss:v86iret.rSS, ss:v86iret.rSP

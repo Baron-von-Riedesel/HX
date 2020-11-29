@@ -35,8 +35,7 @@
   SDL. Just copy the dlls from the windows system directory to the HX BIN
   directory. If no copy of Windows 9x is available - or the dlls cannot be
   found in the system directory - one can search for a redistributable version
-  for Windows 95, named OPENGL95.EXE. In case nothing can be found just 
-  download these binaries from http://www.japheth.de/Download/opengl95.zip.
+  for Windows 95, named OPENGL95.EXE.
   Please be aware that this early version for Windows 95 is slower than the
   one supplied with Windows 98. Regretably the WinXP versions of the dlls
   cannot be used currently.
@@ -304,5 +303,5 @@
   want to distribute WSOCK32.DLL, please read the copyright regarding WatTCP
   in Doc\WSOCK32.TXT.
 
-  Japheth   ( http://www.japheth.de )
+  Japheth
 

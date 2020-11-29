@@ -110,9 +110,9 @@ $(OUTD)\$(NAME).EXE: $(OUTD)\$(SRC).obj $(OUTD)\$(NAME).lib $(NAME)a.mak $(OUTNO
 $(LCMDS1)
 <<
 !if $(LINKER)==2
-	@..\..\BIN\SHRMZHDR.EXE $*.exe
+	@ShrMZHdr.exe $*.exe
 !endif     
-	@..\..\BIN\SETMZHDR.EXE -q $*.EXE
+	@SetMZHdr.exe -q $*.EXE
 
 $(OUTD)\$(NAME).lib: $(OBJMODS) $(NAME)a.mak
 	@cd $(OUTD)
@@ -126,9 +126,9 @@ $(OUTNOLFN)\$(NAME).EXE: $(OUTD)\$(SRC).obj $(OUTNOLFN)\INT21API.obj $(OUTD)\$(N
 $(LCMDS2)
 <<
 !if $(LINKER)==2
-	@..\..\BIN\SHRMZHDR.EXE -d $*.EXE
+	@ShrMZHdr.exe -d $*.EXE
 !endif    
-	@..\..\BIN\SETMZHDR.EXE -q $*.EXE
+	@SetMZHdr.exe -q $*.EXE
 
 $(OUTNOLFN)\INT21API.obj: INT21API.asm $(DEPS0)
 	$(ASM) $(AOPT) -D?LFNSUPPORT=0 INT21API.asm
