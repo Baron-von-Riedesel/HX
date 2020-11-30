@@ -427,9 +427,12 @@ ife ?32BIT
 endif
 if _LTRACE_
 	mov eax,es
+	lar ebp,eax
 	lsl eax,eax
 	cmp eax,edi
 	ja @F
+	test bp,400h;expand down segment?
+	jnz @F
 ;--- bug in borland's 32rtm: hiword(edi) isn't cleared in all cases.
 ;--- set environment variable HDPMI=2048 to catch this error!
 	@strout <"call rm: EDI[=%lX] exceeds ES segment limit %lX !!!",lf>, edi, eax

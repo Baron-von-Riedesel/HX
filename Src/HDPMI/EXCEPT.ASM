@@ -15,7 +15,7 @@
 ?POLLKBD		= 0	;std 0, 1=poll keyboard, 0=use int 16h real-mode
 ?SETCLIENTPSP	= 1 ;std 1, 1=set original client psp before server exits
 ?DISPCLSP		= 0	;std 0, 1=display client stack if ring 0 exception
-?RESETMOUSE		= 1 ;std 1, 1=reset mouse before getting a key
+?RESETMOUSE		= 0 ;std 1, 1=reset mouse before getting a key
 ?SAFERMSTACK	= 0 ;std 0, 1=ensure real-mode stack is usable
 
 @checkssattr macro x,y
@@ -573,6 +573,16 @@ if ?WDEB386
 	test [fDebug],FDEBUG_KDPRESENT
 	jnz calldebugger
 endif
+
+if 0
+	mov eax,[ebp].de.rSSd	;if client has no valid stack, terminate
+	verw ax
+	jnz serverexit
+	lsl eax,eax
+	cmp eax,[ebp].de.rSP
+	jae serverexit
+endif
+
 if ?DOSOUTPUT
 	test fMode, FM_RESIDENT
 	mov dl,'s'
@@ -611,6 +621,7 @@ else
 	jnz tryagain
  endif
 endif
+serverexit:
 	call _lfout
 if ?SETCLIENTPSP        
 	cmp cApps,0			;is there a client?
@@ -782,8 +793,8 @@ else
 	out 21h,al
   endif
   if ?RESETMOUSE
-	xor ax,ax		;reset mouse
-	int 33h
+	xor ax,ax		;reset mouse. since the host (hopefully) isn't reentered
+	int 33h			;during exception handling, this isn't needed.
   endif
 	mov ah,0
 	int 16h

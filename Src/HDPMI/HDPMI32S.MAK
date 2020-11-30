@@ -96,7 +96,7 @@ $(OUTSTUB)\$(NAME).lib: $(OBJMODS) $(NAME)s.mak
 clean:
 	@del $(OUTSTUB)\*.obj
 	@del $(OUTSTUB)\*.lib
-	@del $(OUTSTUB)\*.bin
+#	@del $(OUTSTUB)\*.bin
 	@del $(OUTSTUB)\*.lst
 	@del $(OUTSTUB)\*.map
-	@del $(OUTSTUB)\*.inc
+#	@del $(OUTSTUB)\*.inc

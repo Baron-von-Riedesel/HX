@@ -3,16 +3,8 @@
 ;--- loads hdpmi if no host found.
 ;--- switches to protected-mode, then calls _start32.
 
-	.386
-	option casemap:none
-	option proc:private
-
 ?LOADSERVER	equ 1	;try to find HDPMI if no DPMI host has been found
 ?TEST386	equ 1		;1=test for 386 cpu (needed?)
-
-_TEXT segment use32 dword public 'CODE'
-externdef c start32:near32
-_TEXT ends
 
 _TEXT16 segment use16 word public 'CODE'
 
@@ -21,7 +13,7 @@ _TEXT16 segment use16 word public 'CODE'
 ;--- 2. if not, try to load HDPMI32 (in UMBs if available)
 ;--- 3. switch to PM as 32bit dpmi client
 ;--- 4. set all segment registers to FLAT
-;--- 5. jump to label _start32.
+;--- 5. jump to proc LoadPE
 
 start:
 
@@ -54,16 +46,12 @@ endif
 	mov bx,ss
 	add bx,ax
 	mov ax,es
-	mov si,bx
 	sub bx,ax
 	mov ah,4Ah		;resize memory block to free DOS memory
 	int 21h
 
 	mov bp,sp
-
-	mov ax,seg _TEXT
-	sub si,ax
-	push si				;store size DGROUP (paragraphs)
+	push bx			;store size in paras
 
 	mov ax,5802h		;save status umb
 	int 21h
@@ -105,39 +93,40 @@ endif
 	mov es,ax
 nomemneeded:
 	call restoreumbstatus
-	mov si,seg _TEXT
-	mov ds,si
+	mov si,ds
+	mov ax,seg _TEXT
+	mov ds,ax
 	mov ax,0001 			;32 bit application
 	call dword ptr [lpproc]	;jump to PM
 	jc initfailed			;error: jmp to pm didnt work
 
 ;--- here es=PSP, ds=_TEXT (=DGROUP), cs=TEXT16, ss=stack
 ;--- limits are 0FFFFh, except for PSP
-;--- size of DGROUP in paragraphs in sizep
-;--- SI=segment address of DGROUP
 
 ;--- convert SS to DGROUP (might be > 64kB)
+
 	movzx eax,word ptr sizep
+	sub ax,10h		;subtract size PSP
 	shl eax,4
 	push eax
 	dec eax
+	mov bx,ds
 	push eax
 	pop dx
 	pop cx
-	mov bx,ds
 	mov ax,8			;set limit of DGROUP
 	int 31h
 	pop eax
-	mov bx,ss
+	mov cx,ss
 	push ds
 	pop ss
 	mov esp,eax
 
+	mov bx,cx
 
-;--- setup 32-bit CS (size DGROUP)
-	movzx esi, si
-	shl esi, 4
-	push esi
+	mov eax, seg _TEXT
+	shl eax, 4
+	push eax
 	pop dx
 	pop cx
 	mov ax,7			;set base CS
@@ -375,5 +364,3 @@ endif
 
 _TEXT16 ends
 
-
-	END start

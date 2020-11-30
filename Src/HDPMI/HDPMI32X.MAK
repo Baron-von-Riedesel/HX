@@ -72,6 +72,6 @@ $(OUTD)\$(NAME).lib: $(OBJMODS)
 clean:
 	@del $(OUTD)\*.obj
 	@del $(OUTD)\*.lib
-	@del $(OUTD)\*.exe
+#	@del $(OUTD)\*.exe
 	@del $(OUTD)\*.lst
 	@del $(OUTD)\*.map

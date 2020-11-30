@@ -66,6 +66,6 @@ $(OUTSTD)\$(NAME).lib: $(OBJMODS) $(NAME)d.mak
 clean:
 	@del $(OUTSTD)\*.obj
 	@del $(OUTSTD)\*.lib
-	@del $(OUTSTD)\*.exe
+#	@del $(OUTSTD)\*.exe
 	@del $(OUTSTD)\*.lst
 	@del $(OUTSTD)\*.map

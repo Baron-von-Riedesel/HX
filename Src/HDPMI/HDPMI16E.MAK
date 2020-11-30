@@ -78,6 +78,6 @@ $(OUTD)\$(NAME).lib: $(OBJMODS) $(NAME)e.mak
 clean:
 	@del $(OUTD)\*.obj
 	@del $(OUTD)\*.lib
-	@del $(OUTD)\*.exe
+#	@del $(OUTD)\*.exe
 	@del $(OUTD)\*.map
 	@del $(OUTD)\*.lst

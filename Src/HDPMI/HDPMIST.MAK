@@ -58,6 +58,8 @@ $(OUTD)\$(NAME).lib: $(OBJMODS) $(OUTD)\HDPMIST.obj
 clean:
 	@del $(OUTD)\*.obj
 	@del $(OUTD)\*.lib
-	@del $(OUTD)\*.exe
+#	@del $(OUTD)\*.exe
 	@del $(OUTD)\*.lst
 	@del $(OUTD)\*.map
+	@del $(OUTD)\*.tmp
+	@del $(OUTD)\stub.bin

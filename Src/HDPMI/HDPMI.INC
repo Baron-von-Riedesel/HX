@@ -553,6 +553,20 @@ lim_gr	db ?		;+6 bits 0-3:limit[16..19] (80386)
 A2431	db ?		;+7 base addr[24..31] (80386)
 DESCRPTR ends
 
+;*** type (memory segments):
+;*** bit 3 = 1 -> CODE,0 -> DATA
+;*** bit 2 = 1 -> DATA:expand down,CODE:conforming
+;*** bit 1 = 1 -> DATA:writable,CODE:readable
+;*** bit 0 = 1 -> accessed
+;*** type (system segments (TSS) ***
+;*** bit 3 = 1 -> 386
+;*** bit 2 = 1 -> Gate
+;*** bit 1 = 1 ->
+;*** bit 0 = 1 ->
+;     7/F -> trap gate
+;     6/E -> Interrupt gate
+;     4/C -> Call gate
+
 ;--- pseudo descriptor (for LGDT/SGDT/LIDT/SIDT)
 
 PDESCR	struct
@@ -562,24 +576,9 @@ PDESCR	ends
 
 ;--- gates
 
-;*** type (memory segments):
-;*** bit 3 = 1 -> CODE,0 -> DATA
-;*** bit 2 = 1 -> DATA:expand down,CODE:conforming
-;*** bit 1 = 1 -> DATA:writable,CODE:readable
-;*** bit 0 = 1 -> accessed
-
 ;*** 4G 16-Bit-Code-Segment -> <0ffffh,0,0,9fh,08fh,0>
 ;*** 4G 32-Bit-Code-Segment -> <0ffffh,0,0,9fh,0cfh,0>
 ;*** 4G 16-Bit-Data-Segment -> <0ffffh,0,0,93h,08fh,0>
-
-;*** type (system segments (TSS) ***
-;*** bit 3 = 1 -> 386
-;*** bit 2 = 1 -> Gate
-;*** bit 1 = 1 ->
-;*** bit 0 = 1 ->
-;     7/F -> trap gate
-;     6/E -> Interrupt gate
-;     4/C -> Call gate
 
 GATE    struct
 ofs     dw ?

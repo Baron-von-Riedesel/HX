@@ -136,10 +136,10 @@ $(OUTNOLFN)\INT21API.obj: INT21API.asm $(DEPS0)
 clean:
 	@del $(OUTD)\*.obj
 	@del $(OUTD)\*.lib
-	@del $(OUTD)\*.exe
+#	@del $(OUTD)\*.exe
 	@del $(OUTD)\*.map
 	@del $(OUTD)\*.lst
-	@del $(OUTNOLFN)\*.exe
+#	@del $(OUTNOLFN)\*.exe
 	@del $(OUTNOLFN)\*.obj
 	@del $(OUTNOLFN)\*.lst
 	@del $(OUTNOLFN)\*.map

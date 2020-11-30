@@ -83,6 +83,6 @@ $(OUTIOPL0)\$(NAME).lib: $(OBJMODS) $(NAME)i.mak
 clean:
 	@del $(OUTIOPL0)\*.obj
 	@del $(OUTIOPL0)\*.lib
-	@del $(OUTIOPL0)\*.exe
+#	@del $(OUTIOPL0)\*.exe
 	@del $(OUTIOPL0)\*.lst
 	@del $(OUTIOPL0)\*.map

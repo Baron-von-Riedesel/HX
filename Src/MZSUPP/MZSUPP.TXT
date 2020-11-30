@@ -25,7 +25,9 @@
  although this may be avoided (see LOADEXT.ASM for details).
 
 
- I have tried out 6 OMF linkers how they work with 32bit MZ object modules:
+ I have tried out some OMF linkers how they work with 32bit MZ object modules:
+
+ - JWLINK.EXE: should work in all cases.
 
  - WLINK.EXE from Open Watcom. This open source linker has improved recently,
    since v1.6 it can handle 32bit object modules. Since v1.8 it also accepts
