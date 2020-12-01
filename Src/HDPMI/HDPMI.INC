@@ -1188,20 +1188,20 @@ endm
         
 ;--- formatted trace output in protected-mode
 
-@strout macro strg:REQ, xx:VARARG
+@dprintf macro strg:REQ, xx:VARARG
 if _LTRACE_
-	@printf <strg>,xx
+	@printf <"#",strg,lf>,xx
 endif
 endm
 
 ;--- formatted conditional trace output in protected-mode
 
-@stroutx macro cond, strg:REQ, xx:VARARG
+@dprintfx macro cond, strg:REQ, xx:VARARG
 local lbl
 if _LTRACE_
 	test ss:traceflgs, cond
 	jz lbl
-	@printf <strg>,xx
+	@printf <"#",strg,lf>,xx
 lbl:
 endif
 endm
@@ -1222,7 +1222,7 @@ xxxx   db xx,0
 CONST16 ends
 GROUP16 group CONST16
   ifnb <a12>
-	echo too many parameters for @stroutrm
+	echo too many parameters for @rprintf
 	.err1
   endif
   for arg, <a11,a10,a9,a8,a7,a6,a5,a4,a3,a2,a1>
@@ -1234,9 +1234,9 @@ GROUP16 group CONST16
 	dw offset xxxx
 endm
 
-@stroutrm macro strg:REQ, xx:VARARG
+@drprintf macro strg:REQ, xx:VARARG
 if _LTRACE_
-	@rprintf <strg>,xx
+	@rprintf <"-",strg,lf>,xx
 endif
 endm
 

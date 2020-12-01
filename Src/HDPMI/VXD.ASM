@@ -117,7 +117,7 @@ endif
 	stc
 	ret
 registry:
-	@strout <"vmm registry: ax=%X",lf>,ax
+	@dprintf "vmm registry: ax=%X",ax
 	cmp al,2
 	jnb @F
 ;	add [esp+sizeof PUSHADS].IRETS.rSP,3*4	;RegOpenKey+RegCreateKey
@@ -128,7 +128,7 @@ registry:
 	@dbgbreak
 	ret
 getdebugoptions:
-	@strout <"vmm getdebugoption: ax=%X",lf>,ax
+	@dprintf "vmm getdebugoption: ax=%X",ax
 	@dbgbreak
 	mov al,00
 	ret
@@ -192,7 +192,7 @@ if ?SUPI2F1684002A
 
 _vxd_002A proc public
 	push offset iret_with_CF_mod
-	@strout <"vwin32: ax=%X, es:di=%X:%X",lf>,ax,es,di
+	@dprintf "vwin32: ax=%X, es:di=%X:%X",ax,es,di
 	cmp ah,0
 	jz getversion
 	cmp ah,8
@@ -224,13 +224,13 @@ if 1;?32BIT
 	add [esp+4+sizeof PUSHADS].IRET32.rSP,ecx
 	mov ecx,[ebx+1*4]
 	mov edx,[ebx+0*4]
-	@strout <"vwin32 mmgr [esp]=%lX %lX %lX",lf>,edx, ecx, dword ptr [ebx+2*4]
+	@dprintf "vwin32 mmgr [esp]=%lX %lX %lX",edx, ecx, dword ptr [ebx+2*4]
 else
 	lds bx,[esp+4+sizeof PUSHADS].IRETS.rSSSP
 	add [esp+4+sizeof PUSHADS].IRETS.rSP,cx
 	mov ecx,[bx+1*4]
 	mov edx,[bx+0*4]
-	@strout <"vwin32 mmgr [esp]=%lX %lX %lX",lf>,edx, ecx, dword ptr [bx+2*4]
+	@dprintf "vwin32 mmgr [esp]=%lX %lX %lX",edx, ecx, dword ptr [bx+2*4]
 endif
 	push ss
 	pop ds
@@ -254,7 +254,7 @@ endif
 		.if (ebx)
 			mov  dl,0			;dont commit
 			shl  ecx,12			;size in bytes
-			@strout <"vwin32 mmgr: ebx=%lX ecx=%lX",lf>, ebx, ecx
+			@dprintf "vwin32 mmgr: ebx=%lX ecx=%lX", ebx, ecx
 			call allocmemx
 			mov eax, ebx
 		.else
@@ -291,7 +291,7 @@ endif
 	mov [esp].PUSHADS.rEAX,eax
 	popad
 	pop ds
-	@strout <"vwin32 mmgr ret: eax=%lX",lf>,eax
+	@dprintf "vwin32 mmgr ret: eax=%lX",eax
 	@dbgbreak
 	ret
 	assume ds:nothing

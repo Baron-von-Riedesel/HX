@@ -91,14 +91,14 @@ handleenvflags proc
 	assume ds:GROUP16
 
 	mov ax,wEnvFlags
-	@stroutrm <"-wEnvFlags=%X",lf>,ax
+	@drprintf "wEnvFlags=%X",ax
 	test al, ENVF_DPMI10
 	jz @F
 	mov wVersion, 0100h
 if ?EXC10FRAME
 	or dword ptr wExcHdlr, -1
 endif
-	@stroutrm <"-dpmi version set to 1.0",lf>
+	@drprintf "dpmi version set to 1.0"
 @@:
 	test ah, ENVF2_NOMEM10
 	jz @F
@@ -136,7 +136,7 @@ handleenvflags endp
 
 settlb_rm proc
 
-	@stroutrm <"-settlb_rm enter",lf>
+	@drprintf "settlb_rm enter"
 
 if ?GLOBALTLBUSAGE				;get TLB of a previously installed instance
 	mov ax,word ptr [dwHost16+2]
@@ -148,7 +148,7 @@ if ?GLOBALTLBUSAGE				;get TLB of a previously installed instance
 	push ds
 	mov ds, ax
 	mov ax,[wSegTLB]
-	@stroutrm <"-TLB %X in previous HDPMI host %X ",lf>, ax, ds
+	@drprintf "TLB %X in previous HDPMI host %X ", ax, ds
 	pop ds
   if ?TLBLATE
 	and ax,ax
@@ -196,7 +196,7 @@ allocnewtlb:				;alloc memory for TLB
 	mov ah,48h
 	int 21h
 	jc exit
-	@stroutrm <"-TLB memory block allocated at %X",lf>,ax
+	@drprintf "TLB memory block allocated at %X",ax
 	or fMode, FM_TLBMCB		;set: tlb has its own mcb
 	jmp settlb_1
 nonewtlb:
@@ -212,7 +212,7 @@ if ?DELAYLOAD
 	add ax,10h		;add 10h for PSP
 	mov cx,wHostPSP
 	sub ax,cx
-	@stroutrm <"-realloc memory block %X to size %X",lf>,cx,ax
+	@drprintf "realloc memory block %X to size %X",cx,ax
 	mov bx,ax
 	mov es,cx
 	mov ah,4Ah
@@ -224,7 +224,7 @@ settlb_1:
 	mov [wSegTLB],ax
 	movzx eax,ax
 	shl eax,4
-	@stroutrm <"-TLB will be at linear address %lX, size %X",lf>,eax,?TLBSIZE
+	@drprintf "TLB will be at linear address %lX, size %X",eax,?TLBSIZE
 ;	mov [atlb],eax			;not used currently
 	mov bx,_TLBSEL_
 	and bx,not 7
@@ -430,7 +430,7 @@ initkd386swat1_rm proc
 	int 67h
 	cmp ah,00
 	jnz nokerneldebugger
-	@stroutrm <"-initkd386swat1: 386swat detected",lf>
+	@drprintf "initkd386swat1: 386swat detected"
 	or fDebug,FDEBUG_KDPRESENT
 if ?INTRM2PM
 	mov word ptr _jmp_pmX, 90FAh	;deactivate RM2PM int
@@ -467,12 +467,12 @@ initkd386swat2_rm proc
 	inc bx
 	cmp bx,20h
 	jb @B
-	@stroutrm <"-initkd386swat2: 386swat present",lf>
+	@drprintf "initkd386swat2: 386swat present"
 	pop es
 done:
 	ret
 err:
-	@stroutrm <"-initkd386swat2: 386swat refused init call, kd supp deactive",lf>
+	@drprintf "initkd386swat2: 386swat refused init call, kd supp deactive"
 	and fDebug, not FDEBUG_KDPRESENT
 	ret
 initkd386swat2_rm endp
@@ -490,12 +490,12 @@ initwdeb386_rm proc
 	pop ds
 	jz nokerneldebugger
 	mov ah,D386_Identify
-	@stroutrm <"-int 68 Identify (ax=%X)",lf>,ax
+	@drprintf "int 68 Identify (ax=%X)",ax
 	int D386_RM_Int
-	@stroutrm <"-int 68 ret, ax=%X",lf>,ax
+	@drprintf "int 68 ret, ax=%X",ax
 	cmp ax,D386_Id			;0F386h?
 	jnz nokerneldebugger
-	@stroutrm <"WDeb386 present",lf>
+	@drprintf "WDeb386 present"
 if ?USEDEBUGOUTPUT
 	or fDebug,FDEBUG_KDPRESENT or FDEBUG_OUTPFORKD
 else
@@ -514,15 +514,15 @@ endif
 	pop es
 	mov si,offset curGDT;ds:si = pointer to GDT   
 	mov di,offset curIDT;es:di = pointer to IDT
-	@stroutrm <"-int 68 Prepare PMode, ax=%X,bx=%X,cx=%X,dx=%X,es:di=%X:%X,ds:si=%X:%X",lf>,ax,bx,cx,dx,es,di,ds,si
+	@drprintf "int 68 Prepare PMode, ax=%X,bx=%X,cx=%X,dx=%X,es:di=%X:%X,ds:si=%X:%X",ax,bx,cx,dx,es,di,ds,si
 	int D386_RM_Int
 ;--- function returns a pointer in es:edi for a function to call
 	mov dword ptr [dbgpminit+0],edi
 	mov word ptr [dbgpminit+4],es
-	@stroutrm <"-int 68 ret, es:edi=%X:%lX,ds=%X",lf>,es,edi,ds
+	@drprintf "int 68 ret, es:edi=%X:%lX,ds=%X",es,edi,ds
 	ret
 nokerneldebugger:
-	@stroutrm <"-WDeb386 not active",lf>
+	@drprintf "WDeb386 not active"
 ;	mov ax,8B66h		;MOV AX,AX or MOV EAX,EAX
 ;	mov cl,0C0h
 ;	mov word ptr kdpatch1+0,ax
@@ -545,12 +545,12 @@ initwdeb386_pm proc
 ;--- call wdeb386, tell it IDT address
 	mov edi,[pdIDT.dwBase]
 	mov al,PMINIT_INIT_IDT
-	@strout <"call debugger pm proc,ax=%X,es:edi=%X:%lX (init IDT)",lf>,ax,es,edi
+	@dprintf "call debugger pm proc,ax=%X,es:edi=%X:%lX (init IDT)",ax,es,edi
 	call fword ptr [dbgpminit]
 	mov ax,DS_DebLoaded
-	@strout <"int 41h call,ax=%X",lf>,ax
+	@dprintf "int 41h call,ax=%X",ax
 	int Debug_Serv_Int
-	@strout <"int 41h ret,ax=%X (is F386?)",lf>,ax	;should return F386 in AX
+	@dprintf "int 41h ret,ax=%X (is F386?)",ax	;should return F386 in AX
 	mov ax,0f001h
 	int Debug_Serv_Int
 	popad
@@ -583,7 +583,7 @@ _initsvr_rm proc near
 
 	assume ds:GROUP16
 
-	@stroutrm <"-initsvr_rm: enter, ds=%X, es=%X, ss:sp=%X:%X",lf>, ds, es, ss, sp
+	@drprintf "initsvr_rm: enter, ds=%X, es=%X, ss:sp=%X:%X", ds, es, ss, sp
 	mov ah,30h
 	int 21h
 if ?SUPPDOS33
@@ -641,14 +641,14 @@ endif
 	jnz nohdpmi
 	or fHost,FH_HDPMI
 	assume es:GROUP16
-	@stroutrm <"-initsvr_rm: instance of HDPMI found, inst=%X, flags=%X",lf>,es, es:[wEnvFlags]
+	@drprintf "initsvr_rm: instance of HDPMI found, inst=%X, flags=%X",es, es:[wEnvFlags]
 	cmpsb				;is it the same mode (16/32)?
 	jnz @F
 	mov al, EXIT_DPMIHOST_RUNNING
 	jmp initsvr_ex		;then it can be used
 	assume es:nothing
 @@:
-	@stroutrm <"-but mode is different",lf>
+	@drprintf "but mode is different"
 	and fHost,not FH_DPMI
 nohdpmi:
 nodpmi:
@@ -751,7 +751,7 @@ endif
 ;--- settlb_rm may allocate a permanent TLB. it should be called before
 ;--- pm_init_rm, which temporarily allocates DOS mem for pagemgr.
 
-	@stroutrm <"-initsvr_rm: call settlb_rm",lf>
+	@drprintf "initsvr_rm: call settlb_rm"
 	call settlb_rm		;set translation buffer
 	jc nodosmem
 
@@ -776,7 +776,7 @@ if ?386SWAT
 	call initkd386swat1_rm
 endif
 
-	@stroutrm <"-initsvr_rm: call pm_init_rm",lf>
+	@drprintf "initsvr_rm: call pm_init_rm"
 	call pm_init_rm			;page manager init rm (before hookIVTvecs)
 	jc nodosmem
 
@@ -795,7 +795,7 @@ endif
 	call _enablea20		;this hooks xms!
 	and ax,ax
 	jz a20err
-	@stroutrm <"-initsvr_rm: set rm vectors",lf>
+	@drprintf "initsvr_rm: set rm vectors"
 	call hookIVTvecs
 
 if ?386SWAT
@@ -824,7 +824,7 @@ if ?HSINEXTMEM
 ;	mov taskseg._Esp0, eax
 ;	sub eax, sizeof R3FAULT32
 ;	mov [dwHSExcR3], eax
-	@stroutrm <"-initsvr_rm: temp. host stack allocated (%lX), size 1kB",lf>, dwHostStack
+	@drprintf "initsvr_rm: temp. host stack allocated (%lX), size 1kB", dwHostStack
 else
 	mov [dwHostStack], offset ring0stack
 endif
@@ -862,17 +862,17 @@ _initsvr_pm proc
 	mov fs,eax
 	mov gs,eax
 
-	@strout <"#initsvr_pm: start, current rmSS:SP=%X:%X, esp=%lX",lf>, v86iret.rSS, v86iret.rSP, esp
+	@dprintf "initsvr_pm: start, current rmSS:SP=%X:%X, esp=%lX", v86iret.rSS, v86iret.rSP, esp
 
 if ?WDEB386
 	call initwdeb386_pm
 endif
-	@strout <"#initsvr_pm: call pm_createvm",lf>
+	@dprintf "initsvr_pm: call pm_createvm"
 	call pm_createvm			;preserves all registers
 	jc pmfirst_done
 
 if ?MOVEHIGH
-	@strout <"#initsvr_pm: call pm_CloneGroup32",lf>
+	@dprintf "initsvr_pm: call pm_CloneGroup32"
 	xor eax, eax
 	call pm_CloneGroup32
 	mov taskseg._Ebp, eax	;"should" return ff801000h
@@ -885,10 +885,10 @@ if ?HSINEXTMEM
 	push ss
 	pop ss
 	mov esp, eax
-	@strout <"#initsvr_pm: new host stack bottom=%lX, top=%lX",lf>, eax, dwStackTop
+	@dprintf "initsvr_pm: new host stack bottom=%lX, top=%lX", eax, dwStackTop
 endif
 
-	@strout <"#initsvr_pm: call _movehigh",lf>
+	@dprintf "initsvr_pm: call _movehigh"
 	call _movehigh			;allocates bp table, moves GDT + IDT
 	jc initsvr_pm_failed
 
@@ -898,7 +898,7 @@ if ?MOVEHIGH
 ifdef ?PE
 	sub eax, 1000h
 endif
-	@strout <"#initsvr_pm: adjust GDT descriptors, new base=%lX",lf>, eax
+	@dprintf "initsvr_pm: adjust GDT descriptors, new base=%lX", eax
 	mov edx, pdGDT.dwBase
 	push es
 	pop ds
@@ -937,11 +937,11 @@ endif
 endif
 
 ;--- this log msg will cause a GPF, since limit CS is now too low
-;	@strout <"#initsvr_pm: exit, esp=%lX",lf>, esp
+;	@dprintf "initsvr_pm: exit, esp=%lX", esp
 	jmp initsvr_pm_done
 initsvr_pm_failed2:
 initsvr_pm_failed:
-	@strout <"#initsvr_pm: failure",lf>
+	@dprintf "initsvr_pm: failure"
 	call pm_exit_pm
 	stc
 initsvr_pm_done:
@@ -969,7 +969,7 @@ endif
 	popf
 	jc nodosmem3
 
-	@stroutrm <"-initsvr_rm2: back in real mode, ss:sp=%X:%X",lf>,ss,sp
+	@drprintf "initsvr_rm2: back in real mode, ss:sp=%X:%X",ss,sp
 	mov al,EXIT_HDPMI_IN_VCPIMODE
 	test byte ptr [fHost], FH_VCPI
 	jnz initsvr_ex
@@ -978,16 +978,16 @@ endif
 	jnz initsvr_ex
 	dec al
 initsvr_ex::
-	@stroutrm <"-initsvr_rm2: exits with ax=%X",lf>,ax
+	@drprintf "initsvr_rm2: exits with ax=%X",ax
 	ret
 nodosmem3::
-	@stroutrm <"-initsvr_rm2: calling pm_exit_rm ds=%X, ss:sp=%X:%X",lf>, ds, ss, sp
+	@drprintf "initsvr_rm2: calling pm_exit_rm ds=%X, ss:sp=%X:%X", ds, ss, sp
 	call pm_exit_rm
-	@stroutrm <"-initsvr_rm2: calling unhookIVTvecs ds=%X, ss:sp=%X:%X",lf>, ds, ss, sp
+	@drprintf "initsvr_rm2: calling unhookIVTvecs ds=%X, ss:sp=%X:%X", ds, ss, sp
 	call unhookIVTvecs
 	call _disablea20
 nodosmem::						;no (DOS) memory
-	@stroutrm <"-initsvr_rm2: memory error ds=%X, ss:sp=%X:%X",lf>, ds, ss, sp
+	@drprintf "initsvr_rm2: memory error ds=%X, ss:sp=%X:%X", ds, ss, sp
 	mov dx,[wEMShandle]
 	and dx,dx
 	jz @F
@@ -1288,7 +1288,7 @@ scanforhdpmistring proc
 	assume es:SEG16
 	mov cx, es:[2Ch]
 	assume es:nothing
-	@stroutrm <"scan for HDPMI variable, psp=%X, env=%X",lf>,es,cx
+	@drprintf "scan for HDPMI variable, psp=%X, env=%X",es,cx
 	jcxz exit
 	mov es, cx
 	xor di, di
@@ -1307,7 +1307,7 @@ next:
 exit:
 	ret
 found:
-	@stroutrm <"'HDPMI=%s' found",lf>,es,di
+	@drprintf "'HDPMI=%s' found",es,di
 	xor ax,ax
 @@:
 	mov cl,es:[di]
@@ -1375,7 +1375,7 @@ else
 	pop bx
 	jc error_2
 	mov cs:wHostSeg32, ax
-	@stroutrm <"-load32bit: allocated DOS memory block %X",lf>, ax
+	@drprintf "load32bit: allocated DOS memory block %X", ax
 	mov ds,ax
 	mov cx,20h	;read the header
 	xor dx,dx
@@ -1421,7 +1421,7 @@ ifdef ?PE
 	pop bx
 	jc error_2
 	mov cs:wHostSeg32, ax
-	@stroutrm <"-load32bit: allocated DOS memory block %X",lf>, ax
+	@drprintf "load32bit: allocated DOS memory block %X", ax
 	mov es,ax
 	mov cx,dx
 	shl cx,2
@@ -1442,7 +1442,7 @@ nextsection:
 	mov edx, [esp].IMAGE_SECTION_HEADER.VirtualAddress
 	sub edx,?VSTART
 	mov cx, word ptr [esp].IMAGE_SECTION_HEADER.Misc.VirtualSize
-	@stroutrm <"-load32bit: loading section at rva=%X size=%X",lf>, dx, cx
+	@drprintf "load32bit: loading section at rva=%X size=%X", dx, cx
 	mov ah,3fh
 	int 21h
 	jc error_2
@@ -1452,7 +1452,7 @@ nextsection:
 	jnz nextsection
 else
 	mov cx,LOWWORD offset endof32bit
-	@stroutrm <"-load32bit: loading GROUP32 part of hdpmi at %X, size=%X",lf>, cs:wHostSeg32, cx
+	@drprintf "load32bit: loading GROUP32 part of hdpmi at %X, size=%X", cs:wHostSeg32, cx
 	xor dx,dx
 	mov ah,3Fh
 	int 21h
@@ -1547,7 +1547,7 @@ ifdef _DEBUG
  	mov cs:wHostPSP,es
  endif
 endif
-	@stroutrm <"-hdpmi startup code, CS=%X, SS:SP=%X:%X",lf>,cs,ss,sp
+	@drprintf "hdpmi startup code, CS=%X, SS:SP=%X:%X",cs,ss,sp
 	cld
 	push cs
 	pop ds
@@ -1926,7 +1926,7 @@ isuninstall:
 	assume es:GROUP16
 if _LTRACE_
 	movzx ax,es:[cApps]
-	@stroutrm <"-hdpmi found at %X, currently active clients %X (psp=%X)",lf>, es, ax, es:wPSPSegm
+	@drprintf "hdpmi found at %X, currently active clients %X (psp=%X)", es, ax, es:wPSPSegm
 endif
 	cmp byte ptr es:[cApps],0
 	mov dx,offset error2
@@ -1956,7 +1956,7 @@ else
 	push ds				;just use GROUP16 for RMS here!
 	pop es				;this should still work for all cases
 endif
-	@stroutrm <"-launching a client to terminate HDPMI, client seg=%X",lf>,es
+	@drprintf "launching a client to terminate HDPMI, client seg=%X",es
 	assume es:nothing
 	mov ax,?32BIT
 	call dword ptr [bp]
@@ -1988,7 +1988,7 @@ if ?STUB
 else
 	mov ah,4Ch
 	jc done
-	@stroutrm <"-start: _initserver_rm returned ok, ax=%X",lf>, ax
+	@drprintf "start: _initserver_rm returned ok, ax=%X", ax
 
 	push ax	;save exit code
 	test fMode, FM_RESIDENT
@@ -2027,7 +2027,7 @@ else
 	add dx,?TLBSIZE/16
 @@:
 	add dx,10h	;16 paragraphs for the PSP
-	@stroutrm <"-start: going resident, memory block size=%X, RMS=%X:%X",lf>, dx, v86iret.rSS, v86iret.rSP
+	@drprintf "start: going resident, memory block size=%X, RMS=%X:%X", dx, v86iret.rSS, v86iret.rSP
 
 ;--- close files before going resident.
 	mov bx,0

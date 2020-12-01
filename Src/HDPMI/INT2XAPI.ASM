@@ -55,8 +55,8 @@ if ?EXITONCTRLC
 	jmp __exitapp 
   endif
 else
-	@printf <"^C">
-	@strout <"an int 23 in pm occured",lf>
+	@printf "^C"
+	@dprintf "an int 23 in pm occured"
 ;	@iret	;IRETD in 32bit, IRETW in 16-bit
 	iretd
 endif
@@ -74,7 +74,7 @@ CONST32 ends
 endif
 
 intr24 proc near public
-	@strout <"an int 24 in pm occured",lf>
+	@dprintf "an int 24 in pm occured"
 if ?INT24FAIL
 	mov al,3
 else
@@ -156,7 +156,7 @@ endif
 	mov ax,ss:[wSegTLB]
 	mov es:[DISKIORM.buffseg],ax
 	mov ax,cx
-	@strout <"copyDiskIo2Tlb: startsec=%lX, sectors=%X, buf=%X:%X",lf>,\
+	@dprintf "copyDiskIo2Tlb: startsec=%lX, sectors=%X, buf=%X:%X",\
 		dword ptr es:[DISKIORM.startsec], ax,\
 		word ptr es:[DISKIORM.buffseg], word ptr es:[DISKIORM.buffofs]
 	pop edx
@@ -174,13 +174,13 @@ copyDiskIo2Tlb endp
 PrepareDiskIoRead proc public
 	cmp cx,-1		;FAT 16 (> 32 MB)?
 	jz isext
-	@strout <"PrepareDiskIoRead: simple disk io format, cx=%X",lf>,cx
+	@dprintf "PrepareDiskIoRead: simple disk io format, cx=%X",cx
 	cmp cx,?TLBSECS
 	ja error
 	clc
 	ret
 isext:
-	@strout <"PrepareDiskIoRead: extended disk io format",lf>
+	@dprintf "PrepareDiskIoRead: extended disk io format"
 	push eax
 	call copyDiskIo2Tlb
 	cmp ax,?TLBSECS
@@ -202,7 +202,7 @@ PrepareDiskIoRead endp
 PrepareDiskIoWrite proc public
 	cmp cx,-1		;FAT16 (> 32 MB)?
 	jz isext
-	@strout <"PrepareDiskIoWrite: simple disk io format, cx=%X",lf>,cx
+	@dprintf "PrepareDiskIoWrite: simple disk io format, cx=%X",cx
 	cmp cx,?TLBSECS
 	ja error
 	push ecx
@@ -219,7 +219,7 @@ endif
 	clc
 	ret
 isext:
-	@strout <"PrepareDiskIoWrite: extended disk io format",lf>
+	@dprintf "PrepareDiskIoWrite: extended disk io format"
 	push eax
 	call copyDiskIo2Tlb
 	cmp ax,?TLBSECS
@@ -240,7 +240,7 @@ endif
 	push ecx				;2. parameter fuer copy_xx_2_flat DWORD
 	mov ecx,eax
 	shl ecx,9			;sectors -> bytes (only CX counts)
-	@strout <"PrepareDiskIoWrite: copy %X bytes from %lX:%lX to TLB:200",cr,lf>,cx,ds,edx
+	@dprintf "PrepareDiskIoWrite: copy %X bytes from %lX:%lX to TLB:200",cx,ds,edx
 	call copy_far32_2_flat
 	pop ecx
 	pop edx
@@ -267,12 +267,12 @@ AfterDiskIoRead proc public uses ds esi ecx ebx
 if ?32BIT
 	mov cx, ds:[ebx].DISKIO.sectors
 	lds ebx, fword ptr ds:[ebx].DISKIO.buffofs
-	@strout <"AfterDiskIoRead: copy from tlb to ds:ebx=%lX:%lX, sectors=%X",lf>,ds,ebx,cx
+	@dprintf "AfterDiskIoRead: copy from tlb to ds:ebx=%lX:%lX, sectors=%X",ds,ebx,cx
 else
 	movzx ebx,bx
 	mov cx, ds:[ebx].DISKIO.sectors
 	lds bx, dword ptr ds:[ebx].DISKIO.buffofs
-	@strout <"AfterDiskIoRead: copy from tlb to ds:bx=%lX:%X, sectors=%X",lf>,ds,bx,cx
+	@dprintf "AfterDiskIoRead: copy from tlb to ds:bx=%lX:%X, sectors=%X",ds,bx,cx
 endif
 	add si,0020h			;first 200h bytes used otherwise
 @@:
@@ -299,10 +299,10 @@ AfterDiskIoRead endp
 intr25 proc near public
 
 if ?32BIT
-	@strout <"int 25, before call: ax=%X,ds:ebx=%lX:%lX,cx=%X,dx=%X,cs:eip=%X:%lX",lf>,\
+	@dprintf "int 25, before call: ax=%X,ds:ebx=%lX:%lX,cx=%X,dx=%X,cs:eip=%X:%lX",\
 		ax,ds,ebx,cx,dx,[esp+4].IRETS.rCS,[esp].IRETS.rIP
 else
-	@strout <"int 25, before call: ax=%X,ds:bx=%lX:%X,cx=%X,dx=%X,cs:ip=%X:%X",lf>,\
+	@dprintf "int 25, before call: ax=%X,ds:bx=%lX:%X,cx=%X,dx=%X,cs:ip=%X:%X",\
 		ax,ds,bx,cx,dx,[esp+2].IRETS.rCS,[esp].IRETS.rIP
 endif
 	call PrepareDiskIoRead
@@ -314,7 +314,7 @@ endif
 if _LTRACE_
 	pushfd
 	pop esi
-	@strout <"int 25,after call: ax=%X, fl=%X",lf>,ax,si
+	@dprintf "int 25,after call: ax=%X, fl=%X",ax,si
 endif
 	pop ebx
 	jc @F
@@ -348,7 +348,7 @@ intr25 endp
 
 intr26 proc near public
 
-	@strout <"int 26, before call: ax=%X, ds:ebx=%lX:%lX, cx=%X, dx=%X",cr,lf>,ax,ds,ebx,cx,dx
+	@dprintf "int 26, before call: ax=%X, ds:ebx=%lX:%lX, cx=%X, dx=%X",ax,ds,ebx,cx,dx
 	call PrepareDiskIoWrite
 	jc intr26_1
 
@@ -360,7 +360,7 @@ intr26 proc near public
 if _LTRACE_
 	pushfd
 	pop esi
-	@strout <"int 26, after call: ax=%X, fl=%X",lf>,ax,si
+	@dprintf "int 26, after call: ax=%X, fl=%X",ax,si
 endif
 intr26_1:
 	jmp seti2526stack

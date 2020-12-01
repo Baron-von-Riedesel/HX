@@ -117,11 +117,11 @@ getpmevec proc public
   if ?32BIT
 	mov edx, cs:[ebx*sizeof R3PROC+offset excvec].R3PROC._Eip
 	mov cx, word ptr cs:[ebx*sizeof R3PROC+offset excvec].R3PROC._Cs
-	@strout <"get exception vector %X: %X:%lX",lf>, bx, cx, edx
+	@dprintf "get exception vector %X: %X:%lX", bx, cx, edx
   else
 	mov dx, cs:[ebx*sizeof R3PROC+offset excvec].R3PROC._Eip
 	mov cx, cs:[ebx*sizeof R3PROC+offset excvec].R3PROC._Cs
-	@strout <"get exception vector %X: %X:%X",lf>, bx, cx, dx
+	@dprintf "get exception vector %X: %X:%X", bx, cx, dx
   endif
 	clc
 	ret
@@ -270,7 +270,7 @@ _LTRACE_ = 0
 
 getpmivec proc public
 
-	@strout <"getpmintvec: int %X",lf>,bx
+	@dprintf "getpmintvec: int %X",bx
 	call getpmptr
 	jc getpmivec_1 	   ;C if vector in IDT is ring 0
 	mov cx,[ebx].GATE.sel
@@ -306,12 +306,12 @@ setpmivec proc public
 	pop eax			;win9x fails as well, but returns with NC
 	jnz error
 if ?32BIT
-	@strout <"setpmintvec: int %X with %X:%lX",lf>,bx,cx,edx
+	@dprintf "setpmintvec: int %X with %X:%lX",bx,cx,edx
 else
-	@strout <"setpmintvec: int %X with %X:%X",lf>,bx,cx,dx
+	@dprintf "setpmintvec: int %X with %X:%X",bx,cx,dx
 endif
 	call installirqhandler
-	@strout <"setpmintvec: return from installirqhandler %X:%lX",lf>, cx, edx
+	@dprintf "setpmintvec: return from installirqhandler %X:%lX", cx, edx
 	call getpmptr
 	jc setpmivec_1
 	mov [ebx].GATE.ofs,dx

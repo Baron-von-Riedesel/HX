@@ -292,11 +292,11 @@ endif
 	call _GetA20State
 	ret
 @@:
-	@stroutrm <"-enablea20: calling XMS enable A20",lf>
+	@drprintf "enablea20: calling XMS enable A20"
 	mov ah,?ENABLE
 	call [xmsaddr]
 if ?HOOKXMS
-	@stroutrm <"-enablea20: install XMS hook",lf>
+	@drprintf "enablea20: install XMS hook"
 	call setmyxmshandler
 endif
 exit:
@@ -312,14 +312,14 @@ endif
 
 _disablea20 proc public
 
-	@stroutrm <"-disablea20: enter",lf>
+	@drprintf "disablea20: enter"
 	push di
 if ?HOOKXMS
 	les di,[oldxms]	;dont test FH_XMS here, may have been cleared
 	mov ax,es
 	or ax,di
 	jz @F
-	@stroutrm <"-disablea20: uninstall XMS hook, previous addr=%X:%X",lf>,es,bx
+	@drprintf "disablea20: uninstall XMS hook, previous addr=%X:%X",es,bx
 	cld
 	push si
 	mov si,offset myxmshandler
@@ -331,11 +331,11 @@ else
 	cmp [xmsaddr],0
 	jz @F
 endif
-	@stroutrm <"-disablea20: calling XMS disable A20",lf>
+	@drprintf "disablea20: calling XMS disable A20"
 	mov ah,?DISABLE
 	call [xmsaddr]
 @@:
-	@stroutrm <"-disablea20: exit",lf>
+	@drprintf "disablea20: exit"
 	pop di
 	ret
 _disablea20 endp

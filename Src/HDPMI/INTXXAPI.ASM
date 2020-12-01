@@ -28,7 +28,7 @@ _TEXT32  segment
 intr10_ proc public
 	push offset retf2exit
 
-	@strout <"i10 call ax=%X,bx=%X,cx=%X,dx=%X",lf>,ax,bx,cx,dx
+	@dprintf "i10 call ax=%X,bx=%X,cx=%X,dx=%X",ax,bx,cx,dx
 if ?INT10MAPPING
 	pushfd
 	cmp ah,10h
@@ -135,7 +135,7 @@ endif
 
 intr15 proc public
 
-	@strout <"i15 call with ax=%X ebx=%lX es=%X",lf>,ax,ebx,es
+	@dprintf "i15 call with ax=%X ebx=%lX es=%X",ax,ebx,es
 
 	pushfd
 if ?SUPI15C207
@@ -168,7 +168,7 @@ ifdef ?PE
 else
 	assume ds:_TEXT32R3
 endif
-	@strout <"#int15c207: install int 15h mouse event proc es:ebx=%lX:%lX",lf>,es,ebx
+	@dprintf "int15c207: install int 15h mouse event proc es:ebx=%lX:%lX",es,ebx
 if ?32BIT
 	mov dword ptr [mouse_evntproc+0],ebx
 	mov word ptr [mouse_evntproc+4],es
@@ -186,7 +186,7 @@ endif
 
 	cmp cs:[mouse15_rmcb],0	;was a rm callback allocated?
 	jz exit				;no, done
-	@strout <"#int15c207: deinstall int 15h mouse event proc",lf>
+	@dprintf "int15c207: deinstall int 15h mouse event proc"
 	mov ss:v86iret.rES,0
 	@simrmint 15h				;deinstall event proc
 	pushad
@@ -231,11 +231,11 @@ installc207handler proc
 if ?32BIT
 	mov esi,offset mouse_eventproc
 	mov edi,offset mouse_rmcs
-	@strout <"#installc207handler: allocate rmcb for ds:esi=%lX:%lX, es:edi=%lX:%lX",lf>,ds,esi,es,edi
+	@dprintf "installc207handler: allocate rmcb for ds:esi=%lX:%lX, es:edi=%lX:%lX",ds,esi,es,edi
 else
 	mov si,LOWWORD offset mouse_eventproc
 	mov di,LOWWORD offset mouse_rmcs
-	@strout <"#installc207handler: allocate rmcb for ds:si=%lX:%X, es:di=%lX:%X",lf>,ds,si,es,di
+	@dprintf "installc207handler: allocate rmcb for ds:si=%lX:%X, es:di=%lX:%X",ds,si,es,di
 endif
 	call allocrmcb		;ds:esi -> pm proc, es:edi -> rmcs
 	pop es
@@ -253,7 +253,7 @@ endif
 	jc exit
 done1:
 	push ebx
-	@strout <"#installc207handler: activate int 15h mouse event proc",lf>
+	@dprintf "installc207handler: activate int 15h mouse event proc"
 	mov bx,word ptr cs:[mouse15_rmcb+2]
 	mov ss:v86iret.rES,bx
 	mov bx,word ptr cs:[mouse15_rmcb+0]
@@ -295,7 +295,7 @@ endif
 mouse_eventproc proc
 	cld
 if ?32BIT
-;	@strout <"#mouse_eventproc (C207): SS:ESP=%lX:%lX,DS:ESI=%lX:%lX",lf>,ss,esp,ds,esi
+;	@dprintf "mouse_eventproc (C207): SS:ESP=%lX:%lX,DS:ESI=%lX:%lX",ss,esp,ds,esi
 ;--- pop CS:IP from real-mode stack and adjust real mode SP
 	lodsd
 	mov es:[edi].RMCS.rCSIP, eax
@@ -303,22 +303,22 @@ if ?32BIT
 ;--- transfer 4 WORDs from real-mode to protected mode stack
 	push dword ptr [esi+4]
 	push dword ptr [esi+0]
-;	@strout <"#mouse_eventproc: calling %X:%lX",lf>, word ptr cs:mouse_evntproc+4, dword ptr cs:mouse_evntproc+0
+;	@dprintf "mouse_eventproc: calling %X:%lX", word ptr cs:mouse_evntproc+4, dword ptr cs:mouse_evntproc+0
 	call cs:[mouse_evntproc]
 	add esp,4*2
 else
-;	@strout <"#mouse_eventproc (C207): SS:SP=%lX:%X,DS:SI=%lX:%X",lf>,ss,sp,ds,si
+;	@dprintf "mouse_eventproc (C207): SS:SP=%lX:%X,DS:SI=%lX:%X",ss,sp,ds,si
 	db 67h	;use DS:SI, not DS:ESI here!
 	lodsd
 	mov es:[di].RMCS.rCSIP, eax
 	add es:[di].RMCS.rSP, 4
 	push dword ptr [si+4]
 	push dword ptr [si+0]
-;	@strout <"#mouse_eventproc: calling %X:%X",lf>, word ptr cs:mouse_evntproc+2, word ptr cs:mouse_evntproc+0
+;	@dprintf "mouse_eventproc: calling %X:%X", word ptr cs:mouse_evntproc+2, word ptr cs:mouse_evntproc+0
 	call cs:[mouse_evntproc]
 	add sp,4*2
 endif
-;	@strout <"#mouse_eventproc: exit callback",lf>
+;	@dprintf "mouse_eventproc: exit callback"
 	@iret	;IRETD in 32-bit, IRETW in 16-bit
 	align 4
 mouse_eventproc endp
@@ -387,7 +387,7 @@ intr4B proc near public
 
 ;*** if ah=81h (VDS), just al=0B/0C ok to route to real-mode
 
-	@strout <"int4B: AX=%X,ES:DI=%X:%X",lf>,ax,es,di
+	@dprintf "int4B: AX=%X,ES:DI=%X:%X",ax,es,di
 	cmp ah,81h
 	jnz @F
 	cmp al,02h	;00 and 01 are NOPs, 02 just register API

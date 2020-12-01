@@ -756,7 +756,7 @@ getrmdesc proc near
 	pop ds
 	ret
 getrmdesc_err:
-	@strout <"#getrmdesc: error, out of LDT descriptors",lf>
+	@dprintf "getrmdesc: error, out of LDT descriptors"
 	pop ds
 	ret
 	align 4
@@ -773,7 +773,7 @@ getpspsel proc public
 	mov bx,ax		;dont touch highword EBX (just in case)
 	pop eax
 	jc getpspsel_err
-	@strout <"#getpspsel: selector %X marked as psp",lf>,bx
+	@dprintf "getpspsel: selector %X marked as psp",bx
 getpspsel_err:
 	ret
 	align 4
@@ -828,7 +828,7 @@ next:
 	cmp ax,?DYNTLBSIZE/16 + 1
 	jb next
 	jz suitsexact
-	@strout <"#AllocDosMemory: found an mcb at %lX, size %X",lf>, edi, ax
+	@dprintf "AllocDosMemory: found an mcb at %lX, size %X", edi, ax
 	mov byte ptr [edi],'M'
 	mov word ptr [edi+3],?DYNTLBSIZE/16
 	mov byte ptr [edi+?DYNTLBSIZE+10h],cl
@@ -867,7 +867,7 @@ _FreeDosMemory proc public
 	movzx edi,si
 	shl edi,4
 	mov word ptr [edi-10h+1],0
-	@strout <"#FreeDosMemory: free dyn tlb at %X, size now %X",lf>,si,word ptr [edi-10h+3]
+	@dprintf "FreeDosMemory: free dyn tlb at %X, size now %X",si,word ptr [edi-10h+3]
 	pop ds
 	ret
 	align 4
@@ -911,7 +911,7 @@ nextsel:
 	add ebx,8
 	add edi,10000h
 	sub esi,10000h
-	@strout <"#selectortile2: base=%lX, limit=%lX",lf>, edi, esi
+	@dprintf "selectortile2: base=%lX, limit=%lX", edi, esi
 	push edi
 	pop dx
 	pop cx
@@ -1013,7 +1013,7 @@ endif
 
 selector_resize proc public
 
-	@strout <"#selector_resize: entry, sel=%X, new size=%lX",lf>,dx,eax
+	@dprintf "selector_resize: entry, sel=%X, new size=%lX",dx,eax
 	pushad
 ife ?32BIT
 	xor ebp,ebp
@@ -1026,7 +1026,7 @@ ife ?32BIT
 	mov ebx,edi
 	lsl eax,edx
 	inc eax
-	@strout <"#selector_resize: old size=%lX, new size=%lX",lf>, eax, esi
+	@dprintf "selector_resize: old size=%lX, new size=%lX", eax, esi
 	add eax,10000h-1		;align old size to 64 kB
 	xor ax,ax
 	lea edx,[esi+10000h-1]	;align new size to 64 kB
@@ -1038,13 +1038,13 @@ ife ?32BIT
 	shr edx,16
 	shr eax,16-3
 	add ebx,eax
-	@strout <"#selector_resize: need %X new selectors at %X",lf>,dx,bx
+	@dprintf "selector_resize: need %X new selectors at %X",dx,bx
 	push ds
 	mov ds,ss:[selLDT]
 	call allocselx			  ;alloc additional selectors
 	pop ds
 	jc error
-	@strout <"#selector_resize: alloc of selectors was ok",lf>
+	@dprintf "selector_resize: alloc of selectors was ok"
 	jmp selectortilex_1
 smallerblock:
 	and ebp,ebp
@@ -1054,10 +1054,10 @@ smallerblock:
 	mov ecx,eax
 	shr edx,16-3
 	add ebx,edx
-	@strout <"#selector_resize: try to free %X selectors at %X",lf>,cx,bx
+	@dprintf "selector_resize: try to free %X selectors at %X",cx,bx
 	call freeselx
 	jc error
-	@strout <"#selector_resize: freeing of selectors was ok",lf>
+	@dprintf "selector_resize: freeing of selectors was ok"
 selectortilex_1:
 	and ebp,ebp
 	jz done
@@ -1077,7 +1077,7 @@ done:
 	ret
 ife ?32BIT
 error:
-	@strout <"#selector_resize: error, not enough free selectors",lf>
+	@dprintf "selector_resize: error, not enough free selectors"
 	popad
 	ret
 endif

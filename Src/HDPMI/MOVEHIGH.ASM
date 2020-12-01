@@ -44,14 +44,14 @@ _movehigh proc public
 
 	pushad
 	cld
-	@strout <"#movehigh_pm enter, bEnvFlags=%X, ltaskaddr=%lX",lf>, word ptr bEnvFlags, ltaskaddr
+	@dprintf "movehigh_pm enter, bEnvFlags=%X, ltaskaddr=%lX", word ptr bEnvFlags, ltaskaddr
 if ?DYNBREAKTAB
 ;--- alloc PM BREAK table
 	mov ecx,1
 	call _AllocSysPages
 	jc error
 	mov edi,eax
-	@strout <"#movehigh_pm: setting pm breakpoint descriptor to base %lX",lf>,eax
+	@dprintf "movehigh_pm: setting pm breakpoint descriptor to base %lX",eax
 	mov edx, pdGDT.dwBase
 	mov ecx, _INTSEL_
 	and cl,0F8h
@@ -82,7 +82,7 @@ ifndef ?PE
 	mov esi,offset startof32bitr3
 	mov ecx,offset endoftext32
 	sub ecx, esi
-	@strout <"#movehigh_pm: copy r3 code size=%lX, src=%lX, dst=%lX",lf>,ecx, esi, edi
+	@dprintf "movehigh_pm: copy r3 code size=%lX, src=%lX, dst=%lX",ecx, esi, edi
 	shr ecx, 2
 	push ds
 	push cs
@@ -112,7 +112,7 @@ if ?MOVEGDT
 	jc error
 	mov edi, eax
 	mov esi, pdGDT.dwBase
-	@strout <"#movehigh_pm: move GDT to %lX, src=%lX",lf>, edi, esi
+	@dprintf "movehigh_pm: move GDT to %lX, src=%lX", edi, esi
 	mov pdGDT.dwBase,edi
 
 	lea eax, [edi+_TSSSEL_]
@@ -184,7 +184,7 @@ endif
 
 ;--- the predefined IDT contains just 78h entries
 	mov ecx,?PREDEFIDTGATES * sizeof DESCRPTR/4
-	@strout <"#movehigh_pm: copy IDT from %lX to %lX",lf>, esi, edi
+	@dprintf "movehigh_pm: copy IDT from %lX to %lX", esi, edi
 	rep movsd
 
 ;--- initialize the rest of the IDT
@@ -225,12 +225,12 @@ idtcopied:
 	push ss
 	pop ds
 	lidt pdIDT
-	@strout <"#movehigh_pm: IDT copied, pdIDT=%X:%lX, pdGDT=%X:%lX",lf>, pdIDT.wLimit, pdIDT.dwBase, pdGDT.wLimit, pdGDT.dwBase
+	@dprintf "movehigh_pm: IDT copied, pdIDT=%X:%lX, pdGDT=%X:%lX", pdIDT.wLimit, pdIDT.dwBase, pdGDT.wLimit, pdGDT.dwBase
 
 endif ;?MOVEIDT
 
 exit:
-	@strout <"#movehigh_pm exit, esp=%lX",lf>, esp
+	@dprintf "movehigh_pm exit, esp=%lX", esp
 	clc
 error:
 	popad

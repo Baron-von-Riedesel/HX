@@ -21,10 +21,10 @@ intr41 proc public
 	and ah,60h
 	pop eax
 	jnz @F
-	@strout <"#intr41: called from ring0, AX=%X",lf>,ax
+	@dprintf "intr41: called from ring0, AX=%X",ax
 	iretd
 @@:
-	@strout <"#intr41: called from ring3, AX=%X",lf>,ax
+	@dprintf "intr41: called from ring3, AX=%X",ax
 	@simintpms 41
 intr41 endp
 
@@ -34,7 +34,7 @@ intr41 endp
 ;_LTRACE_ = 0
 
 intr41_ proc public
-	@strout <"#intr41_: AX=%X",lf>,ax
+	@dprintf "intr41_: AX=%X",ax
 if ?I41SUPPORT
 	cmp ax,0000
 	jnz @F

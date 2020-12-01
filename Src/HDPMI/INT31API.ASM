@@ -42,7 +42,7 @@ endif
 intr31 endp
 
 intr31_ proc public
-	@strout <"i31 enter a-d=%X %lX %lX %lX esi=%lX edi=%lX hs=%lX",lf>,ax,ebx,ecx,edx,esi,edi,esp
+	@dprintf "i31 enter a-d=%X %lX %lX %lX esi=%lX edi=%lX hs=%lX",ax,ebx,ecx,edx,esi,edi,esp
 ;	@waitesckey
 
 if ?LOGINT31
@@ -53,12 +53,12 @@ endif
 	pop ds
 if _LTRACE_
 	jc @F
-	@strout <"i31 exit NC ">
+	@printf "#i31 exit NC "
 	jmp intr31ex_1
 @@:
-	@strout <"i31 exit C  ">
+	@printf "#i31 exit C  "
 intr31ex_1:
-	@strout <"a-d=%X %lX %lX %lX esi=%lX edi=%lX",lf>,ax,ebx,ecx,edx,esi,edi
+	@printf <"a-d=%X %lX %lX %lX esi=%lX edi=%lX",lf>,ax,ebx,ecx,edx,esi,edi
 endif
 if ?FASTINT31
 	jmp iret_with_CF_mod
@@ -241,7 +241,7 @@ error1:
 if 1
 	mov ax,8001h				;unsupported function
 endif
-	@strout <"int31, ax=%X unsupported, bx-di=%X %X %X %X %X",lf>,ax,bx,cx,dx,si,di
+	@dprintf "int31, ax=%X unsupported, bx-di=%X %X %X %X %X",ax,bx,cx,dx,si,di
 	stc
 	ret
 _i31srvr endp

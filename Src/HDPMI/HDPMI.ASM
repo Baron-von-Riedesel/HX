@@ -209,12 +209,10 @@ endm
 
 @exception macro excno, bErrorCode, bDisplay
 ifnb <bDisplay>
-	push eax
-	mov eax, excno
-	@strout <"entry exception %X">,ax
-	@strout <", cs:eip=%X">,word ptr [esp+4].IRET32.rCS
-	@strout <"%lX",lf>,[esp+4].IRET32.rIP
-	pop eax
+	push ebp
+	mov ebp,esp
+	@dprintf "entry exception %X, cs:eip=%X:%lX", word ptr excno ,word ptr [ebp+4].IRET32.rCS, [ebp+4].IRET32.rIP
+	pop ebp
 endif
 ifb <bErrorCode>	;correct missing error code
 	push 0		;push a DWORD
@@ -1351,7 +1349,7 @@ endif
 if _LTRACE_
 	push ebp
 	mov ebp, esp
-	@strout <"entry exc_to_int: cs:ip=%X:%lX fl=%lX ss:sp=%X:%lX proc=%X:%lX",lf>,\
+	@dprintf "entry exc_to_int: cs:ip=%X:%lX fl=%lX ss:sp=%X:%lX proc=%X:%lX",\
 		[ebp+4].EXC2INT.o.rCS, [ebp+4].EXC2INT.o.rIP,\
 		[ebp+4].EXC2INT.o.rFL,\
 		[ebp+4].EXC2INT.o.rSS, [ebp+4].EXC2INT.o.rSP,\
@@ -1552,7 +1550,7 @@ endif
 if 0;_LTRACE_	;this might be called quite frequently, spoiling any useful log file
 	push ebp
 	mov ebp, esp
-	@strout <"#lpms_call_int, nosw:ip=%X:%lX fl=%lX nip=%X:%lX nsp=%X:%lX",lf>,\
+	@dprintf "lpms_call_int, nosw:ip=%X:%lX fl=%lX nip=%X:%lX nsp=%X:%lX",\
 		[ebp+4].IRQFRAME.iret32.rCS,[ebp+4].IRQFRAME.iret32.rIP,[ebp+4].IRQFRAME.iret32.rFL,\
 		[ebp+4].IRQFRAME.retfs.rCS,[ebp+4].IRQFRAME.retfs.rIP,[ebp+4].IRQFRAME.retfs.rSS,[ebp+4].IRQFRAME.retfs.rSP
 	mov ds, [ebp+4].IRQFRAME.rDs
@@ -1560,7 +1558,7 @@ if 0;_LTRACE_	;this might be called quite frequently, spoiling any useful log fi
 	mov ds, [ebp+4].IRQFRAME.retfs.rCS
 	lsl eax, [ebp+4].IRQFRAME.retfs.rSSd
 	lar edx, [ebp+4].IRQFRAME.retfs.rSSd
-	@strout <"#lpms_call_int, nosw: nfl=%lX ds:esi=%X:%lX slSS=%lX arSS=%lX",lf>,[ebp+4].IRQFRAME.rEfl, word ptr [ebp+4].IRQFRAME.rDs, esi, eax, edx
+	@dprintf "lpms_call_int, nosw: nfl=%lX ds:esi=%X:%lX slSS=%lX arSS=%lX",[ebp+4].IRQFRAME.rEfl, word ptr [ebp+4].IRQFRAME.rDs, esi, eax, edx
 	pop ebp
 endif
 	jmp done
@@ -1606,11 +1604,10 @@ endif
 if 0;_LTRACE_	;this might be called quite frequently, spoiling any useful log file
 	push ebp
 	mov ebp,esp
-	@strout <"#lpms_call_int, sw:ip=%X:%lX sp=%X:%lX fl=%lX ">,\
+	@dprintf "lpms_call_int, sw:ip=%X:%lX sp=%X:%lX fl=%lX nip=%X:%lX nsp=%X:%lX",\
 		[ebp+4].IRQFRAME.iret32.rCS, [ebp+4].IRQFRAME.iret32.rIP,\
 		[ebp+4].IRQFRAME.iret32.rSS, [ebp+4].IRQFRAME.iret32.rSP,\
 		[ebp+4].IRQFRAME.iret32.rFL
-	@strout <" nip=%X:%lX nsp=%X:%lX",lf>,\
 		[ebp+4].IRQFRAME.retfs.rCS,[ebp+4].IRQFRAME.retfs.rIP,[ebp+4].IRQFRAME.retfs.rSS,[ebp+4].IRQFRAME.retfs.rSP
 	pop ebp
 endif   
@@ -1652,10 +1649,10 @@ IRQ0FR ends
 if _LTRACE_
 	push ebp
 	mov ebp,esp
-	@strout <"#lpms_call_int: cs:ip=%X:%lX fl=%lX",lf>,\
+	@dprintf "lpms_call_int: cs:ip=%X:%lX fl=%lX",\
 		[ebp+4].IRQ0FR.iro.rCS, [ebp+4].IRQ0FR.iro.rIP, [ebp+4].IRQ0FR.iro.rFL
 	pop ebp
-;	@strout <"#lpms_call_int: esp=%lX",lf>, esp
+;	@dprintf "lpms_call_int: esp=%lX", esp
 endif
 ;--- build the IRET32 frame that returns to r0.
 ;--- the old taskseg._Esp0 is on the stack and
@@ -1676,7 +1673,7 @@ endif
 if _LTRACE_
 	push ebp
 	mov ebp,esp
-	@strout <"#lpms_call_int: irq in r0, cs:ip=%X:%lX fl=%lX, ss:sp=%X:%lX",lf>,\
+	@dprintf "lpms_call_int: irq in r0, cs:ip=%X:%lX fl=%lX, ss:sp=%X:%lX",\
 		[ebp+4].IRQ0FR.irn.rCS, [ebp+4].IRQ0FR.irn.rIP,\
 		[ebp+4].IRQ0FR.irn.rFL,\
 		[ebp+4].IRQ0FR.irn.rSS, [ebp+4].IRQ0FR.irn.rSP
@@ -1698,9 +1695,9 @@ _retirqr0::
 if _LTRACE_
 	push ebp
 	mov ebp,esp
-	@strout <"#retirqr0: cs:ip=%X:%lX fl=%lX",lf>, [ebp+4].IRET32PM.rCS, [ebp+4].IRET32PM.rIP, [ebp+4].IRET32PM.rFL
+	@dprintf "retirqr0: cs:ip=%X:%lX fl=%lX", [ebp+4].IRET32PM.rCS, [ebp+4].IRET32PM.rIP, [ebp+4].IRET32PM.rFL
 	pop ebp
-;	@strout <"#retirqr0: esp=%lX",lf>, esp
+;	@dprintf "retirqr0: esp=%lX", esp
 endif
 	iretd	;return to ring 0 code that was interrupted.
 else
@@ -1799,7 +1796,7 @@ lpms_call_exc proc
 	mov edi,?LPMSSIZE - sizeof DPMIEXC
 	jmp lpms_ce_2
 @@:								;LPMS in use, no stack switch
-	@strout <"lpms_call_exc: called while LPMS is in use, no stack switch",lf>
+	@dprintf "lpms_call_exc: called while LPMS is in use, no stack switch"
 	mov edi, [ebp+4].LCEFR.f.rSP
 	mov eax, [ebp+4].LCEFR.f.rSSd
 	lar esi,eax
@@ -1813,7 +1810,7 @@ lpms_ce_2:
 	mov ds,eax
 if _LTRACE_
 	mov esi,[ebp+4].LCEFR.dwExc
-	@strout <"lpms_call_exc: exc=%X errc=%lX cs:ip=%X:%lX ss:sp=%X:%lX",lf>,si,\
+	@dprintf "lpms_call_exc: exc=%X errc=%lX cs:ip=%X:%lX ss:sp=%X:%lX",si,\
 		[ebp+4].LCEFR.f.rErr, [ebp+4].LCEFR.f.rCS,\
 		[ebp+4].LCEFR.f.rIP, [ebp+4].LCEFR.f.rSS, [ebp+4].LCEFR.f.rSP
 endif
@@ -1919,7 +1916,7 @@ endif
 	mov [ebp+4].LCEFR.r.rIP, eax
 	mov [ebp+4].LCEFR.r.rCSd, esi
 
-	@strout <"jmp handler: cs:ip=%X:%lX ss:sp=%X:%lX",lf>,\
+	@dprintf "jmp handler: cs:ip=%X:%lX ss:sp=%X:%lX",\
 		[ebp+4].RETF32.rCS, [ebp+4].RETF32.rIP,\
 		[ebp+4].RETF32.rSS, [ebp+4].RETF32.rSP
 
@@ -1981,16 +1978,16 @@ endif
 	push byte ptr _SSSEL_
 	pop ss
 	mov esp, ss:taskseg._Esi
-	@strout <"an exception occured in ring 0, ss unknown",lf>
+	@dprintf "an exception occured in ring 0, ss unknown"
 	jmp _exceptZ
 ss_is_hoststack:        
 	mov eax,[ebp+4].LCEFR0.dwExc
 
-	@strout <"an exception %X occured in ring 0",lf>,ax
+	@dprintf "an exception %X occured in ring 0",ax
 if _LTRACE_
 	push eax
 	lar eax, [ebp+4].LCEFR.f.rCSd
-	@strout <"acc rights of CS=%lX",lf>,eax
+	@dprintf "acc rights of CS=%lX",eax
 	pop eax
 endif
 
@@ -2053,19 +2050,19 @@ LCEFR0X ends
 	mov ds, ecx
 @@:
 	popad
-	@strout <"frame for exc in ring 0 built, esp=%lX, jmp to lpms_call_exc",lf>,esp
+	@dprintf "frame for exc in ring 0 built, esp=%lX, jmp to lpms_call_exc",esp
 	jmp lpms_call_exc
 retexcr0::
 if _LTRACE_
 	push ebp
 	mov ebp,esp
-	@strout <"[esp]=%lX %X %lX %lX %X",lf>,[ebp+4].IRET32.rIP,\
+	@dprintf "[esp]=%lX %X %lX %lX %X",[ebp+4].IRET32.rIP,\
 		[ebp+4].IRET32.rCS,[ebp+4].IRET32.rFL,\
 		[ebp+4].IRET32.rSP,[ebp+4].IRET32.rSS
 	pop ebp
 endif
 	add esp, sizeof IRET32
-	@strout <"return from ring 0 exception handler, esp=%lX",lf>,esp
+	@dprintf "return from ring 0 exception handler, esp=%lX",esp
 	pop ss:taskseg._Esp0
  if ?SETEXCHS
 	push ss:taskseg._Esp0
@@ -2117,7 +2114,7 @@ else
 ;--- don't try to route ring0 exceptions to client
 ;--- eax == excnr
 
-	@strout <"ring 0 exc at %X:%lX",lf>,[ebp+4].LCEFR0.f.rCS,\
+	@dprintf "ring 0 exc at %X:%lX",[ebp+4].LCEFR0.f.rCS,\
 		[ebp+4].LCEFR0.f.rIP
 
 	sub esp,sizeof R3FAULT32
@@ -2136,7 +2133,7 @@ else
         
 	mov eax,[ebp-4]
 	mov ebp,[ebp+0]
-	@strout <"ring 0 exc jmp to _exceptZ",lf>
+	@dprintf "ring 0 exc jmp to _exceptZ"
 	jmp _exceptZ
 endif
 
@@ -2145,7 +2142,7 @@ if ?IGNEXC01INR0
 ;--- might be an exception 01 in VCPI host
 
 lpms_ce_4:
-	@strout <"single step exception in ring 0 occured, ignored",lf>
+	@dprintf "single step exception in ring 0 occured, ignored"
 	cmp ss:[cApps],0			;is a client active?
 	jz @F
 	mov ebp, ss:taskseg._Esp0	;set client Trace flag
@@ -2184,7 +2181,7 @@ rpmstacke proc
 if _LTRACE_
 	push ebp
 	mov ebp, esp
-	@strout <"#rpmstacke: CS:IP=%X:%lX Fl=%lX SS:SP=%X:%lX">,\
+	@dprintf "rpmstacke: CS:IP=%X:%lX Fl=%lX SS:SP=%X:%lX",\
 		 [ebp+4].RPMEFR.rCS, [ebp+4].RPMEFR.rIP, [ebp+4].RPMEFR.rFL,\
 		 [ebp+4].RPMEFR.rSS, [ebp+4].RPMEFR.rSP
 	pop ebp
@@ -2211,7 +2208,7 @@ endif
 if _LTRACE_
 	push ebp
 	mov ebp, esp
-	@strout <", org SS:SP=%X:%lX",lf>,[ebp+4].RPMEFR.rSS, [ebp+4].RPMEFR.rSP
+	@dprintf "rpmstacke: org SS:SP=%X:%lX",[ebp+4].RPMEFR.rSS, [ebp+4].RPMEFR.rSP
 	pop ebp
 endif
 	pop eax
@@ -2275,7 +2272,7 @@ endif
 if _LTRACE_
 	push ebp
 	mov ebp,esp
-	@strout <"#int30 simint ip=%X:%lX %lX sp=%X:%lX",lf>,[ebp+8].I30FR.rCS,\
+	@dprintf "int30 simint ip=%X:%lX %lX sp=%X:%lX",[ebp+8].I30FR.rCS,\
 		 [ebp+8].I30FR.rIP, [ebp+8].I30FR.rFL, [ebp+8].I30FR.rSS, [ebp+8].I30FR.rSP
 	pop ebp
 endif
@@ -2320,7 +2317,7 @@ intr30_jmps:
   if _LTRACE_
 	push ebp
 	mov ebp,esp
-	@strout <"#int30 jmps ip=%X:%lX %lX sp=%X:%lX",lf>,[ebp+4].IRET32.rCS,\
+	@dprintf "int30 jmps ip=%X:%lX %lX sp=%X:%lX",[ebp+4].IRET32.rCS,\
 		 [ebp+4].IRET32.rIP, [ebp+4].IRET32.rFL, [ebp+4].IRET32.rSS, [ebp+4].IRET32.rSP
 	pop ebp
   endif
@@ -2341,7 +2338,7 @@ intr30_special:
 if _LTRACE_
 	push ebp
 	mov ebp,esp
-	@strout <"#int30 special ip=%X:%lX %lX sp=%X:%lX eax=%lX",lf>,[ebp+4].I30FR.rCS, ebx,\
+	@dprintf "int30 special ip=%X:%lX %lX sp=%X:%lX eax=%lX",[ebp+4].I30FR.rCS, ebx,\
 		[ebp+4].I30FR.rFL, [ebp+4].I30FR.rSS, [ebp+4].I30FR.rSP, eax
 	pop ebp
 endif
@@ -2361,7 +2358,7 @@ if ?CHECKSSIS32
 endif
 	cmp ax,_RTEXC_			;return from exceptionhandler?
 	jnz @F
-	@strout <"#int30 special: return from exception, remove error code %lX",lf>,dword ptr [ebx]
+	@dprintf "int30 special: return from exception, remove error code %lX",dword ptr [ebx]
 	add ebx, ?RSIZE			;remove error code from client stack
 	add [esp+4].I30FR.rSP, ?RSIZE
 @@:
@@ -2383,7 +2380,7 @@ if ?32BIT
 else
 	mov ax, [ebx].IRETS.rFL
 endif
-	@strout <"#int30 special: IRET frame, copy flags=%lX",lf>, eax
+	@dprintf "int30 special: IRET frame, copy flags=%lX", eax
 	mov [esp+4].I30FR.rFL,eax
 if 0;	;v3.18: what was that supposed to do?
 	and ah,not _TF			   ;reset TF
@@ -2396,7 +2393,7 @@ endif
 if _LTRACE_
 	push ebp
 	mov ebp, esp
-	@strout <"#int30 special: exit, ip=%X:%lX fl=%lX sp=%X:%lX",lf>,[ebp+8].I30FR.rCS,\
+	@dprintf "int30 special: exit, ip=%X:%lX fl=%lX sp=%X:%lX",[ebp+8].I30FR.rCS,\
 		[ebp+8].I30FR.rIP, [ebp+8].I30FR.rFL,\
 		[ebp+8].I30FR.rSS, [ebp+8].I30FR.rSP
 	pop ebp
@@ -2444,7 +2441,7 @@ if _LTRACE_
 	push ds
 	push esi
 	lds esi,[ebp+4].IRET32.rCSIP
-	@strout <"#intr20 (r0): sp=%X:%X ip=%X:%lX fl=%lX [ip]=%X %X",lf>,\
+	@dprintf "intr20 (r0): sp=%X:%X ip=%X:%lX fl=%lX [ip]=%X %X",\
 		ss,sp,[ebp+4].IRET32.rCS,[ebp+4].IRET32.rIP,[ebp+4].IRET32.rFL,\
 		[esi+0],[esi+2]
 	pop esi
@@ -2454,7 +2451,7 @@ endif
 	add [esp].IRET32.rIP,4
 	iretd
 @@:
-	@strout <"#intr20 (r3): call Int 20h real mode",lf>
+	@dprintf "intr20 (r3): call Int 20h real mode"
 	@callrmsint 20h
 intr20  endp
 
@@ -2465,7 +2462,7 @@ if ?WINDBG
 	@ResetTrace
 
 intr22:
-	@strout <"#intr22: Win386 debug API called, ax=%X",lf>,ax
+	@dprintf "intr22: Win386 debug API called, ax=%X",ax
 	iretd
 	align 4
 endif
@@ -2502,7 +2499,7 @@ if 0;_LTRACE_
  if ?VIODIROUT
 	mov si,[esp+2*4].IRET32.rCS
 	mov eax,[esp+2*4].IRET32.rIP
-	@strout <"execclientinstr: now executing client code at %X:%lX",lf>,si,eax
+	@dprintf "execclientinstr: now executing client code at %X:%lX",si,eax
  endif
 endif
 	pop esi
@@ -2582,7 +2579,7 @@ if ?TESTEXC01
 	mov eax, dr6
 	test ax, 0C00Fh
 	jz @F
-	@strout <"#intr01: debug exception occured, dr6=%lX",lf>, eax
+	@dprintf "intr01: debug exception occured, dr6=%lX", eax
 	mov ah,0
 	mov dr6,eax
 	pop eax
@@ -2706,7 +2703,7 @@ if 0
 	mov ebp,esp
 	push eax
 	lea eax,[esp+8]
-	@strout <"int 0D: sp=%lX,[sp]=%lX,%lX,%lX,%lX,%lX",lf>,\
+	@dprintf "int 0D: sp=%lX,[sp]=%lX,%lX,%lX,%lX,%lX",\
 		eax, dword ptr [ebp+4], dword ptr [ebp+8],\
 		dword ptr [ebp+12], dword ptr [ebp+16],\
 		dword ptr [ebp+20]
@@ -2902,7 +2899,7 @@ defint75:
 	_LTRACE_ = 1
 	push ebp
 	mov ebp,esp
-	@strout <"int 75: sp-4=%lX,[sp]=%lX %lX %lX %lX %lX",lf>,\
+	@dprintf "int 75: sp-4=%lX,[sp]=%lX %lX %lX %lX %lX",\
 		ebp, dword ptr [ebp+4], dword ptr [ebp+8], dword ptr [ebp+12],\
 		dword ptr [ebp+16], dword ptr [ebp+20]
 	pop ebp
@@ -2993,7 +2990,7 @@ if 0;_LTRACE_
 	jz @F
 	cmp bp,10h*sizeof INTRMCBr	;int 1C?
 	jz @F
-	@stroutrm <"-intrmcb %X: calling old rm handler %X:%X [bits=%X.%X]",lf>, bp,\
+	@drprintf "intrmcb %X: calling old rm handler %X:%X [bits=%X.%X]", bp,\
 		word ptr cs:[bp+offset intrmcbrs].INTRMCBr.rm_vec+2,\
 		word ptr cs:[bp+offset intrmcbrs].INTRMCBr.rm_vec+0,\
 		word ptr cs:[wIntRmCb+2], word ptr cs:[wIntRmCb+0]
@@ -3020,7 +3017,7 @@ if 0; ?CHECKIFINRMIVT wont work currently, no access of intrmcbs in rm
 	push 0
 	pop ds
 	cmp word ptr [bx+2],GROUP16	;this check is now more complex
-	@stroutrm <"-intrmcb: rm-vec %X=%X:%X",lf>,bx,[bx+2],[bx+0]
+	@drprintf "intrmcb: rm-vec %X=%X:%X",bx,[bx+2],[bx+0]
 	pop ds
 	pop bx
 	jnz irqrm2pm_31
@@ -3053,7 +3050,7 @@ if _LTRACE_ and IRQLOG
 	jz @F
 	mov ax,bx
 	sub ax,lowword offset intrmcbs
-	@stroutrm <"-intrmcb_rm: #=%X cs:ip=%X:%X fl=%X ds=%X es=%X ss:sp=%X:%X",lf>,\
+	@drprintf "intrmcb_rm: #=%X cs:ip=%X:%X fl=%X ds=%X es=%X ss:sp=%X:%X",\
 		ax, [bp+2].IRETSRM.rCS, [bp+2].IRETSRM.rIP, [bp+2].IRETSRM.rFL, ds, es, ss, sp
 @@:
 	pop bp
@@ -3128,7 +3125,7 @@ endif
 	cmp bx,LOWWORD offset RMCB24	;for Int 24 BP holds a segment, must be translated
 	mov bx,ax
 	jnz @F
-	@strout <"#intrmcb: int 24, translation of bp=%X",lf>, bp
+	@dprintf "intrmcb: int 24, translation of bp=%X", bp
 	push ebp
 	call segm2sel
 	pop ebp						;now BP has a selector
@@ -3170,9 +3167,9 @@ if _LTRACE_ and IRQLOG
 	push eax
 	movzx eax,ax
 if ?32BIT
-	@strout <"#intrmcb enter: call=%lX:%lX",lf>, cs:[eax].R3PROC._Cs, cs:[eax].R3PROC._Eip
+	@dprintf "intrmcb enter: call=%lX:%lX", cs:[eax].R3PROC._Cs, cs:[eax].R3PROC._Eip
 else
-	@strout <"#intrmcb enter: call=%X:%X",lf>, cs:[eax].R3PROC._Cs, cs:[eax].R3PROC._Eip
+	@dprintf "intrmcb enter: call=%X:%X", cs:[eax].R3PROC._Cs, cs:[eax].R3PROC._Eip
 endif
 	pop eax
 endif
@@ -3217,7 +3214,7 @@ rpmstackr proc
 	lea esp, [esp + sizeof IRET32]	;skip the IRET32 frame
 	dec ss:[cIntRMCB]
 if _LTRACE_ and IRQLOG
-	@strout <"#rpmstackr: rms=%X:%X, _Esp0=%lX, esp=%lX",lf>, ss:v86iret.rSS, ss:v86iret.rSP, ss:taskseg._Esp0, esp
+	@dprintf "rpmstackr: rms=%X:%X, _Esp0=%lX, esp=%lX", ss:v86iret.rSS, ss:v86iret.rSP, ss:taskseg._Esp0, esp
 endif
 	@popstate 1					;restore client state
 	@rawjmp_rm rpmstackr_rm
@@ -3305,7 +3302,7 @@ callrmproc_iretframe endp
 _callrmsint proc public
 
 	xchg ebx,[esp]
-;	@strout <"#callrmsint %X", lf>, bx
+;	@dprintf "callrmsint %X", bx
 	@getrmintvec
 	mov ss:calladdr2, ebx
 	mov ebx,[esp+4].IRET32.rFL
@@ -3380,7 +3377,7 @@ callrmintintern proc public
 
 	push ebx
 	mov ebx,[esp+2*4]
-;	@strout <"callrmintintern: int=%X", lf>,bx
+;	@dprintf "callrmintintern: int=%X",bx
 	@getrmintvec
 	mov ss:calladdr2, ebx
 	pop ebx
@@ -3388,7 +3385,7 @@ callrmintintern proc public
 	align 4
 _TEXT16 segment
 callrmintintern_rm:
-;	@stroutrm <"callrmintintern: in real-mode now", lf>
+;	@drprintf "callrmintintern: in real-mode now"
 	pushf
 	call cs:[calladdr2]
 callrmintintern_rm_exit::	;<--- entry for int21api.asm
@@ -3396,7 +3393,7 @@ callrmintintern_rm_exit::	;<--- entry for int21api.asm
 	align 4
 _TEXT16 ends
 callrmintintern_pm:
-;	@strout <"callrmintintern: exit", lf>
+;	@dprintf "callrmintintern: exit"
 	ret 4
 	align 4
 callrmintintern endp
@@ -3535,7 +3532,7 @@ if ?PMIOPL ne 30h
 	call simio
 endif
 done:
-;	@strout <"exception 0d, unknown instr %X",lf>,[esi]
+;	@dprintf "exception 0d, unknown instr %X",[esi]
 	pop esi
 	pop ds
 doneX:
@@ -3563,7 +3560,7 @@ emuspecregmove:
 	mov ds:[tmpCode], eax
 	pop ds
 	mov esi,[esp+4].SIMINFR.dwESI	;restore ESI
-	@strout <"emulate 'mov eax, crx', eax=%lX", lf>, eax
+	@dprintf "emulate 'mov eax, crx', eax=%lX", eax
 	pop eax
 	add [esp].SIMINFR.rIP,2
 
@@ -3580,7 +3577,7 @@ tmpCode dd ?
 _DATA32C ends
 
 simhlt:
-	@strout <"simulate hlt",lf>
+	@dprintf "simulate hlt"
 ife ?SIMHLT
   if ?ALLOWR0IRQ
   ;--- this code works, but just for an emulation of HLT
@@ -3595,7 +3592,7 @@ ife ?SIMHLT
 if _LTRACE_
 	push ebp
 	mov ebp,esp
-	@strout <"back from hlt, frame cs:eip=%X:%lX, fl=%lX, ss:esp=%X:%lX",lf>,\
+	@dprintf "back from hlt, frame cs:eip=%X:%lX, fl=%lX, ss:esp=%X:%lX",\
 		[ebp+4].IRET32.rCS, [ebp+4].IRET32.rIP,\
 		[ebp+4].IRET32.rFL,\
 		[ebp+4].IRET32.rSS, [ebp+4].IRET32.rSP
@@ -3712,12 +3709,12 @@ isioopc:
 	add esp,4+4			;skip returnaddr + error code
 	iretd					;back to client
 simsti:
-;	@strout <"#simulate sti",lf>
+;	@dprintf "simulate sti"
 	or byte ptr [esp].SIMIO.rFL+1,2
 	pop eax
 	ret
 simcli:
-	@strout <"#simulate cli",lf>
+	@dprintf "simulate cli"
 	and byte ptr [esp].SIMIO.rFL+1,not 2
 	pop eax
 	ret
@@ -3727,7 +3724,7 @@ siminc:
 	mov dl,[esi]
 	inc esi
 	mov dh,0
-	@strout <"#simulate in al,%X",lf>,dx
+	@dprintf "simulate in al,%X",dx
 	in al,dx
 	pop edx
 	ret
@@ -3737,40 +3734,40 @@ simoutc:
 	mov dl,[esi]
 	inc esi
 	mov dh,0
-	@strout <"#simulate out %X,al",lf>,dx
+	@dprintf "simulate out %X,al",dx
 	out dx,al
 	pop edx
 	ret
 siminaldx:
 	pop eax
 	in al,dx
-	@strout <"#simulate in al,dx [dx=%X, ax=%X]",lf>,dx,ax
+	@dprintf "simulate in al,dx [dx=%X, ax=%X]",dx,ax
 	ret
 siminaxdx:								;(66) ED
 	test ah,1
 	pop eax
 	jnz @F
 	in ax,dx
-	@strout <"#simulate in ax,dx [dx=%X, ax=%X]",lf>,dx,ax
+	@dprintf "simulate in ax,dx [dx=%X, ax=%X]",dx,ax
 	ret
 @@:
 	in eax,dx
-	@strout <"#simulate in eax,dx [dx=%X, eax=%lX]",lf>,dx,eax
+	@dprintf "simulate in eax,dx [dx=%X, eax=%lX]",dx,eax
 	ret
 simoutdxal:
 	pop eax
-	@strout <"#simulate out dx,al [dx=%X, ax=%X]",lf>,dx,ax
+	@dprintf "simulate out dx,al [dx=%X, ax=%X]",dx,ax
 	out dx,al
 	ret
 simoutdxax: 							;(66) EF
 	test ah,1
 	pop eax
 	jnz @F
-	@strout <"#simulate out dx,ax [dx=%X,ax=%X]",lf>,dx,ax
+	@dprintf "simulate out dx,ax [dx=%X,ax=%X]",dx,ax
 	out dx,ax
 	ret
 @@:
-	@strout <"#simulate out dx,eax [dx=%X, eax=%lX]",lf>,dx,eax
+	@dprintf "simulate out dx,eax [dx=%X, eax=%lX]",dx,eax
 	out dx,eax
 	ret
 siminsb:
@@ -3778,11 +3775,11 @@ siminsb:
 	pop eax
 	jnz @F
 	insb
-	@strout <"#simulate insb [dx=%X, es:edi=%lX:%lX]",lf>,dx,es,edi
+	@dprintf "simulate insb [dx=%X, es:edi=%lX:%lX]",dx,es,edi
 	ret
 @@:
 	rep insb
-	@strout <"#simulate rep insb [dx=%X, es:edi=%lX:%lX]",lf>,dx,es,edi
+	@dprintf "simulate rep insb [dx=%X, es:edi=%lX:%lX]",dx,es,edi
 	ret
 siminsw:
 	test ah,2
@@ -3790,22 +3787,22 @@ siminsw:
 	test ah,1
 	pop eax
 	jnz @F
-	@strout <"#simulate insw [dx=%X, es:edi=%lX:%lX]",lf>,dx,es,edi
+	@dprintf "simulate insw [dx=%X, es:edi=%lX:%lX]",dx,es,edi
 	insw
 	ret
 @@:
-	@strout <"#simulate insd [dx=%X, es:edi=%lX:%lX]",lf>,dx,es,edi
+	@dprintf "simulate insd [dx=%X, es:edi=%lX:%lX]",dx,es,edi
 	insd
 	ret
 simrepins:
 	test ah,1
 	pop eax
 	jnz @F
-	@strout <"#simulate rep insw [dx=%X, es:edi=%lX:%lX]",lf>,dx,es,edi
+	@dprintf "simulate rep insw [dx=%X, es:edi=%lX:%lX]",dx,es,edi
 	rep insw
 	ret
 @@:
-	@strout <"#simulate rep insd [dx=%X, es:edi=%lX:%lX]",lf>,dx,es,edi
+	@dprintf "simulate rep insd [dx=%X, es:edi=%lX:%lX]",dx,es,edi
 	rep insd
 	ret
 
@@ -3815,11 +3812,11 @@ simoutsb:
 	test ah,2
 	pop eax
 	jnz @F
-	@strout <"#simulate outsb [dx=%X, ds:esi=%lX:%lX]",lf>,dx,ds,esi
+	@dprintf "simulate outsb [dx=%X, ds:esi=%lX:%lX]",dx,ds,esi
 	outsb
 	jmp exitouts
 @@:
-	@strout <"#simulate rep outsb [dx=%X, ds:esi=%lX:%lX, ecx=%lX]",lf>,dx,ds,esi,ecx
+	@dprintf "simulate rep outsb [dx=%X, ds:esi=%lX:%lX, ecx=%lX]",dx,ds,esi,ecx
 	rep outsb
 	jmp exitouts
 simoutsw:
@@ -3830,22 +3827,22 @@ simoutsw:
 	test ah,1
 	pop eax
 	jnz @F
-	@strout <"#simulate outsw [dx=%X, ds:esi=%lX:%lX]",lf>,dx,ds,esi
+	@dprintf "simulate outsw [dx=%X, ds:esi=%lX:%lX]",dx,ds,esi
 	outsw
 	jmp exitouts
 @@:
-	@strout <"#simulate outsd [dx=%X, ds:esi=%lX:%lX]",lf>,dx,ds,esi
+	@dprintf "simulate outsd [dx=%X, ds:esi=%lX:%lX]",dx,ds,esi
 	outsd
 	jmp exitouts
 simrepouts:
 	test ah,1
 	pop eax
 	jnz @F
-	@strout <"#simulate rep outsw [dx=%X, ds:esi=%lX:%lX, ecx=%lX]",lf>,dx,ds,esi,ecx
+	@dprintf "simulate rep outsw [dx=%X, ds:esi=%lX:%lX, ecx=%lX]",dx,ds,esi,ecx
 	rep outsw
 	jmp exitouts
 @@:
-	@strout <"#simulate rep outsd [dx=%X, ds:esi=%lX:%lX, ecx=%lX]",lf>,dx,ds,esi,ecx
+	@dprintf "simulate rep outsd [dx=%X, ds:esi=%lX:%lX, ecx=%lX]",dx,ds,esi,ecx
 	rep outsd
 exitouts:
 	add esp,6*4
@@ -3914,10 +3911,10 @@ iirqxx:
 	btr [wIntRmCb],bx
 	mov eax,cs:[ebx*8+offset intrmcbs].INTRMCB.orgvec		;then restore rm-vector
 	mov [ebx*4+offset intrmcbrs].INTRMCBr.rm_vec, eax		;as well
-	@strout <"#internal callback %X deactivated, restored to %lX, cx:edx=%X:%lX",lf>,ss:iirq,eax,cx,edx
+	@dprintf "internal callback %X deactivated, restored to %lX, cx:edx=%X:%lX",ss:iirq,eax,cx,edx
 	jmp done
 @@: 									;pm-vector will be set
-	@strout <"#internal callback %X activated, cx:edx=%X:%lX",lf>,ss:iirq, cx, edx
+	@dprintf "internal callback %X activated, cx:edx=%X:%lX",ss:iirq, cx, edx
 	bts [wIntRmCb],ax
 	test cs:[ebx*8+offset intrmcbs].INTRMCB.bFlags, RMVFL_SETALWAYS
 	jz done
@@ -3997,7 +3994,7 @@ exit:
 found:
 if 0;?VIODIROUT
 ;--- output is critical if DOS or BIOS is used!
-	@strout <"#checkivtread: direct ivt read at %X trapped",lf>,ax
+	@dprintf "checkivtread: direct ivt read at %X trapped",ax
 endif
 	sub eax,edx	;0,4,8,...
 	shr eax,2	;0,1,2,3,4
@@ -4051,7 +4048,7 @@ checkivtwrite proc
 	mov ds:[ebx+0],eax		;store our value in IVT
 	shr esi,1
 	mov ss:[esi+intrmcbrs].INTRMCBr.rm_vec,ecx	;store modified CS:IP
-	@strout <"#checkivtwrite: ivt write access trapped at %X",lf>,bx
+	@dprintf "checkivtwrite: ivt write access trapped at %X",bx
 	pop ds
 	pop ecx
 	pop ebx
@@ -4078,7 +4075,7 @@ _initfirstclient proc near
 	pushad
 	assume ds:GROUP16
 
-	@strout <"#initfirstclient enter",lf>
+	@dprintf "initfirstclient enter"
 if ?CR0COPY
 	mov eax,cr0				;use CR0, lmsw cannot set NE bit!
 	and al, bFPUAnd
@@ -4104,19 +4101,19 @@ endif
 	call edx
 	jc exit
 	mov [dwLDTAddr],eax
-	@strout <"#space for LDT is allocated: %lX",lf>, eax
+	@dprintf "space for LDT is allocated: %lX", eax
 
 ;---- commit 1. page for LDT
 
 	call EnlargeLDT
 	jc exit
 
-	@strout <"#LDT is initialized, allocating LPMS",lf>
+	@dprintf "LDT is initialized, allocating LPMS"
 							;alloc memory for LPMS
 	mov ecx,1
 	call _AllocSysPages		;LPMS
 	jc exit
-	@strout <"#LPMS allocated",lf>
+	@dprintf "LPMS allocated"
 
 if ?LPMSINGDT
 	mov ecx, pdGDT.dwBase
@@ -4185,7 +4182,7 @@ endif
 	@int_31
 endif
 	clc
-	@strout <"#initfirstclient exit",lf>
+	@dprintf "initfirstclient exit"
 exit:
 	popad
 	ret
@@ -4202,7 +4199,7 @@ if ?TLBLATE
 
 settlb_pm proc
 	pushad
-	@strout <"#settlb_pm: wSegTLB=%X, instance=%X, es=%lX",lf>, wSegTLB, wHostSeg, es
+	@dprintf "settlb_pm: wSegTLB=%X, instance=%X, es=%lX", wSegTLB, wHostSeg, es
 	cmp wSegTLB,0
 	jnz exit
 	call setstrat
@@ -4210,7 +4207,7 @@ settlb_pm proc
 	mov ah,48h
 	call rmdosintern
 	jc @F
-	@strout <"#settlb_pm: new wSegTLB=%X",lf>, ax
+	@dprintf "settlb_pm: new wSegTLB=%X", ax
 	mov wSegTLB, ax
 	or fMode, FM_TLBMCB
 if 1
@@ -4300,11 +4297,11 @@ endif
 ;--- modifies ebx,ecx,edx
 
 setuphoststack proc public
-	@strout <"#setuphoststack: reserve %X pages for host stack",lf>, word ptr ?STACKPAGES
+	@dprintf "setuphoststack: reserve %X pages for host stack", word ptr ?STACKPAGES
 if _LTRACE_
 	mov eax, dwSSBase
 	mov eax, es:[eax+offset ltaskaddr]
-	@strout <"#setuphoststack: dwSSBase=%lX ltaskaddr=%lX wLDTLimit=%X",lf>,dwSSBase, eax, wLDTLimit
+	@dprintf "setuphoststack: dwSSBase=%lX ltaskaddr=%lX wLDTLimit=%X",dwSSBase, eax, wLDTLimit
 endif
 if ?MAPDOSHIGH
 	mov ecx,?STACKPAGES		;reserve 3|6 pages
@@ -4332,7 +4329,7 @@ if ?MAPDOSHIGH
 	neg edx
 	add edx,dwSSBase
 	add edx,offset v86iret
-	@strout <"#setuphoststack: old/new HS base=%lX/%lX, new v86iret esp=%lX",lf>, dwSSBase, eax, edx
+	@dprintf "setuphoststack: old/new HS base=%lX/%lX, new v86iret esp=%lX", dwSSBase, eax, edx
 	mov v86iretesp, edx
 	mov dwSSBase, eax
 	mov ecx, pdGDT.dwBase
@@ -4352,7 +4349,7 @@ endif
 	mov dwStackTop, ebx
 	mov dwHostStack, eax
 ;--- no displays until SS has been reset!
-;	@strout <"#setuphoststack: new host stack top=%lX, bottom=%lX",lf>, dwStackTop, eax
+;	@dprintf "setuphoststack: new host stack top=%lX, bottom=%lX", dwStackTop, eax
 error:
 	ret
 setuphoststack endp
@@ -4399,14 +4396,14 @@ hp_createvm proto
 CreateVM proc
 
 	movzx eax,v86iret.rES
-	@strout <"#CreateVM enter, task data=%X, client stack=%lX",lf>, ax, edi
+	@dprintf "CreateVM enter, task data=%X, client stack=%lX", ax, edi
 	shl eax, 4
 if 0
 	mov edi, eax
 	mov ecx, ?RMSTKSIZE/4
 	xor eax, eax
 	rep stosd
-	@strout <"#CreateVM: new real-mode stack cleared",lf>
+	@dprintf "CreateVM: new real-mode stack cleared"
 else
 	lea edi, [eax+?RMSTKSIZE]
 endif
@@ -4421,11 +4418,11 @@ endif
 	mov ds:taskseg._Esi, eax	;save it in _DATA16, so it won't be overwritten
 ;--- now copy the full 16-bit part!
 	rep movsd
-	@strout <"#CreateVM: real-mode code + host data copied (size %lX)",lf>, dword ptr offset _Endof16bitres
+	@dprintf "CreateVM: real-mode code + host data copied (size %lX)", dword ptr offset _Endof16bitres
 	mov esi, eax
 	mov ecx, offset _EndOfClientData
 	sub ecx, offset _StartOfVMData
-	@strout <"#CreateVM: prev client VM data=%lX (size %lX)",lf>, esi, ecx
+	@dprintf "CreateVM: prev client VM data=%lX (size %lX)", esi, ecx
 	shr ecx, 2
 	push es
 	pop ds
@@ -4434,7 +4431,7 @@ endif
 	add edi,offset _StartOfVMData
 	rep movsd
 	mov edi, eax
-	@strout <"#CreateVM: client + VM data copied, edi=%lX",lf>,edi
+	@dprintf "CreateVM: client + VM data copied, edi=%lX",edi
 
 	mov ecx,(?GDTLIMIT+1)/4
 if ?MOVEGDT
@@ -4442,7 +4439,7 @@ if ?MOVEGDT
 	jz @F
 	mov edx, edi		;EDX = new GDT address
 	mov esi, offset curGDT
-	@strout <"#CreateVM: GDT in GROUP16 at %lX will be copied (size %lX)",lf>, esi, ecx
+	@dprintf "CreateVM: GDT in GROUP16 at %lX will be copied (size %lX)", esi, ecx
 	push ss
 	pop ds
 	rep movsd
@@ -4461,7 +4458,7 @@ endif
 	mov edx, edi		;EDX = new GDT address
 	mov esi, ss:pdGDT.dwBase
 	rep movsd
-	@strout <"#CreateVM: GDT copied to %lX (temp location in TLB), ds=%lX",lf>, edx, ds
+	@dprintf "CreateVM: GDT copied to %lX (temp location in TLB), ds=%lX", edx, ds
 gdtok:
 
 	mov eax, [esp]		;get new dwSSBase
@@ -4592,18 +4589,18 @@ if _LTRACE_
 	shl edx, 16
 	mov dx,es:[ecx+(_TLBSEL_ and 0F8h)].DESCRPTR.A0015
 endif
-	@strout <"#CreateVM: GDT.base=%lX, dwSSBase=%lX, wSegTLB=%X, TLB=%lX",lf>, pdGDT.dwBase, dwSSBase, wSegTLB, edx
-	@strout <"#CreateVM: taskseg.esp0=%lX, dwHSExcR3=%lX ltaskaddr=%lX",lf>, taskseg._Esp0, dwHSExcR3, ltaskaddr
+	@dprintf "CreateVM: GDT.base=%lX, dwSSBase=%lX, wSegTLB=%X, TLB=%lX", pdGDT.dwBase, dwSSBase, wSegTLB, edx
+	@dprintf "CreateVM: taskseg.esp0=%lX, dwHSExcR3=%lX ltaskaddr=%lX", taskseg._Esp0, dwHSExcR3, ltaskaddr
 
 ;--- let the heap do its reinitialization
 	call hp_createvm
-	@strout <"#CreateVM: GDT and instance switched, new instance=%X, RMS=%X:%X",lf>, wHostSeg, v86iret.rSS, v86iret.rSP
+	@dprintf "CreateVM: GDT and instance switched, new instance=%X, RMS=%X:%X", wHostSeg, v86iret.rSS, v86iret.rSP
 
 ;--- let the page manager do its reinitialization
-	@strout <"#CreateVM: calling pm_createvm",lf>
+	@dprintf "CreateVM: calling pm_createvm"
 	call pm_createvm
 	jc error
-	@strout <"#CreateVM: pm_createvm called, ltaskaddr=%lX",lf>,ltaskaddr
+	@dprintf "CreateVM: pm_createvm called, ltaskaddr=%lX",ltaskaddr
 
 
 if ?HSINEXTMEM
@@ -4617,7 +4614,7 @@ if ?HSINEXTMEM
 	pop ss
 	mov esp, dwHostStack
 	@makeinitclpmframe
-	@strout <"#CreateVM: hoststack init, ss/ds reloaded, hoststack=%lX dwSSBase=%lX ltaskaddr=%lX",lf>, dwHostStack, dwSSBase, ltaskaddr
+	@dprintf "CreateVM: hoststack init, ss/ds reloaded, hoststack=%lX dwSSBase=%lX ltaskaddr=%lX", dwHostStack, dwSSBase, ltaskaddr
 endif
 
 
@@ -4650,7 +4647,7 @@ endif
 	mov edi, offset startcldata32
 	mov ecx, offset endcldata32
 	sub ecx, edi
-	@strout <"#CreateVM: cldata32 src=%lX, dst=%lX siz=%lX [%lX %lX]",lf>,\
+	@dprintf "CreateVM: cldata32 src=%lX, dst=%lX siz=%lX [%lX %lX]",\
 		esi, edi, ecx, dword ptr [esi], dword ptr [esi+4]
 	shr ecx, 2
 	rep movsd
@@ -4663,18 +4660,18 @@ endif
 ;--- system space (ff8xxxxx) or user space (11xxxx)
 	call _movehigh		;allocates+inits CD30s + IDT
 	jc error
-	@strout <"#CreateVM: movehigh_pm called, edi=%lX",lf>, edi
+	@dprintf "CreateVM: movehigh_pm called, edi=%lX", edi
 
 ;--- again: re-access the client's stack with EDI
 
 	call _initfirstclient		;host initialization on first client
 	jc error
-	@strout <"#CreateVM: initfirstclient called, ltaskaddr=%lX",lf>, ltaskaddr
+	@dprintf "CreateVM: initfirstclient called, ltaskaddr=%lX", ltaskaddr
 
 	call saveivtvecs			;clears CF
-	@strout <"#CreateVM: real-mode vectors saved for internal rmcbs",lf>
+	@dprintf "CreateVM: real-mode vectors saved for internal rmcbs"
 	mov ltaskaddr, 0		;avoid to restore task state
-	@strout <"#CreateVM exit",lf>
+	@dprintf "CreateVM exit"
 	ret
 error:
 	jmp behindcreatevm
@@ -4726,14 +4723,14 @@ _initclient_pm proc
 	mov v86iret.rSP, ?RMSTKSIZE
 	mov v86iret.rSS, ax
 
-	@strout <"#initclient: instance=%X, pmst.DS/ES=%X/%X RMS=%X:%X tss.esp0=%lX, esp=%lX",lf>,\
+	@dprintf "initclient: instance=%X, pmst.DS/ES=%X/%X RMS=%X:%X tss.esp0=%lX, esp=%lX",\
 		wHostSeg, pmstate.rDS, pmstate.rES, v86iret.rSS, v86iret.rSP, taskseg._Esp0, esp
 
 	test fMode, FM_INIT
 	jnz @F
 	call _initfirstclient		;host initialization on first client
 	jc initclerr0
-	@strout <"#initclient: initfirstclient returned",lf>
+	@dprintf "initclient: initfirstclient returned"
 	or fMode, FM_INIT
 @@:
 	call saveivtvecs	;save all rm IRQ vectors to intrmcbs
@@ -4749,7 +4746,7 @@ behindcreatevm::
 	jmp vmok
 @@:
 endif
-	@strout <"#initclient: calling saveclientstate, esp=%lX",lf>, esp
+	@dprintf "initclient: calling saveclientstate, esp=%lX", esp
 	call _saveclientstate	;increments cApps
 	jc initclerr11			;no memory
 
@@ -4778,14 +4775,14 @@ endif
 	mov bx,v86iret.rDS
 
 							;get selector for DS
-	@strout <"#initclient: call getmyseldata(big)",lf>
+	@dprintf "initclient: call getmyseldata(big)"
 if ?32BIT
 	call getmyseldatabig	;get descriptor for BX segment
 else
 	call getmyseldata
 endif
 	jc initclerr21
-	@strout <"#initclient: DS=%X, real mode DS=%X",lf>,bx,v86iret.rDS
+	@dprintf "initclient: DS=%X, real mode DS=%X",bx,v86iret.rDS
 	mov [ebp].INITCLPM.rDS,ebx
 	mov [ebp].INITCLPM.rSS,bx
 	movzx eax, wInitSP
@@ -4808,7 +4805,7 @@ endif
 	mov dx,0008 			;attrib CODE
 	call getmyselx
 	jc initclerr23
-	@strout <"#initclient: CS=%X, real mode CS=%X",lf>,bx, es:[edi].INITCLRM.wCS
+	@dprintf "initclient: CS=%X, real mode CS=%X",bx, es:[edi].INITCLRM.wCS
 	mov [ebp].INITCLPM.rCS,bx
 								;get selector for SS
 	mov bx,[wInitSS]
@@ -4821,11 +4818,11 @@ else
 	call getmyseldata
 endif
 	jc initclerr22
-	@strout <"#initclient: SS=%X, real mode SS=%X",lf>,bx,[wInitSS]
+	@dprintf "initclient: SS=%X, real mode SS=%X",bx,[wInitSS]
 	mov [ebp].INITCLPM.rSS,bx
 @@:
 if 0
-	@strout <"#first dos call, disp '#'",lf>
+	@dprintf "first dos call, disp '#'"
 	mov ah,02h
 	mov dl,'#'
 	call rmdosintern
@@ -4833,15 +4830,15 @@ endif
 if ?SAVEPSP
 	mov eax,[dwSDA]
 	mov bx,es:[eax].DOSSDA.wPSP
-	@strout <"#initclient: PSP from real-mode dos=%X",lf>,bx
+	@dprintf "initclient: PSP from real-mode dos=%X",bx
 	mov [wPSPSegm],bx
 	call getpspsel
 	jc initclerr24
 else
-	@strout <"#initclient: first dos call, get PSP",lf>
+	@dprintf "initclient: first dos call, get PSP"
 	mov ah,51h
 	@int_21		;may fail and then won't return!
-	@strout <"#initclient: protected mode PSP=%X",lf>,bx
+	@dprintf "initclient: protected mode PSP=%X",bx
 endif
 	mov es,ebx
 	assume es:SEG16
@@ -4852,7 +4849,7 @@ endif
 	jc initclerr24
 	mov es:[002ch],bx		;set environment selector
 @@:
-	@strout <"#initclient: ENV=%X",lf>,bx
+	@dprintf "initclient: ENV=%X",bx
 
 if ?GUARDPAGE0
 	test [bEnvFlags],ENVF_GUARDPAGE0 	;should page0 be guarded?
@@ -4932,9 +4929,9 @@ endif
 	mov ds:taskseg._Esp0, eax
 	lea eax,[eax - sizeof R3FAULT32]
 	mov dwHSExcR3, eax
-	@strout <"#initclient: client status ok, ebp=%lX, ss:esp=%lX:%lX",lf>, ebp, ss, esp
-	@strout <"#initclient: client: CS:IP=%X:%lX, SS:SP=%X:%lX, DS=%lX",lf>,[ebp].INITCLPM.rCS, [ebp].INITCLPM.rIP, [ebp].INITCLPM.rSS, [ebp].INITCLPM.rSP,[ebp].INITCLPM.rDS
-	@strout <"#initclient: GDT: %lX (%X), IDT: %lX (%X), LDT: %lX (%X)",lf>, pdGDT.dwBase, pdGDT.wLimit, pdIDT.dwBase, pdIDT.wLimit, dwLDTAddr, wLDTLimit
+	@dprintf "initclient: client status ok, ebp=%lX, ss:esp=%lX:%lX", ebp, ss, esp
+	@dprintf "initclient: client: CS:IP=%X:%lX, SS:SP=%X:%lX, DS=%lX",[ebp].INITCLPM.rCS, [ebp].INITCLPM.rIP, [ebp].INITCLPM.rSS, [ebp].INITCLPM.rSP,[ebp].INITCLPM.rDS
+	@dprintf "initclient: GDT: %lX (%X), IDT: %lX (%X), LDT: %lX (%X)", pdGDT.dwBase, pdGDT.wLimit, pdIDT.dwBase, pdIDT.wLimit, dwLDTAddr, wLDTLimit
 	popad
 if ?32BIT
   if ?CLEARHIWORDS
@@ -4951,7 +4948,7 @@ endif
 	assume ds:GROUP16
 
 initclerr0:			;error global init PM
-	@strout <"#init err0: initfirstclient failed",lf>
+	@dprintf "init err0: initfirstclient failed"
 	mov al,13h		;out of physical memory
 	jmp termserver
 initclerr10:		;createvm failed
@@ -4959,12 +4956,12 @@ initclerr10:		;createvm failed
 ;--- starting to create the clone. So if there's an error, it happened
 ;--- very early, and no memory has been allocated yet - no need to do cleanup
 ;--- (which is rather difficult without doing an int 21h, ax=4c00h ).
-	@strout <"#init err10: createvm failed, cApps=%X",lf>, word ptr ss:cApps
+	@dprintf "init err10: createvm failed, cApps=%X", word ptr ss:cApps
 if _LTRACE_
 	jmp @F
 endif
 initclerr11:		;saveclientstate failed
-	@strout <"#init err11: saveclientstate failed",lf>
+	@dprintf "init err11: saveclientstate failed"
 if _LTRACE_
 	jmp @F
 endif
@@ -4977,28 +4974,28 @@ endif
 	jmp termclient2
 if ?TLBLATE
 initclerr20:		;settlb_pm failed
-	@strout <"#init err20: settlb_pm failed",lf>
+	@dprintf "init err20: settlb_pm failed"
  if _LTRACE_
 	jmp @F
  endif
 endif
 initclerr21:		;cant alloc DS sel
-	@strout <"#init err21: can't alloc DS sel",lf>
+	@dprintf "init err21: can't alloc DS sel"
 if _LTRACE_
 	jmp @F
 endif
 initclerr22:		;cant alloc SS sel
-	@strout <"#init err22: can't alloc SS sel",lf>
+	@dprintf "init err22: can't alloc SS sel"
 if _LTRACE_
 	jmp @F
 endif
 initclerr23:		;cant alloc CS sel
-	@strout <"#init err23: can't alloc CS sel",lf>
+	@dprintf "init err23: can't alloc CS sel"
 if _LTRACE_
 	jmp @F
 endif
 initclerr24:		;cant alloc ENV/PSP sel
-	@strout <"#init err24: can't alloc ENV/PSP sel",lf>
+	@dprintf "init err24: can't alloc ENV/PSP sel"
 @@:
 	mov al,11h		;8011: out of descriptors
 initclerr:
@@ -5134,7 +5131,7 @@ _exitclient_pm proc public
 
 	push byte ptr _FLATSEL_
 	pop es
-	@strout <"#exitclient enter, cApps=%X, task=%lX RMS=%X:%X, esp=%lX",lf>,<word ptr cApps>, ltaskaddr, v86iret.rSS, v86iret.rSP, esp
+	@dprintf "exitclient enter, cApps=%X, task=%lX RMS=%X:%X, esp=%lX", word ptr cApps, ltaskaddr, v86iret.rSS, v86iret.rSP, esp
 	call closeinterrupts
 	cmp [cApps],0			;fatal error on host initialization?
 	jz exitclient_1
@@ -5143,19 +5140,19 @@ if 1
 	push dword ptr wIntRmCb
 	mov dword ptr wIntRmCb,0
 endif
-	@strout <"#exitclient: call freeclientmemory",lf>
+	@dprintf "exitclient: call freeclientmemory"
 	call _freeclientmemory	;no register modified
-	@strout <"#exitclient: call pm_exitclient",lf>
+	@dprintf "exitclient: call pm_exitclient"
 	call pm_exitclient		;no register modified
 if 1
 	pop dword ptr wIntRmCb
 endif
 if ?ALWAYSRESTORE
-	@strout <"#exitclient: call restoreclientstate, taskseg._Esp0=%lX, dwHoststack=%lX",lf>, taskseg._Esp0, dwHostStack
+	@dprintf "exitclient: call restoreclientstate, taskseg._Esp0=%lX, dwHoststack=%lX", taskseg._Esp0, dwHostStack
 	call _restoreclientstate	;no register modified
 	mov esp, dwHSsaved
 endif
-	@strout <"#exitclient: last task check, taskseg._Esp0=%lX, esp=%lX",lf>, taskseg._Esp0, esp
+	@dprintf "exitclient: last task check, taskseg._Esp0=%lX, esp=%lX", taskseg._Esp0, esp
 
 if ?ALWAYSRESTORE
 	cmp [cApps],0
@@ -5166,14 +5163,14 @@ else
 endif
 
 exitclient_2:
-	@strout <"#exitclient: client about to terminate",lf>
+	@dprintf "exitclient: client about to terminate"
 ife ?ALWAYSRESTORE
-	@strout <"#exitclient: call restoreclientstate",lf>
+	@dprintf "exitclient: call restoreclientstate"
 	call _restoreclientstate	;no registers modified
 	mov esp, dwHSsaved
 endif
 
-	@strout <"#exitclient: jump to exitclient_rm, RMS=%X:%X [esp]=%lX",lf>,\
+	@dprintf "exitclient: jump to exitclient_rm, RMS=%X:%X [esp]=%lX",\
 		v86iret.rSS, v86iret.rSP, dword ptr [esp]
 	mov eax,taskseg._GS
 
@@ -5190,7 +5187,7 @@ endif
 exitclient_1:
 if ?CR0COPY
 	mov eax,cr0
-	@strout <"#current CR0=%lX",lf>,eax
+	@dprintf "current CR0=%lX",eax
 	and al, bFPUAnd
 	test bEnvFlags2,ENVF2_SYSPROT
 	jz @F
@@ -5198,23 +5195,23 @@ if ?CR0COPY
 @@:
 	or al, bCR0
 	mov cr0,eax
-	@strout <"#restored CR0=%lX",lf>,eax
+	@dprintf "restored CR0=%lX",eax
 endif        
 if ?TLBLATE
 	call resettlb_pm
 endif
-	@strout <"#no more clients, call restoreivtvecs (can server terminate?)",lf>
+	@dprintf "no more clients, call restoreivtvecs (can server terminate?)"
 	call restoreivtvecs 		;check IVT
 	jc exitclient_2		;keep resident on errors
 ife ?MOU33RESET
 	call mouse33_reset
 endif
-	@strout <"#server termination would be ok",lf>
+	@dprintf "server termination would be ok"
 if ?RESIDENT
 	test fMode, FM_RESIDENT
 	jnz exitclient_2
 endif
-	@strout <"#server *will* terminate",lf>
+	@dprintf "server *will* terminate"
 
 	mov eax,taskseg._GS			;get return code
 
@@ -5233,7 +5230,7 @@ if ?TLBLATE
         
 resettlb_pm proc
 
-	@strout <"#resettlb_pm, tlbseg=%X",lf>, wSegTLB
+	@dprintf "resettlb_pm, tlbseg=%X", wSegTLB
 	test fMode2, FM2_TLBLATE
 	jz exit
 	test fMode, FM_TLBMCB
@@ -5243,7 +5240,7 @@ resettlb_pm proc
 	pushad
 	mov eax,[dwSDA]
 	mov bx,es:[eax].DOSSDA.wPSP
-	@strout <"#resettlb_pm: set owner TLB to current PSP %X",lf>, bx
+	@dprintf "resettlb_pm: set owner TLB to current PSP %X", bx
 	xor eax, eax
 	xchg eax, dwSegTLB	;clears wSegTLB
 	dec eax
@@ -5317,7 +5314,7 @@ restoreivtvecs proc
 	assume DS:GROUP16
 
 	pushad
-	@strout <"#restoreivtvecs: try to restore ivt vectors, fMode=%X",lf>, word ptr fMode
+	@dprintf "restoreivtvecs: try to restore ivt vectors, fMode=%X", word ptr fMode
 	mov ah, 00
 	test fMode, FM_IVTVECS			;IRQ vectors modified by HDPMI?
 	jz exit
@@ -5328,11 +5325,11 @@ restoreivtvecs proc
 	jnz l2
 	cmp es:[2Fh*4+2], di			;check vector 2Fh in IVT
 	jz l2
-	@strout <"#restoreivtvecs: rm int 2Fh cannot be restored",lf>
+	@dprintf "restoreivtvecs: rm int 2Fh cannot be restored"
 	mov ah,2
 	jmp exit
 truereset:
-	@strout <"#restoreivtvecs: label truereset reached",lf>
+	@dprintf "restoreivtvecs: label truereset reached"
 	mov cl,SIZEINTRMCB
 	mov ah,01
 	and fMode, not FM_IVTVECS
@@ -5348,7 +5345,7 @@ nextvec:
 									;will be restored immediately
 									;if there is another client
 	movzx ebx,cs:[esi].INTRMCB.bIntNo
-	@strout <"#restoreivtvecs: ivt-vector %X=%lX",lf>, bx, dword ptr es:[ebx*4]
+	@dprintf "restoreivtvecs: ivt-vector %X=%lX", bx, dword ptr es:[ebx*4]
 	test ah,01h						;test mode?
 	jnz @F
 	cmp es:[ebx*4+2], di			;there might be the case
@@ -5356,7 +5353,7 @@ nextvec:
 									;the IVT vector
 	cmp edx,es:[ebx*4]
 	jz l1
-	@strout <"#restoreivtvecs: rm int %X cannot be restored",lf>, bx
+	@dprintf "restoreivtvecs: rm int %X cannot be restored", bx
 	or ah,2							;save this in AH
 	jmp l1
 @@:
@@ -5394,13 +5391,13 @@ if ?WDEB386
 	int Debug_Serv_Int
 @@:
 endif
-	@strout <"#exitserver enter, ds=%lX es=%lX esp=%lX",lf>, ds, es, esp
+	@dprintf "exitserver enter, ds=%lX es=%lX esp=%lX", ds, es, esp
 	or fMode, FM_DISABLED		;disable int 2Fh real-mode interface
-;	@strout <"#call mouse33_exit, esp=%lX",lf>, esp
+;	@dprintf "call mouse33_exit, esp=%lX", esp
 ;	call mouse33_exit
-	@strout <"#call pm_exit_pm, ds=%lX es=%lX esp=%lX",lf>, ds, es, esp
+	@dprintf "call pm_exit_pm, ds=%lX es=%lX esp=%lX", ds, es, esp
 	call pm_exit_pm				;modifies no general purpose register
-	@strout <"#final jump to real-mode, ds=%lX es=%lX esp=%lX",lf>, ds, es, esp
+	@dprintf "final jump to real-mode, ds=%lX es=%lX esp=%lX", ds, es, esp
 	pop eax
 	pop ss:taskseg._Esi
 	@rawjmp_rm _exitserver_rm
@@ -5410,7 +5407,7 @@ _TEXT16 segment
 ;--- final host termination code
 ;--- AX=exit code
 _exitserver_rm:
-	@stroutrm <"-exitserver_rm: final switch to real-mode, ss:sp=%X:%X",lf>, ss, sp
+	@drprintf "exitserver_rm: final switch to real-mode, ss:sp=%X:%X", ss, sp
 	push cs
 	pop ds
 	push word ptr taskseg._Esi	;push the final real-mode dest
@@ -5420,13 +5417,13 @@ if ?SAVEMSW
 	test al,1		;VM86?
 	jnz @F
 	mov ax,wMSW
-	@stroutrm <"-exitserver_rm: restoring old MSW=%X",lf>,ax
+	@drprintf "exitserver_rm: restoring old MSW=%X",ax
 	lmsw ax
 @@:
 endif
-	@stroutrm <"-exitserver_rm: call pm_exit_rm",lf>
+	@drprintf "exitserver_rm: call pm_exit_rm"
 	call pm_exit_rm
-	@stroutrm <"-exitserver_rm: call unhookivtvecs",lf>
+	@drprintf "exitserver_rm: call unhookivtvecs"
 	call unhookIVTvecs		;reset IVT 2F,15 and 96 vectors
 ifdef _DEBUG
  if ?DOSOUTPUT and ?USEHOSTPSP
@@ -5448,10 +5445,10 @@ if ?CANTEXIT
 	test fMode, FM_CANTEXIT	;could host be terminated?
 	jnz @F
 endif
-	@stroutrm <"-exitserver_rm: call unlinkserver",lf>
+	@drprintf "exitserver_rm: call unlinkserver"
 	call unlinkserver
 @@:
-	@stroutrm <"-exitserver_rm: call disablea20",lf>
+	@drprintf "exitserver_rm: call disablea20"
 	call _disablea20
 if ?I2FINITEXIT
 	mov ax,1606h
@@ -5459,7 +5456,7 @@ if ?I2FINITEXIT
 	int 2Fh
 endif
 	pop ax
-	@stroutrm <"-exitserver_rm: exit, ax=%X, sp=%X",lf>, ax, sp
+	@drprintf "exitserver_rm: exit, ax=%X, sp=%X", ax, sp
 	ret
 	align 4
 _TEXT16 ends
@@ -5488,14 +5485,14 @@ endif
 	int 67h
 @@:
 ife ?STUB
-	@stroutrm <"-unlinkserver: calling int 21h, ah=51h [sp=%X]",lf>,sp
+	@drprintf "unlinkserver: calling int 21h, ah=51h [sp=%X]",sp
 	mov ah,51h				;get current psp in BX
 	int 21h
 	mov ax,[wHostPSP]
 	dec ax
 	mov es,ax
 	mov es:[1],bx				;set owner of host segment to cur psp
-	@stroutrm <"-unlinkserver: set psp of mcb %X to %X",lf>,ax,bx
+	@drprintf "unlinkserver: set psp of mcb %X to %X",ax,bx
 	test fMode, FM_TLBMCB		;is TLB an extra MCB?
 	jz @exit
 	mov ax,[wSegTLB]
@@ -5506,7 +5503,7 @@ endif
 	dec ax
 	mov es,ax
 	mov es:[1],bx
-	@stroutrm <"-unlinkserver: set psp of mcb %X to %X",lf>,ax,bx
+	@drprintf "unlinkserver: set psp of mcb %X to %X",ax,bx
 endif
 @exit:
 	popa
@@ -5538,12 +5535,12 @@ if ?CANTEXIT
 	or fMode, FM_CANTEXIT
 endif
 	or cl,1
-	@stroutrm <"-unhookIVTvecs: cannot restore rm vec at %X [%X %X]",lf>, bx, ax, di
+	@drprintf "unhookIVTvecs: cannot restore rm vec at %X [%X %X]", bx, ax, di
 	jmp nextitem
 @@:
 	push dword ptr [di]
 	pop dword ptr es:[bx]
-	@stroutrm <"-unhookIVTvecs: restored rm vec at 0000:%X",lf>, bx
+	@drprintf "unhookIVTvecs: restored rm vec at 0000:%X", bx
 	mov byte ptr [si-5],-2
 	jmp nextitem
 exit:
@@ -5569,7 +5566,7 @@ _init2server_rm proc
 	pusha
 	push es
 
-	@stroutrm <"-init2server_rm entry, first client starting",lf>
+	@drprintf "init2server_rm entry, first client starting"
 if ?I2FINITEXIT
 	push ds
 	xor cx,cx
@@ -5616,14 +5613,14 @@ endif
 	mov cs:[wInitSP],sp
 	mov cs:[wInitSS],ss
 
-	@stroutrm <"-initclient_rm: new client starting, host=%X, es=%X, ss:sp=%X:%X",lf>,cs,es,ss,sp
+	@drprintf "initclient_rm: new client starting, host=%X, es=%X, ss:sp=%X:%X",cs,es,ss,sp
 
 if ?I2FINITEXIT        
 	test cs:fMode, FM_INIT
 	jnz @F
 	call _init2server_rm		;server initialization on first client
 ;;  jc initclerrx
-	@stroutrm <"_init2server_rm ok",lf>
+	@drprintf "_init2server_rm ok"
 @@:
 endif
 	@rawjmp_pm_savesegm _initclient_pm
@@ -5635,7 +5632,7 @@ if ?CALLPREVHOST
 	jmp cs:[dwHost16]		;then route the request to it
 @@:
 endif
-	@stroutrm <"-initclient_rm: bad client request, ax=%X",lf>,ax
+	@drprintf "initclient_rm: bad client request, ax=%X",ax
 	mov ax,8021h
 	stc
 	retf
@@ -5654,7 +5651,7 @@ if 1
 endif
 	popf
 	stc
-	@stroutrm <"-initclient_rm: init failed, ds-gs=%X %X %X %X, ax=%X, ss:sp=%X:%X",lf>,\
+	@drprintf "initclient_rm: init failed, ds-gs=%X %X %X %X, ax=%X, ss:sp=%X:%X",\
 		ds, es, fs, gs, ax, ss, sp
 	retf
 _initclienterr_rm endp
@@ -5668,8 +5665,8 @@ if 1
 	pop cs:v86iret.rSP
 	pop cs:v86iret.rSS
 endif
-	@stroutrm <"-exitclient_rm: RMS=%X:%X, ss:sp=%X:%X",lf>, cs:v86iret.rSS, cs:v86iret.rSP, ss, sp
-	@stroutrm <"-exitclient_rm: ds-gs=%X %X %X %X pmst.DS/ES=%X/%X",lf>,ds,es,fs,gs, cs:pmstate.rDS, cs:pmstate.rES
+	@drprintf "exitclient_rm: RMS=%X:%X, ss:sp=%X:%X", cs:v86iret.rSS, cs:v86iret.rSP, ss, sp
+	@drprintf "exitclient_rm: ds-gs=%X %X %X %X pmst.DS/ES=%X/%X",ds,es,fs,gs, cs:pmstate.rDS, cs:pmstate.rES
 
 if _LTRACE_
 	push ax
@@ -5678,16 +5675,16 @@ if _LTRACE_
 	push ds
 	mov ds,bx
 	assume ds:SEG16
-	@stroutrm <"-exitclient_rm: psp=%X, [psp:0A=%X:%X, 16=%X, 2E=%X:%X]",lf>, bx,\
+	@drprintf "exitclient_rm: psp=%X, [psp:0A=%X:%X, 16=%X, 2E=%X:%X]", bx,\
 		word ptr ds:[000Ch], word ptr ds:[000Ah], word ptr ds:[0016h],\
 		word ptr ds:[0030h], word ptr ds:[002Eh]
 	mov ds,ds:[0016h]
-	@stroutrm <"-exitclient_rm: [prevPSP:2E=%X:%X]",lf>,ds:[0030h],ds:[002Eh]
+	@drprintf "exitclient_rm: [prevPSP:2E=%X:%X]",ds:[0030h],ds:[002Eh]
 	pop ds
 	assume ds:nothing
 	pop ax
 endif
-	@stroutrm <"-exitclient_rm: jmp to DOS, ax=%X",lf>,ax
+	@drprintf "exitclient_rm: jmp to DOS, ax=%X",ax
 ;	@waitesckey
 
 _exitclient_rm endp	;fall through
@@ -5708,7 +5705,7 @@ if _LTRACE_
 	mov bp,sp
 	mov bx,[bp+2]
 	mov ds,[bp+4]
-	@stroutrm <"exception 06 in real mode at %X:%X: %X %X",lf>,ds,bx,[bx],[bx+2]
+	@drprintf "exception 06 in real mode at %X:%X: %X %X",ds,bx,[bx],[bx+2]
 	pop bp
 endif
 	@jmp_pm _exitclientEx8
@@ -5757,7 +5754,7 @@ if _LTRACE_
   ifndef _DEBUG			;dont display too much in debug version
 	cmp al,8fh
 	jz @F
-	@stroutrm <"int 2f rm,ax=%X,bx=%X",lf>,ax,bx
+	@drprintf "int 2f rm,ax=%X,bx=%X",ax,bx
 @@:
   endif
 endif
@@ -5962,7 +5959,7 @@ if ?SAVEPSP
 	pop ds
 	jnz stdint15rm
 endif        
-	@stroutrm <"int 15 rm, ctrl-alt-del pressed",lf>,ax,bx
+	@drprintf "int 15 rm, ctrl-alt-del pressed",ax,bx
 	@jmp_pmX catchreboot
 endif
 
@@ -6024,14 +6021,14 @@ specialint21_3:
 	cmp ah,25h
 	jz setint
 	pop bx
-	@stroutrm <"rm get int %X %X %X",lf>,ax,cs:[bx],cs:[bx+2]
+	@drprintf "rm get int %X %X %X",ax,cs:[bx],cs:[bx+2]
 	push dword ptr cs:[bx]
 	pop bx
 	pop es
 	iret			;real-mode int ret!
 setint:
 	xchg bx,[esp]
-	@stroutrm <"rm set int %X %X %X %X",lf>,ax,bx,ds,dx
+	@drprintf "rm set int %X %X %X %X",ax,bx,ds,dx
 	mov cs:[bx+0],dx
 	mov cs:[bx+2],ds
 	pop bx

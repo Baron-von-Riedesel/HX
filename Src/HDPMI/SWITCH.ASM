@@ -95,7 +95,7 @@ _rawjmp_pm proc near public
 
 	pop word ptr cs:[dwPmDest2]
 	mov cs:taskseg._Eax,eax
-;	@stroutrm <"entry rawjmp_pm",lf>
+;	@drprintf "entry rawjmp_pm"
 	pushf
 	pop ax
 	and ah,8Fh			;mask out IOPL and NT

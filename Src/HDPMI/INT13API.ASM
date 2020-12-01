@@ -70,7 +70,7 @@ endif
 	pushad
 	mov ebp,esp
 
-	@strout <"i13: ax=%X,cx=%X,dx=%X call",lf>,ax,cx,dx
+	@dprintf "i13: ax=%X,cx=%X,dx=%X call",ax,cx,dx
 	sub esp,4
 	pushad
 	@getdrvparms		 ;get drive structure
@@ -97,7 +97,7 @@ intr1302_0:				;<----
 	movzx ecx,cl
 	shl ecx,9		 ;transform sector to bytes (*512)
 
-	@strout <"i13: copy to %lX:%lX from %X %X bytes",lf>,es,edi,ss:[wSegTLB],cx
+	@dprintf "i13: copy to %lX:%lX from %X %X bytes",es,edi,ss:[wSegTLB],cx
 
 	push es
 	push edi
@@ -128,7 +128,7 @@ intr1303 proc
 	pushad
 	mov ebp,esp
 
-	@strout <"i13: ax=%X,bx=%X,cx=%X,dx=%X call",lf>,ax,bx,cx,dx
+	@dprintf "i13: ax=%X,bx=%X,cx=%X,dx=%X call",ax,bx,cx,dx
 
 	sub esp,4
 
@@ -154,20 +154,20 @@ intr1303_0:				;<----
 	push ss:[dwSegTLB]
 	movzx ecx,al
 	shl ecx,9		 ;transform sectors to bytes (*512)
-	@strout <"i13: copy from %lX:%lX to %X %X bytes",lf>,es,edi,ss:[wSegTLB],cx
+	@dprintf "i13: copy from %lX:%lX to %X %X bytes",es,edi,ss:[wSegTLB],cx
 	add edi,ecx
 	call copy_far32_2_flat
 
 	pop ecx
 
 	call setesreg2tlb
-	@strout <"i13: call with ax=%X,bx=%X,cx=%X,dx=%X",lf>,ax,bx,cx,dx
+	@dprintf "i13: call with ax=%X,bx=%X,cx=%X,dx=%X",ax,bx,cx,dx
 	xor ebx,ebx
 	call intr13_ok
 	mov byte ptr [ebp.PUSHADS.rEAX+1],ah
 	jc intr1303_ex
 
-	@strout <"i13: successfull call, ax=%X",lf>,ax
+	@dprintf "i13: successfull call, ax=%X",ax
 
 	call addsecs			 ;dx and cx update
 
@@ -207,15 +207,15 @@ intr13 proc public
 	jz intr1308
 intr13_ok::
 intr13_xx::
-	@strout <"i13: call ax=%X",lf>,ax
+	@dprintf "i13: call ax=%X",ax
 
 	@simrmint 13h
 
-	@strout <"i13: return from rm",lf>
+	@dprintf "i13: return from rm"
 	ret
 
 intr13_notok:
-	@strout <"i13: unsupported call ax=%X",lf>,ax
+	@dprintf "i13: unsupported call ax=%X",ax
 	stc
 	ret
 	align 4

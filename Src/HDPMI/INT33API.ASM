@@ -36,7 +36,7 @@ _TEXT32 segment
 
 intr33 proc public
 
-	@strout <"intr33: ax=%X bx=%X cx=%X es:edx=%lX:%lX",lf>,ax,bx,cx,es,edx
+	@dprintf "intr33: ax=%X bx=%X cx=%X es:edx=%lX:%lX",ax,bx,cx,es,edx
 
 	cmp ah,00
 	jnz @F
@@ -151,7 +151,7 @@ mouseprocs endp
 
 mouse_setproc proc
 
-	@strout <"mouse_setproc: enter, ax=%X cx=%X es:edx=%lX:%lX",lf>,ax,cx,es,edx
+	@dprintf "mouse_setproc: enter, ax=%X cx=%X es:edx=%lX:%lX",ax,cx,es,edx
 	call mouse_setrmcb	;set real mode event proc
 	push ds
 
@@ -202,7 +202,7 @@ mouse_setproc endp
         
 mouse_setrmcb proc
 	pushad
-	@strout <"mouse_setrmcb: enter",lf>
+	@dprintf "mouse_setrmcb: enter"
 	mov eax, es
 if ?32BIT
 	movzx eax, ax
@@ -216,7 +216,7 @@ endif
 	add ax, wHostSeg
 	mov dx, offset intrmcb_rm_retf
 	sub dx, ?RMCBMOUSE shl 4
-	@strout <"mouse_setrmcb: internal callback addr=%X:%X, true ofs=%X",lf>, ax, dx, offset intrmcb_rm_retf
+	@dprintf "mouse_setrmcb: internal callback addr=%X:%X, true ofs=%X", ax, dx, offset intrmcb_rm_retf
 	mov v86iret.rES, ax
 	jmp setresetproc
 resetrm:
@@ -224,14 +224,14 @@ resetrm:
 	xor edx, edx
 	mov v86iret.rES, dx
 setresetproc:
-	@strout <"mouse_setrmcb: set real mode event proc to %X:%X, mask=%X [wIntRmCb=%lX]",lf>,v86iret.rES, dx, cx, dword ptr wIntRmCb
+	@dprintf "mouse_setrmcb: set real mode event proc to %X:%X, mask=%X [wIntRmCb=%lX]",v86iret.rES, dx, cx, dword ptr wIntRmCb
 	mov ax,0014h			;instead of set -> xchg
 	@simrmint 33h
-	@strout <"mouse_setrmcb: previous values es:dx=%X:%X, cx=%X",lf>,v86iret.rES,dx,cx
+	@dprintf "mouse_setrmcb: previous values es:dx=%X:%X, cx=%X",v86iret.rES,dx,cx
 	bts dword ptr [fMouse], MF_RMEVTSETB
 	jc exit
 	mov ax,v86iret.rES
-	@strout <"mouse_setrmcb: original values (%X:%X, %X) stored in INTRMCBr",lf>, ax, dx, cx
+	@dprintf "mouse_setrmcb: original values (%X:%X, %X) stored in INTRMCBr", ax, dx, cx
 	mov [oldrmmask],cx
 	mov word ptr [intrmcbrs + ?RMCBMOUSE * sizeof INTRMCBr].rm_vec+0,dx
 	mov word ptr [intrmcbrs + ?RMCBMOUSE * sizeof INTRMCBr].rm_vec+2,ax
@@ -257,22 +257,22 @@ mouse33_reset proc public
 
 	test [fMouse], MF_RMEVTSET
 	jz exit
-	@strout <"mouse33_reset enter, ss=%lX ds=%lX es=%lX, rms=%X:%X",lf>, ss, ds, es, v86iret.rSS, v86iret.rSP
+	@dprintf "mouse33_reset enter, ss=%lX ds=%lX es=%lX, rms=%X:%X", ss, ds, es, v86iret.rSS, v86iret.rSP
 	cmp [cApps],0
 	jz vm_exit
 	push es
 	mov cx, cs:[moumask]
   if ?32BIT
 	les edx, fword ptr cs:[mevntvec._Eip]
-	@strout <"mouse33_reset: calling mouse_setproc, cx=%X es:edx=%lX:%lX",lf>, cx, es, edx
+	@dprintf "mouse33_reset: calling mouse_setproc, cx=%X es:edx=%lX:%lX", cx, es, edx
   else
 	les dx, dword ptr cs:[mevntvec._Eip]
-	@strout <"mouse33_reset: calling mouse_setproc, cx=%X es:dx=%lX:%X",lf>, cx, es, dx
+	@dprintf "mouse33_reset: calling mouse_setproc, cx=%X es:dx=%lX:%X", cx, es, dx
   endif
 	mov al, 0Ch
 	call mouse_setproc
 	pop es
-	@strout <"mouse33_reset exit",lf>
+	@dprintf "mouse33_reset exit"
 exit:
 	ret
 vm_exit:
@@ -283,10 +283,10 @@ vm_exit:
 	mov ax,word ptr [intrmcbrs + ?RMCBMOUSE * sizeof INTRMCBr].rm_vec+2
 	mov v86iret.rES,ax
 	mov cx,[oldrmmask]
-	@strout <"mouse33_reset: calling int 33h, ax=000C, es:dx=%X:%X cx=%X",lf>,ax,dx,cx
+	@dprintf "mouse33_reset: calling int 33h, ax=000C, es:dx=%X:%X cx=%X",ax,dx,cx
 	mov ax,000Ch
 	@simrmint 33h
-	@strout <"mouse33_reset: exit",lf>
+	@dprintf "mouse33_reset: exit"
 exit2:
 	ret
 	align 4

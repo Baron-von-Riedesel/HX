@@ -105,11 +105,11 @@ if _LTRACE_
 endif
 	cld
 if ?32BIT
-	@strout <"i21 bc: a-d=%X %lX %lX %lX ds=%lX es=%lX",lf>,\
+	@dprintf "i21 bc: a-d=%X %lX %lX %lX ds=%lX es=%lX",\
 		ax,ebx,ecx,edx,ds,es
 ;	@waitesckey
 else
-	@strout <"i21 bc: a=%X b=%X c=%X d=%X si=%X di=%X ds=%lX es=%lX",lf>,\
+	@dprintf "i21 bc: a=%X b=%X c=%X d=%X si=%X di=%X ds=%lX es=%lX",\
 		ax,bx,cx,dx,si,di,ds,es
 endif
 if ?FASTINT21
@@ -132,10 +132,10 @@ intr21_ endp
 
 if _LTRACE_
 protaftercall:
-	@strout <"i21 ac: a-d=%X %X %X %X si=%X di=%X %lX %lX">,\
+	@printf "#i21 ac: a-d=%X %X %X %X si=%X di=%X %lX %lX",\
 		ax,bx,cx,dx,si,di,ds,es
 	pushf
-	@strout <" fl=%X",lf>
+	@printf <" fl=%X",lf>
 ;	@waitesckey
 	ret
 	align 4
@@ -204,7 +204,7 @@ intr21 endp
 endif
 
 rmdos proc public
-	@strout <"enter rmdos call ax=%X,bx=%X,cx=%X,dx=%X",lf>,ax,bx,cx,dx
+	@dprintf "enter rmdos call ax=%X,bx=%X,cx=%X,dx=%X",ax,bx,cx,dx
 	@simrmint 21h
 	ret
 	align 4
@@ -248,7 +248,7 @@ intr214C:
 	assume es:SEG16
 
 intr2100:
-	@strout <"#i21,00: entry ebx=%lX esi=%lX edi=%lX ebp=%lX",lf>,ebx,esi,edi,ebp
+	@dprintf "i21,00: entry ebx=%lX esi=%lX edi=%lX ebp=%lX",ebx,esi,edi,ebp
 	pushad
 	push es
 
@@ -267,7 +267,7 @@ if 1
 ;--- and if true, transform it back to a segment
 
 	mov ax,es:[ebx+16h]
-	@strout <"#i21,00: curr psp linear addr=%lX, parent psp=%X",lf>,ebx,ax
+	@dprintf "i21,00: curr psp linear addr=%lX, parent psp=%X",ebx,ax
 
 	verw ax			;is a valid data selector?
 	jnz @F
@@ -284,7 +284,7 @@ if 1
 @@:
 endif
 
-	@strout <"#i21,00: simulating i21, ax=4C00, [psp+18]=%lX, [psp-0F]=%X, esp=%lX",lf>, dword ptr es:[ebx+18h], word ptr es:[ebx-0Fh], esp
+	@dprintf "i21,00: simulating i21, ax=4C00, [psp+18]=%lX, [psp-0F]=%X, esp=%lX", dword ptr es:[ebx+18h], word ptr es:[ebx-0Fh], esp
 	mov eax, ss:[dwHostSeg]
 	shl eax,16
 	mov ax,offset callrmintintern_rm_exit
@@ -297,9 +297,9 @@ endif
 if _LTRACE_
 	pop ebx
 endif
-	@strout <"#i21,00: back from real mode, ebx=%lX [psp+18]=%lX [psp-0F]=%X esp=%lX",lf>, ebx, dword ptr es:[ebx+18h], word ptr es:[ebx-0Fh], esp
+	@dprintf "i21,00: back from real mode, ebx=%lX [psp+18]=%lX [psp-0F]=%X esp=%lX", ebx, dword ptr es:[ebx+18h], word ptr es:[ebx-0Fh], esp
 
-	@strout <"#i21,00: exit ebx=%lX esi=%lX edi=%lX ebp=%lX",lf>,ebx,esi,edi,ebp
+	@dprintf "i21,00: exit ebx=%lX esi=%lX edi=%lX ebp=%lX",ebx,esi,edi,ebp
 	pop es
 	popad
 	ret
@@ -327,10 +327,10 @@ endif
 
 intr211A proc
 if ?32BIT
-	@strout <"i21: dta set to %lX:%lX",lf>,ds,edx
+	@dprintf "i21: dta set to %lX:%lX",ds,edx
 	mov dword ptr ss:[dtaadr+0],edx
 else
-	@strout <"i21: dta set to %lX:%X",lf>,ds,dx
+	@dprintf "i21: dta set to %lX:%X",ds,dx
 	mov word ptr ss:[dtaadr+0],dx
 endif
 	mov word ptr ss:[dtaadr+4],ds
@@ -353,7 +353,7 @@ intr212F proc
 	mov bx,word ptr ss:[dtaadr+4]
 	verr bx
 	jz @F
-	@strout <"i21: error - dta selector %X is invalid",lf>,bx
+	@dprintf "i21: error - dta selector %X is invalid",bx
 if ?32BIT
 	xor ebx,ebx
 	mov dword ptr ss:[dtaadr+0],ebx
@@ -369,11 +369,11 @@ ife ?DTAINHOSTPSP
 endif
 if ?32BIT
 	les ebx,fword ptr ss:[dtaadr]
-	@strout <"i21: dta get (%lX:%lX)",lf>,es,ebx
+	@dprintf "i21: dta get (%lX:%lX)",es,ebx
 else
 	mov bx,word ptr ss:[dtaadr+0]
 	mov es,word ptr ss:[dtaadr+4]
-	@strout <"i21: dta get (%lX:%X)",lf>,es,bx
+	@dprintf "i21: dta get (%lX:%X)",es,bx
 endif
 	ret
 	align 4
@@ -423,11 +423,11 @@ intr2125 endp
 intr2148 proc
 	pushad
 if ?32BIT
-	@strout <"I21, ah=48h: alloc %lX paragraphs",lf>,ebx
+	@dprintf "I21, ah=48h: alloc %lX paragraphs",ebx
 	test ebx, 0F0000000h		;4 GB limit is 0FFFFFFFh paragraphs
 	jnz error1
 else
-	@strout <"I21, ah=48h: alloc %X paragraphs",lf>,bx
+	@dprintf "I21, ah=48h: alloc %X paragraphs",bx
 	cmp bx,-1
 	jz error1
 	movzx ebx,bx
@@ -440,13 +440,13 @@ endif
 	mov ax,0501h
 	@int_31
 	jc error1
-	@strout <"I21: memory alloc successfull, Addr=%lX",lf>,bx,cx
+	@dprintf "I21: memory alloc successfull, Addr=%lX",bx,cx
 	push ebp		;2. argument for selector_alloc: size
 	push bx
 	push cx			;1. argument for selector_alloc: address
 	call selector_alloc
 	jc error2
-	@strout <"I21: selector tiling successfull, sel=%X",lf>,ax
+	@dprintf "I21: selector tiling successfull, sel=%X",ax
 	mov [esp].PUSHADS.rAX, ax
 	popad
 	ret
@@ -468,11 +468,11 @@ intr2148 endp
 intr2149 proc		;DOS free memory
 	pushad
 	mov ebx, es
-	@strout <"free dos mem block %X",lf>, bx
+	@dprintf "free dos mem block %X", bx
 	mov ax, 6
 	@int_31
 	jc error9
-	@strout <"linear address dos memory block=%lX",lf>,cx,dx
+	@dprintf "linear address dos memory block=%lX",cx,dx
 	test cx,0FFF0h	;is it conventional memory?
 	jnz isextmem
 	mov edx, ebx
@@ -533,12 +533,12 @@ availpages endp
 intr214A proc
 
 	pushad
-	@strout <"memselresize: es=%lX, ebx=%lX",lf>, es, ebx
+	@dprintf "memselresize: es=%lX, ebx=%lX", es, ebx
 	mov ebx, es
 	mov ax, 6
 	@int_31
 	jc error9
-	@strout <"memselresize: selector is valid",lf>
+	@dprintf "memselresize: selector is valid"
 	test cx,0FFF0h	;is it conventional memory?
 	jnz isextmem
 	mov edx, ebx
@@ -575,13 +575,13 @@ endif
 	mov ax,0503h
 	@int_31
 	jc error8
-	@strout <"memselresize: resizemem succeeded, base=%lX",lf>,cx,bx
+	@dprintf "memselresize: resizemem succeeded, base=%lX",cx,bx
 	mov edx, ecx
 	mov ecx, ebx
 	mov ebx, es
 	mov ax, 7 			;set segment base
 	@int_31
-	@strout <"memselresize: base set for %X",lf>, es
+	@dprintf "memselresize: base set for %X", es
 if ?32BIT
 	mov eax, [esp].PUSHADS.rEBX
 else
@@ -629,16 +629,18 @@ intr214B proc
 	push ds
 	push es
 if ?32BIT
-	@strout <"I21: ax=%X ds:edx=%lX:%lX, es:ebx=%lX:%lX",lf>,ax,ds,edx,es,ebx
-	@strout <"   cmdl=%X:%lX">,\
+  if _LTRACE_
+	@printf "#I21: ax=%X ds:edx=%lX:%lX, es:ebx=%lX:%lX",ax,ds,edx,es,ebx
+	@printf "   cmdl=%X:%lX",\
 		word ptr es:[ebx].EXECPM.cmdline+4,\
 		dword ptr es:[ebx].EXECPM.cmdline+0
-	@strout <" fcb1=%X:%lX">,\
+	@printf " fcb1=%X:%lX",\
 		word ptr es:[ebx].EXECPM.fcb1+4,\
 		dword ptr es:[ebx].EXECPM.fcb1+0
-	@strout <" fcb2=%X:%lX",lf>,\
+	@printf <" fcb2=%X:%lX",lf>,\
 		word ptr es:[ebx].EXECPM.fcb2+4,\
 		dword ptr es:[ebx].EXECPM.fcb2+0
+  endif
 	push dword ptr es:[ebx].EXECPM.cmdline+4
 	push dword ptr es:[ebx].EXECPM.cmdline+0
 	push dword ptr es:[ebx].EXECPM.fcb2+4
@@ -647,7 +649,7 @@ if ?32BIT
 	push dword ptr es:[ebx].EXECPM.fcb1+0
 else
 	movzx ebx,bx
-	@strout <"I21: ax=%X ds:dx=%lX:%X, es:bx=%lX:%X",lf>,ax,ds,dx,es,bx
+	@dprintf "I21: ax=%X ds:dx=%lX:%X, es:bx=%lX:%X",ax,ds,dx,es,bx
 	push dword ptr es:[ebx].EXECPM.cmdline
 	push dword ptr es:[ebx].EXECPM.fcb2
 	push dword ptr es:[ebx].EXECPM.fcb1
@@ -730,9 +732,9 @@ EnvIsValid:
 endif
 	pop ds
 if ?32BIT
-	@strout <"I21: ah=4Bh ds:edx=%ls",lf>,ds,edx
+	@dprintf "I21: ah=4Bh ds:edx=%ls",ds,edx
 else
-	@strout <"I21: ah=4Bh ds:dx=%s",lf>,ds,dx
+	@dprintf "I21: ah=4Bh ds:dx=%s",ds,dx
 endif
 	call copyz_dsdx_2_tlb	;DS:(E)DX -> tlb:0, dx=0
 
@@ -741,14 +743,14 @@ endif
 	mov eax,ss:[dwHostSeg]
 	mov ss:v86iret.rES, ax
 
-	@strout <"  ds:dx=%X:%X es:bx=%X:%X [env=%X cmdl=%X:%X]",lf>,\
+	@dprintf "  ds:dx=%X:%X es:bx=%X:%X [env=%X cmdl=%X:%X]",\
 		ss:v86iret.rDS, dx, ss:v86iret.rES, bx, ss:[bx].EXECRM.environ,\
 		word ptr ss:[bx].EXECRM.cmdline+2, word ptr ss:[bx].EXECRM.cmdline+0
 if _LTRACE_
 	push ds
 	push byte ptr _TLBSEL_
 	pop ds
-	@strout <"[cmdline]=%lX %lX %lX",lf>, dword ptr ds:[120h],\
+	@dprintf "[cmdline]=%lX %lX %lX", dword ptr ds:[120h],\
 			dword ptr ds:[124h], dword ptr ds:[128h]
 	pop ds
 endif
@@ -796,7 +798,7 @@ intr2155 endp
 	@ResetTrace
 
 intr2150 proc
-	@strout <"I21: ah=50h, bx=%X",lf>,bx
+	@dprintf "I21: ah=50h, bx=%X",bx
 	push ebx
 	call bx_sel2segm
 	jc psperror1
@@ -893,9 +895,9 @@ intr2143:
 intr215A:
 intr215B:
 if ?32BIT
-	@strout <"int 21,ax=%X ds:edx=%ls",lf>,ax,ds,edx
+	@dprintf "int 21,ax=%X ds:edx=%ls",ax,ds,edx
 else
-	@strout <"int 21,ax=%X ds:dx=%s",lf>,ax,ds,dx
+	@dprintf "int 21,ax=%X ds:dx=%s",ax,ds,dx
 endif
 	push edx
 	call copyz_dsdx_2_tlb
@@ -932,7 +934,7 @@ intr2138 endp
 	@ResetTrace
 
 intr2165 proc
-	@strout <"int 21,ax=%X es:edi=%X:%lX",lf>,ax,es,edi
+	@dprintf "int 21,ax=%X es:edi=%X:%lX",ax,es,edi
 	and al,al
 	jz intr216500
 	cmp al,7
@@ -1043,16 +1045,18 @@ intr2160 endp
 	@ResetTrace
 
 intr216C proc
-if ?32BIT
-	@strout <"int 21,ax=%X ds:esi=%ls ">,ax,ds,esi
-else
-	@strout <"int 21,ax=%X ds:si=%s" >,ax,ds,si
+if _LTRACE_
+ if ?32BIT
+	@printf "#int 21,ax=%X ds:esi=%ls ",ax,ds,esi
+ else
+	@printf "#int 21,ax=%X ds:si=%s ",ax,ds,si
+ endif
 endif
 	push esi
 	call copyz_dssi_2_tlb	   ;si=0,v86iret.ds = tlb
 	call rmdos
 	pop esi
-	@strout <"ret ax=%X",lf>,ax
+	@dprintf "ret ax=%X",ax
 	ret
 	align 4
 intr216C endp
@@ -1103,9 +1107,9 @@ intr214F endp
 
 intr2129 proc
 if ?32BIT
-	@strout <"fcb parse with fcb=%lX:%lX, name=%lX:%lX",lf>,es,edi,ds,esi
+	@dprintf "fcb parse with fcb=%lX:%lX, name=%lX:%lX",es,edi,ds,esi
 else
-	@strout <"fcb parse with fcb=%lX:%X, name=%lX:%X",lf>,es,di,ds,si
+	@dprintf "fcb parse with fcb=%lX:%X, name=%lX:%X",es,di,ds,si
 endif
 
 	push esi
@@ -1161,7 +1165,7 @@ endif
 	jnz @F
 	shr eax,4
 	mov ss:v86iret.rDSd, eax
-	@strout <"no TLB needed for read/write (%lX addr, %X size)",lf>,eax,cx
+	@dprintf "no TLB needed for read/write (%lX addr, %X size)",eax,cx
 	pop eax
 	add esp,4			;dont return
 	jmp rmdos
@@ -1197,7 +1201,7 @@ if ?DYNTLBALLOC
 	mov esi,edi
 @@:
 endif
-	@strout <"start read at %lX:%lX,%lX bytes using %X",lf>,ds,edx,ecx,si
+	@dprintf "start read at %lX:%lX,%lX bytes using %X",ds,edx,ecx,si
 	xor edi,edi 	 ;edi is used to count bytes written
 nextblock:
 	mov eax,[esp].PUSHADS.rEAX
@@ -1209,7 +1213,7 @@ nextblock:
 @@:
 	mov ss:v86iret.rDSd,esi
 	xor edx,edx
-	@strout <"  call rm dos, read (ax=%X) in TLB (=%X:%X) %X bytes",lf>,ax,si,dx,cx
+	@dprintf "  call rm dos, read (ax=%X) in TLB (=%X:%X) %X bytes",ax,si,dx,cx
 	call rmdos
 	pop edx
 	pop ecx
@@ -1220,7 +1224,7 @@ nextblock:
 	movzx ecx,ax	;copy bytes read to ecx
 	add edi,ecx 	;update byte count
 
-	@strout <"  copying from %X to %lX:%lX %X bytes",lf>,si,ds,edx,cx
+	@dprintf "  copying from %X to %lX:%lX %X bytes",si,ds,edx,cx
 
 	push ds
 	push edx
@@ -1286,7 +1290,7 @@ if ?DYNTLBALLOC
 	mov esi,edi
 @@:
 endif
-	@strout <"start write at %lX:%lX,%lX bytes using %X",lf>,ds,edx,ecx,si
+	@dprintf "start write at %lX:%lX,%lX bytes using %X",ds,edx,ecx,si
 	xor edi,edi 	 ;EDI is used to count bytes written
 intr2140A:				 ;<----
 	mov eax, [esp].PUSHADS.rEAX
@@ -1295,7 +1299,7 @@ intr2140A:				 ;<----
 	jb @F
 	mov ecx,ebp
 @@:
-	@strout <"  copying from %lX:%lX to TLB %X bytes",lf>,ds,edx,cx
+	@dprintf "  copying from %lX:%lX to TLB %X bytes",ds,edx,cx
 
 	push edx
 
@@ -1464,7 +1468,7 @@ subsys44 endp
 
 intr21440D proc
 
-	@strout <"I21: call AX=%X,BX=%X,CX=%X,DX=%X",lf>,ax,bx,cx,dx
+	@dprintf "I21: call AX=%X,BX=%X,CX=%X,DX=%X",ax,bx,cx,dx
 	push esi
 	cmp cl,40h
 	jnz not440D40
@@ -1499,7 +1503,7 @@ not440D40:
 f440D_ok1:
 	push ecx
 	mov ecx,eax
-	@strout <"I21: func 440d: copy %X bytes to tlb",lf>,cx
+	@dprintf "I21: func 440d: copy %X bytes to tlb",cx
 	call copy_dsdx_2_tlb
 	pop ecx
 	cmp cl,41h
@@ -1530,7 +1534,7 @@ f440D_ok1:
 f440D2_ok:
 	push ecx
 	movzx cx,byte ptr cs:[esi+1]
-	@strout <"I21: func 440d: copy %X bytes from tlb",lf>,cx
+	@dprintf "I21: func 440d: copy %X bytes from tlb",cx
 	call copy_tlb_2_dsdx
 	pop ecx
 f440D2_ok2:
@@ -1555,7 +1559,7 @@ LOGTRACKPARM ends
 ;--- prepare read track. set
 
 f440D61b:
-	@strout <"I21: func 440d,41+61: set transfer buffer to rm",lf>
+	@dprintf "I21: func 440d,41+61: set transfer buffer to rm"
 	push ds
 	push byte ptr _TLBSEL_
 	pop ds
@@ -1580,7 +1584,7 @@ endif
 	lds si,[edx].LOGTRACKPARM.dta
 	movzx esi, si
 	shl ecx,9			 ;sectors -> bytes
-	@strout <"I21: func 440d,41: copy %lX bytes to tlb.20",lf>,ecx
+	@dprintf "I21: func 440d,41: copy %lX bytes to tlb.20",ecx
 	push byte ptr _TLBSEL_
 	pop es
 	mov edi,20h
@@ -1604,7 +1608,7 @@ endif
 	les di,[edx].LOGTRACKPARM.dta
 	movzx edi, di
 	shl ecx,9			 ;sektors -> bytes
-	@strout <"I21: func 440d,11: copy %X bytes from tlb.20",lf>,cx
+	@dprintf "I21: func 440d,11: copy %X bytes from tlb.20",cx
 	push byte ptr _TLBSEL_
 	pop ds
 	mov esi,20h
@@ -1742,7 +1746,7 @@ endif
 	call copy_tlb_2_dsdx 	;copy back! - may have been modified
 	cmp al,0FFh 			;error?
 	jz @F
-;	@strout <"I21: fcb call was successful",lf>
+;	@dprintf "I21: fcb call was successful"
 	push word ptr 0
 	push cx
 	call copy_tlbdta_2_dta	;copy cx bytes tlbdta -> dta
@@ -1761,14 +1765,14 @@ intr211B:
 intr211C:
 intr211F:
 intr2132:
-	@strout <"I21: ax=%X,dx=%X",lf>,ax,dx
+	@dprintf "I21: ax=%X,dx=%X",ax,dx
 	call rmdos
 ;--- al=FF indicates error, set Carry flag then
-	@strout <"I21: ret, ax=%X, rmDS:bx=%X:%X",lf>,ax,ss:v86iret.rDS,bx
+	@dprintf "I21: ret, ax=%X, rmDS:bx=%X:%X",ax,ss:v86iret.rDS,bx
 	cmp al,0FFh
 	jz @F
 	call ds_segm2sel
-	@strout <"I21: ds=%X translated to %lX",lf>,ss:v86iret.rDS,ds
+	@dprintf "I21: ds=%X translated to %lX",ss:v86iret.rDS,ds
 if ?32BIT
 	movzx ebx,bx
 endif
@@ -1897,7 +1901,7 @@ int2171a7 endp
 ;--- bh=2 -> tlb:0 -> ds:edx
         
 int2171aa proc
-	@strout <"int 21,ax=71AA",lf>
+	@dprintf "int 21,ax=71AA"
 	cmp bh,0
 	jz copyz_dsdx
 	cmp bh,2
@@ -1917,9 +1921,9 @@ int2171aa endp
         
 copyz_dsdx proc
 if ?32BIT
-	@strout <"int 21,ax=%X ds:edx=%ls",lf>,ax,ds,edx
+	@dprintf "int 21,ax=%X ds:edx=%ls",ax,ds,edx
 else
-	@strout <"int 21,ax=%X ds:dx=%s",lf>,ax,ds,dx
+	@dprintf "int 21,ax=%X ds:dx=%s",ax,ds,dx
 endif
 	push edx
 	call copyz_dsdx_2_tlb
@@ -1986,9 +1990,9 @@ intr2171 endp
         
 int21716c proc
 if ?32BIT
-	@strout <"int 21,ax=%X ds:esi=%ls",lf>,ax,ds,esi
+	@dprintf "int 21,ax=%X ds:esi=%ls",ax,ds,esi
 else
-	@strout <"int 21,ax=%X ds:si=%s",lf>,ax,ds,si
+	@dprintf "int 21,ax=%X ds:si=%s",ax,ds,si
 endif
 	push esi
 	call copyz_dssi_2_tlb
@@ -2001,7 +2005,7 @@ int21716c endp
 ;--- int 21, ax=7147 (get cur dir into ds:e/si)        
 
 int217147 proc
-	@strout <"int 21,ax=7147",lf>
+	@dprintf "int 21,ax=7147"
 	push esi
 	xor esi,esi
 	call setdsreg2tlb
@@ -2018,9 +2022,9 @@ int217147 endp
         
 int217156 proc
 if ?32BIT
-	@strout <"int 21,ax=%X ds:edx=%ls",lf>,ax,ds,edx
+	@dprintf "int 21,ax=%X ds:edx=%ls",ax,ds,edx
 else
-	@strout <"int 21,ax=%X ds:dx=%s",lf>,ax,ds,dx
+	@dprintf "int 21,ax=%X ds:dx=%s",ax,ds,dx
 endif
 	push edx
 	push edi
@@ -2077,9 +2081,9 @@ int2171a0 proc
 	call copyz_dsdx_ret_esdi
 	jc error
 if ?32BIT
-	@strout <"int 21,ax=71A0 ok, es:edi=%lX:%lX, cx=%X",lf>,es,edi,cx
+	@dprintf "int 21,ax=71A0 ok, es:edi=%lX:%lX, cx=%X",es,edi,cx
 else
-	@strout <"int 21,ax=71A0 ok, es:di=%lX:%X, cx=%X",lf>,es,di,cx
+	@dprintf "int 21,ax=71A0 ok, es:di=%lX:%X, cx=%X",es,di,cx
 endif
 	call copy_tlbxx_2_esdi
 	ret
@@ -2096,9 +2100,9 @@ int2171a0 endp
 copyz_dsdx_ret_esdi proc
 
 if ?32BIT
-	@strout <"int 21 ax=%X ds:edx=%ls es:edi=%lX:%lX cx=%X",lf>,ax,ds,edx,es,edi,cx
+	@dprintf "int 21 ax=%X ds:edx=%ls es:edi=%lX:%lX cx=%X",ax,ds,edx,es,edi,cx
 else
-	@strout <"int 21 ax=%X ds:dx=%s es:di=%lX:%X cx=%X",lf>,ax,ds,dx,es,di,cx
+	@dprintf "int 21 ax=%X ds:dx=%s es:di=%lX:%X cx=%X",ax,ds,dx,es,di,cx
 endif
 	push edi
 	call copyz_dsdx_2_tlb	;copy ds:dx to TLB:0, set dx=0, v86-ds=TLB
@@ -2146,9 +2150,9 @@ int2171a8:
 int217160 proc
 
 if ?32BIT
-	@strout <"int 21 ax=%X ds:esi=%ls es:edi=%lX:%lX",lf>,ax,ds,esi,es,edi
+	@dprintf "int 21 ax=%X ds:esi=%ls es:edi=%lX:%lX",ax,ds,esi,es,edi
 else
-	@strout <"int 21 ax=%X ds:si=%s es:di=%lX:%X",lf>,ax,ds,si,es,di
+	@dprintf "int 21 ax=%X ds:si=%s es:di=%lX:%X",ax,ds,si,es,di
 endif
 	push esi
 	push edi

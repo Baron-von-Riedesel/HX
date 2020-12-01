@@ -55,7 +55,7 @@ _heapalloc proc public
 
 	push ecx
 tryagain:
-	@strout <"#heapalloc: try to alloc a heap item, size=%lX",lf>, eax
+	@dprintf "heapalloc: try to alloc a heap item, size=%lX", eax
 	mov ecx,[dwCurOfs]
 	add eax,3
 	and al,0FCh
@@ -65,16 +65,16 @@ tryagain:
 	mov eax,[dwCurOfs]
 	mov [dwCurOfs],ecx
 	add eax,[dwCurPg]
-	@strout <"#heapalloc: heap item allocated, eax=%lX",lf>,eax
+	@dprintf "heapalloc: heap item allocated, eax=%lX",eax
 	pop ecx
 	ret
 heapalloc_1:
-	@strout <"#heapalloc: try to alloc a new page for heap",lf>
+	@dprintf "heapalloc: try to alloc a new page for heap"
 	pushad
 	mov ecx,1				;1 page
 	call _AllocSysPagesX	;alloc host heap space
 	jc @F
-	@strout <"#heapalloc: new page for heap allocated: %lX",lf>,eax
+	@dprintf "heapalloc: new page for heap allocated: %lX",eax
 	sub eax,[dwSSBase]  ;since no FLAT model, normalize address
 	mov [dwCurPg],eax
 	mov [dwCurOfs], 0
@@ -83,7 +83,7 @@ heapalloc_1:
 	popad
 	jnc tryagain
 	pop ecx
-	@strout <"#heapalloc: allocating new page failed",lf>
+	@dprintf "heapalloc: allocating new page failed"
 	ret
 	align 4
 
@@ -105,14 +105,14 @@ if _LTRACE_
 	.if (eax)
 		mov eax,[eax].MEMITEM.pNext
 	.endif
-	@strout <"#allocmemhandle: pMemItems=%lX,next handle=%lX",lf>, pMemItems, eax
+	@dprintf "allocmemhandle: pMemItems=%lX,next handle=%lX", pMemItems, eax
 	pop eax
 endif
-	@strout <"#allocmemhandle: enter",lf>
+	@dprintf "allocmemhandle: enter"
 	mov ebx, pFreeMemItems
 	and ebx,ebx
 	jnz allocmemhandle1
-	@strout <"#allocmemhandle: no free handle, will alloc a new item",lf>
+	@dprintf "allocmemhandle: no free handle, will alloc a new item"
 	push ecx
 	push eax
 	mov eax,sizeof MEMITEM
@@ -120,7 +120,7 @@ endif
 	jc @F
 	mov ebx,eax
 	xor eax,eax
-	@strout <"#allocmemhandle: new handle allocated: %lX",lf>,ebx
+	@dprintf "allocmemhandle: new handle allocated: %lX",ebx
 	mov [ebx].MEMITEM.flags,ax
 @@:
 	pop eax
@@ -132,7 +132,7 @@ allocmemhandle1:
 	mov [ebx].MEMITEM.flags,ax
 	xchg [ebx].MEMITEM.pNext,eax
 	mov pFreeMemItems, eax
-	@strout <"#allocmemhandle: could use a free mem handle: %lX",lf>,ebx
+	@dprintf "allocmemhandle: could use a free mem handle: %lX",ebx
 	pop eax
 	clc
 	ret

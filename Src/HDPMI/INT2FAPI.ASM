@@ -44,7 +44,7 @@ if _LTRACE_
 	jz @F
 	cmp ax,1689h		;don't log the idle calls
 	jz @F
-	@strout <"I2F: ax=%X bx=%X cx=%X dx=%X si=%lX",lf>,ax,bx,cx,dx,esi
+	@dprintf "I2F: ax=%X bx=%X cx=%X dx=%X si=%lX",ax,bx,cx,dx,esi
 @@:
 endif
 	cmp ah,15h			;CD-ROM?
@@ -118,9 +118,9 @@ if ?SUPI2F168A
 	cmp al,8Ah			  ;168A - 32 Bit extensions
 	jnz @F
 if ?32BIT
-	@strout <"I2F: ax=168a, ds:esi=%ls",lf>,ds,esi
+	@dprintf "I2F: ax=168a, ds:esi=%ls",ds,esi
 else
-	@strout <"I2F: ax=168a, ds:si=%s",lf>,ds,si
+	@dprintf "I2F: ax=168a, ds:si=%s",ds,si
 endif
 	push es
 	push cs
@@ -154,7 +154,7 @@ if ?32RTMSUPP
   endif
 endif
 endif
-	@strout <"I2F: return ax=168a, unsupported",lf>
+	@dprintf "I2F: return ax=168a, unsupported"
 	popad
 	pop es
 	iretd
@@ -168,7 +168,7 @@ isMsDos:
 	mov word ptr [esp + sizeof PUSHADS],_INTSEL_
 endif
 isVirtual:
-	@strout <"I2F: return ax=168a, supported",lf>
+	@dprintf "I2F: return ax=168a, supported"
 	popad
 	pop es
 	mov al,00
@@ -225,7 +225,7 @@ endif
 ;--- external call (i21srvr.asm)
 
 unsupp proc public
-	@printf <"int %X ">,<word ptr [esp+4]>
+	@printf <"int %X ">, word ptr [esp+4]
 	call unsuppcallx
 	ret 4
 unsupp endp

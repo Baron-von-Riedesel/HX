@@ -21,7 +21,7 @@ _TEXT32 segment
 ;--- out: watchpoint handle in BX
 
 allocwatchp proc public
-	@strout <"#allocwatchp: bx:cx(linadd)=%X:%X, dx=%X (dl=size,dh=type)",lf>,bx,cx,dx
+	@dprintf "allocwatchp: bx:cx(linadd)=%X:%X, dx=%X (dl=size,dh=type)",bx,cx,dx
 if ?ENABLEWP
 	pushad
 
@@ -111,7 +111,7 @@ allocwatchp endp
 ;--- BX=handle
         
 clearwatchp proc public
-	@strout <"#clearwatchp: bx=%X",lf>,bx
+	@dprintf "clearwatchp: bx=%X",bx
 if ?ENABLEWP
 	cmp bx,4
 	jnb clearwatchp_err
@@ -150,7 +150,7 @@ resetwatchpstate_err:
 ;--- BX=handle
         
 getwatchpstate proc public
-	@strout <"#getwatchpstate: bx=%X",lf>,bx
+	@dprintf "getwatchpstate: bx=%X",bx
 if ?ENABLEWP
 	cmp bx,4
 	jnb getwatchpstate_err
@@ -177,7 +177,7 @@ getwatchpstate endp
 ;--- BX=handle
 
 resetwatchpstate proc public
-	@strout <"#resetwatchpstate: bx=%X",lf>,bx
+	@dprintf "resetwatchpstate: bx=%X",bx
 if ?ENABLEWP
 	cmp bx,4
 	jnb resetwatchpstate_err

@@ -46,7 +46,7 @@ if 0;_LTRACE_
 	mov al,[ebx+4]
 	shl eax, 16
 	mov ax,[ebx+2]
-	@strout <"#allocsel: selector %X skipped, not free: (%lX %X %X)",lf>,bx, eax, <word ptr [ebx+0]>, <word ptr [ebx+5]>
+	@dprintf "allocsel: selector %X skipped, not free: (%lX %X %X)",bx, eax, word ptr [ebx+0], word ptr [ebx+5]
 endif
 allocsel3:
 	add ebx,8
@@ -64,7 +64,7 @@ allocsel3:
 
 	call EnlargeLDT			;all registers preserved!
 	jnc tryagain
-	@strout <"#allocsel: out of selectors (%X/%X)",lf>,bx,dx
+	@dprintf "allocsel: out of selectors (%X/%X)",bx,dx
 	jmp exit
 
 ;--- free selector found
@@ -84,9 +84,9 @@ if _LTRACE_
 	mov cx,[esp].PUSHADS.rCX
 	cmp cx,1
 	.if ZERO?
-		@strout <"#allocsel: selector %X allocated",lf>,bx
+		@dprintf "allocsel: selector %X allocated",bx
 	.else
-		@strout <"#allocsel: %X descriptors allocated, first is %X",lf>, cx, bx
+		@dprintf "allocsel: %X descriptors allocated, first is %X", cx, bx
 	.endif
 endif
 	clc
@@ -109,7 +109,7 @@ ife ?32BIT
 	@ResetTrace
 
 allocselx proc public
-	@strout <"#allocselx: try to alloc %X descs at %X",lf>,dx,bx
+	@dprintf "allocselx: try to alloc %X descs at %X",dx,bx
 	movzx eax,ss:[wLDTLimit]
 	inc eax
 	and bl,0F8h
@@ -119,7 +119,7 @@ allocselx proc public
 	jc allocselx_err1	;overflow, alloc won't succeed!
 	cmp eax,edx
 	jnc @F
-	@strout <"#allocselx: must enlarge LDT",lf>
+	@dprintf "allocselx: must enlarge LDT"
 	call EnlargeLDT
 	jc allocselx_err1	;enlarging LDT failed (out of memory?)
 @@:
@@ -141,13 +141,13 @@ allocselx proc public
 	dec ecx
 	jnz @B
 done:
-	@strout <"#allocselx: ok",lf>
+	@dprintf "allocselx: ok"
 	clc
 	ret
 allocselx_err:
 	pop ebx
 allocselx_err1:
-	@strout <"#allocselx: error",lf>
+	@dprintf "allocselx: error"
 	stc
 	ret
 	align 4
@@ -202,7 +202,7 @@ freesel1::
 	jnz @F
 	mov es, eax
 @@:
-	@strout <"#freesel: selector %X released, DS=%X",lf>,bx, [esp+4].I31FR1.wDS
+	@dprintf "freesel: selector %X released, DS=%X",bx, [esp+4].I31FR1.wDS
 	mov eax, fs
 	sub ax, bx
 	jnz @F
@@ -275,7 +275,7 @@ setrmsel proc public uses ebx eax ds
 	mov [ebx].RMSEL.pNext,eax
 @@:
 	mov eax, [esp].SETRMFR.dwSel
-	@strout <"#setrmsel: entry %lX filled with rm selector %X (segm=%lX)",lf>, ebx, ax, [esp].SETRMFR.dwSegm
+	@dprintf "setrmsel: entry %lX filled with rm selector %X (segm=%lX)", ebx, ax, [esp].SETRMFR.dwSegm
 	mov [ebx].RMSEL.sel,ax
 	lsl eax,eax
 	mov [ebx].RMSEL.limit,ax
@@ -297,7 +297,7 @@ resetrmsel proc uses ebx eax ds
 	mov eax,ebx
 	call getrmentry
 	jc exit
-	@strout <"#resetrmsel: rm selector %X is now invalid",lf>,ax
+	@dprintf "resetrmsel: rm selector %X is now invalid",ax
 	xor eax,eax
 	mov [ebx].RMSEL.sel,ax
 	mov [ebx].RMSEL.segm,ax
@@ -353,7 +353,7 @@ allocxsel proc public uses ds
 	push ss
 	pop ds
 	assume ds:GROUP16
-	@strout <"#allocxsel: alloc real mode sel, seg=%X, minlim=%X, rmsels=%lX",lf>,bx,ax,rmsels
+	@dprintf "allocxsel: alloc real mode sel, seg=%X, minlim=%X, rmsels=%lX",bx,ax,rmsels
 	mov esi,offset rmsels
 nextitem:
 	mov edx, esi
@@ -376,7 +376,7 @@ notfound:
 	mov eax,sizeof RMSEL
 	call _heapalloc
 	jc error
-	@strout <"#new entry %lX for rm sel allocated",lf>,eax
+	@dprintf "new entry %lX for rm sel allocated",eax
 	mov [esi].RMSEL.pNext,eax
 	mov esi,eax
 	xor eax,eax
@@ -385,7 +385,7 @@ notfound:
 	mov ds,ss:[selLDT]
 	call alloc1sel			;alloc new selector
 	jc error
-	@strout <"#new selector %X for rm sel allocated",lf>,ax
+	@dprintf "new selector %X for rm sel allocated",ax
 	movzx ebx,ax
 	mov dx,ax
 	and bl,0F8h

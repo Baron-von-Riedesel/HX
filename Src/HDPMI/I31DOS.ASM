@@ -20,7 +20,7 @@ _TEXT32  segment
 
 allocdos proc public
 	pushad
-	@strout <"#allocdos: try to alloc %X paragraphs DOS memory",lf>,bx
+	@dprintf "allocdos: try to alloc %X paragraphs DOS memory",bx
 	mov ah,48h
 	call rmdos
 	jc allocdos_err1
@@ -63,7 +63,7 @@ clientDS equ <[esp + sizeof PUSHADS + 4]>	;where client's DS is saved
 
 freedos proc public
 	pushad
-	@strout <"#freedos: enter dos free memory, DS=%X",lf>, word ptr clientDS
+	@dprintf "freedos: enter dos free memory, DS=%X", word ptr clientDS
 	lar eax,edx
 	jnz freedos_err			;invalid selector
 	mov ebx,edx
@@ -72,7 +72,7 @@ freedos proc public
 	mov ss:v86iret.rES, bx
 	mov ah,49h
 	call rmdos				;es=segment
-	@strout <"#freedos: rc from DOS: %X",lf>,ax
+	@dprintf "freedos: rc from DOS: %X",ax
 	jc freedos_err2
 	call selector_free
 	lar eax, clientDS
@@ -110,11 +110,11 @@ resizedos proc public
 	pushad
 	lar eax,edx
 	jnz resizedos_err		;selector is invalid
-	@strout <"#resizedos: selector %X seems ok",lf>, dx
+	@dprintf "resizedos: selector %X seems ok", dx
 	mov ebx,edx
 	call bx_sel2segm
 	jc resizedos_err2		;it's not a DOS selector
-	@strout <"#resizedos: memory is dos memory (%X)",lf>,bx
+	@dprintf "resizedos: memory is dos memory (%X)",bx
 	mov ss:v86iret.rES, bx
 ife ?32BIT
 	movzx ebx,[esp].PUSHADS.rBX
@@ -126,12 +126,12 @@ endif
 	mov ah,4Ah
 	call rmdos				;es=segment,bx=req. size
 	jc resizedos_err3
-	@strout <"#resizedos: DOS has resized memory",lf>
+	@dprintf "resizedos: DOS has resized memory"
 	movzx eax,word ptr [esp].PUSHADS.rBX
 	shl eax,4
 	call selector_resize		;resize selector DX, new size EAX
 	jc resizedos_err4		;might fail for 16-bit clients
-	@strout <"#resizedos: selectors adjusted",lf>
+	@dprintf "resizedos: selectors adjusted"
 ife ?32BIT
 	lar eax, clientDS
 	jz @F
@@ -145,20 +145,20 @@ endif
 resizedos_err4:
 	popad
 	mov ax,8011h			;"descriptor unavailable"	
-	@strout <"#resizedos: error 8011",lf>
+	@dprintf "resizedos: error 8011"
 	ret
 resizedos_err3:
 ;--- due to a bug in many DOSes even if the call failed the block has been
 ;--- resized to the max size possible. It might be good to reset it now to
 ;--- its original size, but this is NOT done by other hosts (Win9x).
-	@strout <"#resizedos: error %X, BX=%X",lf>,ax,bx
+	@dprintf "resizedos: error %X, BX=%X",ax,bx
 	mov [esp].PUSHADS.rBX, bx
 	mov [esp].PUSHADS.rAX, ax
 	popad
 	ret
 resizedos_err2:
 resizedos_err:
-	@strout <"#resizedos: error 8022",lf>
+	@dprintf "resizedos: error 8022"
 	popad
 	mov ax,8022h
 	stc

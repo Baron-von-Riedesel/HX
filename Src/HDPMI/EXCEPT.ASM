@@ -139,10 +139,10 @@ endif
 PTEout:
 	call _Linear2PT		;returns address of PTE in EDI
 	jc @F				;address not allocated
-	@printf <"%lX">, dword ptr es:[edi]
+	@printf "%lX", dword ptr es:[edi]
 	ret
 @@:
-	@printf <"???">
+	@printf "???"
 	ret
 
 _lfout:
@@ -154,7 +154,7 @@ _lfout:
 ;--- modifies EAX, ESI
 
 _stroutesi proc
-	@printf <"%ls">, cs, esi
+	@printf "%ls", cs, esi
 nextitem:
 	db 2Eh
 	lodsb
@@ -167,7 +167,7 @@ _stroutesi endp
 
 _exceptZ proc public	;exception in ring 0
 
-	@strout <"#exceptZ entry",lf>
+	@dprintf "exceptZ entry"
 ;	@waitesckey
 
 if 0
@@ -208,7 +208,7 @@ _exceptX proc public
 	push ebp		;+4=16
 	mov ebp,esp
 
-	@strout <"#exceptX exc=%X errc=%lX ss:sp=%X:%lX",lf>,\
+	@dprintf "exceptX exc=%X errc=%lX ss:sp=%X:%lX",\
 		[ebp+16].EXCFRX.wExcNo, [ebp+16].EXCFRX.rErr,\
 		[ebp+16].EXCFRX.rSS, [ebp+16].EXCFRX.rSP
 ;	@waitesckey
@@ -223,7 +223,7 @@ _exceptX proc public
 	mov eax,[ebp+16].EXCFRX.rErr
 	mov [ebp+8].R3FAULT32.rErr,eax
 if 0
-	@strout <"#sp=%X %X %X %X %X %X",lf>,\
+	@dprintf "sp=%X %X %X %X %X %X",\
 		word ptr [esi+00], word ptr [esi+02], word ptr [esi+04],\
 		word ptr [esi+06], word ptr [esi+08], word ptr [esi+10]
 endif
@@ -306,7 +306,7 @@ if 0
 	popfd
 endif
 
-	@strout <"#except wExc=%X rErr=%lX cs:ip=%X:%lX fl=%lX ss:sp=%X:%lX",lf>,\
+	@dprintf "except wExc=%X rErr=%lX cs:ip=%X:%lX fl=%lX ss:sp=%X:%lX",\
 		[ebp].wExcNo, [ebp].de.rErr, [ebp].de.rCS, [ebp].de.rIP, [ebp].de.rFL,\
 		[ebp].de.rSS, [ebp].de.rSP
 ;	@waitesckey
@@ -335,7 +335,7 @@ endif
 endif
 ;--- dump exception number
 
-	@printf <"Exception %b">, word ptr [ebp].wExcNo
+	@printf "Exception %b", word ptr [ebp].wExcNo
 	mov al,byte ptr [ebp].wExcNo
 	cmp al,10h
 	jnz @F
@@ -363,11 +363,11 @@ if ?DISPCLSP
 	push ds
 	lds esi,[ebx-sizeof IRET32].IRET32.rSSSP]
 	@printf <"client [ESP]=%lX,%lX,%lX",lf>,\
-		<dword ptr [esi+0]>,<dword ptr [esi+4]>,<dword ptr [esi+8]>
+		dword ptr [esi+0], dword ptr [esi+4], dword ptr [esi+8]
 	pop ds
 endif
 @@:
-	@strout <"#r0sp=%X %X %X %X %X %X %X %X %X",lf>, bx,\
+	@dprintf "r0sp=%X %X %X %X %X %X %X %X %X", bx,\
 		word ptr [ebx-16], word ptr [ebx-14], word ptr [ebx-12],\
 		word ptr [ebx-10], word ptr [ebx-08], word ptr [ebx-06],\
 		word ptr [ebx-04], word ptr [ebx-02]
@@ -415,10 +415,10 @@ nextsegm:
 	lsl eax, edi
 	lar edx, edi
 	shr edx, 8
-	@printf <"%X (%lX,%lX,%X)">, di, ebx, eax, dx
+	@printf "%X (%lX,%lX,%X)", di, ebx, eax, dx
 	jmp @F
 novalidsel:
-	@printf <"%X (********,********,****)">, di
+	@printf "%X (********,********,****)", di
 @@:
 	dec cl
 	jnz nextsegm
@@ -428,7 +428,7 @@ novalidsel:
 	jc @F
 	and eax, eax
 	jz @F
-	@printf <" PTE 1. Page LDT=">
+	@printf " PTE 1. Page LDT="
 	call PTEout
 @@:
 	call _lfout
@@ -438,12 +438,12 @@ novalidsel:
 	sub esp,2*6
 	sidt [esp+6]
 	sgdt [esp+0]
-	@printf <"GDTR=%X:%lX IDTR=%X:%lX PTE CR2=">
+	@printf "GDTR=%X:%lX IDTR=%X:%lX PTE CR2="
 	add esp,2*6
 	mov eax,cr2
 	call PTEout
 if 0
-	@printf <" Stat=%X",lf>,<word ptr cApps>
+	@printf <" Stat=%X",lf>, word ptr cApps
 else
 	call _lfout
 endif
@@ -454,11 +454,11 @@ endif
 	push eax
 	mov eax,cr0
 	push eax
-	@printf <"CR0=%lX CR2=%lX CR3=%lX ">
+	@printf "CR0=%lX CR2=%lX CR3=%lX "
 	cmp _cpu,5
 	jb @F
 	@mov_eax_cr4
-	@printf <"CR4=%lX ">, eax
+	@printf "CR4=%lX ", eax
 @@:
 ;	@printf <"TSS:ESP0=%lX (%lX)",lf>, taskseg._Esp0, dwHSExcR3
 	@printf <"TSS:ESP0=%lX",lf>, taskseg._Esp0
@@ -489,7 +489,7 @@ endif
 
 if ?LOGINT31
 externdef i31func:word
-	@strout <"last i31 call: %X",lf>,i31func
+	@dprintf "last i31 call: %X",i31func
 endif
 
 ;--- now try to display memory contents [EIP] + [ESP]
@@ -553,7 +553,7 @@ esp_done:
 	mov [bExcMode], 0
 
 if ?LOGINT30
-	@strout <"#last int 30=%X",lf>,[lint30]
+	@dprintf "last int 30=%X",[lint30]
 endif
 
 ifdef _DEBUG

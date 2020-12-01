@@ -114,7 +114,7 @@ endif
 if _LTRACE_ and ?RMCBLOG
 	push bp
 	mov bp,sp
-	@stroutrm <"-rm cb rmSS:SP=%X:%X, Fl=%X, old RMS=%X:%X ds=%X es=%X fs=%X gs=%X",lf>,\
+	@drprintf "rm cb rmSS:SP=%X:%X, Fl=%X, old RMS=%X:%X ds=%X es=%X fs=%X gs=%X",\
 		cs:v86iret.rSS, cs:v86iret.rSP, cs:MyRMCS.rFlags,\
 		cs:wrmSStmp, cs:wrmSPtmp, ds, es, fs, gs
 	pop bp
@@ -187,7 +187,7 @@ if _LTRACE_
 	pop ds
 	push ds
 	pop es
-	@strout <"#rmcb, callerCS=%X, wHostSeg=%X, edi=%lX, rmcs=%X:%lX",lf>, \
+	@dprintf "rmcb, callerCS=%X, wHostSeg=%X, edi=%lX, rmcs=%X:%lX", \
 		ss:[MyRMCS.rCS], ss:[wHostSeg], edi, word ptr cs:[edi+offset clrmcbs].RMCB.rmcs+4, dword ptr cs:[edi+offset clrmcbs].RMCB.rmcs
 endif
 	les edi, fword ptr cs:[edi+offset clrmcbs].RMCB.rmcs
@@ -248,7 +248,7 @@ else
 	xor ecx,ecx
 	mov ds,ecx
 
-	@strout <"#rmcb: will try to alloc a rm-selector",lf>
+	@dprintf "rmcb: will try to alloc a rm-selector"
 
 	mov bx,ss:v86iret.rSS
 	mov ax,-1
@@ -267,7 +267,7 @@ endif
 	mov es:[edi].RMCS.rSP,si
 
 if _LTRACE_ and ?RMCBLOG
-	@strout <"#rmcb, rm ES-DS-FS-GS=%X %X %X %X hs=%lX",lf>, eax, ecx, esp
+	@dprintf "rmcb, rm ES-DS-FS-GS=%X %X %X %X hs=%lX", eax, ecx, esp
 endif
 
 	@checkhoststack
@@ -287,16 +287,16 @@ endif
 if _LTRACE_ and ?RMCBLOG
 	push ebp
 	mov ebp,esp
-	@strout <"#rmcb, IRET32 frame for lpms_call_int: %lX %lX %lX %lX %lX",lf>,\
+	@dprintf "rmcb, IRET32 frame for lpms_call_int: %lX %lX %lX %lX %lX",\
 		[ebp+4].IRET32.rIP, [ebp+4].IRET32.rCSd, [ebp+4].IRET32.rFL,\
 		[ebp+4].IRET32.rSP, [ebp+4].IRET32.rSSd
 	pop ebp
 
  if ?32BIT
-	@strout <"#rmcb, jmp to pm proc=%X:%lX, EDI=%lX:%lX, ESI=%lX:%lX, HS=%lX",lf>,\
+	@dprintf "rmcb, jmp to pm proc=%X:%lX, EDI=%lX:%lX, ESI=%lX:%lX, HS=%lX",\
 		word ptr cs:[eax].R3PROC._Cs,cs:[eax].R3PROC._Eip,es,edi,ds,esi,ss:taskseg._Esp0
  else
-	@strout <"#rmcb, jmp to pm proc=%X:%X,ES:DI=%lX:%X,DS:SI=%lX:%X,HS=%lX",lf>,\
+	@dprintf "rmcb, jmp to pm proc=%X:%X,ES:DI=%lX:%X,DS:SI=%lX:%X,HS=%lX",\
 		cs:[eax].R3PROC._Cs,cs:[eax].R3PROC._Eip,es,di,ds,si,ss:taskseg._Esp0
  endif
 endif
@@ -319,13 +319,13 @@ rmcb_pm endp
 _retcb proc public						;stack irrelevant?
 if _LTRACE_ and ?RMCBLOG
 	mov ebp,esp
-	@strout <"#ret rmcb: [esp]=%lX,%lX,%lX,%lX,%lX",lf>,\
+	@dprintf "ret rmcb: [esp]=%lX,%lX,%lX,%lX,%lX",\
 		[ebp+0],[ebp+4],[ebp+8],[ebp+12],[ebp+16]
  if ?32BIT
-	@strout <"#ret rmcb %X: ES:EDI=%lX:%lX,HS=%lX",lf>,\
+	@dprintf "ret rmcb %X: ES:EDI=%lX:%lX,HS=%lX",\
 		ss:[cRMCB],es,edi,ss:taskseg._Esp0
  else
-	@strout <"rm cb ret: ES:DI=%lX:%X,HS=%lX",lf>,\
+	@dprintf "rm cb ret: ES:DI=%lX:%X,HS=%lX",\
 		es,di,ss:taskseg._Esp0
  endif
 endif
@@ -371,7 +371,7 @@ endif
 	pop edi
 
 ;--- can a display be done here (won't it change v86iret?)
-;	@strout <"#ret rmcb: rmSS:SP=%X:%X",lf>,ss:v86iret.rSS,ss:v86iret.rSP
+;	@dprintf "ret rmcb: rmSS:SP=%X:%X",ss:v86iret.rSS,ss:v86iret.rSP
 
 	lea esp, [esp+ sizeof IRET32]	;skip the IRET32 frame build in rmcb_pm
 	@popstate				;restore client state
@@ -435,12 +435,12 @@ if _LTRACE_
 	jnz @F
 ;--- bug in borland's 32rtm: hiword(edi) isn't cleared in all cases.
 ;--- set environment variable HDPMI=2048 to catch this error!
-	@strout <"call rm: EDI[=%lX] exceeds ES segment limit %lX !!!",lf>, edi, eax
+	@dprintf "call rm: EDI[=%lX] exceeds ES segment limit %lX !!!", edi, eax
 	stc
 	jmp error1x
 @@:
 endif
-	@strout <"call rm RMS=%X:%X rmcs: a-d=%X %X %X %X, d-e=%X %X, stk=%X:%X",lf>, ss:v86iret.rSS, ss:v86iret.rSP,\
+	@dprintf "call rm RMS=%X:%X rmcs: a-d=%X %X %X %X, d-e=%X %X, stk=%X:%X", ss:v86iret.rSS, ss:v86iret.rSP,\
 		es:[edi].RMCS.rAX, es:[edi].RMCS.rBX, es:[edi].RMCS.rCX, es:[edi].RMCS.rDX,\
 		es:[edi].RMCS.rDS, es:[edi].RMCS.rES, es:[edi].RMCS.rSS, es:[edi].RMCS.rSP
 	mov ebp,esp
@@ -485,7 +485,7 @@ endif
 	sub eax,ecx
 	jc error1
 	mov esi,ss:taskseg._Esp0		 ;client stack -> ds:si
-	@strout <"copy stack parms, %X words src=%X:%lX",lf>, cx,\
+	@dprintf "copy stack parms, %X words src=%X:%lX", cx,\
 		[esi-sizeof IRET32].IRET32.rSS, [esi-sizeof IRET32].IRET32.rSP
 	lds esi,ss:[esi-sizeof IRET32].IRET32.rSSSP
 	shr ecx,1	;byte to words
@@ -596,7 +596,7 @@ endif
 	mov es, eax
 	pop ds
 	popad
-	@strout <"#callrmproc_pm: exit, NC, RMS=%X:%X",lf>, ss:v86iret.rSS, ss:v86iret.rSP
+	@dprintf "callrmproc_pm: exit, NC, RMS=%X:%X", ss:v86iret.rSS, ss:v86iret.rSP
 	clc
 	ret
 	align 4
@@ -613,7 +613,7 @@ _callrmproc endp
 allocrmcb proc public
 
 	pushad
-	@strout <"#allocrmcb: enter ds:esi=%lX:%lX es:edi=%lX:%lX",lf>,ds,esi,es,edi
+	@dprintf "allocrmcb: enter ds:esi=%lX:%lX es:edi=%lX:%lX",ds,esi,es,edi
 	mov eax,ds
 ;	push ss
 	push byte ptr _CSALIAS_
@@ -629,7 +629,7 @@ alloccb2:
 	dec cl
 	jnz alloccb2
 	popad
-	@strout <"#allocrmcb: error, no free rmcbs available",lf>
+	@dprintf "allocrmcb: error, no free rmcbs available"
 	stc
 	ret
 @@:
@@ -643,20 +643,20 @@ else
 endif
 	mov dword ptr [ebx].RMCB.rmcs+0, edi
 	mov word ptr [ebx].RMCB.rmcs+4, es
-;	@strout <"#allocrmcb: rmcb allocated: %X:%lX %lX:%lX",lf>, ax,esi,es,edi
+;	@dprintf "allocrmcb: rmcb allocated: %X:%lX %lX:%lX", ax,esi,es,edi
 	mov esi, ecx
 if ?RMCBSTATICSS
 	mov cx,1
 	xor eax,eax
 	@int_31
 	jnc @F
-	@strout <"#allocrmcb: error, no free descriptor for rmSS",lf>
+	@dprintf "allocrmcb: error, no free descriptor for rmSS"
 	mov [ebx].RMCB._Cs,0
 	popad
 	stc
 	ret
 @@:
-	@strout <"#allocrmcb: allocated selector for rmSS=%X",lf>, ax
+	@dprintf "allocrmcb: allocated selector for rmSS=%X", ax
 	mov [ebx].RMCB.wSS, ax
 	mov bx, ax
 	mov dx,-1
@@ -674,7 +674,7 @@ endif
 	shl ax,4
 	sub dx,ax
 	mov [esp].PUSHADS.rDX, dx
-	@strout <"#allocrmcb: returned callback=%X:%X",lf>,cx,dx
+	@dprintf "allocrmcb: returned callback=%X:%X",cx,dx
 	popad
 	clc
 	ret
@@ -687,7 +687,7 @@ allocrmcb endp
 
 freermcb proc public
 	pushad
-	@strout <"#freermcb: free real mode callback %X:%X",lf>, cx, dx
+	@dprintf "freermcb: free real mode callback %X:%X", cx, dx
 	push byte ptr _CSALIAS_
 	pop ds
 	assume ds:GROUP32
@@ -712,12 +712,12 @@ if ?RMCBSTATICSS
 	mov ax, 1
 	@int_31	;ignore errors here
 endif
-	@strout <"#freermcb: ok",lf>
+	@dprintf "freermcb: ok"
 	popad
 	clc
 	ret
 freecberr:
-	@strout <"#freermcb: error, invalid cb or cb already free",lf>
+	@dprintf "freermcb: error, invalid cb or cb already free"
 	popad
 	stc
 	ret
@@ -786,7 +786,7 @@ srtask proc
 	push ss
 	pop ds
 	assume ds:GROUP16
-	@strout <"#srtask: task state save, es:edi=%lX:%lX",lf>,es,edi
+	@dprintf "srtask: task state save, es:edi=%lX:%lX",es,edi
 @@:
 	movsw
 	add esi,2  
@@ -796,7 +796,7 @@ srtask proc
 	jmp exit
 srtask_restore:
 ;--- restore task state
-	@strout <"#srtask: task state restore, es:di=%lX:%lX",lf>,es,edi
+	@dprintf "srtask: task state restore, es:edi=%lX:%lX",es,edi
 	xchg esi, edi
 	push es
 	pop ds
@@ -811,8 +811,8 @@ srtask_restore:
 exit:
 	movsd	; pmstate is 8 bytes!
 	movsd
-	movsd	;v3.19: pmstate is 16 bytes
-	movsd
+	movsd	;v3.19: real size of pmstate is 8+6 bytes
+	movsw	;the last item is a segment register
 	pop edi
 	pop esi
 	ret
@@ -889,33 +889,35 @@ else
 	push cs
 	cmp al,0
 	jnz srtask_restore
-	@stroutrm <"-srtask_rm: task state save, es:di=%X:%X",lf>, es, di
+	@drprintf "srtask_rm: task state save, es:di=%X:%X", es, di
 	pop ds
 	assume DS:GROUP16
 @@:
 	movsw
-	add si,2
+	inc si
+	inc si
 	cmp si, offset pmstate	;v86iret.rSP+6*4
 	jnz @B
 ;	mov si, offset pmstate
 	jmp exit
 srtask_restore:
-	@stroutrm <"-srtask_rm: task state restore, es:di=%X:%X",lf>,es,di
+	@drprintf "srtask_rm: task state restore, es:di=%X:%X",es,di
 	xchg si, di
 	push es
 	pop ds
 	pop es
 @@:
 	movsw
-	add di,2
+	inc di
+	inc di
 	cmp di, offset pmstate	;v86iret.rSP+6*4
 	jnz @B
 ;	mov di, offset pmstate
 exit:
 	movsd
 	movsd
-	movsd	;v3.19 pmstate is 16 bytes
-	movsd
+	movsd	;v3.19 real size of pmstate is 8 + 6 bytes
+	movsw	;the last item is a segment register
 	popa
 	pop es
 	pop ds
@@ -947,7 +949,7 @@ if ?32BIT
 else
 	mov di,_RMSWT_
 endif
-	@strout <"#get raw mode switch addresses, si:di=%X:%X, bx:cx=%X:%X",lf>,si,di,bx,cx
+	@dprintf "get raw mode switch addresses, si:di=%X:%X, bx:cx=%X:%X",si,di,bx,cx
 	clc
 	ret
 	align 4
@@ -981,7 +983,7 @@ rm2pm_brk::
 
 	pop cs:[tmpFLReg]
 ife ?DOSOUTPUT
-	@stroutrm <"-rm2pm: ">
+	@drprintf "rm2pm: si:edi=%X:%lX ax=%X cx=%X",si,edi,ax,cx
 endif
 
 ife ?RAW_SETDEFRMSINPM
@@ -1014,7 +1016,7 @@ ife ?32BIT
 endif
 	mov fs,eax
 	mov gs,eax
-;	@strout <"now in protected mode, DS,ES=%X,%X",lf>,ds,es
+;	@dprintf "now in protected mode, DS,ES=%X,%X",ds,es
 	mov [esp].IRET32.rIP, edi
 	mov ax,ss:[tmpFLReg]
 	mov [esp].IRET32.rCSd, esi
@@ -1027,10 +1029,10 @@ endif
 	@checkhoststack
 
 if ?32BIT
-	@strout <"#rm2pm: CS:Eip=%X:%lX, SS:Esp=%X:%lX, RMS=%X:%X",lf>,\
+	@dprintf "rm2pm: CS:Eip=%X:%lX, SS:Esp=%X:%lX, RMS=%X:%X",\
 		si, edi, dx, ebx, ss:v86iret.rSS, ss:v86iret.rSP
 else
-	@strout <"#rm2pm: CS:Ip=%X:%X, SS:Sp=%X:%X, RMS=%X:%X, HS=%lX",lf>,\
+	@dprintf "rm2pm: CS:Ip=%X:%X, SS:Sp=%X:%X, RMS=%X:%X, HS=%lX",\
 		si, di, dx, bx, ss:v86iret.rSS, ss:v86iret.rSP, esp
 endif
 	iretd
@@ -1059,7 +1061,7 @@ if ?SETRMIOPL	;is 0 by default
 	or byte ptr [esp+1],?RMIOPL
 endif
 	pop ss:tmpFLRegD
-	@strout <"#pm2rm: CS:IP=%X:%X, SS:SP=%X:%X, DS=%X, FL=%X, hs=%lX",lf>,\
+	@dprintf "pm2rm: CS:IP=%X:%X, SS:SP=%X:%X, DS=%X, FL=%X, hs=%lX",\
 		si, di, dx, bx, ax, ss:tmpFLReg, esp
 
 if ?RAW_SETDEFRMSINPM
@@ -1082,7 +1084,7 @@ ife ?RAW_SETDEFRMSINPM
 	mov ss,dx
 	mov sp,bx
 endif
-;	@stroutrm <"-pm2rm: cur RMS=%X:%X, SS:SP=%X:%X",lf>,\
+;	@drprintf "pm2rm: cur RMS=%X:%X, SS:SP=%X:%X",\
 ;		cs:v86iret.rSS, cs:v86iret.rSP, ss, sp 
 	push cs:tmpFLReg
 	push si			;push CS
