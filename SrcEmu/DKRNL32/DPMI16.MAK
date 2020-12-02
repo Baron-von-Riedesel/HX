@@ -78,9 +78,6 @@ $(OUTDIR)\$(NAME).LIB: $(OBJMODS)
 $(OBJNAMES:\.=+) $(OTHERMODS:\.=+)
 <<
 	@cd ..
-!if $(DEBUG)==0
-	copy $*.LIB $(LIBOMF)\*.*
-!endif    
 
 $(OBJMODS): dkrnl32.inc
 

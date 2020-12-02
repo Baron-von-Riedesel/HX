@@ -78,10 +78,6 @@ lib { $(OUTDIR)\$(LIBNAME).LIB $(LIBS) }
 op q, map=$*, implib=$*.lib @$(NAME).rsp
 <<
 !endif
-!if $(DEBUG)==0
-	@copy $*.lib $(LIBCOFF)\*.* >NUL
-	@copy $(OUTDIR)\$(LIBNAME).lib $(LIBCOFF)\*.* >NUL
-!endif
 
 WLIBMODS=$(SRCMODS:.\=+)
 

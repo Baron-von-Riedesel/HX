@@ -65,9 +65,6 @@ $(OUTDIR)\$(NAME).LIB: $(OBJMODS) $(OUTDIR)\winmm.obj
 $(OBJNAMES:.\=+)
 <<
 	@cd ..
-!if $(DEBUG)==0
-#	@copy $*.LIB $(LIBOMF)\*.* >NUL
-!endif    
 
 $(OBJMODS): winmm.inc
 

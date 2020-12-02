@@ -66,9 +66,6 @@ $(OUTDIR)\$(NAME).LIB: $(OBJMODS)
 $(OBJNAMES:.\=+)
 <<
 	@cd ..
-!if $(DEBUG)==0
-#	@copy $*.LIB $(LIBOMF)\*.* >NUL
-!endif    
 
 clean:
 	@del $(OUTDIR)\*.obj

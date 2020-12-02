@@ -74,10 +74,6 @@ $(LOPTS) $(LOPTD)
 op q, map=$*, implib=$* @$(NAME).rsp
 <<
 !endif
-!if $(DEBUG)==0
-	@copy $*.LIB $(LIBCOFF)\*.* >NUL
-	@copy $(OUTDIR)\$(LIBNAME).LIB $(LIBCOFF)\*.* >NUL
-!endif
 
 WLIBMODS=$(SRCMODS:.\=+)
 

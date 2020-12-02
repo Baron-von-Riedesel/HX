@@ -111,10 +111,6 @@ $(OUTD2)\$(NAME).DLL: $(OBJMODS2) $(OUTD2)\$(LIBNAME).lib $(OUTD1)\$(NAME).obj $
 !else
 	@$(LINKBIN) format windows pe hx dll name $*.DLL f { $(OUTD1)\$(NAME).obj $(OUTD1)\procfeat.obj } lib $(OUTD1)\$(LIBNAME).lib op q, map=$*, implib=$* @dkrnl32.rsp
 !endif
-!if $(DEBUG)==0
-	@copy $*.LIB ..\..\Lib\*.* >NUL
-	@copy $(OUTD2)\$(LIBNAME).lib ..\..\Lib\*.* >NUL
-!endif    
 
 $(OBJMODS2): dkrnl32.inc
 

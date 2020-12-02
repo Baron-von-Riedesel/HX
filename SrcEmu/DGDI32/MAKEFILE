@@ -64,10 +64,6 @@ $(OUTDIR)\$(NAME).DLL: $(OUTDIR)\$(LIBNAME).LIB $(OUTDIR)\$(NAME).obj $(NAME).rs
 !else
 	@$(LINKBIN) format win pe dll f $(OUTDIR)\$(NAME).obj name $*.DLL libpath $(LIBCOFF) lib { $(OUTDIR)\$(LIBNAME).LIB $(LIBS) } op q, map=$*, implib=$* @$(NAME).rsp
 !endif
-!if $(DEBUG)==0
-	@copy $*.LIB $(LIBCOFF)\*.* >NUL
-	@copy $(OUTDIR)\$(LIBNAME).LIB $(LIBCOFF)\*.* >NUL
-!endif
 
 WLIBMODS=$(SRCMODS:.\ASM=+)
 

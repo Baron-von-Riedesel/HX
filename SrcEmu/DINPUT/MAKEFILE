@@ -67,15 +67,6 @@ $(LOPTD)
 !else
 	@$(LINKBIN) format win pe dll name $*.DLL f $(OUTDIR)\$(NAME).obj libpath $(LIBCOFF) lib {$(OUTDIR)\$(LIBNAME).lib $(LIBS)} op q, map=$*, implib=$* @$(NAME).rsp
 !endif
-!if $(DEBUG)==0
-	@copy $*.DLL ..\..\bin\*.* >NUL
-!ifdef DLL32DIR   
-	@copy $*.DLL $(DLL32DIR)\*.* >NUL
-!endif
-# the libs aren't used outside
-#	@copy $*.lib $(LIBCOFF)\*.* >NUL
-#	@copy $(OUTDIR)\$(LIBNAME).lib $(LIBCOFF)\*.* >NUL
-!endif
 
 WLIBMODS=$(SRCMODS:.\=+)
 

@@ -71,9 +71,6 @@ $(OUTDIR)\$(NAME).LIB: $(OBJMODS) $(OUTDIR)\int21lfn.obj
 $(OBJNAMES:\.=+) $(OTHERMODS:\.=+)
 <<
 	@cd ..
-!if $(DEBUG)==0
-#	@copy $*.LIB $(LIBOMF)\*.* >NUL
-!endif    
 
 $(OUTDIR)\int21lfn.obj:
 	@copy ..\NTLFNHLP\OMF\int21lfn.obj $(OUTDIR)\*.*

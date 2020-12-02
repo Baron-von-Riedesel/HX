@@ -9,9 +9,10 @@
 # please note: the names of LIBCOFF and LIBOMF should be different
 # in any case, because files may have equal names
 
-LIBCOFF=..\..\Lib
-LIBOMF=..\..\LibOMF
-INC32DIR=..\..\Include
+HXINST=\hx
+LIBCOFF=$(HXINST)\Lib
+LIBOMF=$(HXINST)\LibOMF
+INC32DIR=$(HXINST)\Include
 INC16DIR=.
 
 OWDIR=\watcom

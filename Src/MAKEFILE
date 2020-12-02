@@ -66,52 +66,62 @@ ALL:
     cd ..
 
 install: 
-	@copy HDPMI\STD16\HDPMI16.EXE   ..\Bin
-	@copy HDPMI\STD32\HDPMI32.EXE   ..\Bin
-	@copy HDPMI\STUB16\HDPMI16.INC  ..\Include
-	@copy HDPMI\STUB32\HDPMI32.INC  ..\Include
-	@copy HDPMI\HDPMIST\HDPMIST.EXE ..\Bin
-	@copy HDPMI\HDPMI.TXT           ..\Doc
-	@copy HDPMI\HDPMIHIS.TXT        ..\Doc
+	@copy HDPMI\STD16\HDPMI16.EXE   $(HXINST)\Bin
+	@copy HDPMI\STD32\HDPMI32.EXE   $(HXINST)\Bin
+	@copy HDPMI\STUB16\HDPMI16.INC  $(HXINST)\Include
+	@copy HDPMI\STUB32\HDPMI32.INC  $(HXINST)\Include
+	@copy HDPMI\HDPMIST\HDPMIST.EXE $(HXINST)\Bin
+	@copy HDPMI\HDPMI.TXT           $(HXINST)\Doc
+	@copy HDPMI\HDPMIHIS.TXT        $(HXINST)\Doc
 
-	@copy DPMILDR\STD16\DPMILD16.EXE   ..\Bin
-	@copy DPMILDR\STD32\DPMILD32.EXE   ..\Bin
-	@copy DPMILDR\STUB16\DPMILD16.BIN  ..\Bin
-	@copy DPMILDR\STUB32\DPMILD32.BIN  ..\Bin
-	@copy DPMILDR\STUBX16\HDLD16.BIN   ..\Bin
-	@copy DPMILDR\STUBX32\HDLD32.BIN   ..\Bin
-	@copy DPMILDR\NOLFN32\DPMILD32.EXE ..\UnSupp
-	@copy DPMILDR\DPMILD16.TXT         ..\Doc
-	@copy DPMILDR\DPMILD32.TXT         ..\Doc
+	@copy DPMILDR\STD16\DPMILD16.EXE   $(HXINST)\Bin
+	@copy DPMILDR\STD32\DPMILD32.EXE   $(HXINST)\Bin
+	@copy DPMILDR\STUB16\DPMILD16.BIN  $(HXINST)\Bin
+	@copy DPMILDR\STUB32\DPMILD32.BIN  $(HXINST)\Bin
+	@copy DPMILDR\STUBX16\HDLD16.BIN   $(HXINST)\Bin
+	@copy DPMILDR\STUBX32\HDLD32.BIN   $(HXINST)\Bin
+	@copy DPMILDR\NOLFN32\DPMILD32.EXE $(HXINST)\UnSupp
+	@copy DPMILDR\DPMILD16.TXT         $(HXINST)\Doc
+	@copy DPMILDR\DPMILD32.TXT         $(HXINST)\Doc
 
-	@copy STUBS\Release\DPMIST16.BIN ..\Bin
-	@copy STUBS\Release\DPMIST32.BIN ..\Bin
-	@copy STUBS\Release\LOADPE.BIN   ..\Bin
-	@copy STUBS\Release\LOADPEX.BIN  ..\Bin
-	@copy STUBS\Release\LOADPXNR.BIN ..\Bin
-	@copy STUBS\STUBS.TXT            ..\Doc
+	@copy STUBS\Release\DPMIST16.BIN  $(HXINST)\Bin
+	@copy STUBS\Release\DPMIST32.BIN  $(HXINST)\Bin
+	@copy STUBS\Release\LOADPE.BIN    $(HXINST)\Bin
+	@copy STUBS\Release\LOADPEX.BIN   $(HXINST)\Bin
+	@copy STUBS\Release\LOADPXNR.BIN  $(HXINST)\Bin
+	@copy STUBS\STUBS.TXT             $(HXINST)\Doc
 
-	@copy HXLDR32\Release\HXLDR32.EXE ..\Bin
-	@copy HXLDR32\Release\HXDOSLD.EXE ..\Bin
-	@copy HXLDR32\HXLDR32.TXT         ..\Doc
-	@copy HXLDR32\HXDOSLD.TXT         ..\Doc
+	@copy HXLDR32\Release\HXLDR32.EXE $(HXINST)\Bin
+	@copy HXLDR32\Release\HXDOSLD.EXE $(HXINST)\Bin
+	@copy HXLDR32\HXLDR32.TXT         $(HXINST)\Doc
+	@copy HXLDR32\HXDOSLD.TXT         $(HXINST)\Doc
 
-	@copy PATCHPE\Release\PATCHPE.EXE ..\Bin
-	@copy PATCHPE\PATCHPE.TXT         ..\Doc
+	@copy PATCHPE\Release\PATCHPE.EXE $(HXINST)\Bin
+	@copy PATCHPE\PATCHPE.TXT         $(HXINST)\Doc
 
-	@copy EDITPE\Release\EDITPE.EXE   ..\Bin
-	@copy EDITPE\Release\EXTRMZ.EXE   ..\Bin
-	@copy EDITPE\EDITPE.TXT           ..\Doc
-	@copy PESTUB\Release\PESTUB.EXE   ..\Bin
-	@copy PESTUB\PESTUB.TXT           ..\Doc
+	@copy EDITPE\Release\EDITPE.EXE   $(HXINST)\Bin
+	@copy EDITPE\Release\EXTRMZ.EXE   $(HXINST)\Bin
+	@copy EDITPE\EDITPE.TXT           $(HXINST)\Doc
+	@copy PESTUB\Release\PESTUB.EXE   $(HXINST)\Bin
+	@copy PESTUB\PESTUB.TXT           $(HXINST)\Doc
 
-	@copy SB16\Release\SB16.DLL       ..\Bin
-#	@copy SB16\SB16.TXT               ..\Doc
+	@copy SB16\Release\SB16.DLL       $(HXINST)\Bin
+#	@copy SB16\SB16.TXT               $(HXINST)\Doc
 
-	@copy VESA32\Release\VESA32.DLL   ..\Bin
-	@copy VESA32\VESA32.TXT           ..\Doc
+	@copy VESA32\Release\VESA32.DLL   $(HXINST)\Bin
+	@copy VESA32\Release\VESA32.LIB   $(HXINST)\Lib
+	@copy VESA32\Release\VESA32S.LIB  $(HXINST)\Lib
+	@copy VESA32\VESA32.TXT           $(HXINST)\Doc
 
-	@copy DPMI\Release\DPMI.EXE       ..\Bin
+	@copy DPMI\Release\DPMI.EXE       $(HXINST)\Bin
+
+	@copy MZSUPP\Release\JMPPM32.LIB  $(HXINST)\LibOMF
+	@copy MZSUPP\Release\JMPPM32.OBJ  $(HXINST)\LibOMF
+	@copy MZSUPP\Release\LOADSRVR.OBJ $(HXINST)\LibOMF
+	@copy MZSUPP\Release\DEFSTACK.OBJ $(HXINST)\LibOMF
+	@copy MZSUPP\Release\DMYSRVR.OBJ  $(HXINST)\LibOMF
+	@copy MZSUPP\Release\DMYMOVE.OBJ  $(HXINST)\LibOMF
+	@copy MZSUPP\Release\InitPM.OBJ   $(HXINST)\LibOMF
 
 clean: 
     cd    HDPMI
