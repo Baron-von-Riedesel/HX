@@ -3,8 +3,7 @@
 
   This package contains the source code of HX DOS extender.
   It should be unzipped in HX's runtime directory. Furthermore, the 
-  HX developer support is needed to get the include files used by
-  this source.
+  HX developer support is needed.
 
   It may be necessary to slightly modify the Makefiles supplied.
   Please read the comments in SRC\Makefile and Src\Dirs first.
@@ -20,16 +19,10 @@
 
   3. Files Overview
 
-  þ Bin\EditPE.exe: can edit PE binaries. Needed to create HDPMI in
-    PE format.
-
-  þ Bin\ExtrMZ.exe: can extract parts of MZ binaries, and optionally
-    translate it to include files.
-
-  þ Bin\SetMZHdr.exe: simple tool to modify the DOS MZ header for the
-    HDPMI binary. This is done immediately after the link step.
-
-  þ Src & SrcEmu: these directories contain the HX source itself:
+  HX source is splitted into a basic part, contained in directory SRC,
+  and the Win32 emulation part, contained in directory SRCEMU.
+ 
+  3.1. Directory SRC
 
     directory    source code of
    -----------------------------------------------------------------
@@ -49,7 +42,7 @@
     Vesa32       Vesa32.dll/Vesa32s.lib
     VesaMTRR     VesaMTRR.EXE
 
-    The source of the Win32 emulation dlls in SrcEmu is:
+  3.2. Directory SRCEMU
 
     directory    Module    Win32 name (if it differs)
    -----------------------------------------------------------------

@@ -58,3 +58,9 @@ op q,m=$*.map, stub=dpmist32.bin, start=_mainCRTStartup $(LOPTD)
 
 $(OUTDIR)/$(name2).obj: $(name2).asm makefile
 	$(ASM) $(name2).asm
+
+clean:
+	@del $(OUTDIR)\*.exe
+	@del $(OUTDIR)\*.obj
+	@del $(OUTDIR)\*.lst
+	@del $(OUTDIR)\*.map

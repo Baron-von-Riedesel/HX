@@ -87,6 +87,7 @@ local	linmem:dword
 local	dosmemsel:dword
 local	rmcs:RMCS
 
+	mov edi,pInfo
 	xor eax,eax
 	mov dosmemsel,eax
 	mov ax,0100h				  ;alloc DOS memory
@@ -106,6 +107,7 @@ local	rmcs:RMCS
 	movzx eax,ax
 	shl eax,4
 	mov linmem,eax
+	push edi
 	mov edi,eax
 	mov ecx,sizeof SVGAINFO/4
 	xor eax,eax
@@ -142,10 +144,10 @@ if ?FLAT eq 0
 else
 	rep movsd
 endif
+	pop edi
 	jc getvesainfo_er
 	cmp rmcs.rAX,004Fh
 	jnz getvesainfo_er
-	mov edi,pInfo
 	invoke IsModeSupported, edi
 	test [edi].SVGAINFO.ModeAttributes, VESAATTR_LFB_SUPPORTED
 	jz noLFB
@@ -197,10 +199,12 @@ mapped_already:
 	mov [edi].SVGAINFO.PhysBasePtr,eax
 	jmp getvesainfo_ex
 noLFB:
+	mov [edi].SVGAINFO.PhysBasePtr,0	;2.12.2020: ensure this field won't contain a physical addr
 	test byte ptr dwMode+1,40h	 ;linear frame buffer obligatory?
 	jz getvesainfo_ex
 getvesainfo_er:
 	xor eax,eax
+	mov [edi].SVGAINFO.PhysBasePtr,eax	;2.12.2020: ensure this field won't contain a physical addr
 getvesainfo_ex:
 	mov edx,dosmemsel
 	and edx,edx

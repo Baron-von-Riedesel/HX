@@ -65,9 +65,6 @@ $(OUTDIR)\$(NAME).LIB: $(OBJMODS) $(OUTDIR)\sb16.obj
 $(OBJNAMES:.\=+)
 <<
 	@cd ..
-!if $(DEBUG)==0
-#	@copy $*.LIB $(LIBOMF)\*.* >NUL
-!endif    
 
 $(OBJMODS): sb.inc dma.inc
 

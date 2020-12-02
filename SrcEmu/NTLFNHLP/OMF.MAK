@@ -61,10 +61,6 @@ $(OUTDIR)\$(NAME).lib: $(OBJMODS)
 $(OBJNAMES:.\=+)
 <<
 	@cd ..
-!if $(DEBUG)==0
-#	@copy $*.lib $(LIBOMF)\*.* >NUL
-	@copy $(OUTDIR)\*.obj ..\DKRNL32\OMF\*.obj >NUL
-!endif    
 
 clean:
 	@del $(OUTDIR)\*.obj

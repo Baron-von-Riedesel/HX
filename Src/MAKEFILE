@@ -98,6 +98,8 @@ install:
 
 	@copy PATCHPE\Release\PATCHPE.EXE $(HXINST)\Bin
 	@copy PATCHPE\PATCHPE.TXT         $(HXINST)\Doc
+	@copy PATCHNE\Release\PATCHNE.EXE $(HXINST)\Bin
+	@copy PATCHNE\PATCHNE.TXT         $(HXINST)\Doc
 
 	@copy EDITPE\Release\EDITPE.EXE   $(HXINST)\Bin
 	@copy EDITPE\Release\EXTRMZ.EXE   $(HXINST)\Bin
@@ -122,6 +124,16 @@ install:
 	@copy MZSUPP\Release\DMYSRVR.OBJ  $(HXINST)\LibOMF
 	@copy MZSUPP\Release\DMYMOVE.OBJ  $(HXINST)\LibOMF
 	@copy MZSUPP\Release\InitPM.OBJ   $(HXINST)\LibOMF
+
+	@copy HXHELP\Release\HXHELP.EXE   $(HXINST)\OWSupp\WDSupp
+	@copy HXHELP\HX.TRP\HX.TRP        $(HXINST)\OWSupp\WDSupp
+	@copy HXHELP\HXHELP.TXT           $(HXINST)\OWSupp\WDSupp
+	@copy HXHELP\Rel16\HXHP16.EXE     $(HXINST)\OWSupp16
+	@copy HXHELP\HX.TRP\HX16.TRP      $(HXINST)\OWSupp16
+
+	@copy SHDPMI\Release\SHDPMI.EXE   $(HXINST)\Bin
+	@copy SHDPMI\Release\SHDPMIR.EXE  $(HXINST)\Bin
+	@copy SHDPMI\SHDPMI.TXT           $(HXINST)\Doc
 
 clean: 
     cd    HDPMI

@@ -47,12 +47,6 @@ $(OUTDIR)\$(NAME).DLL: $*.obj Makefile
 !else
 	@$(LINKBIN) format win pe dll f $*.obj name $*.DLL libpath $(LIBCOFF) lib { $(LIBS) } op q, map=$*.MAP @$(NAME).rsp
 !endif
-!if $(DEBUG)==0
-    @copy $*.DLL ..\..\Bin\$(NAME).* >NUL
-!ifdef DLL32DIR
-    @copy $*.DLL $(DLL32DIR)\$(NAME).* >NUL
-!endif
-!endif
 
 $(OUTDIR)\$(NAME).obj: $(NAME).asm $(NAME).inc Makefile
 	@$(ASM) $(NAME).asm

@@ -36,7 +36,7 @@ OUTDIR=DEB16
 MASM=0
 !endif
 
-ASMOPT= -c -nologo -Sg -Fl$* -Fo$* -I..\..\Include -D?FLAT=0 -D?NE=1 -D?DEBUGLEVEL=$(DEBUG)
+ASMOPT= -c -nologo -Sg -Fl$* -Fo$* -I$(INC32DIR) -D?FLAT=0 -D?NE=1 -D?DEBUGLEVEL=$(DEBUG)
 !if $(MASM)
 ASM = ml.exe $(ASMOPT) 
 !else
@@ -49,9 +49,7 @@ $(OUTDIR):
 	@mkdir $(OUTDIR)
 
 $(OUTDIR)\$(NAME).EXE: $(OUTDIR)\hxhelp16.obj $(OUTDIR)\privprof.obj HXHELP16.mak hxhelp16.def
-	$(LINK16BIN) format win dpmi file $*.obj, $(OUTDIR)\privprof.obj name $*.EXE op q, map=$*.MAP, stub=..\..\BIN\DPMILD16.BIN, stack=0x800, protmode seg type code fixed seg type data fixed
-	@copy $*.EXE $(OWPATH)\binw\HXHP16.EXE >NUL
-	@copy $*.EXE ..\..\OWSUPP16\HXHP16.EXE >NUL
+	$(LINK16BIN) format win dpmi file $*.obj, $(OUTDIR)\privprof.obj name $*.EXE op q, map=$*.MAP, stub=$(HXINST)\BIN\DPMILD16.BIN, stack=0x800, protmode seg type code fixed seg type data fixed
 
 $(OUTDIR)\$(NAME).obj: hxhelp.asm hxhelp.inc version.inc rmdbghlp.inc HXHELP16.MAK
 	@$(ASM) hxhelp.asm

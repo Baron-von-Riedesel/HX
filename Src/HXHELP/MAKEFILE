@@ -31,7 +31,7 @@ OUTDIR=DEBUG
 
 ALL: $(OUTDIR) $(OUTDIR)\$(NAME).EXE
 
-ASMOPT=-c -coff -nologo -D?FLAT=1 -D?DEBUGLEVEL=$(DEBUG) -Sg -Fl$* -Fo$* -I..\..\Include 
+ASMOPT=-c -coff -nologo -D?FLAT=1 -D?DEBUGLEVEL=$(DEBUG) -Sg -Fl$* -Fo$* -I$(INC32DIR)
 !ifndef MASM
 MASM=0
 !endif
@@ -57,16 +57,14 @@ $*.obj $(OUTDIR)\privprof.obj
 /out:$*.EXE 
 /subsystem:console
 /stack:0x2000
-/stub:..\..\bin\dpmild32.bin
+/stub:$(HXINST)\bin\dpmild32.bin
 <<
 !else
 	@$(LINKBIN) format win pe hx ru console name $*.EXE @<<
 file $*.obj, $(OUTDIR)\privprof.obj
-op q, offset=0x3E0000, stack=0x2000, heap=0x1000, map=$*.MAP, stub=..\..\bin\dpmild32.bin
+op q, offset=0x3E0000, stack=0x2000, heap=0x1000, map=$*.MAP, stub=$(HXINST)\bin\dpmild32.bin
 <<
 !endif
-	@copy $*.EXE $(OWPATH)\binw >NUL
-	@copy $*.EXE ..\..\OWSUPP\WDSUPP >NUL
 
 !else
 
@@ -74,8 +72,7 @@ OUTDIR=OMF
 ASMOPT=
 
 $(OUTDIR)\$(NAME).EXE: $(OUTDIR)\hxhelp.obj Makefile $(OUTDIR)\privprof.obj
-	@$(LINK16BIN) format dos file ..\..\lib\jmppm32.obj, $*.obj, $(OUTDIR)\privprof.obj name $*.exe op map=$*.map lib ..\..\lib\jmppm32.lib
-	@copy $*.exe $(OWPATH)\binw
+	@$(LINK16BIN) format dos file $(HXINST)\LibOMF\jmppm32.obj, $*.obj, $(OUTDIR)\privprof.obj name $*.exe op map=$*.map lib $(HXINST)\LibOMF\jmppm32.lib
 !endif
 
 $(OUTDIR)\$(NAME).obj: $(NAME).asm hxhelp.inc rmdbghlp.inc version.inc Makefile

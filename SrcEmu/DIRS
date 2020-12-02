@@ -12,7 +12,7 @@
 HXINST=\hx
 LIBCOFF=$(HXINST)\Lib
 LIBOMF=$(HXINST)\LibOMF
-INC32DIR=$(HXINST)\Include
+INC32DIR=..\..\Include
 INC16DIR=.
 
 OWDIR=\watcom

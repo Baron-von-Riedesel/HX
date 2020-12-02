@@ -71,10 +71,6 @@ $(LOPTS) $(LOPTD)
 !else
 	@$(LINKBIN) format win pe dll name $*.DLL f $(OUTDIR)\$(NAME).obj libpath $(LIBCOFF) lib {$(OUTDIR)\$(LIBNAME).lib $(LIBS)} op q, map=$*, implib=$* @$(NAME).rsp
 !endif
-!if $(DEBUG)==0
-#	@copy $*.LIB $(LIBCOFF)\*.* >NUL
-#	@copy $(OUTDIR)\$(LIBNAME).LIB $(LIBCOFF)\*.* >NUL
-!endif    
 
 WLIBMODS=$(SRCMODS:.\=+)
 

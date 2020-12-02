@@ -54,6 +54,11 @@
 
   4. History
  
+  2020/12/02: version 1.14
+
+  þ bugfix: set physical LFB address in SVGAINFO to NULL in case it's not
+    translated to a linear address.
+
   2011/05/27: version 1.13
 
   þ wheel mouse supported
