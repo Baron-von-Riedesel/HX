@@ -53,6 +53,8 @@ ALL:
     @$(MAKE) DEBUG=$(DEBUG) 
     cd ..\MZSUPP
     @$(MAKE) DEBUG=$(DEBUG) 
+    cd ..\MZSUPP16
+    @$(MAKE) DEBUG=$(DEBUG) 
 #    cd ..\NESUPP
 #    @$(MAKE) DEBUG=$(DEBUG) 
     cd ..\HXHELP
@@ -125,6 +127,11 @@ install:
 	@copy MZSUPP\Release\DMYMOVE.OBJ  $(HXINST)\LibOMF
 	@copy MZSUPP\Release\InitPM.OBJ   $(HXINST)\LibOMF
 
+	@copy MZSUPP16\Release\JMPPM16.OBJ  $(HXINST)\Lib16
+	@copy MZSUPP16\Release\JMPPM16M.OBJ $(HXINST)\Lib16
+	@copy MZSUPP16\Release\JMPPM16W.OBJ $(HXINST)\Lib16
+	@copy MZSUPP16\Release\InitPM16.OBJ $(HXINST)\Lib16
+
 	@copy HXHELP\Release\HXHELP.EXE   $(HXINST)\OWSupp\WDSupp
 	@copy HXHELP\HX.TRP\HX.TRP        $(HXINST)\OWSupp\WDSupp
 	@copy HXHELP\HXHELP.TXT           $(HXINST)\OWSupp\WDSupp
@@ -153,6 +160,8 @@ clean:
     cd ..\SB16
     @$(MAKE) DEBUG=$(DEBUG) clean 
     cd ..\MZSUPP
+    @$(MAKE) DEBUG=$(DEBUG) clean 
+    cd ..\MZSUPP16
     @$(MAKE) DEBUG=$(DEBUG) clean 
 #    cd ..\NESUPP
 #    @$(MAKE) DEBUG=$(DEBUG) clean 

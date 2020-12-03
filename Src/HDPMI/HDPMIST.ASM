@@ -90,10 +90,27 @@ printversion proc
 	ret
 printversion endp
 
+printlocation proc
+;--- get name of PSP at [MCB+8]
+	mov cx,es
+	mov es,bx
+	mov ax,es:[1]
+	dec ax
+	mov es,ax
+	push 0
+	push dword ptr es:[12]
+	push dword ptr es:[8]
+	mov es,cx
+	@rprintf <" instance found at %X [%s]",lf>, es,ss,sp
+	add sp,4+4+2
+	ret
+printlocation endp
+
 ;--- display global variables in conv memory of an instance
 ;--- inp: AX=hdpmi instance
 
 checkinstance proc uses es bx
+	mov bx,es
 	mov es,ax
 	mov di,offset logo
 	mov si,di
@@ -108,7 +125,7 @@ checkinstance proc uses es bx
 	@rprintf <". ">
 
 	call printversion
-	@rprintf <" instance found at %X",lf>, es
+	call printlocation
 	movzx ax,cApps
 	@rprintf <"   host stack=%lX, Clients=%X, TLB=%X, rmStack=%X:%X",lf>, dwHostStack, ax, wSegTLB, v86iret.rSS, v86iret.rSP
 	@rprintf <"   hostPSP=%X, hostSeg=%X, envFlags=%X",lf>, wHostPSP, wHostSeg, wEnvFlags
@@ -123,7 +140,7 @@ noinstance:
 	cmp cx,2
 	ja @F
 	call printversion
-	@rprintf <" instance found at %X",lf>, es
+	call printlocation
 @@:
 	ret
 checkinstance endp
