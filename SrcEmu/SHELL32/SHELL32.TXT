@@ -1,0 +1,87 @@
+
+ 1. About
+ 
+ SHELL32 is part of HX's Win32 emulation.
+ 
+
+ 2. Supported Functions
+
+  Name                        Dummy?
+ -------------------------------------
+  CommandLineToArgvW            y
+  DragAcceptFiles               y
+  DragFinish                    y
+  DragQueryFileA                y
+  DragQueryFileW                y
+  DragQueryPoint                y
+  ExtractIconA                  y
+  ExtractIconExA                y
+  FindExecutableA               y
+  ShellExecuteA
+  ShellExecuteExA               y
+  SHBrowseForFolderA            y
+  SHCreateDirectoryExW
+  SHFileOperationA
+  SHGetDesktopFolder            y 
+  SHGetFileInfoA                y
+  SHGetFileInfoW                y
+  SHGetFolderPathA              y
+  SHGetFolderPathW              y
+  SHGetMalloc                   y
+  SHGetPathFromIDListA          y
+  SHGetPathFromIDListW          y
+  SHGetSpecialFolderLocation    y
+  
+
+ 3. History
+
+ 05/27/2011:  V1.8
+ 
+ þ CommandLineToArgvW implemented
+ þ SHCreateDirectoryExW added
+ 
+ 11/16/2009:  V1.7
+ 
+ þ added ShellExecuteExA, FindExecutableA, SHGetFolderPathA,
+   SHGetFolderPathW, SHGetSpecialFolderPathA (dummies).
+ 
+ 01/20/2009:  V1.6
+ 
+ þ source assembled with JWasm.
+ 
+ 07/15/2007:  V1.5
+ 
+ þ SHGetDesktopFolder added (dummy)
+ þ Shell_NotifyIconA added (dummy)
+ 
+ 10/15/2006:  V1.4
+ 
+ þ SHGetFileInfoA, SHGetFileInfoW added (dummies)
+ 
+ 09/14/2006:  V1.3
+ 
+ þ SHGetMalloc added (dummy)
+ þ SHBrowseForFolderA added (dummy)
+ 
+ 08/15/2006:  V1.2
+ 
+ þ bugfix: ShellExecuteA may have modified EBX register
+ þ SHFileOperationA added
+ 
+ 07/15/2006:  V1.1
+ 
+ þ ExtractIconA, ExtractIconExA added (dummies)
+ þ Drag functions added (dummies)
+ þ CommandLineToArgvW added (dummy)
+ 
+ 03/11/2006:  V1.0
+ 
+
+ 4. Copyright
+ 
+ SHELL32.DLL is part of HX DOS extender. This extender is freeware.
+ View HXRT.TXT or HXGUI.TXT for licence details.
+ 
+ Japheth
+
+ 

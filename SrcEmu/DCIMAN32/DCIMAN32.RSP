@@ -1,0 +1,16 @@
+
+#LIBRARY DCIMAN32
+OP MODNAME=DCIMAN32
+OP FUZZYEXPORT
+EXPORT {
+  DCIBeginAccess
+  DCICloseProvider
+  DCICreatePrimary
+  DCIDestroy
+  DCIEndAccess
+  DCIOpenProvider
+  WinWatchClose
+  WinWatchDidStatusChange
+  WinWatchGetClipList
+  WinWatchOpen
+}

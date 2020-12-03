@@ -1,0 +1,14 @@
+
+LIBRARY DCIMAN32
+
+EXPORTS
+  DCIBeginAccess
+  DCICloseProvider
+  DCICreatePrimary
+  DCIDestroy
+  DCIEndAccess
+  DCIOpenProvider
+  WinWatchClose
+  WinWatchDidStatusChange
+  WinWatchGetClipList
+  WinWatchOpen

@@ -1,0 +1,30 @@
+
+LIBRARY SHELL32
+
+EXPORTS
+  CommandLineToArgvW
+  DragAcceptFiles
+  DragFinish
+  DragQueryFileA
+  DragQueryFileW
+  DragQueryPoint
+  ExtractIconA
+  ExtractIconExA
+  FindExecutableA
+  SHBrowseForFolderA
+  SHCreateDirectoryExW
+  SHFileOperationA
+  SHGetDesktopFolder
+  SHGetFileInfoA
+  SHGetFileInfoW
+  SHGetFolderPathA
+  SHGetFolderPathW
+  SHGetMalloc
+  SHGetPathFromIDListA
+  SHGetPathFromIDListW
+  SHGetSpecialFolderLocation
+  SHGetSpecialFolderPathA
+  ShellExecuteA
+  ShellExecuteExA
+  Shell_NotifyIcon
+  Shell_NotifyIconA

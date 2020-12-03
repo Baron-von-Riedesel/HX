@@ -1,0 +1,43 @@
+
+  1. About
+
+  DCI is an API to directly access the video memory in windows. It was
+  designed before DirectDraw was available and is still used by the
+  windows 9x versions of OpenGl (OPENGL32.DLL).
+  
+  DCIMAN32.DLL implements part of the DCI API in DOS and thus allows to
+  load dlls OPENGL32.DLL and GLU32.DLL.
+
+  
+  2. Functions implemented
+
+  DCIOpenProvider
+  DCICloseProvider
+  DCIBeginAccess
+  DCIEndAccess
+  DCICreatePrimary
+  DCIDestroy
+
+  WinWatchOpen
+  WinWatchClose
+  WinWatchGetClipList
+  WinWatchDidStatusChange
+
+
+  3. History
+
+  01/20/2009: V1.2 source assembled with JWasm.
+  
+  03/15/2007: V1.1 DCICreatePrimary: field dwCompression now set in structure
+                   DCISURFACEINFO.
+  
+  
+  12/04/2005: V1.0 initial.
+  
+
+  4. Copyright
+  
+  DCIMAN32.DLL is part of HX DOS extender. This extender is freeware.
+  View HXRT.TXT or HXGUI.TXT for licence details.
+
+  Japheth

@@ -1,0 +1,236 @@
+
+;--- include file created by h2incx v0.99.16, copyright 2005 japheth
+;--- source file: DCIDDI.H, last modified: 9/3/1998 19:53
+
+ifndef _INC_DCIDDI
+_INC_DCIDDI	EQU	<>
+ifdef __cplusplus
+;extern "C"
+;{
+endif 
+DCICOMMAND	EQU	3075
+DCI_VERSION	EQU	0100h
+
+DCICREATEPRIMARYSURFACE		EQU	1
+DCICREATEOFFSCREENSURFACE	EQU	2
+DCICREATEOVERLAYSURFACE		EQU	3
+DCIENUMSURFACE				EQU	4
+DCIESCAPE					EQU	5
+
+DCI_OK						EQU	0
+DCI_FAIL_GENERIC			EQU	- 1
+DCI_FAIL_UNSUPPORTEDVERSION	EQU	- 2
+DCI_FAIL_INVALIDSURFACE		EQU	- 3
+DCI_FAIL_UNSUPPORTED		EQU	- 4
+DCI_ERR_CURRENTLYNOTAVAIL	EQU	- 5
+DCI_ERR_INVALIDRECT			EQU	- 6
+DCI_ERR_UNSUPPORTEDFORMAT	EQU	- 7
+DCI_ERR_UNSUPPORTEDMASK		EQU	- 8
+DCI_ERR_TOOBIGHEIGHT		EQU	- 9
+DCI_ERR_TOOBIGWIDTH			EQU	- 10
+DCI_ERR_TOOBIGSIZE			EQU	- 11
+DCI_ERR_OUTOFMEMORY			EQU	- 12
+DCI_ERR_INVALIDPOSITION		EQU	- 13
+DCI_ERR_INVALIDSTRETCH		EQU	- 14
+DCI_ERR_INVALIDCLIPLIST		EQU	- 15
+DCI_ERR_SURFACEISOBSCURED	EQU	- 16
+DCI_ERR_XALIGN				EQU	- 17
+DCI_ERR_YALIGN				EQU	- 18
+DCI_ERR_XYALIGN				EQU	- 19
+DCI_ERR_WIDTHALIGN			EQU	- 20
+DCI_ERR_HEIGHTALIGN			EQU	- 21
+
+DCI_STATUS_POINTERCHANGED		EQU	1
+DCI_STATUS_STRIDECHANGED		EQU	2
+DCI_STATUS_FORMATCHANGED		EQU	4
+DCI_STATUS_SURFACEINFOCHANGED	EQU	8
+DCI_STATUS_CHROMAKEYCHANGED		EQU	16
+DCI_STATUS_WASSTILLDRAWING		EQU	32
+
+DCI_SUCCESS macro error
+	exitm <( ( error ) >= 0 ) >
+	endm
+
+DCI_SURFACE_TYPE	EQU	0000000Fh
+DCI_PRIMARY			EQU	00000000h
+DCI_OFFSCREEN		EQU	00000001h
+DCI_OVERLAY			EQU	00000002h
+DCI_VISIBLE			EQU	00000010h
+DCI_CHROMAKEY		EQU	00000020h
+DCI_1632_ACCESS		EQU	00000040h
+DCI_DWORDSIZE		EQU	00000080h
+DCI_DWORDALIGN		EQU	00000100h
+DCI_WRITEONLY		EQU	00000200h
+DCI_ASYNC			EQU	00000400h
+DCI_CAN_STRETCHX	EQU	00001000h
+DCI_CAN_STRETCHY	EQU	00002000h
+DCI_CAN_STRETCHXY	EQU	( DCI_CAN_STRETCHX  or  DCI_CAN_STRETCHY )
+DCI_CAN_STRETCHXN	EQU	00004000h
+DCI_CAN_STRETCHYN	EQU	00008000h
+DCI_CAN_STRETCHXYN	EQU	( DCI_CAN_STRETCHXN  or  DCI_CAN_STRETCHYN )
+DCI_CANOVERLAY		EQU	00010000h
+
+if 1;(WINVER lt 0400h)
+ifndef RDH_RECTANGLES
+RECTL	struct 
+left	SDWORD	?
+top		SDWORD	?
+right	SDWORD	?
+bottom	SDWORD	?
+RECTL	ends
+
+PRECTL typedef ptr RECTL
+NPRECTL typedef ptr RECTL
+LPRECTL typedef ptr RECTL
+LPCRECTL typedef ptr RECTL
+RDH_RECTANGLES	EQU	0
+RGNDATAHEADER	struct 
+dwSize	DWORD	?
+iType	DWORD	?
+nCount	DWORD	?
+nRgnSize	DWORD	?
+rcBound	RECTL	<>
+RGNDATAHEADER	ends
+
+PRGNDATAHEADER typedef ptr RGNDATAHEADER
+NPRGNDATAHEADER typedef ptr RGNDATAHEADER
+LPRGNDATAHEADER typedef ptr RGNDATAHEADER
+LPCRGNDATAHEADER typedef ptr RGNDATAHEADER
+
+RGNDATA	struct 
+rdh	RGNDATAHEADER	<>
+Buffer	SBYTE 1 dup (?)
+RGNDATA	ends
+
+PRGNDATA typedef ptr RGNDATA
+NPRGNDATA typedef ptr RGNDATA
+LPRGNDATA typedef ptr RGNDATA
+LPCRGNDATA typedef ptr RGNDATA
+endif 
+endif 
+
+DCIRVAL typedef DWORD
+
+DCICMD	struct 
+dwCommand	DWORD	?
+dwParam1	DWORD	?
+dwParam2	DWORD	?
+dwVersion	DWORD	?
+dwReserved	DWORD	?
+DCICMD	ends
+
+DCICREATEINPUT	struct 
+cmd	DCICMD	<>
+dwCompression	DWORD	?
+dwMask	DWORD 3 dup (?)
+dwWidth	DWORD	?
+dwHeight	DWORD	?
+dwDCICaps	DWORD	?
+dwBitCount	DWORD	?
+lpSurface	LPVOID	?
+DCICREATEINPUT	ends
+
+LPDCICREATEINPUT typedef ptr DCICREATEINPUT
+
+protoDCISURFACEINFO_BeginAccess typedef proto stdcall :LPVOID,:LPRECT
+pDCISURFACEINFO_BeginAccess typedef ptr protoDCISURFACEINFO_BeginAccess
+
+protoDCISURFACEINFO_EndAccess typedef proto stdcall :LPVOID
+pDCISURFACEINFO_EndAccess typedef ptr protoDCISURFACEINFO_EndAccess
+
+protoDCISURFACEINFO_DestroySurface typedef proto stdcall :LPVOID
+pDCISURFACEINFO_DestroySurface typedef ptr protoDCISURFACEINFO_DestroySurface
+
+DCISURFACEINFO	struct 
+dwSize			DWORD	?
+dwDCICaps		DWORD	?
+dwCompression	DWORD	?
+dwMask			DWORD 3 dup (?)
+dwWidth			DWORD	?
+dwHeight		DWORD	?
+lStride			SDWORD	?
+dwBitCount		DWORD	?
+dwOffSurface	DWORD	?
+wSelSurface		WORD	?
+wReserved		WORD	?
+dwReserved1		DWORD	?
+dwReserved2		DWORD	?
+dwReserved3		DWORD	?
+BeginAccess		pDCISURFACEINFO_BeginAccess	?
+EndAccess		pDCISURFACEINFO_EndAccess	?
+DestroySurface	pDCISURFACEINFO_DestroySurface	?
+
+DCISURFACEINFO	ends
+
+LPDCISURFACEINFO typedef ptr DCISURFACEINFO
+
+proto_ENUM_CALLBACK typedef proto  :LPDCISURFACEINFO,:LPVOID
+ENUM_CALLBACK typedef ptr proto_ENUM_CALLBACK
+
+protoDCIENUMINPUT_EnumCallback typedef proto stdcall :LPDCISURFACEINFO,:LPVOID
+pDCIENUMINPUT_EnumCallback typedef ptr protoDCIENUMINPUT_EnumCallback
+
+DCIENUMINPUT	struct 
+cmd				DCICMD	<>
+rSrc			RECT	<>
+rDst			RECT	<>
+EnumCallback	pDCIENUMINPUT_EnumCallback	?
+lpContext		LPVOID	?
+DCIENUMINPUT	ends
+
+LPDCIENUMINPUT typedef ptr DCIENUMINPUT
+
+DCIPRIMARY typedef DCISURFACEINFO
+LPDCIPRIMARY typedef ptr DCISURFACEINFO
+
+protoDCIOFFSCREEN_Draw typedef proto stdcall :LPVOID
+pDCIOFFSCREEN_Draw typedef ptr protoDCIOFFSCREEN_Draw
+
+protoDCIOFFSCREEN_SetClipList typedef proto stdcall :LPVOID,:ptr RGNDATA
+pDCIOFFSCREEN_SetClipList typedef ptr protoDCIOFFSCREEN_SetClipList
+
+protoDCIOFFSCREEN_SetDestination typedef proto stdcall :LPVOID,:LPRECT,:LPRECT
+pDCIOFFSCREEN_SetDestination typedef ptr protoDCIOFFSCREEN_SetDestination
+
+DCIOFFSCREEN	struct 
+dciInfo			DCISURFACEINFO	<>
+Draw			pDCIOFFSCREEN_Draw	?
+SetClipList		pDCIOFFSCREEN_SetClipList	?
+SetDestination	pDCIOFFSCREEN_SetDestination	?
+DCIOFFSCREEN	ends
+
+LPDCIOFFSCREEN typedef ptr DCIOFFSCREEN
+
+DCIOVERLAY	struct 
+dciInfo				DCISURFACEINFO	<>
+dwChromakeyValue	DWORD	?
+dwChromakeyMask		DWORD	?
+DCIOVERLAY	ends
+
+LPDCIOVERLAY typedef ptr DCIOVERLAY
+
+ifndef YVU9
+YVU9	EQU	<mmioFOURCC ( 'Y' , 'V' , 'U' , '9' )>
+endif 
+ifndef Y411
+Y411	EQU	<mmioFOURCC ( 'Y' , '4' , '1' , '1' )>
+endif 
+ifndef YUY2
+YUY2	EQU	<mmioFOURCC ( 'Y' , 'U' , 'Y' , '2' )>
+endif 
+ifndef YVYU
+YVYU	EQU	<mmioFOURCC ( 'Y' , 'V' , 'Y' , 'U' )>
+endif 
+ifndef UYVY
+UYVY	EQU	<mmioFOURCC ( 'U' , 'Y' , 'V' , 'Y' )>
+endif 
+ifndef Y211
+Y211	EQU	<mmioFOURCC ( 'Y' , '2' , '1' , '1' )>
+endif 
+ifdef __cplusplus
+;}
+endif 
+endif 
+
+;--- errors: 0
+;--- end of file ---
