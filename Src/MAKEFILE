@@ -1,5 +1,5 @@
 
-# Nmake makefile to generate the HX dos extender binaries.
+# Nmake makefile to generate the HX DOS extender binaries.
 
 # Required tools are:
 #
@@ -13,18 +13,9 @@
 # OMF linker   $(LINK16BIN) JWlink            MS LINK (OMF)
 # OMF lib      $(LIB16BIN)  OW WLib           MS LIB (OMF)
 
-# JWasm and JWlink can be found at http://www.japheth.de.
-# The Open Watcom (OW) tools WLib and WRC may also be found
-# there - or just download the full OW package.
-
-# About WSOCK32 target:
-# The WSOCK32 target has to be excluded, because some object
-# modules are currently missing due to copyright restrictions.
-# WSOCK32 is written in C, and requires:
-# - OW 32bit C compiler (wcc386.exe)
-# - JWlink (jwlink.exe)
-# - watt-32 library (WATTCPWD.LIB) compiled with open watcom,
-# - OW CRT with register calling convention (clib3r.lib)
+# The HX development package is also needed. It should contain
+# tools EditPE, PatchPE, ExtrMZ. 
+# Add \hx\bin to the PATH variable and edit file DIRS.
 
 !include <dirs>
 
@@ -55,8 +46,8 @@ ALL:
     @$(MAKE) DEBUG=$(DEBUG) 
     cd ..\MZSUPP16
     @$(MAKE) DEBUG=$(DEBUG) 
-#    cd ..\NESUPP
-#    @$(MAKE) DEBUG=$(DEBUG) 
+#   cd ..\NESUPP
+#   @$(MAKE) DEBUG=$(DEBUG) 
     cd ..\HXHELP
     @$(MAKE) DEBUG=$(DEBUG) 
     cd ..\PATCHPE

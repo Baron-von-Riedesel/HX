@@ -24,7 +24,7 @@
 # - watt-32 library (WATTCPWD.LIB) compiled with open watcom,
 # - OW CRT with register calling convention (clib3r.lib)
 
-# winmm must be create BEFORE dsound
+# winmm must be created BEFORE dsound
 # dddraw must be created BEFORE dciman32
 
 !include <dirs>

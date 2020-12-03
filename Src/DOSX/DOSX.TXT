@@ -1,0 +1,80 @@
+
+ 1. About DOSX
+ 
+ HX's DOSX is a replacement for the Windows 3.1 DOSX.  It's purpose is to
+ use HX's DPMI host HDPMI16 to run Windows 3.1 or WfW 3.11 in standard mode
+ with DOS boxes available. This has one big benefit: HDPMI16 doesn't grab
+ all of the extended memory, thus allowing other DPMI applications to be
+ run in DOS boxes opened inside windows. Furthermore, the windows DOSX
+ cannot use more than 512 MB memory, while HDPMI16 has no restriction
+ in this regard.
+ 
+ 
+ 2. Installation
+ 
+ - Copy HX's DOSX.EXE to the Win3.1 system directory. It's a good idea
+   to first make a backup copy of the original DOSX.EXE.
+
+
+ 3. Running DOSX.EXE
+ 
+ Starting windows in standard mode will make use of DOSX.EXE:
+ 
+   WIN /S
+    
+ Please note: although DOSX.EXE could be launched directly (type
+ SYSTEM\DOSX in the windows directory), this method won't run WSWAP.EXE,
+ which is required for task switching in windows standard mode. So if
+ windows is started this way one cannot open a DOS box.
+
+
+ 4. Known Problems
+ 
+ - WfW 3.11's WIN.COM claims that this version cannot be run in standard
+   mode. To run it nevertheless in this mode, copy WIN.COM, WSWAP.EXE and
+   DSWAP.EXE from Windows 3.1 to the corresponding WfW 3.11 directories and
+   start it with "WIN /S".
+
+ - if FreeDOS is used with Windows 3.1, the system might crash when opening
+   a DOS box. As I found out it may help to load SHARE.COM, a special version
+   for FreeDOS. Then this problem seems to vanish. I'm not the maintainer
+   of FreeDOS's share tool, but you may download it from
+      http://www.japheth.de/Download/share.zip
+   This version has a bug fixed which caused MS office applications not to
+   work on Windows 3.1. Please note that the FreeDOS' SHARE doesn't work
+   with MS-DOS.
+
+ - the Windows 3.1 taskswitcher WSWAP.EXE is not aware of XMS v3 (an API to
+   access more than 64 MB of extended memory). This causes problems if an
+   application (including HDPMI) is using XMS v3 functions:
+   þ on machines with 64 MB memory or less HDPMI is not compatible with
+     WSWAP.EXE - unless you set environment variable HDPMI=64, which 
+     instructs HDPMI to not use XMS v3 functions at all.
+   þ on machines with more than 64 MB memory environment variable HDPMI=64
+     should *not* be set. HDPMI will then use XMS v3 functions to allocate
+     memory and not interfere with WSWAP.EXE. However, the first 64 MB of
+     XMS memory will be grabbed by WSWAP.EXE and not be accessible by HDPMI.
+   
+
+ 5. How does DOSX work?
+ 
+ The windows startup procedure in standard mode is:
+ 
+  - WIN.COM is started (by the user, with commandline parameter "/S") 
+  - SYSTEM\WSWAP.EXE is launched by WIN.COM
+  - SYSTEM\DOSX.EXE is launched by SYSTEM\WSWAP.EXE
+  - SYSTEM\KRNL386.EXE is launched by SYSTEM\DOSX.EXE
+  
+ HX's DOSX is a simple DOS real-mode application, unlike the Windows DOSX,
+ which is the DPMI host used for standard mode. HX's DOSX will first start
+ HDPMI16.EXE if no DPMI server is found, then load and run KRNL386.EXE as
+ it is done by the original DOSX.
+ 
+ 
+ 6. Copyright
+ 
+ HX's DOSX is free to use for any purpose. Source and binary are released
+ to public domain.
+ 
+ Japheth
+ 

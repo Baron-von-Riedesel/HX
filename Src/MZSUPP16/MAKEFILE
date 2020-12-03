@@ -17,13 +17,17 @@ AOPT= -c -nologo -Sg -Fl$* -Fo$*.OBJ $(AOPTD) -I$(INC32DIR)
 ALL: $(OUTDIR)\JMPPM16.OBJ $(OUTDIR)\JMPPM16W.OBJ $(OUTDIR)\JMPPM16M.OBJ $(OUTDIR)\InitPM16.OBJ
 
 $(OUTDIR)\JMPPM16.OBJ: jmppm16.asm makefile
-	$(ASM) $(AOPT) -D?C=0 JMPPM16.ASM
+	@$(ASM) $(AOPT) -D?C=0 JMPPM16.ASM
     
 $(OUTDIR)\JMPPM16W.OBJ: jmppm16.asm makefile relocs.inc
-	$(ASM) $(AOPT) -D?C=1 -D?OW=1 JMPPM16.ASM
+	@$(ASM) $(AOPT) -D?C=1 -D?OW=1 JMPPM16.ASM
 
 $(OUTDIR)\JMPPM16M.OBJ: jmppm16.asm makefile relocs.inc
-	$(ASM) $(AOPT) -D?C=1 -D?MS=1 JMPPM16.ASM
+	@$(ASM) $(AOPT) -D?C=1 -D?MS=1 JMPPM16.ASM
 
 $(OUTDIR)\InitPM16.OBJ: InitPM16.asm makefile
-	$(ASM) $(AOPT) InitPM16.ASM
+	@$(ASM) $(AOPT) InitPM16.ASM
+
+clean:
+	@del RELEASE\*.obj
+	@del RELEASE\*.lst

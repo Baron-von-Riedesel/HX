@@ -1,0 +1,47 @@
+
+ Tools SHDPMI (+ SHDPMIR)
+
+ 1. About
+ 
+ SHDPMI works in conjunction with a resident copy of HDPMI. 
+ It protects some address spaces by directly modifying page
+ table entries. The regions which can be modified are:
+ 
+ þ DOS first 64 kB conventional memory, 00001000-0000FFFF.
+ þ DOS high memory area, address space 000C0000-0010FFFF.
+ þ page tables. HDPMI page tables are mapped at FFC00000-FFFFFFFF.
+ þ IDT (+GDT)
+ þ LDT
+
+ The protection will only work in protected mode, not in real-mode.
+
+ 
+ 2. Protection of the First 64 kB Conventional Memory
+ 
+ þ DOS conventional memory can only be protected if it contains no free
+   memory blocks. That's why TSR SHDPMIR must be installed first. It will
+   occupy any free DOS memory block below address 10000h.
+
+ þ the first page of DOS memory (0000-0FFF) is not protected, because it
+   contains the BIOS data area. But there exists an easy way to protect
+   at least the region 0000-03FFh. Just set environment variable DPMILDR=2048.
+   This will make DPMILD32 to create an "expand down" descriptor with
+   limit=3FFh, whose selector is then loaded into SS, DS and ES. This
+   protection works for both reading and writing.
+
+
+ 3. How to use
+
+ þ install HDPMI32 with option -r
+ þ in case SHDPMI shall protect region 1000-FFFF, install SHDPMIR
+ þ now run SHDPMI with the options wanted (run SHDPMI -? to view
+   available options).
+
+
+ 4. Copyright
+ 
+ These tools are part of HX DOS extender. This extender is freeware.
+ View HXRT.TXT or HXGUI.TXT for licence details.
+
+ Japheth
+ 

@@ -40,7 +40,6 @@
     SB16         SB16.dll
     SHDPMI       SHDPMI.exe + SHDPMIR.EXE
     Vesa32       Vesa32.dll/Vesa32s.lib
-    VesaMTRR     VesaMTRR.EXE
 
   3.2. Directory SRCEMU
 

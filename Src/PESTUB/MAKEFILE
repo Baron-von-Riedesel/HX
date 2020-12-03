@@ -72,7 +72,7 @@ CRTLIB=$(LIBCOFF)\crtdll.lib
 CRTLIB=$(LIBCOFF)\libc32s.lib
 !endif
 LIBS= $(LIBCOFF)\dkrnl32.lib $(LIBCOFF)\duser32s.lib $(CRTLIB)
-LOPT=/OUT:$*.EXE /NOLOGO /NODEFAULTLIB /MAP:$*.map /SUBSYSTEM:CONSOLE $(LOPTD) /FIXED:NO  /STUB:..\..\bin\dpmist32.bin /MERGE:.rdata=.data /MERGE:.reloc=.text /OPT:NOWIN98 /STACK:0x4000
+LOPT=/OUT:$*.EXE /NOLOGO /NODEFAULTLIB /MAP:$*.map /SUBSYSTEM:CONSOLE $(LOPTD) /FIXED:NO  /STUB:dpmist32.bin /MERGE:.rdata=.data /MERGE:.reloc=.text /OPT:NOWIN98 /STACK:0x4000
 
 !endif
 
@@ -99,7 +99,7 @@ $(OUTDIR)\$(name).EXE: $*.obj makefile
 !if $(MSLINK)
 	@link $* $(LIBS) $(LOPT)
 !else
-	@$(LINKBIN) format win pe file $* lib { $(LIBS) } op q, stub=..\..\bin\dpmist32.bin, map=$*
+	@$(LINKBIN) format win pe file $* lib { $(LIBS) } op q, stub=dpmist32.bin, map=$*
 !endif
 
 !endif

@@ -1,23 +1,11 @@
 
-# adjust all paths for your enviroment before trying to create
-# a new DKRNL32.DLL, DUSER32.DLL, DADVAPI.DLL, OLE32.DLL, OLEAUT32.DLL
-# meaning is:
 # HXINST:  location where to install HX binaries
-# LIBCOFF: location where COFF libraries will be read from/copied to
-# LIBOMF:  location where OMF libraries will be read from/copied to
-# OWDIR:   location of open watcom installation
-
-# please note: the names of LIBCOFF and LIBOMF should be different
-# in any case, because files may have equal names
+# LIBCOFF: location where COFF libraries will be read from
 
 HXINST=\hx
 LIBCOFF=$(HXINST)\Lib
-LIBOMF=$(HXINST)\LibOMF
 INC32DIR=..\..\Include
 INC16DIR=.
-
-OWDIR=\watcom
-OWBIN=$(OWDIR)\binnt
 
 MAKE=nmake.exe /nologo
 #MAKE=wmake.exe -h -ms
@@ -26,5 +14,3 @@ LINKBIN=jwlink.exe
 LINK16BIN=jwlink.exe
 LIBBIN=jwlib.exe -q -fa -n
 LIB16BIN=jwlib.exe -q -b -n
-RCBIN=$(OWBIN)\wrc.exe
-
