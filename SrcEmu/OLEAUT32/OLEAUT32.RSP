@@ -1,0 +1,39 @@
+
+#LIBRARY OLEAUT32
+OPTION MODNAME=OLEAUT32
+OPTION FUZZYEXPORT
+EXPORT {
+ SysAllocString         .2
+ SysAllocStringLen      .4
+ SysReAllocStringLen    .5
+ SysFreeString          .6
+ SysStringLen           .7
+ VariantInit            .8
+ VariantClear           .9
+ VariantCopy            .10
+ VariantCopyInd         .11
+ VariantChangeType      .12
+ SafeArrayCreate        .15
+ SafeArrayDestroy       .16
+ SafeArrayGetDim        .17
+ SafeArrayGetElemsize   .18
+ SafeArrayGetUBound     .19
+ SafeArrayGetLBound     .20
+ SafeArrayLock          .21
+ SafeArrayUnlock        .22
+ SafeArrayAccessData    .23
+ SafeArrayUnaccessData  .24
+ SafeArrayGetElement    .25
+ SafeArrayPutElement    .26
+ GetActiveObject        .35
+ SafeArrayRedim         .40
+ VariantChangeTypeEx    .147
+ SafeArrayPtrOfIndex    .148
+ SysStringByteLen       .149
+ SysAllocStringByteLen  .150
+ LoadTypeLib            .161
+ QueryPathOfRegTypeLib  .164
+ VariantTimeToSystemTime .185
+ GetErrorInfo           .200
+ SetErrorInfo           .201
+}

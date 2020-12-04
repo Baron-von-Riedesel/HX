@@ -1,0 +1,101 @@
+
+ 1. About
+ 
+ OLE32.DLL is HX's OLE32 emulation. It's very rudimentary, though, and
+ most functions are just dummies. However, CoCreateInstance is implemented
+ and so some very basic COM support is available in HX. Only dll servers
+ (in-process-servers) may work. Creating DirectDraw, DirectInput or
+ DirectSound objects with CoCreateInstance should work if file "classes"
+ is setup accordingly.
+ 
+
+ 2. Supported Functions
+
+  Name                     Dummy
+ ----------------------------------
+  CLSIDFromProgID          Y
+  CLSIDFromString
+  CoCreateGuid             Y
+  CoCreateInstance
+  CoGetClassObject
+  CoGetMalloc
+  CoInitialize             Y
+  CoInitializeEx           Y
+  CoTaskMemAlloc
+  CoTaskMemFree
+  CoTaskMemRealloc
+  CoUninitialize           Y
+  CreateStreamOnHGlobal    Y
+  IIDFromString
+  OleFlushClipboard        Y
+  OleInitialize            Y
+  ProgIDFromCLSID          Y
+  StgOpenStorage           Y
+  StringFromGUID2
+
+
+ 3. History
+
+ 05/27/2011: V1.10
+
+ þ StringFromGUID2 did always return S_OK (=0).
+ þ stubs CreateItemMoniker + GetRunningObjectTable added.
+ þ CoGetClassObject added
+
+ 11/16/2009: V1.9
+ 
+ þ OleFlushClipboard added (dummy).
+ þ CoInitializeSecurity added (dummy).
+ 
+ 01/20/2009: V1.8
+ 
+ þ source assembled with JWasm.
+ 
+ 01/11/2008: V1.7
+ 
+ þ StgOpenStorage added (dummy)
+ þ CreateStreamOnHGlobal added (dummy)
+ 
+ 07/15/2007: V1.6
+ 
+ þ CoTaskMemRealloc added
+ þ CoGetMalloc added
+ þ CLSIDFromString, IIDFromString implemented
+ 
+ 10/15/2006: V1.5
+ 
+ þ CoInitializeEx added to make Allegro happy
+ þ OleUninitialize added
+
+ 03/11/2006: V1.4
+ 
+ þ OleInitialize, CoTaskMemAlloc, CoTaskMemFree added
+ 
+ 01/22/2006: V1.3
+ 
+ þ CoCreateInstance now understands to load an in-proc-server
+   and create a COM object. This is mainly to support applications
+   using CoCreateInstance to create an DirectDraw, DirectInput or DirectSound
+   instance.
+ þ StringFromGUID2 implemented.
+ 
+ 12/12/2005: V1.2
+ 
+ þ CoCreateGuid added (dummy)
+ þ CoCreateInstance added (dummy)
+ 
+ 06/06/2005: V1.1
+ 
+ þ functions CLSIDFromProgID, ProgIDFromCLSID, CoCreateInstance (dummies)
+   added.
+   
+ 03/10/2004: V1.0
+
+
+ 4. Copyright
+ 
+ OLE32 is part of HX DOS extender's Win32 emulation. This extender is 
+ freeware. View HXRT.TXT for licence details.
+ 
+ Japheth
+

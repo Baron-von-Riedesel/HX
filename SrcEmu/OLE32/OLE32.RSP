@@ -1,0 +1,29 @@
+
+#LIBRARY OLE32
+OPTION MODNAME=OLE32
+OPTION FUZZYEXPORT
+EXPORT {
+ CLSIDFromProgID
+ CLSIDFromString
+ CoCreateGuid
+ CoCreateInstance
+ CoGetClassObject
+ CoGetMalloc
+ CoInitialize
+ CoInitializeEx
+ CoInitializeSecurity
+ CoTaskMemAlloc
+ CoTaskMemFree
+ CoTaskMemRealloc
+ CoUninitialize
+ CreateItemMoniker
+ CreateStreamOnHGlobal
+ GetRunningObjectTable
+ IIDFromString
+ OleFlushClipboard
+ OleInitialize
+ OleUninitialize
+ ProgIDFromCLSID
+ StgOpenStorage
+ StringFromGUID2
+}

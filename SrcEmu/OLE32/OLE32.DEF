@@ -1,0 +1,28 @@
+
+LIBRARY OLE32
+
+EXPORTS
+ CLSIDFromProgID
+ CLSIDFromString
+ CoCreateGuid
+ CoCreateInstance
+ CoGetClassObject
+ CoGetMalloc
+ CoInitialize
+ CoInitializeEx
+ CoInitializeSecurity
+ CoTaskMemAlloc
+ CoTaskMemFree
+ CoTaskMemRealloc
+ CoUninitialize
+ CreateItemMoniker
+ CreateStreamOnHGlobal
+ GetRunningObjectTable
+ IIDFromString
+ OleFlushClipboard
+ OleInitialize
+ OleUninitialize
+ ProgIDFromCLSID
+ StgOpenStorage
+ StringFromGUID2
+

@@ -1,0 +1,105 @@
+
+ 1. About
+
+ OLEAUT32.DLL exports functions which are used by some Win32 console apps.
+ Since its name is the same as the original one be careful not to copy this
+ file to the windows system directory.
+
+
+ 2. Supported Functions
+
+ Name                       Stub?
+ -----------------------------------------------
+ GetErrorInfo
+ LoadTypeLib                Y
+ QueryPathOfRegTypeLib      Y
+ SafeArrayAccessData        Y
+ SafeArrayCreate            Y
+ SafeArrayDestroy           Y
+ SafeArrayGetDim            Y
+ SafeArrayGetElement        Y
+ SafeArrayGetElemsize       Y
+ SafeArrayLock              Y
+ SafeArrayGetLBound         Y
+ SafeArrayGetUBound         Y
+ SafeArrayPtrOfIndex        Y
+ SafeArrayPutElement        Y
+ SafeArrayUnaccessData      Y
+ SafeArrayUnlock            Y
+ SafeArrayRedim             Y
+ SetErrorInfo
+ SysAllocString
+ SysAllocStringByteLen
+ SysAllocStringLen
+ SysFreeString
+ SysReAllocStringLen
+ SysStringByteLen
+ SysStringLen
+ VariantChangeType
+ VariantChangeTypeEx
+ VariantClear
+ VariantCopy
+ VariantCopyInd
+ VariantInit
+ VariantTimeToSystemTime    Y
+
+
+ 3. History
+
+ 2009/11/16:  version 1.8
+ 
+ þ SafeArrayRedim added (dummy).
+ þ VariantTimeToSystemTime added (dummy).
+ þ GetErrorInfo added.
+ 
+ 2009/01/20:  version 1.7
+ 
+ þ source assembled with JWasm.
+ 
+ 2007/07/15:  version 1.6
+ 
+ þ SetErrorInfo added.
+ þ SafeArrayDestroy, SafeArrayGetDim, SafeArrayLock, SafeArrayUnlock,
+   SafeArrayAccessData, SafeArrayUnaccessData, SafeArrayGetElement,
+   SafeArrayPutElement, SafeArrayGetElemsize added (dummies)
+ 
+ 2006/10/15:  version 1.5
+ 
+ þ No functional changes, linker option changed and debug version improved.
+ 
+ 2006/06/13:  version 1.4
+ 
+ þ SysReAllocStringLen implemented
+ 
+ 2005/06/07:  version 1.3
+ 
+ þ GetActiveObject (dummy) added
+ 
+ 2005/05/20:  version 1.2
+ 
+ þ bugfix: SysStringLen returned size in bytes, not chars
+ þ bugfix: SysAllocStringLen caused a memory error
+ 
+ 2004/09/18:  version 1.1
+ 
+ þ bugfix: SysFreeString should work now
+ þ VariantChangeTypeEx+VariantCopyInd added
+ þ VariantChangeType works partially
+ þ VariantClear + VariantCopy should work now
+ þ SysStringLen, SysAllocString, SysAllocStringByteLen added
+ þ SysAllocStringLen implemented
+ þ SysReAllocStringLen added (dummy)
+ þ SafeArrayPtrOfIndex added (dummy)
+ þ SafeArrayGetUBound/SafeArrayGetLBound added (dummy)
+ þ SafeArrayCreate added (dummy)
+ 
+ 2004/03/10:  version 1.0
+
+
+ 4. License
+ 
+ OLEAUT32.DLL is part of HX DOS extender. This extender is freeware.
+ View HXRT.TXT for license details.
+ 
+ Japheth ( http://www.japheth.de )
+
