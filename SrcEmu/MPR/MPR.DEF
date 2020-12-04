@@ -1,0 +1,21 @@
+
+LIBRARY MPR
+
+EXPORTS
+ WNetAddConnectionA
+ WNetAddConnectionW
+ WNetAddConnection2A
+ WNetAddConnection2W
+ WNetCancelConnectionA
+ WNetCancelConnectionW
+ WNetCancelConnection2A
+ WNetCancelConnection2W
+ WNetCloseEnum
+ WNetEnumResourceA
+ WNetGetConnectionA
+ WNetGetConnectionW
+ WNetGetResourceInformationA
+ WNetGetUniversalNameA
+ WNetGetUniversalNameW
+ WNetGetUserA
+ WNetOpenEnumA

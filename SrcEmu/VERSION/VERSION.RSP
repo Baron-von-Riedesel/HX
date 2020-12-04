@@ -1,0 +1,12 @@
+
+#LIBRARY VERSION
+OP MODNAME=VERSION
+OP FUZZYEXPORT
+EXPORT {
+ GetFileVersionInfoA
+ GetFileVersionInfoSizeA
+ GetFileVersionInfoSizeW
+ GetFileVersionInfoW
+ VerQueryValueA
+ VerQueryValueW
+}

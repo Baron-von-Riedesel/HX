@@ -1,0 +1,22 @@
+
+ About
+ 
+ MSACM32 currently is a dummy dll 
+ 
+
+ Supported Functions
+
+  Name                     Dummy
+ ----------------------------------
+
+ History
+
+ 2006/01/06:  V1.0
+ 
+ Copyright
+ 
+ MSACM32 is part of HX DOS extender Win32 emulation.
+ 
+ Japheth
+
+ 

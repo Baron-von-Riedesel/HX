@@ -1,0 +1,40 @@
+
+ About
+ 
+ MPR currently is a dummy dll 
+ 
+
+ Supported Functions
+
+  Name                         Dummy
+ ------------------------------------
+  WNetAddConnectionA            Y
+  WNetAddConnectionW            Y
+  WNetAddConnection2A           Y
+  WNetAddConnection2W           Y
+  WNetCancelConnectionA         Y
+  WNetCancelConnectionW         Y
+  WNetCancelConnection2A        Y
+  WNetCancelConnection2W        Y
+  WNetCloseEnum                 Y
+  WNetGetConnectionA            Y
+  WNetGetConnectionW            Y
+  WNetGetResourceInformationA   Y
+  WNetGetUniversalNameA         Y
+
+ History
+
+ 2008/09/05:  V1.1
+ 
+ - added WNetAddConnectionW, WNetAddConnection2W, WNetCancelConnectionW,
+   WNetCancelConnection2W, WNetGetConnectionW, WNetGetUniversalNameW (dummies)
+ 
+ 2005/10/10:  V1.0
+ 
+ Copyright
+ 
+ MPR is freeware.
+ 
+ Japheth
+
+ 

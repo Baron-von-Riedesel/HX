@@ -1,0 +1,5 @@
+
+LIBRARY IPHLPAPI
+
+EXPORTS
+ GetNetworkParams

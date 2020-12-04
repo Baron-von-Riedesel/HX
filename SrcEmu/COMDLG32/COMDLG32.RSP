@@ -1,0 +1,12 @@
+
+#LIBRARY COMDLG32
+OP MODNAME=COMDLG32
+OP FUZZYEXPORT
+EXPORT {
+ CommDlgExtendedError
+ GetFileTitleA
+ GetOpenFileNameA
+ GetOpenFileNameW
+ GetSaveFileNameA
+ PrintDlgA
+} 

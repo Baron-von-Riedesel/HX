@@ -1,0 +1,11 @@
+
+LIBRARY MSACM32
+
+EXPORTS
+ acmFormatSuggest
+ acmStreamClose
+ acmStreamConvert
+ acmStreamOpen
+ acmStreamPrepareHeader
+ acmStreamSize
+ acmStreamUnprepareHeader

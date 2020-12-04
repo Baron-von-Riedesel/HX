@@ -1,0 +1,41 @@
+
+ 1. About
+
+ COMDLG32 emulates the Win32 dll COMDLG32.DLL.
+
+
+ 2. Supported Functions
+
+  Name                     Dummy
+ ----------------------------------
+  CommDlgExtendedError       y
+  GetFileTitleA
+  GetOpenFileNameA           y
+  GetSaveFileNameA           y
+  PrintDlgA                  y
+
+
+ 3. History
+
+ 2011/08/20:  V1.3
+
+ þ GetOpenFileNameW added (dummy)
+
+ 2006/12/29:  V1.2
+
+ þ GetFileTitleA added (dummy)
+
+ 2006/12/29:  V1.1
+
+ þ PrintDlgA added (dummy)
+
+ 2005/10/10:  V1.0
+
+
+ 4. License
+
+ COMDLG32 is part of the HX DOS extender. For license details see HXRT.TXT
+ or HXGUI.TXT.
+
+ Japheth
+

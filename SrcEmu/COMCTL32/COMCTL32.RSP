@@ -1,0 +1,16 @@
+
+#LIBRARY COMCTL32
+OP MODNAME=COMCTL32
+OP FUZZYEXPORT
+#;--- the export values differ between win98 and winxp!
+EXPORT {
+ GetEffectiveClientRect   .4
+ CreateStatusWindowA      .6
+ LBItemFromPt             .14
+ DrawInsert               .15
+ InitCommonControls       .17
+ CreatePropertySheetPage  .18
+ CreatePropertySheetPageA .19
+ PropertySheet            .87
+ PropertySheetA           .88
+}

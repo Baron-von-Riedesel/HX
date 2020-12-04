@@ -1,0 +1,13 @@
+
+#LIBRARY MSACM32
+OP MODNAME=MSACM32
+OP FUZZYEXPORT
+EXPORT {
+ acmFormatSuggest
+ acmStreamClose
+ acmStreamConvert
+ acmStreamOpen
+ acmStreamPrepareHeader
+ acmStreamSize
+ acmStreamUnprepareHeader
+}

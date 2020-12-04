@@ -1,0 +1,37 @@
+
+ 1. About
+ 
+ COMCTL32 currently is a dummy dll 
+ 
+
+ 2. Supported Functions
+
+  Name                     Dummy
+ ----------------------------------
+ CreatePropertySheetPage     Y
+ CreatePropertySheetPageA    Y
+ CreateStatusWindowA         Y
+ GetEffectiveClientRect
+ InitCommonControls          Y
+ PropertySheet               Y
+ PropertySheetA              Y
+
+
+ 3. History
+
+ 2010/02/10:  V1.1
+
+ þ CreatePropertySheetPageA added (dummy)
+ þ PropertySheet added (dummy)
+ þ LBItemFromPt added (dummy)
+ þ DrawInsert added (dummy)
+ 
+ 2005/10/10:  V1.0
+ 
+ 4. Copyright
+ 
+ COMCTL32 is freeware.
+ 
+ Japheth
+
+ 

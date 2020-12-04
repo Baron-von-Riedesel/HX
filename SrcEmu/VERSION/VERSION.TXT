@@ -1,0 +1,34 @@
+
+ About
+
+ This dll emulates Win32 VERSION.DLL.
+ 
+
+ Supported Functions
+
+  Name                     Stub
+ ----------------------------------
+ GetFileVersionInfoA
+ GetFileVersionInfoSizeA
+ GetFileVersionInfoSizeW
+ GetFileVersionInfoW
+ VerQueryValueA            Yes
+ VerQueryValueW            Yes
+
+
+ History
+
+ 11/16/2009:  V1.1
+
+ þ GetFileVersionInfoA/W, GetFileVersionInfoSizeA/W implemented.
+ þ VerQueryValueW added.
+   
+ 12/23/2005:  V1.0
+
+ License
+
+ VERSION.DLL is part of HX DOS extender. See HXRT.TXT for license details.
+
+ Japheth
+
+ 
