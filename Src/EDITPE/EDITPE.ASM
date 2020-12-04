@@ -49,6 +49,7 @@ dwSection	DWORD 0		;section number for cmd a, d, x
 dwVA		DWORD 0		;VA for cmd a
 dwLower		DWORD 0		;VA lower bound of section n
 dwUpper		DWORD 0		;VA upper bound of section n
+wStack		WORD 200h   ;-s
 fVerbose	BYTE 0		;-v, display all msgs
 fQuiet		BYTE 0		;-q, no displays
 fInclude	BYTE 0		;-i,generate assembly include file
@@ -612,6 +613,21 @@ getoption proc pszArgument:LPSTR
 	mov fAddMZ, 1
 	ret
 @@:
+	cmp ax,":m"
+	jnz @F
+	push esi
+	mov esi,pszArgument
+	add esi,3
+	call getdec
+	pop esi
+	jc error
+	cmp eax,10000h
+	jnc error
+	mov fAddMZ, 1
+	mov wStack,ax
+	clc
+	ret
+@@:
 	cmp ax,"q"
 	jnz @F
 	mov fQuiet, 1
@@ -622,6 +638,7 @@ getoption proc pszArgument:LPSTR
 	mov fVerbose, 1
 	ret
 @@:
+error:
 	stc
 	ret
 getoption endp
@@ -951,7 +968,8 @@ local	bError:DWORD
 			mov eax, [edi].IMAGE_SECTION_HEADER.Misc.VirtualSize
 			shr eax, 4
 			mov mzhdr.e_ss, ax
-			mov mzhdr.e_sp, 200h
+			mov ax,wStack
+			mov mzhdr.e_sp, ax
 			invoke WriteContent, addr mzhdr, sizeof mzhdr
 		.endif
 		mov ecx, 1
@@ -1003,7 +1021,7 @@ main_ex:
 	mov eax, bError
 	ret
 displayusage:
-	invoke printf, CStr("editpe v1.4: modify/extract contents of/from a PE binary",lf)
+	invoke printf, CStr("editpe v1.5: modify/extract contents of/from a PE binary",lf)
 	invoke printf, CStr("usage: editpe [options] cmd src_file dst_file",lf)
 	invoke printf, CStr("  cmd:",lf)
 	invoke printf, CStr("    a n=v: change virtual address of section <n> to <v>",lf)
@@ -1015,7 +1033,7 @@ displayusage:
 	invoke printf, CStr("  options:",lf)
 	invoke printf, CStr("    -h: add PE header to extracted section (cmd x)",lf)
 	invoke printf, CStr("    -i: write output as assembly include file",lf)
-	invoke printf, CStr("    -m: add MZ header to extracted section (cmd x)",lf)
+	invoke printf, CStr("    -m[:stacksize]: add MZ header to extracted section (cmd x)",lf)
 	invoke printf, CStr("    -q: quiet",lf)
 	invoke printf, CStr("    -v: verbose",lf)
 	jmp main_ex

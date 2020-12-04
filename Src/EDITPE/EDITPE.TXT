@@ -13,6 +13,7 @@
 
   3. History
 
+  v1.5: option -m accepts additional argument: size of stack for EXE header.
   v1.4: option -e added. Named changed from EXTRSECT to EDITPE.
   v1.3: source cleaned to make it compatible with HX Win32.
   v1.2: DOS 32bit binary

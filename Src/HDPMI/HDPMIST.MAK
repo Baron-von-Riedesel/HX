@@ -44,7 +44,7 @@ $(OBJMODS): $(DEPS0)
 
 $(OUTD)\$(NAME).EXE: $(OUTD)\$(NAME).TMP
 	@EditPE a 3=0  $(OUTD)\$(NAME).TMP $(OUTD)\$(NAME).EXE
-	@EditPE x 3 /m $(OUTD)\$(NAME).EXE $(OUTD)\$(NAME).EXE
+	@EditPE x 3 /m:8704 $(OUTD)\$(NAME).EXE $(OUTD)\$(NAME).EXE
 
 $(OUTD)\$(NAME).TMP: $(OUTD)\HDPMIST.obj $(OUTD)\$(SRC).obj $(OUTD)\$(NAME).lib $(NAME).mak 
 	@$(LINK) format win pe hx ru native f $(OUTD)\$(SRC) n $*.TMP lib $(OUTD)\$(NAME).lib op q, map=$*.MAP, nodosseg, stack=0, offset=0, align=0x100

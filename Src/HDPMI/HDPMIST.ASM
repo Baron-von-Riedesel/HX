@@ -311,7 +311,6 @@ mystart:
 	cld
 	push cs
 	pop ds
-	add sp,2000h
 ;--- free unused dos mem 
 	mov bx,ss
 	mov cx,es
@@ -322,6 +321,7 @@ mystart:
 	mov ah,4Ah
 	int 21h
 	call hdpmistat
+error:
 	mov ax,4C00h
 	int 21h
 
