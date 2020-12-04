@@ -1,0 +1,207 @@
+
+ 1. About
+ 
+ WSOCK32.DLL implements HX's WinSocket emulation. Since version 1.4 this
+ emulation is based on WatTCP/Watt-32, previously it contained just dummy
+ entries.
+
+
+ 2. Supported Functions
+
+  Name                     Dummy
+ ----------------------------------
+  accept        
+  bind          
+  closesocket   
+  connect       
+  getpeername   
+  getsockname   
+  getsockopt    
+  htonl         
+  htons         
+  inet_addr     
+  inet_ntoa
+  ioctlsocket 
+  listen      
+  ntohl       
+  ntohs       
+  recv        
+  recvfrom    
+  select      
+  send        
+  sendto      
+  setsockopt  
+  shutdown    
+  socket        
+  gethostbyaddr 
+  gethostbyname 
+  getprotobyname   
+  getprotobynumber 
+  getservbyname    
+  getservbyport    
+  gethostname      
+  WSAAsyncGetHostByName      y
+  WSACancelAsyncRequest      y
+  WSASetBlockingHook         y
+  WSAUnhookBlockingHook      y
+  WSAGetLastError    
+  WSASetLastError    
+  WSACancelBlockingCall      y
+  WSAIsBlocking              y
+  WSAStartup
+  WSACleanup
+  __WSAFDIsSet
+  
+
+ 3. Hints / Known Problems
+ 
+ þ if Winsocket "doesn't work", try to run TEST\WSTEST with a parameter
+   and see if any error messages are displayed.
+   
+ þ if the app you were trying to run crashes and the WSOCK32.DLL is
+   suspected to cause the crash, try the version in HX\Unsupp, which
+   just is a dummy and see if the crash disappears with this version.
+   
+ þ if you get error: "all attempts to get an IP address ... failed"
+   then search for file %TEMP%\W32DHCP.TMP and delete it.
+
+ 
+ 4. History
+
+ 2011/05/27 V1.8
+
+ þ bugfix: ioctlsocket() with parameter FIONBIO didn't work due to
+   a bug in WATT32.
+ þ tcp_fsm module from WATT32 v2.2r10 is now used.
+
+ 2009/11/16 V1.7
+
+ þ inet_addr() did return bytes in wrong order, inet_ntoa() used them
+   in wrong order.
+ þ field iMaxUdpDg in WSADATA is now initialized to 1472, which is the
+   max size for WatTCP.
+ þ getsockopt() value SO_MAX_MSG_SIZE supported (returns 1472).
+ þ WSAStartup() won't clear the lpVendorInfo field in WSADATA anymore.
+ þ connect() in non-blocking mode returned WSAINPROGRESS, now returns
+   WSAWOULDBLOCK.
+ þ bugfix: WSAStartup() couldn't be called again once WSACleanup() was
+   called.
+ þ WSAAsyncSelect() supported.
+
+ 2006/10/15 V1.6
+
+ þ accept() didn't terminate, even if closesocket() for this socket
+   has been called.
+ 
+ 2006/05/15 V1.5
+ 
+ þ check for NULL as sockets in select() and set error WSAENOTSOCK.
+ þ WSACancelAsyncRequest, WSAAsyncGetHostByName added (dummies)
+ 
+ 2006/02/28 V1.4
+ 
+ þ now using WatTCP/Watt-32 to implement WinSocket emulation.
+   (WATT32 v2.2r9).
+ 
+ 2006/01/06 V1.3
+ 
+ þ getpeername, getprotobyname, getprotobynumber, getservbyname,
+   getservbyport, getsockopt added (dummies)
+ þ gethostbyaddr added (dummy)
+ þ WSASetBlockingHook, WSAUnhookBlockingHook, WSACancelBlockingCall
+   added (dummies)
+   
+ 2005/12/07 V1.2
+ 
+ þ allow WSAStartup to succeed
+ 
+ 2005/11/24 V1.1
+ 
+ þ ordinal numbers of exports adjusted to match the ones of Win32.
+ 
+ 2005/10/10 V1.0
+
+ 
+ 5. Copyright
+ 
+ WSOCK32 is part of HX DOS extender. This extender is freeware.
+ View HXRT.TXT or HXGUI.TXT for licence details.
+ 
+ Since WSOCK32 has been written using WatTCP/Watt-32, please read the
+ following note from WatTCP's MANUAL:
+
+ --------------------------------------------------------------------------
+  WATTCP - TCP/IP library routines
+
+  Copyright (c) 1990, 1991, 1992, 1993 Erick Engelke
+
+  Portions Copyright (c) 1993  Quentin Smart
+  Portions Copyright (c) 1991  University of Waterloo
+  Portions Copyright (c) 1990  National Center for Supercomputer Applications
+  Portions Copyright (c) 1990  Clarkson University
+  Portions Copyright (c) 1983, 1986, Imagen Corporation
+
+     This software is distributed in the hope that it will be useful,
+     but without any warranty; without even the implied warranty of
+     merchantability or fitness for a particular purpose.
+
+  RESTRICTIONS
+  ------------
+  You may freely use this library to produce programs which you may give
+  away or sell in source format, or as compiled executables, or both.
+
+  You may not sell this library or a portion thereof or distribute modified
+  versions the library code in either source or OBJect or LIBrary format
+  without written permission from the author.  The author still maintains
+  copyright privileges and will assert the privileges of ownership for
+  purposes of royalties such distributions.
+
+ --------------------------------------------------------------------------
+ 
+ Furthermore, included in the Watt-32 sources is a note from Gisle Vanem: 
+ 
+ --------------------------------------------------------------------------
+/*
+ *  BSD sockets functionality for Waterloo TCP/IP
+ *
+ *  Copyright (c) 1997-2002 Gisle Vanem <giva@bgnett.no>
+ *
+ *  Redistribution and use in source and binary forms, with or without
+ *  modification, are permitted provided that the following conditions
+ *  are met:
+ *  1. Redistributions of source code must retain the above copyright
+ *     notice, this list of conditions and the following disclaimer.
+ *  2. Redistributions in binary form must reproduce the above copyright
+ *     notice, this list of conditions and the following disclaimer in the
+ *     documentation and/or other materials provided with the distribution.
+ *  3. All advertising materials mentioning features or use of this software
+ *     must display the following acknowledgement:
+ *       This product includes software developed by Gisle Vanem
+ *       Bergen, Norway.
+ *
+ *  THIS SOFTWARE IS PROVIDED BY ME (Gisle Vanem) AND CONTRIBUTORS ``AS IS''
+ *  AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+ *  IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+ *  ARE DISCLAIMED.  IN NO EVENT SHALL I OR CONTRIBUTORS BE LIABLE FOR ANY
+ *  DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
+ *  (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
+ *  LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
+ *  ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+ *  (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
+ *  THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ *
+ *  Version
+ *
+ *  0.5 : Dec 18, 1997 : G. Vanem - created
+ */
+ --------------------------------------------------------------------------
+
+ Since WSOCK32.DLL contains WatTCP/Watt32 code in binary format only,
+ there is no restriction in its usage. WSOCK32.DLL can be freely distributed
+ with any application (free or commercial), provided this text is
+ distributed as well.
+
+
+ Japheth
+
+ 

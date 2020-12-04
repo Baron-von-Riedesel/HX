@@ -1,0 +1,62 @@
+
+#LIBRARY WS2_32
+OP MODNAME=WS2_32
+OP FUZZYEXPORT
+EXPORT {
+ accept          .1 =_accept
+ bind            .2 =_bind
+ closesocket     .3 =_closesocket
+ connect         .4 =_connect
+ getpeername     .5 =_getpeername
+ getsockname     .6 =_getsockname
+ getsockopt      .7 =_getsockopt
+ htonl           .8 =_htonl
+ htons           .9 =_htons
+ ioctlsocket     .10=_ioctlsocket
+ inet_addr       .11=_inet_addr
+ inet_ntoa       .12=_inet_ntoa
+ listen          .13=_listen
+ ntohl           .14=_ntohl
+ ntohs           .15=_ntohs
+ recv            .16=_recv
+ recvfrom        .17=_recvfrom
+ select          .18=_select
+ send            .19=_send
+ sendto          .20=_sendto
+ setsockopt      .21=_setsockopt
+ shutdown        .22=_shutdown
+ socket          .23=_socket
+
+ WSAAddressToStringA   .27
+ WSACloseEvent         .29
+ WSACreateEvent        .31
+ WSAIoctl              .32
+ WSAEnumNetworkEvents  .36
+ WSAEventSelect        .39
+ 
+ gethostbyaddr      .51=_gethostbyaddr
+ gethostbyname      .52=_gethostbyname
+ getprotobyname     .53=_getprotobyname
+ getprotobynumber   .54=_getprotobynumber
+ getservbyname      .55=_getservbyname
+ getservbyport      .56=_getservbyport
+ gethostname        .57=_gethostname
+ 
+ WSAResetEvent         .71
+ WSASocketA            .78
+ WSAStringToAddressA   .80
+ 
+ WSAAsyncSelect        .101=_WSAAsyncSelect
+ WSAAsyncGetHostByName .103=_WSAAsyncGetHostByName
+ WSACancelAsyncRequest .108=_WSACancelAsyncRequest
+ WSASetBlockingHook    .109=_WSASetBlockingHook
+ WSAUnhookBlockingHook .110=_WSAUnhookBlockingHook
+ WSAGetLastError       .111=_WSAGetLastError
+ WSASetLastError       .112=_WSASetLastError
+ WSACancelBlockingCall .113=_WSACancelBlockingCall
+ WSAIsBlocking         .114=_WSAIsBlocking
+ WSAStartup            .115=_WSAStartup
+ WSACleanup            .116=_WSACleanup
+
+ __WSAFDIsSet          .151=___WSAFDIsSet
+}

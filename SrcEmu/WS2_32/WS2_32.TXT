@@ -1,0 +1,120 @@
+
+ 1. About
+
+ WS2_32.DLL routes most of its exported functions to WSOCK32.DLL.
+
+
+ 2. Supported Functions
+
+  Name                     Dummy
+ ----------------------------------
+  accept        
+  bind          
+  closesocket   
+  connect       
+  getpeername   
+  getsockname   
+  getsockopt    
+  htonl         
+  htons         
+  inet_addr     
+  inet_ntoa
+  ioctlsocket 
+  listen      
+  ntohl       
+  ntohs       
+  recv        
+  recvfrom    
+  select      
+  send        
+  sendto      
+  setsockopt  
+  shutdown    
+  socket
+  WSAAddressToStringA        y
+  WSACloseEvent
+  WSACreateEvent
+  WSAIoctl                   y
+  WSAEnumNetworkEvents       y
+  WSAEventSelect             y
+  gethostbyaddr
+  gethostbyname
+  getprotobyname
+  getprotobynumber
+  getservbyname
+  getservbyport
+  gethostname
+  WSAResetEvent
+  WSASocketA                 y
+  WSAStringToAddressA        y
+  WSAAsyncSelect
+  WSAAsyncGetHostByName      y
+  WSACancelAsyncRequest      y
+  WSASetBlockingHook         y
+  WSAUnhookBlockingHook      y
+  WSAGetLastError    
+  WSASetLastError    
+  WSACancelBlockingCall      y
+  WSAIsBlocking              y
+  WSAStartup
+  WSACleanup
+  __WSAFDIsSet
+
+
+ 3. History
+
+ 2011/05/27 V1.9
+
+ þ bugfix: exports inet_addr, inet_ntoa and ioctlsocket had wrong export
+   numbers.
+ þ bugfix: WS2_32-specific exports had no prologue/epilogue.
+ 
+ 2009/11/16 V1.8
+
+ þ WSAAsyncSelect, WSAAsyncGetHostByName, WSACancelAsyncRequest added.
+ þ WSAIoctl, WSAAddressToStringA added (dummies).
+
+ 2007/02/08 V1.7
+
+ þ WSAResetEvent, WSAEventSelect, WSASocketA, WSAEnumNetworkEvents 
+   added (dummies)
+
+ 2006/10/15 V1.6
+
+ þ WSAStringToAddressA added (dummy)
+ þ WSACreateEvent + WSACloseEvent added
+
+ 2006/05/15 V1.5
+
+ þ WSAStartup now returns version 2.0
+
+ 2006/03/06 V1.4
+
+ þ all exports now routed to WSOCK32.DLL (which is no longer just a dummy).
+
+ 2006/01/06 V1.3
+
+ þ getpeername, getprotobyname, getprotobynumber, getservbyname,
+   getservbyport, getsockopt added (dummies)
+ þ gethostbyaddr added (dummy)
+ þ WSASetBlockingHook, WSAUnhookBlockingHook, WSACancelBlockingCall
+   added (dummies)
+
+ 2005/12/07 V1.2
+
+ þ allow WSAStartup to succeed
+
+ 2005/11/24 V1.1
+
+ þ ordinal numbers of exports adjusted to match the ones of Win32.
+
+ 2005/10/10 V1.0
+
+
+ 4. License
+
+ WS2_32 is part of HX DOS extender. This extender is freeware.
+ View HXRT.TXT or HXGUI.TXT for license details.
+
+ Japheth
+

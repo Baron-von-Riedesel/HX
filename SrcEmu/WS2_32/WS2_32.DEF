@@ -1,0 +1,60 @@
+
+LIBRARY WS2_32
+
+EXPORTS
+ accept         =_accept         @1
+ bind           =_bind           @2
+ closesocket    =_closesocket    @3
+ connect        =_connect        @4
+ getpeername    =_getpeername    @5
+ getsockname    =_getsockname    @6
+ getsockopt     =_getsockopt     @7
+ htonl          =_htonl          @8
+ htons          =_htons          @9
+ ioctlsocket    =_ioctlsocket    @10
+ inet_addr      =_inet_addr      @11
+ inet_ntoa      =_inet_ntoa      @12
+ listen         =_listen         @13
+ ntohl          =_ntohl          @14
+ ntohs          =_ntohs          @15
+ recv           =_recv           @16
+ recvfrom       =_recvfrom       @17
+ select         =_select         @18
+ send           =_send           @19
+ sendto         =_sendto         @20
+ setsockopt     =_setsockopt     @21
+ shutdown       =_shutdown       @22
+ socket         =_socket         @23
+
+ WSAAddressToStringA   @27
+ WSACloseEvent         @29
+ WSACreateEvent        @31
+ WSAIoctl              @32
+ WSAEnumNetworkEvents  @36
+ WSAEventSelect        @39
+ 
+ gethostbyaddr      =_gethostbyaddr       @51
+ gethostbyname      =_gethostbyname       @52
+ getprotobyname     =_getprotobyname      @53
+ getprotobynumber   =_getprotobynumber    @54
+ getservbyname      =_getservbyname       @55
+ getservbyport      =_getservbyport       @56
+ gethostname        =_gethostname         @57
+ 
+ WSAResetEvent         @71
+ WSASocketA            @78
+ WSAStringToAddressA   @80
+ 
+ WSAAsyncSelect        =_WSAAsyncSelect        @101
+ WSAAsyncGetHostByName =_WSAAsyncGetHostByName @103
+ WSACancelAsyncRequest =_WSACancelAsyncRequest @108
+ WSASetBlockingHook    =_WSASetBlockingHook    @109
+ WSAUnhookBlockingHook =_WSAUnhookBlockingHook @110
+ WSAGetLastError       =_WSAGetLastError       @111
+ WSASetLastError       =_WSASetLastError       @112
+ WSACancelBlockingCall =_WSACancelBlockingCall @113
+ WSAIsBlocking         =_WSAIsBlocking         @114
+ WSAStartup            =_WSAStartup            @115
+ WSACleanup            =_WSACleanup            @116
+ 
+ __WSAFDIsSet          =___WSAFDIsSet          @151
