@@ -65,6 +65,7 @@ OP_CLISTI	equ 64	;CLI/STI benchmark
 OP_IN		equ 128	;IN benchmark
 OP2_NESTED	equ 1	;nested execution test
 OP2_HSFATAL	equ 2	;host stack exhaustion
+OP2_DESC	equ 4	;alloc descriptors
 
 wOpt		label word
 bOpt1		db 0
@@ -80,20 +81,21 @@ szCOMSP	db "COMSPEC="
 fcb		db 0, "           ", 0, 0, 0, 0
 cmdl	db 0,13
 szHelp label byte
-	db "DPMI v1.9, Public Domain, written by Japheth",lf
+	db "DPMI v2.0, Public Domain, written by Japheth",lf
 	db "displays infos about installed DPMI host",lf
 	db "usage: DPMI [ -options ]",lf
 	db "  -16: use entry for 16-bit client in any case",lf
 	db "  -b: allocate real-mode callbacks until error",lf
 	db "  -c: measure enable/disable interrupt execution time in protected mode",lf
+	db "  -d: allocate descriptors until error",lf
 	db "  -e: provoke host stack exhaustion",lf
 	db "  -f: fill allocated memory block (-m, -s) with value 'DPMI'",lf
 	db "  -i<port>: measure execution time of IN opcode in protected-mode",lf
-	db "  -l: alloc 1000h bytes at 400000h with AX=0504",lf
-	db "  -m: alloc largest free block with AX=0501",lf
+	db "  -l: allocate 1000h bytes at 400000h with AX=0504",lf
+	db "  -m: allocate largest free block with AX=0501",lf
 	db "  -n: realloc a memory block until an error occurs",lf
 	db "  -r: measure mode switch execution time",lf
-	db "  -s<n>: alloc <n> kB of extended memory, then launch a shell",lf
+	db "  -s<n>: allocate <n> kB of extended memory, then launch a shell",lf
 	db "  -t<n>: test nested execution of mode switches (n = nesting level)",lf
 	db "  -w: wait in protected-mode for a keypress before terminating",lf
 	db 0
@@ -1066,6 +1068,22 @@ hsfatalrm:
 
 hsfatal endp
 
+descalloc proc
+
+	mov bx,0
+next:
+	mov cx,1
+	mov ax,0
+	int 31h
+	jc error
+	inc bx
+	jmp next
+error:
+	@printf <"%u descriptors allocated",lf>, bx
+	ret
+
+descalloc endp
+
 ;--- get a flat selector
 
 getflatsel proc
@@ -1423,6 +1441,10 @@ status_displayed:
 	jz @F
 	call hsfatal
 @@:
+	test bOpt2, OP2_DESC
+	jz @F
+	call descalloc
+@@:
 	test bOpt1, OP_SHELL
 	jz @F
 	call startshell
@@ -1457,14 +1479,16 @@ main proc c
 				or bOpt1, OP_REALLOC
 			.elseif (al == 'b')
 				or bOpt1, OP_RMCB
-			.elseif (al == 'l')
-				or bOpt1, OP_LINALLOC
+			.elseif (al == 'c')
+				or bOpt1, OP_CLISTI
+			.elseif (al == 'd')
+				or bOpt2, OP2_DESC
 			.elseif (al == 'e')
 				or bOpt2, OP2_HSFATAL
 			.elseif (al == 'f')
 				mov bFill, 1
-			.elseif (al == 'c')
-				or bOpt1, OP_CLISTI
+			.elseif (al == 'l')
+				or bOpt1, OP_LINALLOC
 			.elseif (al == 's')
 				or bOpt1, OP_SHELL
 				mov bl,10

@@ -45,28 +45,136 @@ nextdigit:
 	ret
 printword endp
 
+;--- copy esi to edi, size cx
+
+readext proc uses es si
+	sub sp,2*8	;room for entries 4+5
+
+	shld eax,edi,16	;push dst descriptor
+	mov dl,al
+	mov dh,093h
+	mov al,0
+	push ax
+	push dx
+	push di
+	push cx
+
+	shld eax,esi,16	;push src descriptor
+	mov dl,al
+	mov al,0
+	push ax
+	push dx
+	push si
+	push cx
+	add esi,ecx
+
+	xor eax,eax		;push entries 0+1
+	push eax
+	push eax
+	push eax
+	push eax
+
+	push ss
+	pop es
+	mov si,sp
+	shr cx,1		; convert to words
+	clc
+	mov ah,87h
+	int 15h
+	lea esp,[esp+6*8]
+	ret
+
+readext endp
+
+;--- print Page Directory (physical address in ESI)
+
+printpd proc uses esi edi
+local cnt:word
+local buffer[1024]:dword
+local buffer2[1024]:dword
+	@rprintf <"   page directory:",lf>
+	mov di, ss
+	movzx edi,di
+	shl edi,4
+	lea bx,buffer
+	movzx ebx,bx
+	add edi,ebx
+	mov cx,sizeof buffer
+	call readext
+	mov cx,0
+	lea di,buffer
+	.repeat
+		mov eax,ss:[di]
+		.if (al & 1)
+;--- count number of present PTEs in PDE
+			pushad
+			mov esi, eax
+			and si,0F000h
+			mov di, ss
+			movzx edi,di
+			shl edi,4
+			lea bx,buffer2
+			movzx ebx,bx
+			add edi,ebx
+			push cx
+			mov cx,sizeof buffer2
+			call readext
+			pop cx
+			lea di,buffer2
+			.if (cx == 0)			;don't count conventional memory + HMA
+				mov cx,256+16
+				add di,4*(256+16)
+			.else
+				mov cx,0
+			.endif
+			mov cnt,0
+			.repeat
+				.if byte ptr ss:[di] & 1
+					inc cnt
+				.endif
+				add di,sizeof dword
+				inc cx
+			.until cx == 1024
+			popad
+			movzx edx,cx
+			shl edx,22
+			mov ebx,edx
+			add ebx,400000h-1
+			.if (cx == 0)
+				add edx,(256+16) shl 12
+			.endif
+			@rprintf <"   %lX-%lX: %lX [">,edx,ebx,eax
+			invoke printword, cnt
+			@rprintf <" pages]",lf>
+		.endif
+		add di,sizeof dword
+		inc cx
+	.until cx == 1024
+	ret
+printpd endp
+
 ;--- print mode flags
 
 printmode proc
 	test si, FM_RESIDENT
 	jz @F
-	@rprintf <" resident">
+	@rprintf " resident"
 @@:
 	test si, FM_IVTVECS
 	jz @F
-	@rprintf <" modIRQs">
+	@rprintf " modIRQs"
 @@:
 	test si, FM_DISABLED
 	jz @F
-	@rprintf <" disabled">
+	@rprintf " disabled"
 @@:
 	test si, FM_CLONE
 	jz @F
-	@rprintf <" clone">
+	@rprintf " clone"
 @@:
 	test si, FM_INIT
 	jz @F
-	@rprintf <" initialized">
+	@rprintf " initialized"
 @@:
 	ret
 printmode endp
@@ -75,11 +183,11 @@ printmode endp
 ;--- in: ES:DI -> hdpmi string
 
 printversion proc
-	@rprintf <"hdpmi">
+	@rprintf "hdpmi"
 	.if byte ptr es:[di+7]
-		@rprintf <"32">
+		@rprintf "32"
 	.else
-		@rprintf <"16">
+		@rprintf "16"
 	.endif
 	@rprintf <" v">
 	movzx ax,byte ptr es:[di+5]
@@ -134,6 +242,8 @@ checkinstance proc uses es bx
 	@rprintf <"   mode=%X [">, si
 	call printmode
 	@rprintf <" ]",lf>
+	mov esi, v86topm._cr3
+	call printpd
 	assume es:nothing
 	ret
 noinstance:
@@ -185,9 +295,9 @@ hdpmistat proc public
 	int 21h
 	and bp,bp
 	jnz @F
-	@rprintf <"no hdpmi v">
+	@rprintf "no hdpmi v"
 	invoke printword, ?VERMAJOR
-	@rprintf <".">
+	@rprintf "."
 	invoke printword, ?VERMINOR
 	@rprintf <" instance found",lf>
 @@:
@@ -201,6 +311,7 @@ mystart:
 	cld
 	push cs
 	pop ds
+	add sp,2000h
 ;--- free unused dos mem 
 	mov bx,ss
 	mov cx,es
