@@ -35,7 +35,7 @@ $(OUTDIR):
 
 $(OUTDIR)/$(name).EXE: $*.obj makefile
 	@jwlink @<<
-$(LOPTD) format win pe hx
+$(LOPTD) format win pe
 file $*.obj
 name $*.exe 
 libpath \hx\lib
@@ -48,7 +48,7 @@ $(OUTDIR)/$(name).obj: $(name).asm makefile
 
 $(OUTDIR)/$(name2).EXE: $*.obj makefile
 	@jwlink @<<
-format win pe hx
+format win pe
 file $*.obj
 name $*.exe 
 libpath \hx\lib

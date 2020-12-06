@@ -1,7 +1,7 @@
  
  History HDPMI 
 
-  __.__.____, version 3.19
+  06.12.2020, version 3.19
 
   þ fixed regression in v3.18: HDPMI32 & HDPMI16 couldn't be installed 
     simultaneously.

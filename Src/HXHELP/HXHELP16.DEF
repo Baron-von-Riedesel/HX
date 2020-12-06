@@ -1,7 +1,7 @@
 
 NAME HXHELP16 WINDOWCOMPAT
 
-STUB '..\..\bin\dpmild16.bin'
+STUB 'dpmild16.bin'
 
 PROTMODE
 EXETYPE OS2

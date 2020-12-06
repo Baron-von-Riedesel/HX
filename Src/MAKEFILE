@@ -126,7 +126,7 @@ install:
 	@copy HXHELP\Release\HXHELP.EXE   $(HXINST)\OWSupp\WDSupp
 	@copy HXHELP\HX.TRP\HX.TRP        $(HXINST)\OWSupp\WDSupp
 	@copy HXHELP\HXHELP.TXT           $(HXINST)\OWSupp\WDSupp
-	@copy HXHELP\Rel16\HXHP16.EXE     $(HXINST)\OWSupp16
+	@copy HXHELP\Rel16\HXHELP16.EXE   $(HXINST)\OWSupp16\HXHP16.EXE
 	@copy HXHELP\HX.TRP\HX16.TRP      $(HXINST)\OWSupp16
 
 	@copy SHDPMI\Release\SHDPMI.EXE   $(HXINST)\Bin
