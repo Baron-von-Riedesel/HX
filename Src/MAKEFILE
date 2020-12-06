@@ -1,5 +1,5 @@
 
-# Nmake makefile to generate the HX DOS extender binaries.
+# Nmake makefile to generate the basic HX DOS extender binaries.
 
 # Required tools are:
 #
@@ -8,14 +8,14 @@
 # Make                      MS NMake          OW WMake -ms
 # Assembler    $(ASM)       JWasm             Masm v6.14+
 # COFF linker               JWlink            MS LINK
-# COFF lib     $(LIBBIN)    OW WLib           MS LIB
-# COFF RC      $(RCBIN)     OW WRC            MS RC
+# COFF lib     $(LIBBIN)    JWLib             MS LIB
 # OMF linker   $(LINK16BIN) JWlink            MS LINK (OMF)
-# OMF lib      $(LIB16BIN)  OW WLib           MS LIB (OMF)
+# OMF lib      $(LIB16BIN)  JWLib             MS LIB (OMF)
 
 # The HX development package is also needed. It should contain
 # tools EditPE, PatchPE, ExtrMZ. 
 # Add \hx\bin to the PATH variable and edit file DIRS.
+# Make sure that JWlink is at least v1.9beta15 (req. by HDPMI)
 
 !include <dirs>
 

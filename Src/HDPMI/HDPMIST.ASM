@@ -2,12 +2,14 @@
 ;--- scans DOS MCB chain to find installed instances of hdpmi
 ;--- will only find instances of current version!
 
-	.486P
+	.486
 
 	include hdpmi.inc
 	include external.inc
 
 	option proc:private
+
+OPT_PTES equ 1	;display PTEs
 
 	@seg _ITEXT16
 
@@ -20,16 +22,15 @@ _ITEXT16 segment
 
 	@ResetTrace
 
-;--- display word in decimal
+;--- convert word to string (decimal)
 ;--- @rprintf knows hexadecimal only!
 
-printword proc stdcall uses bx di number:word
-
-local outb[8]:byte
+itoa proc stdcall uses bx di number:word, buffer:word
 
 	mov di, 10
 	mov ax, number
-	lea bx,outb+7
+	mov bx,buffer
+	add bx,7
 	mov BYTE PTR ss:[bx],0
 	dec bx
 nextdigit:
@@ -41,13 +42,14 @@ nextdigit:
 	and ax, ax
 	jne nextdigit
 	inc bx
-	@rprintf <"%ls">, ss, bx
+	mov ax,bx
 	ret
-printword endp
+itoa endp
 
-;--- copy esi to edi, size cx
+;--- copy memory via int 15h, ah=87h
+;--- esi=src, edi=dst, cx=size
 
-readext proc uses es si
+copymem proc uses es si
 	sub sp,2*8	;room for entries 4+5
 
 	shld eax,edi,16	;push dst descriptor
@@ -84,14 +86,17 @@ readext proc uses es si
 	lea esp,[esp+6*8]
 	ret
 
-readext endp
+copymem endp
 
 ;--- print Page Directory (physical address in ESI)
 
-printpd proc uses esi edi
+printpd proc stdcall uses esi edi fOptions:word
+
 local cnt:word
+local base:word
 local buffer[1024]:dword
 local buffer2[1024]:dword
+
 	@rprintf <"   page directory:",lf>
 	mov di, ss
 	movzx edi,di
@@ -100,10 +105,11 @@ local buffer2[1024]:dword
 	movzx ebx,bx
 	add edi,ebx
 	mov cx,sizeof buffer
-	call readext
+	call copymem
 	mov cx,0
 	lea di,buffer
 	.repeat
+		mov base,cx
 		mov eax,ss:[di]
 		.if (al & 1)
 ;--- count number of present PTEs in PDE
@@ -118,7 +124,7 @@ local buffer2[1024]:dword
 			add edi,ebx
 			push cx
 			mov cx,sizeof buffer2
-			call readext
+			call copymem
 			pop cx
 			lea di,buffer2
 			.if (cx == 0)			;don't count conventional memory + HMA
@@ -129,8 +135,18 @@ local buffer2[1024]:dword
 			.endif
 			mov cnt,0
 			.repeat
-				.if byte ptr ss:[di] & 1
+				mov eax, ss:[di]
+				.if al & 1
 					inc cnt
+					.if fOptions & OPT_PTES
+						movzx edx,base
+						shl edx,22
+						movzx ebx,cx
+						shl ebx,12
+						lea edx,[edx+ebx]
+						lea ebx,[edx+1000h-1]
+						@rprintf <"     %lX-%lX: %lX",lf>,edx,ebx,eax
+					.endif
 				.endif
 				add di,sizeof dword
 				inc cx
@@ -138,14 +154,13 @@ local buffer2[1024]:dword
 			popad
 			movzx edx,cx
 			shl edx,22
-			mov ebx,edx
-			add ebx,400000h-1
+			lea ebx,[edx+400000h-1]
 			.if (cx == 0)
 				add edx,(256+16) shl 12
 			.endif
 			@rprintf <"   %lX-%lX: %lX [">,edx,ebx,eax
-			invoke printword, cnt
-			@rprintf <" pages]",lf>
+			invoke itoa, cnt, addr buffer2
+			@rprintf <"%s pages]",lf>, ss, ax
 		.endif
 		add di,sizeof dword
 		inc cx
@@ -183,18 +198,21 @@ printmode endp
 ;--- in: ES:DI -> hdpmi string
 
 printversion proc
+local buffer1[8]:byte
+local buffer2[8]:byte
 	@rprintf "hdpmi"
 	.if byte ptr es:[di+7]
 		@rprintf "32"
 	.else
 		@rprintf "16"
 	.endif
-	@rprintf <" v">
-	movzx ax,byte ptr es:[di+5]
-	invoke printword, ax
-	@rprintf <".">
-	movzx ax,byte ptr es:[di+6]
-	invoke printword, ax
+	movzx cx,byte ptr es:[di+5]
+	invoke itoa, cx, addr buffer1
+	push ax
+	movzx cx,byte ptr es:[di+6]
+	invoke itoa, cx, addr buffer2
+	pop cx
+	@rprintf <" v%s.%s">, ss, cx, ss, ax
 	ret
 printversion endp
 
@@ -217,7 +235,10 @@ printlocation endp
 ;--- display global variables in conv memory of an instance
 ;--- inp: AX=hdpmi instance
 
-checkinstance proc uses es bx
+checkinstance proc stdcall uses es bx si di wInst:word, fOptions:word
+
+local buffer[8]:byte
+
 	mov bx,es
 	mov es,ax
 	mov di,offset logo
@@ -228,9 +249,9 @@ checkinstance proc uses es bx
 	pop di
 	jnz noinstance
 	assume es:GROUP16
-	inc bp
-	invoke printword, bp
-	@rprintf <". ">
+	inc wInst
+	invoke itoa, wInst, addr buffer
+	@rprintf "%s. ", ss, ax
 
 	call printversion
 	call printlocation
@@ -243,8 +264,9 @@ checkinstance proc uses es bx
 	call printmode
 	@rprintf <" ]",lf>
 	mov esi, v86topm._cr3
-	call printpd
+	invoke printpd, fOptions
 	assume es:nothing
+	mov ax,1
 	ret
 noinstance:
 	cmp cx,2
@@ -252,12 +274,45 @@ noinstance:
 	call printversion
 	call printlocation
 @@:
+	xor ax,ax
 	ret
 checkinstance endp
 
 ;--- scan DOS memory for hdpmi instances
 
-hdpmistat proc public
+main proc public
+
+local fOptions:word
+
+	mov fOptions,0
+	mov si,80h
+	movzx cx, byte ptr es:[si]
+	inc si
+	.while cx
+		mov al,es:[si]
+		dec cx
+		inc si
+		.if cx && (al == '/' || al == '-')
+			mov al,es:[si]
+			or al,20h
+			.if al == 'p'
+				or fOptions, OPT_PTES
+			.elseif al == '?'
+				@rprintf <"HDPMIST displays states of currently loaded HDPMI instances",lf>
+				@rprintf <"usage: HDPMIST [options]",lf>
+				@rprintf <"options are:",lf>
+				@rprintf <"  -? display this help",lf>
+				@rprintf <"  -p display PTEs",lf>
+				jmp exit
+			.else
+				dec si
+				@rprintf <"unknown option %s",lf>,es,si
+				jmp exit
+			.endif
+			dec cx
+			inc si
+		.endif
+	.endw
 
 	mov ax,5802h			;get umb link status
 	int 21h
@@ -269,7 +324,7 @@ hdpmistat proc public
 	mov ah,52h
 	int 21h
 	mov es,es:[bx-2]
-	xor bp,bp
+	xor si,si
 	xor bx,bx
 	.while (byte ptr es:[bx] != 'Z')
 		mov ax,es
@@ -278,11 +333,13 @@ hdpmistat proc public
 			add ax,10h			;skip PSP
 			mov cx,cs
 			.if (ax != cx)		;skip our instance!
-				call checkinstance
+				invoke checkinstance, si, fOptions
+				add si,ax
 			.endif
 		.elseif word ptr es:[bx+1] != 0 && word ptr es:[bx+3] > 20h
 			add ax,20h		;a clone has no PSP, but a preceding 200h real-mode stack!
-			call checkinstance
+			invoke checkinstance, si, fOptions
+			add si, ax
 		.endif
 		mov ax,es:[bx+3]
 		mov cx,es
@@ -293,17 +350,14 @@ hdpmistat proc public
 	pop bx				;restore umb link status
 	mov ax,5803h
 	int 21h
-	and bp,bp
+	and si,si
 	jnz @F
-	@rprintf "no hdpmi v"
-	invoke printword, ?VERMAJOR
-	@rprintf "."
-	invoke printword, ?VERMINOR
-	@rprintf <" instance found",lf>
+	@rprintf <"no hdpmi v",@CatStr(!"%?VERMAJOR!.%?VERMINOR!")," instance found",lf>
 @@:
+exit:
 	ret
 
-hdpmistat endp
+main endp
 
 	public mystart
 
@@ -320,7 +374,7 @@ mystart:
 	add bx,cx
 	mov ah,4Ah
 	int 21h
-	call hdpmistat
+	call main
 error:
 	mov ax,4C00h
 	int 21h
