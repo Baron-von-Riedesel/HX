@@ -6,11 +6,10 @@
 # - wininc
 # - HX dev
 
+!include <..\dirs>
+
 name  = EDITPE
 name2 = EXTRMZ
-
-WININC=\WinInc
-HX=\hx
 
 !ifndef DEBUG
 DEBUG=0
@@ -26,7 +25,7 @@ AOPTD=
 LOPTD=
 !endif
 
-ASM =@jwasm.exe -c -nologo -coff -Sg -Fl$* -Fo$* $(AOPTD) -I$(WININC)\Include
+ASM =@jwasm.exe -c -nologo -coff -Sg -Fl$* -Fo$* $(AOPTD) -I$(HXINST)\Include
 
 ALL: $(OUTDIR) $(OUTDIR)/$(name).EXE $(OUTDIR)\$(name2).EXE
 
@@ -38,7 +37,7 @@ $(OUTDIR)/$(name).EXE: $*.obj makefile
 $(LOPTD) format win pe
 file $*.obj
 name $*.exe 
-libpath \hx\lib
+libpath $(HXINST)\lib
 lib { dkrnl32.lib libc32s.lib }
 op q,dosseg, m=$*.map, stub=dpmist32.bin $(LOPTD),start=_mainCRTStartup
 <<
@@ -51,7 +50,7 @@ $(OUTDIR)/$(name2).EXE: $*.obj makefile
 format win pe
 file $*.obj
 name $*.exe 
-libpath \hx\lib
+libpath $(HXINST)\lib
 lib { dkrnl32.lib libc32s.lib }
 op q,m=$*.map, stub=dpmist32.bin, start=_mainCRTStartup $(LOPTD)
 <<

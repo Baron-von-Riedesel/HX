@@ -8,18 +8,28 @@
 	option casemap:none
 	option proc:private
 
-PDWORD typedef ptr DWORD	;required by winnt.inc
-_CRTAPI1 equ <c>			;required by stdlib.inc
-
-	.nolist
-	.nocref
-	include winasm.inc
 	include winnt.inc
-	include string.inc
-	include stdlib.inc
-	include stdio.inc
-	.list
-	.cref
+
+fopen  proto c :ptr, :ptr
+fclose proto c :dword
+fread  proto c :ptr, :dword, :dword, :dword
+fwrite proto c :ptr, :dword, :dword, :dword
+fseek  proto c :ptr, :dword, :dword
+printf proto c :ptr, :vararg
+sprintf proto c :ptr, :ptr, :vararg
+
+strlen proto c :ptr
+memset proto c :ptr, :dword, :dword
+
+malloc proto c :dword
+free   proto c :ptr
+
+externdef c errno:dword
+
+SEEK_SET equ 0
+
+LPSTR typedef ptr byte
+
 
 lf	equ 0Ah
 cr	equ 0Dh
