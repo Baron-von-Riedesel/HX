@@ -15,9 +15,6 @@ LIBOMF=$(HXINST)\LibOMF
 INC32DIR=..\..\Include
 INC16DIR=.
 
-OWDIR=\watcom
-OWBIN=$(OWDIR)\binnt
-
 MAKE=nmake.exe /nologo
 #MAKE=wmake.exe -h -ms
 ASM=jwasm.exe
@@ -25,5 +22,5 @@ LINKBIN=jwlink.exe
 LINK16BIN=jwlink.exe
 LIBBIN=jwlib.exe -q -fa -n
 LIB16BIN=jwlib.exe -q -b -n
-RCBIN=$(OWBIN)\wrc.exe
+RCBIN=wrc.exe
 

@@ -7,13 +7,13 @@
 # --------------------------------------------------------------
 # Make                      MS NMake          OW WMake -ms
 # Assembler    $(ASM)       JWasm             Masm v6.14+
-# COFF linker               JWlink            MS LINK
-# COFF lib     $(LIBBIN)    OW WLib           MS LIB
+# COFF linker               JWlink            MS LINK, OW Wlink
+# COFF lib     $(LIBBIN)    JWLib             MS LIB, OW Wlib
 # COFF RC      $(RCBIN)     OW WRC            MS RC
-# OMF linker   $(LINK16BIN) JWlink            MS LINK (OMF)
-# OMF lib      $(LIB16BIN)  OW WLib           MS LIB (OMF)
+# OMF linker   $(LINK16BIN) JWlink            MS LINK (OMF), OW Wlink
+# OMF lib      $(LIB16BIN)  JWLib             MS LIB (OMF), OW WLib
 
-# JWasm and JWlink can be found at https://github.com/Baron-von-Riedesel.
+# JWasm, JWlink and JWlib can be found at https://github.com/Baron-von-Riedesel.
 
 # About WSOCK32 target:
 # The WSOCK32 target has to be excluded, because some object
@@ -72,8 +72,8 @@ ALL:
     @$(MAKE) DEBUG=$(DEBUG) 
     cd ..\VERSION
     @$(MAKE) DEBUG=$(DEBUG) 
-    cd ..\WSOCK32
-    @$(MAKE) DEBUG=$(DEBUG) 
+#    cd ..\WSOCK32
+#    @$(MAKE) DEBUG=$(DEBUG) 
     cd ..\WS2_32
     @$(MAKE) DEBUG=$(DEBUG) 
     cd ..
@@ -120,7 +120,7 @@ install:
 	@copy VERSION\VERSION.TXT          $(HXINST)\Doc
 	@copy WINMM\RELEASE\WINMM.DLL      $(HXINST)\Bin
 	@copy WINMM\WINMM.TXT              $(HXINST)\Doc
-	@copy WSOCK32\RELEASE\WSOCK32.DLL  $(HXINST)\Bin
+#	@copy WSOCK32\RELEASE\WSOCK32.DLL  $(HXINST)\Bin
 	@copy WSOCK32\WSOCK32.TXT          $(HXINST)\Doc
 
 clean: 
@@ -162,8 +162,8 @@ clean:
     @$(MAKE) DEBUG=$(DEBUG) clean 
     cd ..\WINMM
     @$(MAKE) DEBUG=$(DEBUG) clean 
-    cd ..\WSOCK32
-    @$(MAKE) DEBUG=$(DEBUG) clean 
+#    cd ..\WSOCK32
+#    @$(MAKE) DEBUG=$(DEBUG) clean 
     cd ..\WS2_32
     @$(MAKE) DEBUG=$(DEBUG) clean 
     cd ..

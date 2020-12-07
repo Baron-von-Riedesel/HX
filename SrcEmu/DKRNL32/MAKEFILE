@@ -137,7 +137,7 @@ $(OUTD2)\$(LIBNAME).lib: $(OUTD1)\$(LIBNAME).lib
 	@if exist $(NAME).DLL rename $(NAME).DLL $(NAME).DL_
 #	@$(LIBBIN) $(LIBNAME).lib /REMOVE:.\thread.obj /REMOVE:.\thread3.obj .\thread.obj .\thread3.obj /OUT:$(LIBNAME).lib
 # dont use $(LIBBIN), it contains the -n switch!
-	@$(OWDIR)\binnt\wlib -q $(LIBNAME).lib -+thread.obj -+thread3.obj
+	@jwlib -q $(LIBNAME).lib -+thread.obj -+thread3.obj
 	@if exist $(NAME).DL_ rename $(NAME).DL_ $(NAME).DLL
 	@cd ..
 
