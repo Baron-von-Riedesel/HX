@@ -25,10 +25,8 @@ MAKEMZ=0
 
 !if $(DEBUG)==0
 OUTDIR=RELEASE
-OUTD2=REL16
 !else
 OUTDIR=DEBUG
-OUTD2=DEB16
 !endif
 
 ALL: $(OUTDIR) $(OUTDIR)\$(NAME).EXE
@@ -45,16 +43,10 @@ ASM=@ml.exe
 ASM=@jwasm.exe
 !endif
 
-ALL: $(OUTDIR)\$(NAME).EXE $(OUTD2)\HXHELP16.EXE
+ALL: $(OUTDIR)\$(NAME).EXE
 
 $(OUTDIR):
 	@mkdir $(OUTDIR)
-
-$(OUTD2):
-	@mkdir $(OUTD2)
-
-$(OUTD2)\HXHELP16.EXE: HXHELP16.DEF HXHELP.ASM
-	@nmake -f HXHELP16.MAK DEBUG=$(DEBUG)
 
 $(OUTDIR)\$(NAME).EXE: $(OUTDIR)\hxhelp.obj Makefile $(OUTDIR)\privprof.obj
 !if $(MSLINK)

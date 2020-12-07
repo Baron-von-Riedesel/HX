@@ -1,0 +1,52 @@
+
+  1. About
+
+   PatchNE is used to set some values in the header of an NE binary.
+  The most important is field "operating system" at offset 36h. PatchNE
+  sets it to either DPMI-16 (5) or DPMI-32 (6). The value for DPMI-16
+  is the same as used by Borland's 16-bit DPMI  extender. DPMI-32 is 
+  special for HX and will be unknown for NE file dumpers.
+   There are additional options to make binaries created for Borland's
+  Powerpack extender (RTM.EXE and DPMI16BI.OVL) compatible with HX's
+  DPMILD16. 
+  
+
+  2. Usage
+  
+  To mark a NE application as 16-Bit client, enter
+  
+   patchNE appname
+   
+  To mark a NE application as 32-Bit client, enter 
+
+   patchNE -32 appname
+   
+  This is required because the OMF linkers knowing how to create
+  NE binaries most likely will not know how to set values for field
+  "operating system" others than OS/2 or Windows. 
+  
+  Other options are:
+  
+  -n: dont touch application type flags. Without this option the 
+      "application type" bits in the NE header are set to "fullscreen".
+  -r: mark application as RTM binary. This flag will instruct DPMILD16
+      to allocate alias descriptors for all code segments, which copies
+      the RTM.EXE behaviour. 
+  -s: this goes one step further than -r option and replaces the MZ stub
+      in the NE binary with DPMIST16.BIN (which must be located in the 
+      current directory).
+  -v: makes patchne.exe tell what it has done.
+
+
+  3. History
+
+  06/05/2009, v1.6: JWasm's -mz option is used.
+  01/20/2009, v1.5: assembled with JWasm.
+  12/14/2006, v1.4: added -r and -s options.
+  09/29/2006, v1.3: ???
+  03/12/2006, v1.2: added -n option. 
+  08/21/2005, v1.1: added -v option.
+  07/04/2005, v1.0: initial release.
+
+  Japheth
+  

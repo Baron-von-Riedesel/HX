@@ -1,0 +1,204 @@
+Open Watcom Linker Version 1.3
+Portions Copyright (c) 1985-2002 Sybase, Inc. All Rights Reserved.
+Created on:       05/08/09 17:04:34
+Executable Image: hx.trp
+creating a DOS executable
+
+
+                        +------------+
+                        |   Groups   |
+                        +------------+
+
+Group                           Address              Size
+=====                           =======              ====
+
+dgroup                          0000:0000            00005000
+
+
+
+                        +--------------+
+                        |   Segments   |
+                        +--------------+
+
+Segment                Class          Group          Address         Size
+=======                =====          =====          =======         ====
+
+_TEXT                  CODE           dgroup         0000:0000       000026b6
+_BSS                   BSS            dgroup         026c:0000       000013f4
+_DATA                  DATA           dgroup         03ac:0000       0000009e
+CONST                  DATA           dgroup         03b5:000e       000003e2
+CONST2                 DATA           dgroup         03f4:0000       000000c0
+STACK                  STACK          dgroup         0400:0000       00001000
+
+
+                        +----------------+
+                        |   Memory Map   |
+                        +----------------+
+
+* = unreferenced symbol
++ = symbol only referenced locally
+
+Address        Symbol
+=======        ======
+
+Module: dosstrt.obj(TRAPSTRT)
+0000:0000      _small_code_
+Module: mxutil.obj(d:\watcom\trp_src\bld\trap\common\mxutil.c)
+0000:0040      GetInPtr_
+0000:006c      GetOutPtr_
+0000:0098      GetTotalSize_
+0000:26c0      _In_Mx_Ptr
+0000:26c4      _Out_Mx_Ptr
+0000:26c8      _Out_Mx_Num
+0000:26c9      _In_Mx_Num
+Module: dosxlink.obj(C:\TEMP\WC\BLD\TRAP\LCL\DOS\DOSX\c\dosxlink.c)
+0000:00d0+     BackToProtMode_
+0000:00ee      BackFromProtMode_
+0000:012e      RemoteGet_
+0000:0164      RemotePut_
+0000:019e      RemoteConnect_
+0000:01a0      RemoteDisco_
+0000:01a2+     CopyStr_
+0000:0410      RemoteLink_
+0000:05da      RemoteUnLink_
+0000:26d0+     _Buff
+0000:26d8+     _ProtModeState
+0000:26f2+     _RealModeState
+0000:270c+     _OldPSP
+0000:270e+     _BeenToProtMode
+0000:270f*     _Server
+0000:2710      _BackFromFork
+Module: dosxremo.obj(C:\TEMP\WC\BLD\TRAP\LCL\DOS\DOSX\c\dosxremo.c)
+0000:0620      ReqWrite_cpu_
+0000:0620      ReqWrite_fpu_
+0000:0620      ReqWrite_regs_
+0000:0620      ReqSet_watch_
+0000:0620      ReqClear_watch_
+0000:0620      ReqSet_break_
+0000:0620      ReqClear_break_
+0000:0620      ReqGet_message_text_
+0000:0620      ReqRedirect_stdin_
+0000:0620      ReqRedirect_stdout_
+0000:06f8      ReqGet_sys_config_
+0000:0734      ReqGet_err_text_
+0000:0842      ReqMap_addr_
+0000:0898      ReqRead_mem_
+0000:0898      ReqRead_io_
+0000:08aa      ReqWrite_io_
+0000:08d0      ReqRead_cpu_
+0000:0908      ReqRead_fpu_
+0000:0940      ReqRead_regs_
+0000:0978      ReqChecksum_mem_
+0000:09a4      ReqGet_next_alias_
+0000:09d0      ReqProg_go_
+0000:09d0      ReqProg_step_
+0000:0a16      ReqAddr_info_
+0000:0a3c      ReqMachine_data_
+0000:0a8c      ReqGet_lib_name_
+0000:0ac6      ReqWrite_mem_
+0000:0aee      GetExeExtensions_
+0000:0af6      ReqProg_load_
+0000:0d58      ReqProg_kill_
+0000:0d9e      TrapInit_
+0000:0e12      TrapFini_
+0000:3f40*     _DOSEMUString
+Module: dosxfork.obj(fork)
+0000:0e1a      GetPSP_
+0000:0e25      SetPSP_
+0000:0e30      SaveVectors_
+0000:0e4a      RestoreVectors_
+0000:0e66      DbgPSP_
+0000:0e6b      InitPSP_
+0000:0e73      _fork_
+Module: dosxjump.obj(SETJMP)
+0000:0f36      _setjmp_
+0000:0f65      longjmp_
+Module: core.obj(d:\watcom\trp_src\bld\trap\lcl\c\core.c)
+0000:0fa0+     ReqConnect_
+0000:0fd6+     ReqDisconnect_
+0000:0fda+     ReqResume_
+0000:0fda+     ReqSuspend_
+0000:0fde      TrapRequest_
+Module: supp.obj(d:\watcom\trp_src\bld\trap\lcl\c\supp.c)
+0000:1030      ReqGet_supplementary_service_
+0000:10de      ReqPerform_supplementary_service_
+Module: dosrfx.obj(d:\watcom\trp_src\bld\trap\lcl\dos\c\dosrfx.c)
+0000:1110      ReqRfx_rename_
+0000:1172      ReqRfx_mkdir_
+0000:11a4      ReqRfx_rmdir_
+0000:11d6      ReqRfx_setdrive_
+0000:1208      ReqRfx_getdrive_
+0000:1220      ReqRfx_setcwd_
+0000:1252      ReqRfx_getcwd_
+0000:12cc      ReqRfx_setfileattr_
+0000:1324      ReqRfx_getfileattr_
+0000:1354      ReqRfx_getfreespace_
+0000:1528      ReqRfx_setdatetime_
+0000:165a      ReqRfx_getdatetime_
+0000:1694      ReqRfx_findfirst_
+0000:16f0      ReqRfx_findnext_
+0000:1766      ReqRfx_findclose_
+0000:176a      ReqRfx_nametocannonical_
+Module: dosfile.obj(d:\watcom\trp_src\bld\trap\lcl\dos\c\dosfile.c)
+0000:18f0      ReqFile_get_config_
+0000:1912      ReqFile_open_
+0000:19a8      ReqFile_seek_
+0000:1a0e      ReqFile_read_
+0000:1a7a      ReqFile_write_
+0000:1ae4      ReqFile_write_console_
+0000:1b3c      ReqFile_close_
+0000:1b74      ReqFile_erase_
+0000:1c18      FindFilePath_
+0000:1d44      ReqFile_string_to_fullpath_
+0000:1dcc      ReqFile_run_cmd_
+Module: doschk.obj(d:\watcom\trp_src\bld\trap\lcl\dos\c\doschk.c)
+0000:1e52      CheckPointMem_
+0000:20a8      CheckPointRestore_
+Module: dosenv.obj(d:\watcom\trp_src\bld\trap\lcl\dos\c\dosenv.c)
+0000:2150      DOSEnvFind_
+Module: dosexc.obj(d:\watcom\trp_src\bld\trap\lcl\dos\c\dosexc.c)
+0000:21c0*     ExceptionText_
+Module: dosflip.obj(d:\watcom\trp_src\bld\trap\lcl\dos\c\dosflip.c)
+0000:2220      ReqRead_user_keyboard_
+0000:22b0      ReqSet_debug_screen_
+0000:22b0      ReqSet_user_screen_
+Module: dossplit.obj(d:\watcom\trp_src\bld\trap\lcl\dos\c\dossplit.c)
+0000:22c0      ReqSplit_cmd_
+Module: fork.obj(FORK)
+0000:2353      Fork_
+Module: packet.obj(d:\watcom\trp_src\bld\trap\common\packet.c)
+0000:2470      StartPacket_
+0000:247c      PutPacket_
+0000:249e*     PutBuffPacket_
+0000:24ba      AddPacket_
+0000:2504      GetPacket_
+0000:2520      RemovePacket_
+0000:256c*     GetPacketBuffPtr_
+0000:257c      MaxPacketSize_
+Module: d:\watcom/lib286/dos\clibc.lib(stricmp)
+0000:2580      stricmp_
+Module: d:\watcom/lib286/dos\clibc.lib(i4d)
+0000:25c2*     __I4D
+0000:260b      __U4D
+Module: d:\watcom/lib286/dos\clibc.lib(i4m)
+0000:2690      __I4M
+0000:2690*     __U4M
+Module: d:\watcom/lib286/dos\clibc.lib(toupper)
+0000:26a8      toupper_
+
+
+                        +--------------------+
+                        |   Libraries Used   |
+                        +--------------------+
+
+d:\watcom/lib286/dos\clibc.lib
+
+
+                        +-----------------------+
+                        |   Linker Statistics   |
+                        +-----------------------+
+
+Stack size:  1000 (4096.)
+Memory size:  5000 (20480.)
+Entry point address: 0000:002d
+Link time: 00:00.70

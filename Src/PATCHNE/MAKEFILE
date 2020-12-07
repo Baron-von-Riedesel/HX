@@ -1,0 +1,54 @@
+
+# NMAKE makefile to create PATCHNE.EXE
+# uses JWasm
+
+!include <..\dirs>
+
+!ifndef DEBUG
+DEBUG=0
+!endif
+
+!if $(DEBUG)
+OUTDIR=DEBUG
+!else
+OUTDIR=RELEASE
+!endif
+
+PGM=PATCHNE
+
+ALL: $(OUTDIR) $(OUTDIR)\$(PGM).EXE
+
+$(OUTDIR):
+	@mkdir $(OUTDIR)
+
+!if 0
+
+!ifndef MASM
+MASM=0
+!endif
+
+!if $(MASM)
+ASM=@ml -c -nologo -Sg -Fl$* -Fo$* -I$(INC32DIR)
+!else
+ASM=@jwasm -c -nologo -Sg -Fl$* -Fo$* -I$(INC32DIR)
+!endif
+
+LINK=jwlink.exe
+
+$(OUTDIR)\$(PGM).EXE: $*.obj makefile
+	@$(LINK) format dos file $* name $*.EXE op q,map=$*.MAP
+
+$(OUTDIR)\$(PGM).obj: $(PGM).asm makefile
+	$(ASM) $(PGM).asm
+
+!else
+
+$(OUTDIR)\$(PGM).EXE: $(PGM).asm makefile
+	@jwasm -nologo -mz -Sg -Fl$* -Fo$*.EXE -I$(INC32DIR) $(PGM).asm
+
+!endif
+
+clean:
+	@del $(OUTDIR)\*.exe
+	@del $(OUTDIR)\*.obj
+	@del $(OUTDIR)\*.lst
