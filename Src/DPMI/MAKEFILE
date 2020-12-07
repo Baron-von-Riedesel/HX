@@ -16,4 +16,4 @@ $(OUTDIR)\$(name).exe: $(name).asm printf.inc makefile
 	@jwasm.exe -mz -nologo -Sg -Fl$* -Fo$* -I..\..\Include $(name).asm
 
 clean:
-	erase $(OUTDIR)\*.exe
+	@erase $(OUTDIR)\*.exe

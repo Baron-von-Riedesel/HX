@@ -57,4 +57,3 @@ clean:
 	@del $(OUTDIR)\*.lib
 	@del $(OUTDIR)\*.lst
 	@del $(OUTDIR)\*.map
-	@del $(OUTDIR)\*.exp

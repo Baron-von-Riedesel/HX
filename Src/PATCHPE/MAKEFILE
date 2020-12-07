@@ -57,3 +57,4 @@ clean:
 	@del $(OUTDIR)\*.exe
 	@del $(OUTDIR)\*.obj
 	@del $(OUTDIR)\*.lst
+	@del $(OUTDIR)\*.map

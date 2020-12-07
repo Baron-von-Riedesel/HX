@@ -102,6 +102,9 @@ install:
 	@copy PESTUB\Release\PESTUB.EXE   $(HXINST)\Bin
 	@copy PESTUB\PESTUB.TXT           $(HXINST)\Doc
 
+	@copy HXGUIHLP\Release\HXGUIHLP.DLL $(HXINST)\Bin
+	@copy HXGUIHLP\HXGUIHLP.TXT       $(HXINST)\Doc
+
 	@copy SB16\Release\SB16.DLL       $(HXINST)\Bin
 #	@copy SB16\SB16.TXT               $(HXINST)\Doc
 
