@@ -14,10 +14,6 @@
 DEBUG = 0
 !endif
 
-!ifndef MASM
-MASM=0
-!endif
-
 !if $(DEBUG)
 AOPTD=-Zi -D_DEBUG
 LOPTD=
@@ -38,12 +34,6 @@ LOPT = format DOS
 LCMDS = $(LOPT) file $(OUTIOPL0)\$(SRC).obj name $*.EXE lib $(OUTIOPL0)\$(NAME).lib op q, map=$*.MAP, stack=0 
 
 AOPT= -nologo -c -Cp -Sg -D?32BIT=1 -D?PMIOPL=00 $(AOPTD) -I$(INC32DIR) -Fl$* -Fo$*
-
-!if $(MASM)
-ASM = ml.exe
-!else
-ASM = jwasm.exe
-!endif
 
 NAME  = HDPMI32
 SRC   = hdpmi
@@ -83,6 +73,6 @@ $(OUTIOPL0)\$(NAME).lib: $(OBJMODS) $(NAME)i.mak
 clean:
 	@del $(OUTIOPL0)\*.obj
 	@del $(OUTIOPL0)\*.lib
-#	@del $(OUTIOPL0)\*.exe
+	@del $(OUTIOPL0)\*.exe
 	@del $(OUTIOPL0)\*.lst
 	@del $(OUTIOPL0)\*.map

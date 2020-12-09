@@ -33,22 +33,14 @@ OBJMODS = $(OBJMODS:.\=DEBUG\)
 OBJMODS = $(OBJMODS:.\=RELEASE\)
 !endif
 
-!ifndef MASM
-MASM=0
-!endif
 MSLINK=0
 
 .SUFFIXES: .asm .obj
 
 .asm{$(OUTDIR)}.obj:
-    $(ASM) $<
+    @$(ASM) $(AOPT) $<
 
-ASMOPT= -c -nologo -coff -D?FLAT=1 -Fl$* -Fo$* -Cp -Sg $(AOPTD) -I$(INC32DIR)
-!if $(MASM)
-ASM=@ml.exe $(ASMOPT)
-!else
-ASM=@jwasm.exe $(ASMOPT)
-!endif
+AOPT= -c -nologo -coff -D?FLAT=1 -Fl$* -Fo$* -Cp -Sg $(AOPTD) -I$(INC32DIR)
 
 LOPTS= /NOLOGO /MAP /SUBSYSTEM:CONSOLE /DLL /NODEFAULTLIB
 
@@ -65,7 +57,7 @@ $(OUTDIR):
 	@mkdir ..\DKRNL32\$(OUTDIR)
 
 ..\DKRNL32\$(OUTDIR)\int21lfn.obj: int21lfn.asm
-	$(ASM) int21lfn.asm
+	@$(ASM) $(AOPT) int21lfn.asm
 
 # put all sections in one physical section to reduce memory load
 

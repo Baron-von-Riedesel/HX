@@ -12,10 +12,6 @@
 DEBUG = 0
 !endif
 
-!ifndef MASM
-MASM=0
-!endif
-
 !if $(DEBUG)
 AOPTD=-Zi -D_DEBUG
 LOPTD=/LI
@@ -32,11 +28,6 @@ OBJMODS = $(OBJNAMES:.\=ENH16D\)
 OBJMODS = $(OBJNAMES:.\=ENH16\)
 !endif
 
-!if $(MASM)
-ASM= ml.exe
-!else
-ASM= jwasm.exe
-!endif
 LINK  = jwlink.exe
 
 AOPT= -nologo -c -Cp -Sg -D?32BIT=0 -D?ENHANCED=1 $(AOPTD) -I$(INC32DIR) -Fl$* -Fo$*
@@ -78,6 +69,6 @@ $(OUTD)\$(NAME).lib: $(OBJMODS) $(NAME)e.mak
 clean:
 	@del $(OUTD)\*.obj
 	@del $(OUTD)\*.lib
-#	@del $(OUTD)\*.exe
+	@del $(OUTD)\*.exe
 	@del $(OUTD)\*.map
 	@del $(OUTD)\*.lst

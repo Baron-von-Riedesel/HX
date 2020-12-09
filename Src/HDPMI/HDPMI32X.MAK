@@ -31,11 +31,6 @@ OBJMODS = $(OBJNAMES:.\=X32\)
 OUTD=X32
 !endif
 
-!ifdef MASM
-ASM = ml.exe
-!else
-ASM = jwasm.exe
-!endif
 LINK  = jwlink.exe
 
 AOPT   = -nologo -c -Cp -Sg -D?32BIT=1 $(AOPTD) -I$(INC32DIR) -Fl$* -Fo$* -D?ALLOWR0IRQ=1
@@ -72,6 +67,6 @@ $(OUTD)\$(NAME).lib: $(OBJMODS)
 clean:
 	@del $(OUTD)\*.obj
 	@del $(OUTD)\*.lib
-#	@del $(OUTD)\*.exe
+	@del $(OUTD)\*.exe
 	@del $(OUTD)\*.lst
 	@del $(OUTD)\*.map

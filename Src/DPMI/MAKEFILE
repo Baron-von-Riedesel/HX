@@ -3,6 +3,8 @@
 # tools used:
 # - JWasm
 
+!include <..\dirs>
+
 name=DPMI
 
 OUTDIR=RELEASE
@@ -13,7 +15,7 @@ $(OUTDIR):
 	@mkdir $(OUTDIR)
 
 $(OUTDIR)\$(name).exe: $(name).asm printf.inc makefile
-	@jwasm.exe -mz -nologo -Sg -Fl$* -Fo$* -I..\..\Include $(name).asm
+	@$(ASM) -mz -nologo -Sg -Fl$* -Fo$* -I$(INC32DIR) $(name).asm
 
 clean:
 	@erase $(OUTDIR)\*.exe

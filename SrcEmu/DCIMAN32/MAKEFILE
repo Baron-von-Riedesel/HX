@@ -19,9 +19,6 @@ AOPTD=
 OUTDIR=RELEASE
 !endif
 
-!ifndef MASM
-MASM=0
-!endif
 MSLINK=0
 
 SRCMODS = \
@@ -34,13 +31,7 @@ OBJMODS = $(OBJMODS:.\=DEBUG\)
 OBJMODS = $(OBJMODS:.\=RELEASE\)
 !endif
 
-ASMOPT= -c -coff -nologo -Cp -Sg $(AOPTD) -I$(INC32DIR) -D?FLAT=1 -Fl$* -Fo$* 
-
-!if $(MASM)
-ASM=@ml.exe $(ASMOPT)
-!else
-ASM=@jwasm.exe $(ASMOPT)
-!endif
+AOPT= -c -coff -nologo -Cp -Sg $(AOPTD) -I$(INC32DIR) -D?FLAT=1 -Fl$* -Fo$* 
 
 LOPTS= /NOLOGO /MAP /SUBSYSTEM:CONSOLE /DLL /ENTRY:DllMain /LIBPATH:$(LIBCOFF)
 
@@ -51,7 +42,7 @@ LIBS=dkrnl32.lib duser32.lib ..\DDDRAW\RELEASE\DDDRAW.LIB
 .SUFFIXES: .asm .obj
 
 .asm{$(OUTDIR)}.obj:
-	$(ASM) $<
+	@$(ASM) $(AOPT) $<
 
 ALL: $(OUTDIR) $(OUTDIR)\$(NAME).DLL
 
@@ -84,4 +75,4 @@ clean:
 	@del $(OUTDIR)\*.lib
 	@del $(OUTDIR)\*.map
 	@del $(OUTDIR)\*.lst
-	@del $(OUTDIR)\*.exp
+#	@del $(OUTDIR)\*.exp

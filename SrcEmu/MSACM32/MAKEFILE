@@ -29,18 +29,9 @@ OBJMODS = $(OBJMODS:.\=DEBUG\)
 OBJMODS = $(OBJMODS:.\=RELEASE\)
 !endif
 
-ASMOPT= -c -coff -nologo -Sg $(AOPTD) -I$(INC32DIR) -D?FLAT=1 -Fl$* -Fo$* 
+AOPT= -c -coff -nologo -Sg $(AOPTD) -I$(INC32DIR) -D?FLAT=1 -Fl$* -Fo$* 
 
-!ifndef MASM
-MASM=0
-!endif
 MSLINK=0
-
-!if $(MASM)
-ASM=@ml.exe $(ASMOPT)
-!else
-ASM=@jwasm.exe $(ASMOPT)
-!endif
 
 LOPTS= /NOLOGO /MAP /SUBSYSTEM:CONSOLE /DLL /ENTRY:DllMain /LIBPATH:$(LIBCOFF)
 
@@ -51,7 +42,7 @@ LIBS=dkrnl32.lib
 .SUFFIXES: .asm .obj
 
 .asm{$(OUTDIR)}.obj:
-	$(ASM) $<
+	@$(ASM) $(AOPT) $<
 
 ALL: $(OUTDIR) $(OUTDIR)\$(NAME).DLL
 

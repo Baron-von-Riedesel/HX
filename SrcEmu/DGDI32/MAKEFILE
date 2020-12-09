@@ -29,17 +29,9 @@ OBJMODS = $(OBJMODS:.\=DEBUG\)
 OBJMODS = $(OBJMODS:.\=RELEASE\)
 !endif
 
-!ifndef MASM
-MASM=0
-!endif
 MSLINK=0
 
-ASMOPT= -c -coff -nologo -Cp -Sg -D_GDI32_=1 $(AOPTD) -I$(INC32DIR) -D?FLAT=1 -Fl$* -Fo$*
-!if $(MASM)
-ASM=@ml.exe $(ASMOPT) 
-!else
-ASM=@jwasm.exe $(ASMOPT) 
-!endif
+AOPT= -c -coff -nologo -Cp -Sg -D_GDI32_=1 $(AOPTD) -I$(INC32DIR) -D?FLAT=1 -Fl$* -Fo$*
 
 NAME=DGDI32
 LIBNAME=DGDI32S
@@ -51,7 +43,7 @@ LIBS=dkrnl32.lib
 .SUFFIXES: .asm .obj
 
 .asm{$(OUTDIR)}.obj:
-	$(ASM) $<
+	@$(ASM) $(AOPT) $<
 
 ALL: $(OUTDIR) $(OUTDIR)\$(NAME).DLL
 
@@ -82,5 +74,5 @@ clean:
 	@del $(OUTDIR)\*.lib
 	@del $(OUTDIR)\*.map
 	@del $(OUTDIR)\*.lst
-	@del $(OUTDIR)\*.exp
+#	@del $(OUTDIR)\*.exp
 

@@ -25,7 +25,7 @@ AOPTD=
 LOPTD=
 !endif
 
-ASM =@jwasm.exe -c -nologo -coff -Sg -Fl$* -Fo$* $(AOPTD) -I$(HXINST)\Include
+AOPT=-c -nologo -coff -Sg -Fl$* -Fo$* $(AOPTD) -I$(HXINST)\Include
 
 ALL: $(OUTDIR) $(OUTDIR)/$(name).EXE $(OUTDIR)\$(name2).EXE
 
@@ -43,7 +43,7 @@ op q,dosseg, m=$*.map, stub=dpmist32.bin $(LOPTD),start=_mainCRTStartup
 <<
 
 $(OUTDIR)/$(name).obj: $(name).asm makefile
-	$(ASM) $(name).asm
+	@$(ASM) $(AOPT) $(name).asm
 
 $(OUTDIR)/$(name2).EXE: $*.obj makefile
 	@jwlink @<<
@@ -56,7 +56,7 @@ op q,m=$*.map, stub=dpmist32.bin, start=_mainCRTStartup $(LOPTD)
 <<
 
 $(OUTDIR)/$(name2).obj: $(name2).asm makefile
-	$(ASM) $(name2).asm
+	@$(ASM) $(AOPT) $(name2).asm
 
 clean:
 	@del $(OUTDIR)\*.exe

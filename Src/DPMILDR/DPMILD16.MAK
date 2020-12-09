@@ -36,17 +36,7 @@ MODS3  = $(MODS3) $(ODIR3)\trace.obj
 INCTR  = trace.inc
 !endif
 
-!ifndef MASM
-MASM=0
-!endif
-
 AOPT = -c -Sg -Fl$* -Fo$* -nologo -D?32BIT=0 -D?DEBUG=$(DEBUG) -I..\..\Include
-
-!if $(MASM)
-ASM   = @ml.exe $(AOPT)
-!else
-ASM   = @jwasm.exe $(AOPT)
-!endif
 
 ALL: $(ODIR1) $(ODIR2) $(ODIR3) $(ODIR1)\$(NAME).EXE $(ODIR2)\$(NAME).BIN $(ODIR3)\HDLD16.BIN
 
@@ -65,13 +55,13 @@ $(ODIR1)\$(NAME).EXE: $(MODS1) LIB16\ldr16.lib $(NAME).mak
 	@$(LINK16BIN) format dos file {$(MODS1)} name $*.EXE op q, map=$*.map lib $(LIBS)
 
 $(ODIR1)\dpmildr.obj: dpmildr.asm dpmildr.inc kernel16.inc version.inc $(INCTR)
-	$(ASM) dpmildr.asm
+	@$(ASM) $(AOPT) dpmildr.asm
 
 $(ODIR1)\kernel16.obj: kernel16.asm dpmildr.inc kernel16.inc version.inc $(INCTR)
-	$(ASM) kernel16.asm
+	@$(ASM) $(AOPT) kernel16.asm
 
 $(ODIR1)\trace.obj: trace.asm dpmildr.inc trace.inc
-	$(ASM) trace.asm
+	@$(ASM) $(AOPT) trace.asm
 
 # create STUB16\DPMILD16.BIN
 
@@ -79,13 +69,13 @@ $(ODIR2)\$(NAME).BIN: $(MODS2) LIB16\ldr16.lib $(NAME).mak
 	@$(LINK16BIN) format dos file {$(MODS2)} name $*.BIN op q, knoweas, map=$*.map lib $(LIBS)
 
 $(ODIR2)\dpmildr.obj: dpmildr.asm dpmildr.inc kernel16.inc version.inc $(INCTR)
-	$(ASM) -D?STUB=1 dpmildr.asm
+	@$(ASM) $(AOPT) -D?STUB=1 dpmildr.asm
 
 $(ODIR2)\kernel16.obj: kernel16.asm dpmildr.inc kernel16.inc version.inc $(INCTR)
-	$(ASM) -D?STUB=1 kernel16.asm
+	@$(ASM) $(AOPT) -D?STUB=1 kernel16.asm
 
 $(ODIR2)\trace.obj: trace.asm dpmildr.inc trace.inc
-	$(ASM) trace.asm
+	@$(ASM) $(AOPT) trace.asm
 
 # create $(ODIR3)\HDLD16.BIN
 
@@ -96,13 +86,13 @@ $(ODIR3)\HDLD16.BIN: $(MODS3) LIB16\ldr16.lib $(NAME).mak
 	@$(LINK16BIN) format dos file {$(MODS3)} name $*.BIN op q, knoweas, map=$*.MAP lib $(LIBS)
 
 $(ODIR3)\dpmildr.obj: dpmildr.asm dpmildr.inc peload.inc version.inc ..\..\Include\HDPMI16.INC $(INCTR)
-	$(ASM) -D?STUB=1 -D?LOADDBGDLL=0 -D?SERVER=0 -D?HDPMI=1 dpmildr.asm
+	@$(ASM) $(AOPT) -D?STUB=1 -D?LOADDBGDLL=0 -D?SERVER=0 -D?HDPMI=1 dpmildr.asm
 
 $(ODIR3)\kernel16.obj: kernel16.asm dpmildr.inc kernel16.inc version.inc $(INCTR)
-	$(ASM) -D?STUB=1 kernel16.asm
+	@$(ASM) $(AOPT) -D?STUB=1 kernel16.asm
 
 $(ODIR3)\trace.obj: trace.asm dpmildr.inc trace.inc
-	$(ASM) trace.asm
+	@$(ASM) $(AOPT) trace.asm
 
 clean:
 	@del $(ODIR1)\*.exe

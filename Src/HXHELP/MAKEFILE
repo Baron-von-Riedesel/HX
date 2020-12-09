@@ -32,16 +32,7 @@ OUTDIR=DEBUG
 ALL: $(OUTDIR) $(OUTDIR)\$(NAME).EXE
 
 ASMOPT=-c -coff -nologo -D?FLAT=1 -D?DEBUGLEVEL=$(DEBUG) -Sg -Fl$* -Fo$* -I$(INC32DIR)
-!ifndef MASM
-MASM=0
-!endif
 MSLINK=0
-
-!if $(MASM)
-ASM=@ml.exe
-!else
-ASM=@jwasm.exe
-!endif
 
 ALL: $(OUTDIR)\$(NAME).EXE
 
@@ -78,10 +69,10 @@ $(OUTDIR)\$(NAME).EXE: $(OUTDIR)\hxhelp.obj Makefile $(OUTDIR)\privprof.obj
 !endif
 
 $(OUTDIR)\$(NAME).obj: $(NAME).asm hxhelp.inc rmdbghlp.inc version.inc Makefile
-	$(ASM) $(ASMOPT) $(NAME).asm
+	@$(ASM) $(ASMOPT) $(NAME).asm
 
 $(OUTDIR)\privprof.obj: privprof.asm Makefile
-	$(ASM) $(ASMOPT) privprof.asm
+	@$(ASM) $(ASMOPT) privprof.asm
 
 clean:
     @del $(OUTDIR)\*.obj

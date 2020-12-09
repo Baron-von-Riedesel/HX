@@ -20,17 +20,9 @@ OUTDIR=RELEASE
 AOPTD=
 !endif
 
-!ifndef MASM
-MASM=0
-!endif
 MSLINK=0
 
 ASMOPT= -c -nologo -coff -Sg -Fl$* -Fo$* -D_ML -I$(INC32DIR) $(AOPTD)
-!if $(MASM)
-ASM=ml.exe $(ASMOPT)
-!else
-ASM=jwasm.exe $(ASMOPT)
-!endif
 
 LOPTS= /SUBSYSTEM:CONSOLE /DLL /MAP /NOLOGO /NOD /LIBPATH:$(LIBCOFF)
 
@@ -49,11 +41,11 @@ $(OUTDIR)\$(NAME).DLL: $*.obj Makefile
 !endif
 
 $(OUTDIR)\$(NAME).obj: $(NAME).asm $(NAME).inc Makefile
-	@$(ASM) $(NAME).asm
+	@$(ASM) $(ASMOPT) $(NAME).asm
 
 clean:
 	@del $(OUTDIR)\*.obj
 	@del $(OUTDIR)\*.dll
-	@del $(OUTDIR)\*.lib
+#	@del $(OUTDIR)\*.lib
 	@del $(OUTDIR)\*.lst
 	@del $(OUTDIR)\*.map

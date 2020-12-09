@@ -15,9 +15,6 @@
 DEBUG = 0
 !endif
 
-MASM=0
-
-
 SRCMODS = \
 !include modules.inc
 OBJNAMES = $(SRCMODS:.ASM=.OBJ)
@@ -40,7 +37,7 @@ DEPS0 = hdpmi.inc external.inc version.inc
 .SUFFIXES: .asm .obj
 
 .asm{$(OUTSTD)}.obj:
-	@jwasm -nologo -c -Cp -Sg -D?32BIT=1 $(AOPTD) -I$(INC32DIR) -Fl$* -Fo$* -D?WDEB386=1 $<
+	@$(ASM) -nologo -c -Cp -Sg -D?32BIT=1 $(AOPTD) -I$(INC32DIR) -Fl$* -Fo$* -D?WDEB386=1 $<
 
 TARGET1=$(OUTSTD)\$(NAME).EXE 
 
@@ -66,6 +63,6 @@ $(OUTSTD)\$(NAME).lib: $(OBJMODS) $(NAME)d.mak
 clean:
 	@del $(OUTSTD)\*.obj
 	@del $(OUTSTD)\*.lib
-#	@del $(OUTSTD)\*.exe
+	@del $(OUTSTD)\*.exe
 	@del $(OUTSTD)\*.lst
 	@del $(OUTSTD)\*.map

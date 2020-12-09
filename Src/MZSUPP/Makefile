@@ -25,16 +25,7 @@ OUTDIR=RELEASE
 STUBDIR=STUB
 !endif
 
-!ifndef MASM
-MASM=0
-!endif
-
 ASMOPT= -c -nologo -Sg -Fl$* -Fo$*.OBJ $(ASMT) -I$(INC32DIR)
-!if $(MASM)
-ASM=@ml.exe
-!else
-ASM=@jwasm.exe
-!endif
 
 ALL: $(OUTDIR) $(STUBDIR) $(OUTDIR)\JMPPM32.LIB $(OUTDIR)\JMPPM32.OBJ $(OUTDIR)\defstack.obj \
 	$(OUTDIR)\dmysrvr.obj $(OUTDIR)\dmymove.obj \
@@ -57,43 +48,43 @@ $(OUTDIR)\JMPPM32.LIB: $(OUTDIR)\getcmdl.obj $(OUTDIR)\getenv.obj \
 	@cd ..
 
 $(OUTDIR)\getcmdl.obj: getcmdl.asm makefile
-	$(ASM) $(ASMOPT) getcmdl.asm
+	@$(ASM) $(ASMOPT) getcmdl.asm
 
 $(OUTDIR)\getenv.obj: getenv.asm makefile
-	$(ASM) $(ASMOPT) getenv.asm
+	@$(ASM) $(ASMOPT) getenv.asm
 
 $(OUTDIR)\loadsrvr.obj: loadsrvr.asm makefile
-	$(ASM) $(ASMOPT) loadsrvr.asm
+	@$(ASM) $(ASMOPT) loadsrvr.asm
 
 $(OUTDIR)\movehigh.obj: movehigh.asm makefile
-	$(ASM) $(ASMOPT) movehigh.asm
+	@$(ASM) $(ASMOPT) movehigh.asm
 
 $(OUTDIR)\stksize.obj: stksize.asm makefile
-	$(ASM) $(ASMOPT) stksize.asm
+	@$(ASM) $(ASMOPT) stksize.asm
 
 $(OUTDIR)\loadext.obj: loadext.asm makefile
-	$(ASM) $(ASMOPT) loadext.asm
+	@$(ASM) $(ASMOPT) loadext.asm
 
 $(OUTDIR)\loadpe.obj: loadpe.asm makefile
-	$(ASM) $(ASMOPT) loadpe.asm
+	@$(ASM) $(ASMOPT) loadpe.asm
 
 $(STUBDIR)\loadsrvr.obj: loadsrvr.asm ..\hdpmi\stub32\hdpmi32.inc makefile
-	$(ASM) $(ASMOPT) -D?HDPMI=1 loadsrvr.asm
+	@$(ASM) $(ASMOPT) -D?HDPMI=1 loadsrvr.asm
 
 $(OUTDIR)\JMPPM32.OBJ: jmppm32.asm makefile
-	$(ASM) $(ASMOPT) jmppm32.asm
+	@$(ASM) $(ASMOPT) jmppm32.asm
 
 $(OUTDIR)\DEFSTACK.OBJ: defstack.asm makefile
-	$(ASM) $(ASMOPT) defstack.asm
+	@$(ASM) $(ASMOPT) defstack.asm
 
 $(OUTDIR)\DMYSRVR.OBJ: dmysrvr.asm makefile
-	$(ASM) $(ASMOPT) dmysrvr.asm
+	@$(ASM) $(ASMOPT) dmysrvr.asm
 
 $(OUTDIR)\DMYMOVE.OBJ: dmymove.asm makefile
-	$(ASM) $(ASMOPT) dmymove.asm
+	@$(ASM) $(ASMOPT) dmymove.asm
 
 $(OUTDIR)\InitPM.OBJ: InitPM.asm makefile
-	$(ASM) $(ASMOPT) InitPM.asm
+	@$(ASM) $(ASMOPT) InitPM.asm
 
 clean:
 	@del $(OUTDIR)\*.obj

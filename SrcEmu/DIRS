@@ -17,7 +17,7 @@ INC16DIR=.
 
 MAKE=nmake.exe /nologo
 #MAKE=wmake.exe -h -ms
-ASM=jwasm.exe
+ASM=jwasm.exe -q
 LINKBIN=jwlink.exe
 LINK16BIN=jwlink.exe
 LIBBIN=jwlib.exe -q -fa -n

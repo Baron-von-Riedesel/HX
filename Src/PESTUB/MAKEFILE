@@ -13,10 +13,6 @@ name = PESTUB
 MZAPP=0
 USEDLL=0
 
-!ifndef MASM
-MASM=0
-!endif
-
 !ifndef DEBUG
 DEBUG=0
 !endif
@@ -38,13 +34,7 @@ AOPTD=
 
 LOPTD=
 
-ASMOPT= -c -nologo -Sg -Fl$* -Fo$* -D?FLAT=0 -D_ML $(AOPTD) -I$(INC32DIR)
-
-!if $(MASM)
-ASM = @ml.exe $(ASMOPT)
-!else
-ASM = @jwasm.exe $(ASMOPT)
-!endif
+AOPT= -c -nologo -Sg -Fl$* -Fo$* -D?FLAT=0 -D_ML $(AOPTD) -I$(INC32DIR)
 
 LIBS=$(LIBOMF)\jmppm32.lib $(LIBOMF)\dkrnl32s.lib $(LIBOMF)\libc32.lib
 LINK=jwlink.exe
@@ -58,12 +48,7 @@ LOPTD=/DEBUG
 LOPTD=
 !endif
 
-ASMOPT2= -c -coff -nologo -Sg -Fl$* -Fo$* -D?FLAT=1 $(AOPTD) -I$(INC32DIR)
-!if $(MASM)
-ASM = @ml.exe $(ASMOPT2)
-!else
-ASM = @jwasm.exe $(ASMOPT2)
-!endif
+AOPT= -c -coff -nologo -Sg -Fl$* -Fo$* -D?FLAT=1 $(AOPTD) -I$(INC32DIR)
 MSLINK=0
 
 !if $(USEDLL)
@@ -105,7 +90,7 @@ $(OUTDIR)\$(name).EXE: $*.obj makefile
 !endif
 
 $(OUTDIR)\$(name).obj: $(name).asm makefile
-	$(ASM) $(name).asm
+	@$(ASM) $(AOPT) $(name).asm
 
 clean:
 	@del $(OUTDIR)\*.obj

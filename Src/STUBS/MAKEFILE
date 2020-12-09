@@ -23,8 +23,6 @@ OUTDIR=Debug
 OUTDIR=Release
 !endif
 
-ASM=jwasm.exe
-
 #LOPT=/NOLOGO/NON/MAP:FULL/KNOWEAS/ST:1024
 
 ALL: $(OUTDIR) $(OUTDIR)\$(NAME32).BIN $(OUTDIR)\$(NAME16).BIN $(OUTDIR)\LOADPE.BIN $(OUTDIR)\LOADPEX.BIN $(OUTDIR)\LOADPXNR.BIN
@@ -35,12 +33,14 @@ $(OUTDIR):
 #--- DPMIST32.BIN
 
 $(OUTDIR)\$(NAME32).BIN: dpmistub.asm Makefile
-	@$(ASM) -c -nologo -mz -Fl$* -Fo$*.BIN -D?DEVDRV=$(DEVDRV) -D?32BIT=1 -I..\..\Include dpmistub.asm
+	@$(ASM) -c -nologo -mz -Fl$* -Fo$*.BIN -D?DEVDRV=$(DEVDRV) -D?32BIT=1 -I$(INC32DIR) dpmistub.asm
+	@if exist dpmistub.err erase dpmistub.err
 
 #--- DPMIST16.BIN
 
 $(OUTDIR)\$(NAME16).BIN: dpmistub.asm Makefile
-	@$(ASM) -c -nologo -mz -Fl$* -Fo$*.BIN -D?DEVDRV=$(DEVDRV) -D?32BIT=0 -I..\..\Include dpmistub.asm
+	@$(ASM) -c -nologo -mz -Fl$* -Fo$*.BIN -D?DEVDRV=$(DEVDRV) -D?32BIT=0 -I$(INC32DIR) dpmistub.asm
+	@if exist dpmistub.err erase dpmistub.err
 
 LOPT2=/NOLOGO/NON/MAP:FULL/KNOWEAS
 
@@ -48,17 +48,17 @@ LOPT2=/NOLOGO/NON/MAP:FULL/KNOWEAS
 #--- uses MZSUPP/loadsrvr.inc to optionally load hdpmi
 
 $(OUTDIR)\LOADPE.BIN: LoadPE.asm Makefile
-	@$(ASM) -c -nologo -mz -Fl$* -Fo$*.BIN -I..\..\Include -I..\MZSUPP LoadPE.asm
+	@$(ASM) -c -nologo -mz -Fl$* -Fo$*.BIN -I$(INC32DIR) -I..\MZSUPP LoadPE.asm
     
 #--- LOADPEX.BIN
 
-$(OUTDIR)\LOADPEX.BIN: LoadPE.asm Makefile ..\..\Include\HDPMI32.INC
-	@$(ASM) -c -nologo -mz -D?HDPMI=1 -Fl$* -Fo$*.BIN -I..\..\Include -I..\MZSUPP LoadPE.asm
+$(OUTDIR)\LOADPEX.BIN: LoadPE.asm Makefile $(INC32DIR)\HDPMI32.INC
+	@$(ASM) -c -nologo -mz -D?HDPMI=1 -Fl$* -Fo$*.BIN -I$(INC32DIR) -I..\MZSUPP LoadPE.asm
     
 #--- LOADPXNR.BIN
 
 $(OUTDIR)\LOADPXNR.BIN: LoadPE.asm Makefile
-	@$(ASM) -c -nologo -mz -D?NORELOCS=1 -Fl$* -Fo$*.BIN -I..\..\Include -I..\MZSUPP LoadPE.asm
+	@$(ASM) -c -nologo -mz -D?NORELOCS=1 -Fl$* -Fo$*.BIN -I$(INC32DIR) -I..\MZSUPP LoadPE.asm
     
 clean:
 	@del $(OUTDIR)\*.bin

@@ -25,15 +25,7 @@ $(OUTDIR):
 
 LINK=jwlink.exe
 
-!ifndef MASM
-MASM=0
-!endif
-
-!if $(MASM)
-ASM=@ml -c -nologo -Sg -Fl$* -Fo$* -I$(INC32DIR)
-!else
-ASM=@jwasm -c -nologo -Sg -Fl$* -Fo$* -I$(INC32DIR)
-!endif
+AOPT= -c -nologo -Sg -Fl$* -Fo$* -I$(INC32DIR)
 
 $(OUTDIR)\$(PGM).EXE: $*.obj makefile
 	@$(LINK) @<<
@@ -44,17 +36,17 @@ op map=$*.MAP
 <<
 
 $(OUTDIR)\$(PGM).obj: $(PGM).asm makefile
-	$(ASM) $(PGM).asm
+	@$(ASM) $(AOPT) $(PGM).asm
 
 !else
 
 $(OUTDIR)\$(PGM).EXE: $(PGM).asm makefile
-	@jwasm -mz -c -nologo -Sg -Fl$* -Fo$*.EXE -I$(INC32DIR) $(PGM).asm
+	@$(ASM) -mz -c -nologo -Sg -Fl$* -Fo$*.EXE -I$(INC32DIR) $(PGM).asm
 
 !endif
 
 clean:
 	@del $(OUTDIR)\*.exe
-	@del $(OUTDIR)\*.obj
+#	@del $(OUTDIR)\*.obj
 	@del $(OUTDIR)\*.lst
-	@del $(OUTDIR)\*.map
+#	@del $(OUTDIR)\*.map

@@ -12,10 +12,10 @@ $(ODIR):
 	@mkdir $(ODIR)
 
 $(ODIR)\$(NAME).lib: $(ODIR)\*.asm
-	cd $(ODIR)
-	jwasm -c -nologo -Fl -Sg *.asm
-	jwlib -q -b -n $(NAME).lib +hmemset.obj +lstrcat.obj +lstrcpy.obj +lstrlen.obj +profstrg.obj
-	cd ..
+	@cd $(ODIR)
+	@$(ASM) -c -nologo -Fl -Sg *.asm
+	@jwlib -q -b -n $(NAME).lib +hmemset.obj +lstrcat.obj +lstrcpy.obj +lstrlen.obj +profstrg.obj
+	@cd ..
 
 clean:
 	@del $(ODIR)\$(NAME).lib

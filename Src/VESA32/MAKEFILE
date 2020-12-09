@@ -33,17 +33,9 @@ OBJMODS = $(OBJMODS:.\=DEBUG\)
 OBJMODS = $(OBJMODS:.\=RELEASE\)
 !endif
 
-!ifndef MASM
-MASM=0
-!endif
 MSLINK=0
 
 ASMOPT= -c -coff -nologo -D?FLAT=1 -Fl$* -Fo$* -Sg $(AOPTD) -D_VESA32_=1 -I$(INC32DIR)
-!if $(MASM)
-ASM=@ml.exe $(ASMOPT)
-!else
-ASM=@jwasm.exe $(ASMOPT) 
-!endif
 
 LOPTS= /NOLOGO /MAP /SUBSYSTEM:CONSOLE /DLL /NOD /ENTRY:DllMain
 
@@ -58,7 +50,7 @@ LIBS=
 .SUFFIXES: .asm .obj
 
 .asm{$(OUTDIR)}.obj:
-	$(ASM) $<
+	@$(ASM) $(ASMOPT) $<
 
 ALL: $(OUTDIR) $(OUTDIR)\$(NAME).DLL
 
@@ -92,5 +84,5 @@ clean:
 	@del $(OUTDIR)\*.dll
 	@del $(OUTDIR)\*.lib
 	@del $(OUTDIR)\*.lst
-	@del $(OUTDIR)\*.exp
+#	@del $(OUTDIR)\*.exp
 	@del $(OUTDIR)\*.map

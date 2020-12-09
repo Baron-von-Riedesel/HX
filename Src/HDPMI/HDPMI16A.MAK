@@ -13,10 +13,6 @@
 DEBUG = 0
 !endif
 
-!ifndef MASM
-MASM=0
-!endif
-
 !if $(DEBUG)
 AOPTD=-Zi -D_DEBUG
 LOPTD=/LI
@@ -69,12 +65,6 @@ LCMDS2=$(LOPT) $(OUTD)\$(SRC).obj $(OUTNOLFN)\INT21API.obj, $*.EXE, $*.MAP, $(OU
 
 AOPT= -nologo -c -Cp -Sg -D?32BIT=0 -D?HSINEXTMEM=0 $(AOPTD) -I$(INC32DIR) -Fl$* -Fo$*
 
-!if $(MASM)
-ASM=@ml.exe
-!else
-ASM=@jwasm.exe
-!endif
-
 NAME  = HDPMI16
 SRC   = hdpmi
 
@@ -91,7 +81,7 @@ OUTNOLFN=NOLFN16
 .SUFFIXES: .asm .obj
 
 .asm{$(OUTD)}.obj:
-	$(ASM) $(AOPT) $<
+	@$(ASM) $(AOPT) $<
 
 ALL: $(OUTD) $(OUTNOLFN) $(OUTD)\$(NAME).EXE $(OUTNOLFN)\$(NAME).EXE
 
@@ -131,15 +121,15 @@ $(LCMDS2)
 	@SetMZHdr.exe -q $*.EXE
 
 $(OUTNOLFN)\INT21API.obj: INT21API.asm $(DEPS0)
-	$(ASM) $(AOPT) -D?LFNSUPPORT=0 INT21API.asm
+	@$(ASM) $(AOPT) -D?LFNSUPPORT=0 INT21API.asm
 
 clean:
 	@del $(OUTD)\*.obj
 	@del $(OUTD)\*.lib
-#	@del $(OUTD)\*.exe
+	@del $(OUTD)\*.exe
 	@del $(OUTD)\*.map
 	@del $(OUTD)\*.lst
-#	@del $(OUTNOLFN)\*.exe
+	@del $(OUTNOLFN)\*.exe
 	@del $(OUTNOLFN)\*.obj
 	@del $(OUTNOLFN)\*.lst
 	@del $(OUTNOLFN)\*.map

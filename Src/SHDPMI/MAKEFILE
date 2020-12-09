@@ -17,22 +17,12 @@ OUTDIR=DEBUG
 OUTDIR=RELEASE
 !endif
 
-!ifndef MASM
-MASM=0
-!endif
 MSLINK=0
 
-ASMOPT1= -c -coff -nologo -Sg -Fl$* -Fo$* -D?FLAT=1 -D_KERNEL32_ -D_USER32_ -I$(INC32DIR)
-
-!if $(MASM)
-AS=@ml.exe $(ASMOPT1)
-!else
-AS=@jwasm.exe $(ASMOPT1)
-!endif
+AOPT1= -c -coff -nologo -Sg -Fl$* -Fo$* -D?FLAT=1 -D_KERNEL32_ -D_USER32_ -I$(INC32DIR)
 
 LIBS=$(LIBCOFF)\duser32s.lib
 LOPTS= /MAP:$*.MAP /FIXED:NO /OPT:NOWIN98 /STUB:$(HXINST)\Bin\LOADPE.BIN 
-
 
 ALL: $(OUTDIR) $(OUTDIR)\$(NAME).EXE $(OUTDIR)\$(NAME)R.EXE
 
@@ -49,19 +39,14 @@ $(OUTDIR)\$(NAME).EXE: $*.obj Makefile
 !endif
 
 $(OUTDIR)\$(NAME).obj: $(NAME).asm Makefile
-	$(AS) $(NAME).asm
+	@$(ASM) $(AOPT1) $(NAME).asm
 
 #--- SHDPMIR.EXE is a DOS TSR
 
 !if 0
 
-!if $(MASM)
-ASR=@ml.exe $(ASMOPT2)
-!else
-ASR=@jwasm.exe $(ASMOPT2)
-!endif
+AOPT2= -c -nologo -Sg -Fl$* -Fo$* 
 
-ASMOPT2= -c -nologo -Sg -Fl$* -Fo$* 
 LOPTSR=sys DOS
 LINKR=jwlink.exe op q $(LOPTSR) file $*.obj name $*.EXE op map=$*.MAP
 
@@ -69,11 +54,11 @@ $(OUTDIR)\$(NAME)R.EXE: $*.obj Makefile
 	@$(LINKR)
 
 $(OUTDIR)\$(NAME)R.obj: $(NAME)R.asm Makefile
-	$(ASR) $(NAME)R.asm
+	@$(ASM) $(AOPT2) $(NAME)R.asm
 
 !else
 $(OUTDIR)\$(NAME)R.EXE: $(NAME)R.asm Makefile
-	@jwasm -nologo -mz -Fl$* -Fo$*.EXE $(NAME)R.asm
+	@$(ASM) -nologo -mz -Fl$* -Fo$*.EXE $(NAME)R.asm
 !endif
 
 clean:

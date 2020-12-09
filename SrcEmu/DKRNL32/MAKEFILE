@@ -49,24 +49,19 @@ OBJMODS = $(OBJMODS:.\=RELEASE\)
 
 OTHERMODS=.\int21lfn.obj
 
-!ifndef MASM
-MASM=0
-!endif
 !ifndef MSLINK
 MSLINK=0
 !endif
 
-ASMOPT1= -c -coff -nologo -Sg -D_KERNEL32_=1 $(AOPTD) -I$(INC32DIR) -D?FLAT=1 -Fl$* -Fo$*
-ASMOPT2= -c -coff -nologo -Sg -D_KERNEL32_=1 $(AOPTD) -I$(INC32DIR) -D?FLAT=1 -Fl$* -Fo$* -D?DIRECTDISP=1 
+AOPT1= -c -coff -nologo -Sg -D_KERNEL32_=1 $(AOPTD) -I$(INC32DIR) -D?FLAT=1 -Fl$* -Fo$*
+AOPT2= -c -coff -nologo -Sg -D_KERNEL32_=1 $(AOPTD) -I$(INC32DIR) -D?FLAT=1 -Fl$* -Fo$* -D?DIRECTDISP=1 
 
+MASM=0
+
+!if $(MASM)==0
 # option -zze for JWasm is required for IsProcessorFeaturePresent
-
-!if $(MASM)
-ASM1=@ml.exe $(ASMOPT1)
-ASM2=@ml.exe $(ASMOPT2)
-!else
-ASM1=@jwasm.exe -zze $(ASMOPT1)
-ASM2=@jwasm.exe -zze $(ASMOPT2)
+AOPT1=-zze $(AOPT1)
+AOPT2=-zze $(AOPT2)
 !endif
 
 LOPTS= /NOLOGO /MAP /SUBSYSTEM:CONSOLE /DLL
@@ -74,10 +69,10 @@ LOPTS= /NOLOGO /MAP /SUBSYSTEM:CONSOLE /DLL
 .SUFFIXES: .asm .obj
 
 .asm{$(OUTD1)}.obj:
-	$(ASM1) $<
+	@$(ASM) $(AOPT1) $<
 
 .asm{$(OUTD2)}.obj:
-	$(ASM2) $<
+	@$(ASM) $(AOPT2) $<
 
 ALL: $(OUTD1) $(OUTD2) $(OUTD1)\$(NAME).DLL $(OUTD2)\$(NAME).DLL
 
@@ -105,7 +100,6 @@ $(OUTD2):
 	@mkdir $(OUTD2)
 
 $(OUTD2)\$(NAME).DLL: $(OBJMODS2) $(OUTD2)\$(LIBNAME).lib $(OUTD1)\$(NAME).obj $(NAME).def $(NAME).rsp
-#	@if exist $*.DLL erase $*.DLL
 !if $(MSLINK)
 	@link.exe $(OUTD1)\$(NAME).obj $(OUTD1)\procfeat.obj $(OUTD2)\$(LIBNAME).lib $(LOPTS) $(LOPTD) /DEF:$(NAME).def /merge:.BASE=.data /OUT:$*.DLL
 !else
@@ -151,10 +145,10 @@ clean:
 	@del $(OUTD1)\*.lib >NUL
 	@del $(OUTD1)\*.map >NUL
 	@del $(OUTD1)\*.lst >NUL
-	@del $(OUTD1)\*.exp >NUL
+#	@del $(OUTD1)\*.exp >NUL
 	@del $(OUTD2)\*.obj >NUL
 	@del $(OUTD2)\*.dll >NUL
 	@del $(OUTD2)\*.lib >NUL
 	@del $(OUTD2)\*.map >NUL
 	@del $(OUTD2)\*.lst >NUL
-	@del $(OUTD2)\*.exp >NUL
+#	@del $(OUTD2)\*.exp >NUL

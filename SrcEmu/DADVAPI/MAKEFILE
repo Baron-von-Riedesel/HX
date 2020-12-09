@@ -34,17 +34,9 @@ OBJMODS = $(OBJMODS:.\=DEBUG\)
 OBJMODS = $(OBJMODS:.\=RELEASE\)
 !endif
 
-!ifndef MASM
-MASM=0
-!endif
 MSLINK=0
 
-ASMOPT= -c -nologo -coff -D?FLAT=1 -Fl$* -Fo$* -Sg $(AOPTD) -D_ADVAPI32_=1 -I$(INC32DIR)
-!if $(MASM)
-ASM=@ml.exe $(ASMOPT)
-!else
-ASM=@jwasm.exe $(ASMOPT)
-!endif
+AOPT= -c -nologo -coff -D?FLAT=1 -Fl$* -Fo$* -Sg $(AOPTD) -D_ADVAPI32_=1 -I$(INC32DIR)
 
 #LOPTS= /NOLOGO /MAP /SUBSYSTEM:CONSOLE /DLL /NODEFAULTLIB /LIBPATH:$(LIBCOFF) /OPT:NOWIN98
 
@@ -55,7 +47,7 @@ LIBS=dkrnl32.lib
 .SUFFIXES: .asm .obj
 
 .asm{$(OUTDIR)}.obj:
-	$(ASM) $<
+	@$(ASM) $(AOPT) $<
 
 ALL: $(OUTDIR) $(OUTDIR)\$(NAME).DLL
 
@@ -85,9 +77,9 @@ $(LIBNAME).lib $(WLIBMODS:.ASM=.OBJ)
 	@cd ..
 
 clean:
-    @del $(OUTDIR)\*.obj
-    @del $(OUTDIR)\*.dll
-    @del $(OUTDIR)\*.lib
-    @del $(OUTDIR)\*.map
-    @del $(OUTDIR)\*.lst
-    @del $(OUTDIR)\*.exp
+	@del $(OUTDIR)\*.obj
+	@del $(OUTDIR)\*.dll
+	@del $(OUTDIR)\*.lib
+	@del $(OUTDIR)\*.map
+	@del $(OUTDIR)\*.lst
+#	@del $(OUTDIR)\*.exp

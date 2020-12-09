@@ -22,10 +22,6 @@
 DEBUG = 0
 !endif
 
-!ifndef MASM
-MASM=0
-!endif
-
 !if $(DEBUG)
 #AOPTD=-Zi -D_DEBUG
 AOPTD=-D_DEBUG -D?DOSOUTPUT=0 -D?VIODIROUT=1 -D?SLOWDOWN=50
@@ -88,12 +84,6 @@ LCMDS2=$(LOPT) $(OUTHSCM)\$(SRC).obj $(OUTNOLFN)\INT21API.obj, $*.EXE, $*.MAP, $
 !endif
 
 AOPT= -nologo -c -Cp -Sg -D?32BIT=1 -D?HSINEXTMEM=0 $(AOPTD) -I$(INC32DIR) -Fl$* -Fo$*
-
-!if $(MASM)
-ASM = ml.exe
-!else
-ASM = jwasm.exe
-!endif
 
 NAME  = HDPMI32
 SRC   = hdpmi
@@ -164,10 +154,10 @@ $(OUTNOLFN)\INT21API.obj: INT21API.asm $(DEPS0)
 clean:
 	@del $(OUTHSCM)\*.obj
 	@del $(OUTHSCM)\*.lib
-#	@del $(OUTHSCM)\*.exe
+	@del $(OUTHSCM)\*.exe
 	@del $(OUTHSCM)\*.lst
 	@del $(OUTHSCM)\*.map
 	@del $(OUTNOLFN)\*.obj
-#	@del $(OUTNOLFN)\*.exe
+	@del $(OUTNOLFN)\*.exe
 	@del $(OUTNOLFN)\*.lst
 	@del $(OUTNOLFN)\*.map

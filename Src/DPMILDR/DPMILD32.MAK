@@ -23,25 +23,11 @@ ODIR3 = NOLFN32
 ODIR4 = STUBX32
 !endif
 
-!ifdef SINGLEMAKE
-LINK16BIN=jwlink
-!else
 !include <..\dirs>
-!endif
-
-!ifndef MASM
-MASM=0
-!endif
 
 NAME  = DPMILD32
 
 AOPT = -c -nologo -Sg -Fl$* -Fo$* -D?32BIT=1 -D?DEBUG=$(DEBUG) -I..\..\Include
-
-!if $(MASM)
-ASM   = @ml.exe $(AOPT)
-!else
-ASM   = @jwasm.exe $(AOPT)
-!endif
 
 MODS1 = $(ODIR1)\dpmildr.obj $(ODIR1)\kernel16.obj  $(ODIR1)\peload.obj
 MODS2 = $(ODIR2)\dpmildr.obj                        $(ODIR2)\peload.obj
@@ -77,16 +63,16 @@ $(ODIR1)\$(NAME).EXE: $(MODS1) $(NAME).mak
 	@$(LINK16BIN) format dos file {$(MODS1)} name $*.EXE op q, map=$*.MAP
 
 $(ODIR1)\dpmildr.OBJ: dpmildr.asm dpmildr.inc peload.inc kernel16.inc version.inc $(INCTR)
-	$(ASM) dpmildr.asm
+	@$(ASM) $(AOPT) dpmildr.asm
 
 $(ODIR1)\kernel16.OBJ: kernel16.asm dpmildr.inc peload.inc kernel16.inc version.inc $(INCTR)
-	$(ASM) kernel16.asm
+	@$(ASM) $(AOPT) kernel16.asm
 
 $(ODIR1)\peload.OBJ: peload.asm dpmildr.inc peload.inc mzhdr32.inc $(INCTR)
-	$(ASM) peload.asm
+	@$(ASM) $(AOPT) peload.asm
 
 $(ODIR1)\trace.OBJ: trace.asm dpmildr.inc trace.inc
-	$(ASM) trace.asm
+	@$(ASM) $(AOPT) trace.asm
 
 # create $(ODIR2)\DPMILD32.BIN
 
@@ -94,13 +80,13 @@ $(ODIR2)\$(NAME).BIN: $(MODS2) $(NAME).mak
 	@$(LINK16BIN) format dos file {$(MODS2)} name $*.BIN op q, knoweas, map=$*.MAP
 
 $(ODIR2)\dpmildr.obj: dpmildr.asm dpmildr.inc peload.inc version.inc $(INCTR)
-	$(ASM) -D?STUB=1 -D?KERNEL16=0 -D?LOADDBGDLL=0 dpmildr.asm
+	@$(ASM) $(AOPT) -D?STUB=1 -D?KERNEL16=0 -D?LOADDBGDLL=0 dpmildr.asm
 
 $(ODIR2)\peload.obj: peload.asm dpmildr.inc peload.inc mzhdr32.inc $(INCTR)
-	$(ASM) -D?STUB=1 -D?KERNEL16=0 peload.asm
+	@$(ASM) $(AOPT) -D?STUB=1 -D?KERNEL16=0 peload.asm
 
 $(ODIR2)\trace.OBJ: trace.asm dpmildr.inc trace.inc
-	$(ASM) trace.asm
+	@$(ASM) $(AOPT) trace.asm
 
 # create $(ODIR3)\DPMILD32.EXE
 
@@ -108,16 +94,16 @@ $(ODIR3)\$(NAME).EXE: $(MODS3) $(NAME).mak
 	@$(LINK16BIN) format dos file {$(MODS3)} name $*.EXE op q, map=$*.MAP
 
 $(ODIR3)\dpmildr.obj: dpmildr.asm dpmildr.inc peload.inc kernel16.inc version.inc $(INCTR)
-	$(ASM) -D?LFN=0 dpmildr.asm
+	@$(ASM) $(AOPT) -D?LFN=0 dpmildr.asm
 
 $(ODIR3)\kernel16.OBJ: kernel16.asm dpmildr.inc peload.inc kernel16.inc version.inc $(INCTR)
-	$(ASM) -D?LFN=0 kernel16.asm
+	@$(ASM) $(AOPT) -D?LFN=0 kernel16.asm
 
 $(ODIR3)\peload.obj: peload.asm dpmildr.inc peload.inc mzhdr32.inc $(INCTR)
-	$(ASM) -D?LFN=0 peload.asm
+	@$(ASM) $(AOPT) -D?LFN=0 peload.asm
 
 $(ODIR3)\trace.OBJ: trace.asm dpmildr.inc trace.inc
-	$(ASM) trace.asm
+	@$(ASM) $(AOPT) trace.asm
 
 # create $(ODIR4)\HDLD32.BIN
 
@@ -125,13 +111,13 @@ $(ODIR4)\HDLD32.BIN: $(MODS4) $(NAME).mak
 	@$(LINK16BIN) format dos file {$(MODS4)} name $*.BIN op q, map=$*.MAP, knoweas 
 
 $(ODIR4)\dpmildr.obj: dpmildr.asm dpmildr.inc peload.inc version.inc ..\..\Include\HDPMI32.INC $(INCTR)
-	$(ASM) -D?STUB=1 -D?KERNEL16=0 -D?LOADDBGDLL=0 -D?SERVER=0 -D?HDPMI=1 -D?NEAPPS=0 dpmildr.asm
+	@$(ASM) $(AOPT) -D?STUB=1 -D?KERNEL16=0 -D?LOADDBGDLL=0 -D?SERVER=0 -D?HDPMI=1 -D?NEAPPS=0 dpmildr.asm
 
 $(ODIR4)\peload.obj: peload.asm dpmildr.inc peload.inc mzhdr32.inc $(INCTR)
-	$(ASM) -D?STUB=1 -D?KERNEL16=0 peload.asm
+	@$(ASM) $(AOPT) -D?STUB=1 -D?KERNEL16=0 peload.asm
 
 $(ODIR4)\trace.OBJ: trace.asm dpmildr.inc trace.inc
-	$(ASM) trace.asm
+	@$(ASM) $(AOPT) trace.asm
 
 clean:
 	@del $(ODIR1)\*.exe

@@ -32,7 +32,6 @@ OUTD=STD16
 AOPTD=
 !endif
 
-ASM   = jwasm.exe
 LINK  = jwlink.exe
 
 AOPT   = -nologo -c -Cp -Sg -D?32BIT=0 $(AOPTD) -I$(INC32DIR) -Fl$* -Fo$* -D?PE
@@ -61,11 +60,11 @@ $(OBJMODS): $(DEPS0)
 # 5. the stub must be attached to the PE binary
 
 $(OUTD)\$(NAME).EXE: $(OUTD)\$(NAME).TMP
-	@EditPE a 3=0  $(OUTD)\$(NAME).TMP $(OUTD)\$(NAME).EXE
-	@EditPE x 3 /m $(OUTD)\$(NAME).EXE $(OUTD)\stub.bin
-	@EditPE d 3    $(OUTD)\$(NAME).EXE $(OUTD)\$(NAME).EXE
-	@EditPE d 3    $(OUTD)\$(NAME).EXE $(OUTD)\$(NAME).EXE
-	@PEstub -n     $(OUTD)\$(NAME).EXE $(OUTD)\stub.bin
+	@EditPE -q a 3=0  $(OUTD)\$(NAME).TMP $(OUTD)\$(NAME).EXE
+	@EditPE -q x 3 /m $(OUTD)\$(NAME).EXE $(OUTD)\stub.bin
+	@EditPE -q d 3    $(OUTD)\$(NAME).EXE $(OUTD)\$(NAME).EXE
+	@EditPE -q d 3    $(OUTD)\$(NAME).EXE $(OUTD)\$(NAME).EXE
+	@PEstub -q -n     $(OUTD)\$(NAME).EXE $(OUTD)\stub.bin
 
 $(OUTD)\$(NAME).TMP: $(OUTD)\$(SRC).obj $(OUTD)\$(NAME).lib $(NAME).mak 
 	@$(LINK) format win pe hx ru native f $(OUTD)\$(SRC) n $*.TMP lib $(OUTD)\$(NAME).lib op q, map=$*.MAP, nodosseg, stack=0, offset=0, align=0x100
@@ -79,7 +78,7 @@ $(OUTD)\$(NAME).lib: $(OBJMODS) $(NAME).mak
 clean:
 	@del $(OUTD)\*.obj
 	@del $(OUTD)\*.lib
-#	@del $(OUTD)\*.exe
+	@del $(OUTD)\*.exe
 	@del $(OUTD)\*.lst
 	@del $(OUTD)\*.map
 	@del $(OUTD)\*.tmp
