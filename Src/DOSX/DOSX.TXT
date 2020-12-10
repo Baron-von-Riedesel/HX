@@ -36,20 +36,16 @@
    start it with "WIN /S".
 
  - if FreeDOS is used with Windows 3.1, the system might crash when opening
-   a DOS box. As I found out it may help to load SHARE.COM, a special version
-   for FreeDOS. Then this problem seems to vanish. I'm not the maintainer
-   of FreeDOS's share tool, but you may download it from
-      http://www.japheth.de/Download/share.zip
-   This version has a bug fixed which caused MS office applications not to
-   work on Windows 3.1. Please note that the FreeDOS' SHARE doesn't work
-   with MS-DOS.
+   a DOS box. It may help to load FreeDOS' SHARE.COM, then this problem seems
+   to vanish. But be aware that the FreeDOS' SHARE is very limited and won't
+   work with MS-DOS.
 
  - the Windows 3.1 taskswitcher WSWAP.EXE is not aware of XMS v3 (an API to
    access more than 64 MB of extended memory). This causes problems if an
    application (including HDPMI) is using XMS v3 functions:
    þ on machines with 64 MB memory or less HDPMI is not compatible with
      WSWAP.EXE - unless you set environment variable HDPMI=64, which 
-     instructs HDPMI to not use XMS v3 functions at all.
+     instructs HDPMI not to use XMS v3 functions at all.
    þ on machines with more than 64 MB memory environment variable HDPMI=64
      should *not* be set. HDPMI will then use XMS v3 functions to allocate
      memory and not interfere with WSWAP.EXE. However, the first 64 MB of

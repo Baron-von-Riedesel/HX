@@ -58,6 +58,8 @@ ALL:
     @$(MAKE) DEBUG=$(DEBUG) 
     cd ..\DPMI
     @$(MAKE) DEBUG=$(DEBUG) 
+    cd ..\DOSX
+    @$(MAKE) DEBUG=$(DEBUG) 
     cd ..
 
 install: 
@@ -136,6 +138,9 @@ install:
 	@copy SHDPMI\Release\SHDPMIR.EXE  $(HXINST)\Bin
 	@copy SHDPMI\SHDPMI.TXT           $(HXINST)\Doc
 
+	@copy DOSX\Release\DOSX.EXE       $(HXINST)\UnSupp
+	@copy DOSX\DOSX.TXT               $(HXINST)\UnSupp
+
 clean: 
     cd    HDPMI
     @$(MAKE) DEBUG=$(DEBUG) clean
@@ -170,5 +175,7 @@ clean:
     cd ..\SHDPMI
     @$(MAKE) DEBUG=$(DEBUG) clean 
     cd ..\DPMI
+    @$(MAKE) DEBUG=$(DEBUG) clean 
+    cd ..\DOSX
     @$(MAKE) DEBUG=$(DEBUG) clean 
     cd ..
