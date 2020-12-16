@@ -65,6 +65,22 @@ swapFile      dd ?            ;32
 res           db 12 dup (?)
 MEMINFO ends
 
+MEMINFOX struct	;used by int 31h, ax=50bh
+dwTotalPhys   dd ?
+dwTotalHost   dd ?
+dwFreeHost    dd ?
+dwTotalVM     dd ?
+dwFreeVM      dd ?
+dwTotalClient dd ?
+dwFreeClient  dd ?
+dwTotalLocked dd ?
+dwMaxLocked   dd ?
+dwHighestAddr dd ?
+dwLargestBlock dd ?
+dwMinSize     dd ?
+dwAllocUnit   dd ?
+MEMINFOX ends
+
 EXCFRAME struct
 _dpmieip	dd ?
 _dpmics		dd ?

@@ -615,7 +615,8 @@ wFlags  dw ?	;+64
 wOffs   dw 68h	;+66
 TSSSEG ends
 
-;------------------------ client memory item structure
+;--- client memory item struct
+;--- used by heap.asm and I31mem.asm
 
 MEMITEM struct
 pNext	dd  ?			; points to next element (must be first)

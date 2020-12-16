@@ -85,8 +85,8 @@ $(ODIR3)\HDLD16.BIN: $(MODS3) LIB16\ldr16.lib $(NAME).mak
 #<<
 	@$(LINK16BIN) format dos file {$(MODS3)} name $*.BIN op q, knoweas, map=$*.MAP lib $(LIBS)
 
-$(ODIR3)\dpmildr.obj: dpmildr.asm dpmildr.inc peload.inc version.inc ..\..\Include\HDPMI16.INC $(INCTR)
-	@$(ASM) $(AOPT) -D?STUB=1 -D?LOADDBGDLL=0 -D?SERVER=0 -D?HDPMI=1 dpmildr.asm
+$(ODIR3)\dpmildr.obj: dpmildr.asm dpmildr.inc peload.inc version.inc ..\HDPMI\STUB16\HDPMI16.INC $(INCTR)
+	@$(ASM) $(AOPT) -D?STUB=1 -D?LOADDBGDLL=0 -D?SERVER=0 -D?HDPMI=1 -I..\HDPMI\STUB16 dpmildr.asm
 
 $(ODIR3)\kernel16.obj: kernel16.asm dpmildr.inc kernel16.inc version.inc $(INCTR)
 	@$(ASM) $(AOPT) -D?STUB=1 kernel16.asm

@@ -3,7 +3,6 @@
 # tools needed:
 # - jwasm
 # - jwlink
-# - wininc
 # - HX dev
 
 !include <..\dirs>

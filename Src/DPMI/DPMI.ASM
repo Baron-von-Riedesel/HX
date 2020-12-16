@@ -66,6 +66,7 @@ OP_IN		equ 128	;IN benchmark
 OP2_NESTED	equ 1	;nested execution test
 OP2_HSFATAL	equ 2	;host stack exhaustion
 OP2_DESC	equ 4	;alloc descriptors
+OP2_EXTMEM	equ 8	;use int 31h, ax=50bh
 
 wOpt		label word
 bOpt1		db 0
@@ -98,6 +99,7 @@ szHelp label byte
 	db "  -s<n>: allocate <n> kB of extended memory, then launch a shell",lf
 	db "  -t<n>: test nested execution of mode switches (n = nesting level)",lf
 	db "  -w: wait in protected-mode for a keypress before terminating",lf
+	db "  -x: try to get extended memory infos thru int 31h, ax=50Bh",lf
 	db 0
 
 	.data?
@@ -335,7 +337,7 @@ local dwSAddr:dword
 		xor cx,cx
 		shld ecx,eax,10
 		shl eax,10
-		@printf <"  above 4GB: total %lu kB, largest %lu kB at %lX",lf>, dwSTotal, dwSMax, cx, eax
+		@printf <"  above 4GB: total %lu kB, largest %lu kB at %lp",lf>, dwSTotal, dwSMax, cx, eax
 	.else
 		@printf <"  above 4GB: none",lf>
 	.endif
@@ -1214,6 +1216,29 @@ linalloc_failed:
 	ret
 linalloc endp
 
+dispextmem proc
+local mix:MEMINFOX
+	lea di,mix
+	push ss
+	pop es
+	mov ax,050Bh
+	int 31h
+	jc notsupp
+	@printf <"total physical=%lx",lf>, mix.dwTotalPhys
+	@printf <"total/free host=%lx/%lx",lf>, mix.dwTotalHost, mix.dwFreeHost
+	@printf <"total/free VM=%lx/%lx",lf>, mix.dwTotalVM, mix.dwFreeVM
+	@printf <"total/free Client=%lx/%lx",lf>, mix.dwTotalClient, mix.dwFreeClient
+	@printf <"total/max locked=%lx/%lx",lf>, mix.dwTotalLocked, mix.dwMaxLocked
+	@printf <"highest addr=%lx",lf>, mix.dwHighestAddr
+	@printf <"largest block=%lx",lf>, mix.dwLargestBlock
+	@printf <"min. size=%lx",lf>, mix.dwMinSize
+	@printf <"allocation unit=%lx",lf>, mix.dwAllocUnit
+	ret
+notsupp:
+	@printf <"int 31h, ax=50Bh not supported",lf>
+	ret
+dispextmem endp
+
 ;--- check for vendor MS-DOS
 
 chk2f168a proc
@@ -1371,17 +1396,14 @@ do_protmode proc
 	.endif
 	@printf <"total/free physical memory (kB): %lu/%lu",lf>, eax, ecx
 
-	@printf 'Coprocessor status: '
 	mov ax,0E00h
 	stc
 	int 31h
-	jnc @F
-	@printf <" not supported">
-	jmp fpudone
-@@:
-	call _wordout	;display AX
-fpudone:
-	@printf <lf>
+	.if CARRY?
+		@printf <"Int 31h, ax=0E00h (get FPU status) not supported",lf>
+	.else
+		@printf <'Coprocessor status: %x',lf>, ax
+	.endif
 
 ;--- get dpmi 1.0 infos into es:e/di
 ;--- make sure the first 3 bytes are cleared, since
@@ -1445,6 +1467,10 @@ status_displayed:
 	jz @F
 	call descalloc
 @@:
+	test bOpt2, OP2_EXTMEM
+	jz @F
+	call dispextmem
+@@:
 	test bOpt1, OP_SHELL
 	jz @F
 	call startshell
@@ -1483,6 +1509,8 @@ main proc c
 				or bOpt1, OP_CLISTI
 			.elseif (al == 'd')
 				or bOpt2, OP2_DESC
+			.elseif (al == 'x')
+				or bOpt2, OP2_EXTMEM
 			.elseif (al == 'e')
 				or bOpt2, OP2_HSFATAL
 			.elseif (al == 'f')

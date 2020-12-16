@@ -52,8 +52,8 @@ $(OUTDIR)\LOADPE.BIN: LoadPE.asm Makefile
     
 #--- LOADPEX.BIN
 
-$(OUTDIR)\LOADPEX.BIN: LoadPE.asm Makefile $(INC32DIR)\HDPMI32.INC
-	@$(ASM) -c -nologo -mz -D?HDPMI=1 -Fl$* -Fo$*.BIN -I$(INC32DIR) -I..\MZSUPP LoadPE.asm
+$(OUTDIR)\LOADPEX.BIN: LoadPE.asm Makefile ..\HDPMI\STUB32\HDPMI32.INC
+	@$(ASM) -c -nologo -mz -D?HDPMI=1 -Fl$* -Fo$*.BIN -I$(INC32DIR) -I..\HDPMI\STUB32 -I..\MZSUPP LoadPE.asm
     
 #--- LOADPXNR.BIN
 

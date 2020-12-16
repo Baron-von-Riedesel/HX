@@ -11,6 +11,23 @@
 ?ADDRISHANDLE	equ 1		;std=1, 1=handle is address of block
 ?NEVERFREEMEM	equ 0		;std=0, 1=never free a memory block
 
+;--- extended structure for int 31h, ax=50bh
+MEMINFOX struct
+dwTotalPhys   dd ?
+dwTotalHost   dd ?
+dwFreeHost    dd ?
+dwTotalVM     dd ?
+dwFreeVM      dd ?
+dwTotalClient dd ?
+dwFreeClient  dd ?
+dwTotalLocked dd ?
+dwMaxLocked   dd ?
+dwHighestAddr dd ?
+dwLargestBlock dd ?
+dwMinSize     dd ?
+dwAllocUnit   dd ?
+MEMINFOX ends
+
 _TEXT32  segment
 
 	@ResetTrace
@@ -40,25 +57,25 @@ nextscan:
 nexthandle:						   ;<----
 
 ;	@dprintf "_getspecaddrspace: hdl=%lX,nxt=%lX,base=%lX,siz=%lX,fl=%X",esi,\
-;	[esi.MEMITEM.pNext],[esi.MEMITEM.dwBase],[esi.MEMITEM.dwSize],[esi.MEMITEM.flags]
+;	[esi].MEMITEM.pNext,[esi].MEMITEM.dwBase,[esi].MEMITEM.dwSize,[esi].MEMITEM.flags
 
-	test byte ptr [esi.MEMITEM.flags],HDLF_ALLOC
+	test byte ptr [esi].MEMITEM.flags,HDLF_ALLOC
 	jnz skipitem
-	mov edx, [esi.MEMITEM.dwSize]
+	mov edx, [esi].MEMITEM.dwSize
 	and ebx,ebx
 	jz nospec
 
 ;---- the list is sorted, so if base of current handle is > ebx
 ;---- we can decide here that the space is not free
 
-	cmp ebx, [esi.MEMITEM.dwBase]
+	cmp ebx, [esi].MEMITEM.dwBase
 	jb error
 
 	shl edx, 12
-	add edx, [esi.MEMITEM.dwBase]	;get max address of block in edx
+	add edx, [esi].MEMITEM.dwBase	;get max address of block in edx
 
 	@dprintf "getspecaddrspace: hdl=%lX,base=%lX,end=%lX (req=%lX,siz=%lX)",esi,\
-		[esi.MEMITEM.dwBase], edx, ebx, ecx
+		[esi].MEMITEM.dwBase, edx, ebx, ecx
 
 	cmp ebx, edx					;is req. address in this block?
 	jnc skipitem					;no, jump!
@@ -74,7 +91,7 @@ nexthandle:						   ;<----
 getnewspace:
 	mov eax, ecx					;get new addr space. this will
 	sub eax, edx					;increase the last block
-	call _AllocUserSpace				;get new address space, EAX pages
+	call _AllocUserSpace			;get new address space, EAX pages
 	jc error
 	call _addmemhandle				;add adress space to list
 	jnc nextscan
@@ -85,7 +102,7 @@ nospec:
 
 skipitem:
 	mov eax,esi
-	mov esi,[esi.MEMITEM.pNext]
+	mov esi,[esi].MEMITEM.pNext
 	and esi,esi
 	jnz nexthandle
 	xor edx, edx
@@ -95,12 +112,12 @@ skipitem:
 	mov eax, ebx
 	and eax, eax
 	jz @F
-	sub eax, [esi.MEMITEM.dwBase]
+	sub eax, [esi].MEMITEM.dwBase
 	shr eax, 12
 @@:
 	add eax, ecx
 if 1
-	sub eax, [esi.MEMITEM.dwSize]
+	sub eax, [esi].MEMITEM.dwSize
 endif
 	@dprintf "getspecaddrspace: create addr space, size=%lX (%lX)",eax,ecx
 	call _AllocUserSpace		;get new address space 
@@ -116,7 +133,7 @@ error:
 ;----------------- EAX = prev handle
 
 found:
-	cmp ebx, [esi.MEMITEM.dwBase]
+	cmp ebx, [esi].MEMITEM.dwBase
 	jz found1
 
 ;---------------- we need a new handle which covers free area
@@ -128,19 +145,19 @@ found:
 	jc error
 	push ecx
 	mov ecx, edx
-	xchg ecx, [eax.MEMITEM.pNext] 
-	mov [edx.MEMITEM.pNext], ecx	 ;now EAX->EDX->ESI
-	mov ecx, [esi.MEMITEM.dwBase]
-	mov [edx.MEMITEM.dwBase], ecx	 
-	mov [esi.MEMITEM.dwBase], ebx
+	xchg ecx, [eax].MEMITEM.pNext
+	mov [edx].MEMITEM.pNext, ecx	 ;now EAX->EDX->ESI
+	mov ecx, [esi].MEMITEM.dwBase
+	mov [edx].MEMITEM.dwBase, ecx
+	mov [esi].MEMITEM.dwBase, ebx
 	sub ebx, ecx
 	shr ebx, 12
-	mov [edx.MEMITEM.dwSize], ebx
-	sub [esi.MEMITEM.dwSize], ebx
+	mov [edx].MEMITEM.dwSize, ebx
+	sub [esi].MEMITEM.dwSize, ebx
 	@dprintf "getspecaddrspace: new free handle, handle=%lX,base=%lX,size=%lX",\
-		edx,[edx.MEMITEM.dwBase],[edx.MEMITEM.dwSize]
+		edx,[edx].MEMITEM.dwBase,[edx].MEMITEM.dwSize
 	@dprintf "getspecaddrspace: next free handle, handle=%lX,base=%lX,size=%lX",\
-		esi,[esi.MEMITEM.dwBase],[esi.MEMITEM.dwSize]
+		esi,[esi].MEMITEM.dwBase,[esi].MEMITEM.dwSize
 	mov eax, edx
 	pop ecx
 
@@ -153,12 +170,12 @@ endif
 ;---------------- EAX=prev hdl, esi=free current hdl
 
 found1:
-	cmp [esi.MEMITEM.pNext],0
+	cmp [esi].MEMITEM.pNext,0
 	jz @F
-	cmp ecx,[esi.MEMITEM.dwSize]	 ;fully meets request
+	cmp ecx,[esi].MEMITEM.dwSize	;fully meets request
 	jz exit
 @@:
-;;	@dprintf "_getspecaddrspace: new handle required",\
+;	@dprintf "_getspecaddrspace: new handle required"
 
 ;-------------------------------- allocate a new handle. this will be the
 ;-------------------------------- one we return
@@ -166,15 +183,15 @@ found1:
 	call _allocmemhandle ;get new handle in EBX
 	jc error
 ;;	@dprintf "getspecaddrspace: new handle allocated"
-	mov [ebx.MEMITEM.dwSize], ecx
-	sub [esi.MEMITEM.dwSize], ecx
-	mov edx, [esi.MEMITEM.dwBase]
-	mov [ebx.MEMITEM.dwBase], edx
+	mov [ebx].MEMITEM.dwSize, ecx
+	sub [esi].MEMITEM.dwSize, ecx
+	mov edx, [esi].MEMITEM.dwBase
+	mov [ebx].MEMITEM.dwBase, edx
 	shl ecx, 12
-	add [esi.MEMITEM.dwBase], ecx
+	add [esi].MEMITEM.dwBase, ecx
 	mov edx, ebx
-	xchg edx, [eax.MEMITEM.pNext]
-	mov [ebx.MEMITEM.pNext], edx
+	xchg edx, [eax].MEMITEM.pNext
+	mov [ebx].MEMITEM.pNext, edx
 	mov esi, ebx
 if _LTRACE_
 ?DISPLAYHDLTAB equ 1
@@ -183,11 +200,11 @@ endif
 
 exit:
 	@dprintf "getspecaddrspace: alloc ok, handle=%lX,addr=%lX,size=%lX",\
-		esi,[esi.MEMITEM.dwBase],[esi.MEMITEM.dwSize]
-	or [esi.MEMITEM.flags], HDLF_ALLOC
+		esi,[esi].MEMITEM.dwBase,[esi].MEMITEM.dwSize
+	or [esi].MEMITEM.flags, HDLF_ALLOC
 	movzx ax,byte ptr [cApps]
-	mov [esi.MEMITEM.owner],ax
-	mov [esp.PUSHADS.rEAX], esi
+	mov [esi].MEMITEM.owner, ax
+	mov [esp].PUSHADS.rEAX, esi
 	popad
 	ret
 	align 4
@@ -201,8 +218,8 @@ _getspecaddrspace endp
 _commitblock proc
 	push es
 	pushad
-	mov eax,[ebx.MEMITEM.dwBase]
-	mov ecx,[ebx.MEMITEM.dwSize]
+	mov eax,[ebx].MEMITEM.dwBase
+	mov ecx,[ebx].MEMITEM.dwSize
 	call _CommitRegion
 	popad
 	pop es
@@ -215,8 +232,8 @@ _commitblock endp
 
 _uncommitblock proc
 	pushad
-	mov eax,[ebx.MEMITEM.dwBase]
-	mov ecx,[ebx.MEMITEM.dwSize]
+	mov eax,[ebx].MEMITEM.dwBase
+	mov ecx,[ebx].MEMITEM.dwSize
 	call _UncommitRegion
 	popad
 	ret
@@ -483,20 +500,20 @@ _freememintEx proc
 	@dprintf "freememint: ebx=%lX", ebx
 	call searchhandle				;get previous handle in EAX, sets ds to GROUP16
 	jc error
-	test byte ptr [ebx.MEMITEM.flags],HDLF_ALLOC;ist bereich bereits frei?
+	test byte ptr [ebx].MEMITEM.flags,HDLF_ALLOC;is region already free?
 	jz error
 
 	mov esi, eax					;save previous block is ESI
-	mov edi,[ebx.MEMITEM.pNext]		;save next block in EDI
+	mov edi,[ebx].MEMITEM.pNext		;save next block in EDI
 
 	call _uncommitblock
-	and byte ptr [ebx.MEMITEM.flags],not HDLF_ALLOC
+	and byte ptr [ebx].MEMITEM.flags,not HDLF_ALLOC
 
 	@dprintf "freememint: block released, handle=%lX, addr=%lX, size=%lX",\
-		ebx, [ebx.MEMITEM.dwBase], [ebx.MEMITEM.dwSize]
+		ebx, [ebx].MEMITEM.dwBase, [ebx].MEMITEM.dwSize
 
-									;is next handle a free block
-	test byte ptr [edi.MEMITEM.flags],HDLF_ALLOC
+;--- is next handle a free block?
+	test byte ptr [edi].MEMITEM.flags,HDLF_ALLOC
 	jnz @F
 	@dprintf "freememint: next block is free, base=%lX, size=%lX",\
 		[edi].MEMITEM.dwBase, [edi].MEMITEM.dwSize
@@ -1123,8 +1140,8 @@ mapx proc
 	call _UncommitRegion
 	popad
 	or [esi].MEMITEM.flags, HDLF_MAPPED
-	cmp [esp].PUSHADS._AL,08
-	setz bl
+	cmp [esp].PUSHADS._AL,08	;is it int 31h, ax=508?
+	setz bl						;set BL=1 -> page flags "write thru" + "cache disable"
 	call _mapphysregion			;cannot fail
 	popad
 	clc
@@ -1180,22 +1197,6 @@ getmemsize endp
 
 ;*** int 31h, ax=050B (get mem info)
 ;--- INP: ES:E/DI -> MEMINFOX
-
-MEMINFOX struct
-dwTotalPhys dd ?
-dwTotalHost dd ?
-dwFreeHost  dd ?
-dwTotalVM   dd ?
-dwFreeVM    dd ?
-dwTotalClient dd ?
-dwFreeClient  dd ?
-dwTotalLocked dd ?
-dwMaxLocked   dd ?
-dwHighestAddr dd ?
-dwLargestBlock dd ?
-dwMinSize      dd ?
-dwAllocUnit    dd ?
-MEMINFOX ends
 
 	@ResetTrace
 
@@ -1255,7 +1256,7 @@ mapphysregion proc public
 
 	push si
 	push di
-	pop eax		;size -> eax	
+	pop eax		;size -> eax
 
 	@dprintf "mapphysregion: phys2lin addr=%lX, size=%lX",edx,eax
 
@@ -1263,7 +1264,8 @@ mapphysregion proc public
 	cmp eax, edx
 	jc error				;error if size==0 or too large
 
-	mov ecx,edx 	   
+if 0 ;replaced by code below
+	mov ecx,edx
 	shr ecx,12
 	shr eax,12
 	sub eax,ecx
@@ -1271,9 +1273,18 @@ mapphysregion proc public
 	test eax, 0fff00000h
 	stc
 	jnz error
+endif
+
 	and dx,0F000h			;adjust to page boundary
 
-	call _searchphysregion		;search region EDX, size EAX
+if 1
+	inc eax
+	sub eax,edx	;now eax=true size in bytes
+	add eax,1000h-1
+	shr eax,12
+endif
+
+	call _searchphysregion	;search region EDX, size EAX (pages)
 	jnc found
 	xor ebx, ebx
 	mov ecx, eax
