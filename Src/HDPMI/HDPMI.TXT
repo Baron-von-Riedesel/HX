@@ -1,6 +1,6 @@
 //////////////////////////////////////////////////////////////////////////////
 /                                                                            /
-/               HDPMI - DPMI Server (Version 3.18)                           /
+/               HDPMI - DPMI Server (Version 3.19)                           /
 /                                                                            /
 //////////////////////////////////////////////////////////////////////////////
 
@@ -878,10 +878,6 @@
    - VirtualBox
    - DosBox (version must be >= 0.70)
 
-   Wth Virtual PC 2007 the standard HDPMI binary will not work. However,
-   there is a modified HDPMI32.EXE available which might work and can be
-   found at http://www.japheth.de/hx.html.
-
    HDPMI has also been tested to run with the following VCPI hosts:
 
    - MS-DOS Emm386 (V7.x, V6.x, V5.0)
@@ -891,11 +887,10 @@
    - Qualitas 386Max (V6.02, V7.02)
 
 
- 10. License & Contact
+ 10. License
 
    HDPMI is part of the HX DOS extender runtime, which is freeware. It may
-   be used for any purpose. Copyright Japheth 1993-2018. 
-   Email: japhethx@googlemail.com.
+   be used for any purpose. Copyright Japheth 1993-2020. 
 
    Japheth ( Andreas Grech )
 

@@ -95,10 +95,9 @@
 
   4. History
 
-  07.12.2020, V2.19: VESAMTRR removed.
+  27.12.2020, V2.19: VESAMTRR removed.
                      Source for Win32 emulation moved to SRCEMU.
                      SRC\Makefile and SRCEMU\Makefile have 'install' branch.
-                     SRC\EDITPE added.
   07/28/2018, V2.18: HDPMI binaries changed to PE format. Tools EDITPE and
                      EXTRMZ added, tool EXTRSECT removed.
   08/11/2011, V2.17: in v2.16, directory DUSER32\RES was missing.

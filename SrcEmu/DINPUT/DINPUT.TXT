@@ -70,5 +70,5 @@
   DINPUT.DLL is part of HX DOS extender. This extender is freeware.
   View HXRT.TXT or HXGUI.TXT for licence details.
   
-  Japheth ( http://www.japheth.de )
+  Japheth
 

@@ -101,5 +101,5 @@
  OLEAUT32.DLL is part of HX DOS extender. This extender is freeware.
  View HXRT.TXT for license details.
  
- Japheth ( http://www.japheth.de )
+ Japheth
 
