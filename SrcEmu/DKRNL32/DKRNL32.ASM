@@ -14,7 +14,7 @@
 
 versionstring textequ @CatStr(!",%?VERMAJOR,.,%?VERMINOR,.,%?VERMINOR2,!")
 
-copyright db "dkrnl32.dll V",versionstring," (c) 1996-2012 japheth",0
+copyright db "dkrnl32.dll V",versionstring," (c) 1996-2020 japheth",0
 
 	.CODE
 

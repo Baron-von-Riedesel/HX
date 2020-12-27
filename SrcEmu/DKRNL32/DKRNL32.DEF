@@ -141,6 +141,8 @@ EXPORTS
  FindCloseChangeNotification
  FindFirstChangeNotificationA
  FindFirstFileA
+ FindFirstFileExA
+ FindFirstFileExW
  FindFirstFileW
  FindNextChangeNotification
  FindNextFileA
@@ -234,6 +236,8 @@ EXPORTS
  GetModuleFileNameA
  GetModuleFileNameW
  GetModuleHandleA
+ GetModuleHandleExA
+ GetModuleHandleExW
  GetModuleHandleW
  GetNamedPipeHandleStateA
  GetNamedPipeInfo
@@ -343,6 +347,7 @@ EXPORTS
  HXLoadVDD
  InitializeCriticalSection
  InitializeCriticalSectionAndSpinCount
+ InitializeSListHead
  InterlockedCompareExchange
  InterlockedDecrement
  InterlockedExchange

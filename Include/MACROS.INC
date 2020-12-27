@@ -212,6 +212,7 @@ endif
 ;--- display a string with given size
 
 @traceN macro x, cnt
+local next,done
 ifdef _DEBUG
 	pushad
 	mov ebx, esp
@@ -221,7 +222,15 @@ ifdef _DEBUG
 	and esp,-4
 	mov esi, x
 	mov edi, esp
-	rep movsb
+	jecxz done
+next:
+	lodsb
+	.if al == 10 || al == 13
+		mov al,'^'
+	.endif
+	stosb
+	loop next
+done:
 	mov [edi],cl
 	invoke OutputDebugString, esp
 	mov esp,ebx

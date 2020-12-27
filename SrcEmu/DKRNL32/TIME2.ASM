@@ -34,14 +34,22 @@ GetSystemTimeAdjustment endp
 
 if 1
 
+GetTimeZoneInformation proto stdcall :ptr TIME_ZONE_INFORMATION
+
 SystemTimeToTzSpecificLocalTime proc public lpTimeZone:ptr TIME_ZONE_INFORMATION, lpUniversalTime:ptr SYSTEMTIME, lpLocalTime:ptr SYSTEMTIME
 
 local	filetime:FILETIME
+local	tzi:TIME_ZONE_INFORMATION
 
 	invoke SystemTimeToFileTime, lpUniversalTime, addr filetime
 	call tzset
 	mov ecx, lpTimeZone
-	mov eax, [ecx].TIME_ZONE_INFORMATION.Bias	;in minutes
+	.if ecx
+		mov eax, [ecx].TIME_ZONE_INFORMATION.Bias	;in minutes
+	.else
+		invoke GetTimeZoneInformation, addr tzi
+		mov eax, tzi.Bias
+	.endif
 	mov ecx, 60*1000*1000*10	;1 s == 1000 * 1000 * 10 (100 ns units)
 	imul ecx
 	sub dword ptr filetime+0,eax

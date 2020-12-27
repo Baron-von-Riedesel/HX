@@ -439,7 +439,7 @@ if ?HOOKINT21
 	mov ax,0204h
 	mov bl,21h
 	int 31h
-  if ?CLEARHIGHEBP
+  if ?DPMI16
 	movzx edx, dx
   endif
 	mov dword ptr g_oldint21+0,edx

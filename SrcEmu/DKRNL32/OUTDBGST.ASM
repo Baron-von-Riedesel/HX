@@ -436,7 +436,7 @@ if ?DBG2DOS
 	mov ax, 204h
 	mov bl,41h
 	int 31h
-  if ?CLEARHIGHEBP
+  if ?DPMI16
 	movzx edx,dx
   endif
 	mov dword ptr g_oldint41+0, edx

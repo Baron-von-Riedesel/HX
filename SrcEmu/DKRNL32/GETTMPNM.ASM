@@ -13,13 +13,17 @@ endif
 
 	.CODE
 
+;--- uUnique argument:
+;--- =zero: create the name using system time, file is created and ensured it's unique
+;--- !=zero: just a filename is created, uniqueness not guaranteed. only lowword of argument used.
+
 GetTempFileNameA proc uses esi edi ebx pszTempDir:ptr BYTE, pszPrefix:ptr BYTE,
 			uUnique:DWORD, pszOut:ptr BYTE
 
 local	systemtime:SYSTEMTIME
 local	tmpdir[MAX_PATH]:byte
 
-	@strace <"GetTempFileNameA(", pszTempDir, ", ", pszPrefix, ", ", uUnique, ", ", pszOut, ") enter">
+	@strace <"GetTempFileNameA(", &pszTempDir, ", ", pszPrefix, ", ", uUnique, ", ", pszOut, ") enter">
 	mov esi, pszTempDir
 	mov ecx, sizeof tmpdir
 	lea edi, tmpdir
@@ -48,6 +52,7 @@ local	tmpdir[MAX_PATH]:byte
 tmpnam_0:
 	mov eax, uUnique
 	.if (eax)
+		movzx eax,ax	;23.12.2020: use lower part only
 		call __dw2a
 		mov eax,"PMT."
 		stosd
@@ -87,7 +92,7 @@ tmpnam_0:
 tmpnam_er:
 	xor eax,eax
 done:
-	@strace <"GetTempFileNameA()=", eax>
+	@strace <"GetTempFileNameA(",&pszOut,")=", eax>
 	ret
 	align 4
 GetTempFileNameA endp

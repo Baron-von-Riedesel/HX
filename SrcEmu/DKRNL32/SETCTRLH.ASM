@@ -292,7 +292,7 @@ Install proc uses ebx
 	mov ax,204h		;get int 23h protected-mode interrupt vector
 	mov bl,23h
 	int 31h
-if ?CLEARHIGHEBP
+if ?DPMI16
 	movzx edx,dx
 endif
 	mov dword ptr g_oldint23+0, edx

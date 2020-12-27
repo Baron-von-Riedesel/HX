@@ -26,7 +26,7 @@ buffer	db 256 dup (?)
 
 	.CODE
 
-if ?CLEARHIGHEBP	;for 16bit clients
+if ?DPMI16	;for 16bit clients
 simint21 proto
 endif
 
@@ -71,7 +71,7 @@ if ?DOSWAIT
 			jz issingleinput
 			mov edx,edi
 			mov ah,3fh
-if ?CLEARHIGHEBP
+if ?DPMI16
 			call simint21
 else
 			int 21h
@@ -94,7 +94,7 @@ isfile:
 		.endif
 		mov edx,edi
 		mov ah,3fh
-if ?CLEARHIGHEBP
+if ?DPMI16
 		call simint21
 else
 		int 21h

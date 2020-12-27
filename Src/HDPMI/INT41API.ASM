@@ -5,6 +5,7 @@
 
 	include hdpmi.inc
 	include external.inc
+	include debugsys.inc
 
 	option proc:private
 
@@ -36,7 +37,7 @@ intr41 endp
 intr41_ proc public
 	@dprintf "intr41_: AX=%X",ax
 if ?I41SUPPORT
-	cmp ax,0000
+	cmp ax,DS_Out_Char
 	jnz @F
 	push eax
 	mov al,dl
@@ -44,21 +45,25 @@ if ?I41SUPPORT
 	pop eax
 	iretd
 @@:
-	cmp ax,0001
+	cmp ax,DS_In_Char
 	jnz @F
 	call _getchrx
 	iretd
 @@:
-	cmp ax,0012h	;display string in es:esi
+ if 1	;changed 12/2020: function 0002 is the correct one
+	cmp ax,DS_Out_Str	;display string in ds:esi
+	jnz @F
+	call OutStr
+ else
+	cmp ax,DS_Out_Str16	;display string in es:si
 	jnz @F
 	push ds
-	push eax
-	mov eax,es
-	mov ds,eax
-	call OutStr
-	pop eax
+	push es
 	pop ds
-	iretd
+	movzx esi,si
+	call OutStr
+	pop ds
+ endif
 @@:
 endif
 	iretd

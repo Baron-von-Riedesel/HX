@@ -42,21 +42,12 @@ OBJMODS = $(OBJNAMES:.\=OMF\)
 CRTNAMES = .\sprintf.obj .\output.obj .\transtab.obj
 CRTMODS = $(CRTNAMES:.\=LIBOMF\)
 
-!ifndef MASM
-MASM=0
-!endif
-
 ASMOPT= -c -nologo -Cp -Sg -D_USER32_=1 -D?FLAT=1 $(AOPTD) -I$(INC32DIR) -Fl$* -Fo$*
-!if $(MASM)
-ASM=@ml.exe $(ASMOPT) 
-!else
-ASM=@jwasm.exe -zlc -zld $(ASMOPT)
-!endif
 
 .SUFFIXES: .asm .obj
 
 .asm{$(OUTDIR)}.obj:
-	$(ASM) $<
+	@$(ASM) $(ASMOPT) $<
 
 ALL: $(OUTDIR) $(OUTDIR)\$(NAME).LIB
 

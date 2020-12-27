@@ -61,6 +61,7 @@
 .\FLUSHINC.ASM \
 .\FNDCHGNT.ASM \
 .\FNDFILE.ASM \
+.\FNDFILEX.ASM \
 .\FNDFILEW.ASM \
 .\Formmsg.ASM \
 .\FormmsgW.ASM \
@@ -94,6 +95,7 @@
 .\GETMODFW.ASM \
 .\GETMODH.ASM \
 .\GETMODHW.ASM \
+.\GETMODHX.ASM \
 .\GETNFORM.ASM \
 .\GETOVRES.ASM \
 .\GETPHEAP.ASM \
@@ -125,6 +127,7 @@
 .\hlpstack.ASM \
 .\IDLEPROC.ASM \
 .\Init.ASM \
+.\InitSLst.ASM \
 .\InitTls.ASM \
 .\Int64.ASM \
 .\ISBADPTR.ASM \

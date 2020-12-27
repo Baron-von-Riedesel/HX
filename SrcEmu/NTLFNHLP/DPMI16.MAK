@@ -29,21 +29,12 @@ SRCMODS = \
 OBJNAMES= $(SRCMODS:.ASM=.OBJ)
 OBJMODS = $(OBJNAMES:.\=DPMI16\)
 
-!ifndef MASM
-MASM=0
-!endif
-
-ASMOPT= -c -nologo -Cp -Sg -D_KERNEL32_=1 $(AOPTD) -I$(INC32DIR) -D?FLAT=0 -D?CLEARHIGHEBP=1 -Fl$* -Fo$*
-!if $(MASM)
-ASM=@ml.exe $(ASMOPT)
-!else
-ASM=@jwasm.exe $(ASMOPT)
-!endif
+ASMOPT= -c -nologo -Cp -Sg -D_KERNEL32_=1 $(AOPTD) -I$(INC32DIR) -D?FLAT=0 -D?DPMI16=1 -Fl$* -Fo$*
 
 .SUFFIXES: .asm .obj
 
 .asm{$(OUTDIR)}.obj:
-	$(ASM) $<
+	$(ASM) $(ASMOPT) $<
 
 ALL: $(OUTDIR) $(OUTDIR)\$(NAME).lib
 

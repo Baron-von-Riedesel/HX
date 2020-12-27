@@ -1,5 +1,5 @@
 
-  06.12.2020: version 3.7
+  23.12.2020: version 3.7
 
   þ (re)enabled support for handling IRQ 0Dh on floating-point exceptions.
     This is also an adaption to the changed behavior of HDPMI32.EXE, which
@@ -10,6 +10,15 @@
   þ TryEnterCriticalSection added.
   þ file TIMERHLP, function _GetTimerValue(): interrupts no longer disabled
     during PIT register read.
+  þ GetModuleHandleExA/W added.
+  þ FindFirstFileExA/W added.
+  þ InitializeSListHead added.
+  þ SystemTimeToTzSpecificLocalTime: lpTimeZone argument wasn't checked
+    for NULL.
+  þ HeapReAlloc: don't reject newSize=0.
+  þ HeapValidate: argument pMem==0 wasn't handled correctly.
+  þ GetLocaleInfoA: added a few locales.
+  þ GetLocaleInfoW: check LOCALE_RETURN_NUMBER flag.
   
   07/28/2018: version 3.6
 

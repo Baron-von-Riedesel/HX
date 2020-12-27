@@ -32,7 +32,11 @@ WriteConsoleA proc public hConOut:dword, lpBuffer:ptr BYTE, nNumberOfCharsToWrit
 		invoke WriteFile, ecx, lpBuffer, nNumberOfCharsToWrite, lpWritten, lpReserved
 @@:
 	.endif
-	@strace <"WriteConsoleA(", hConOut, ", ", lpBuffer, ", ", nNumberOfCharsToWrite, ", ", lpWritten, ", ", lpReserved, ")=", eax>
+	@trace <"WriteConsoleA(">
+	@tracedw hConOut
+	@trace <", '">
+	@traceN lpBuffer, nNumberOfCharsToWrite
+	@strace <"', ", nNumberOfCharsToWrite, ", ", lpWritten, ", ", lpReserved, ")=", eax>
 	ret
 	align 4
 

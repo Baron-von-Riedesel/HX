@@ -1003,7 +1003,7 @@ _exc0E:
 		mov ds, cs:g_csalias
 		dec g_cntStack
 		pop ds
-if ?CLEARHIGHEBP
+if ?DPMI16
 		push ebp
 		movzx ebp,sp
 		mov [ebp+4].DPMIEXC.rEip, LOWWORD offset afterstacktest
@@ -1063,7 +1063,7 @@ notib:
 @@:        
 endif
 
-if ?CLEARHIGHEBP
+if ?DPMI16
 	movzx ebp,sp
 	add ebp,8*4+1*4
 else
@@ -1089,7 +1089,7 @@ if 1
 		mov ax, DS_CheckFault
 		int 41h
 		.if (ax)
-if ?CLEARHIGHEBP
+if ?DPMI16
 			movzx edx, [ebp].DPMIEXC.rEip
 			movzx ecx, [ebp].DPMIEXC.rCS
 else
@@ -1098,7 +1098,7 @@ else
 endif
 			mov ebx, ?EXCPARM
 			movzx bx, cs:[ebx].EXCDESC.bException
-if ?CLEARHIGHEBP
+if ?DPMI16
 			movzx esi, [ebp].DPMIEXC.errc
 			movzx edi, [ebp].DPMIEXC.rEflags
 else
@@ -1107,7 +1107,7 @@ else
 endif
 			mov ax, DS_TrapFault
 			int 41h
-if ?CLEARHIGHEBP
+if ?DPMI16
 			.if ((dx != [ebp].DPMIEXC.rEip) || (cx != [ebp].DPMIEXC.rCS)) 
 				mov [ebp].DPMIEXC.rEip, dx
 				mov [ebp].DPMIEXC.rCS, cx
@@ -1135,7 +1135,7 @@ endif
 
 	push ds
 if ?USECLIENTSTACK	;this only works if a switch to LPMS has occured
-  ife ?CLEARHIGHEBP
+  ife ?DPMI16
 	lds edi, fword ptr [ebp.DPMIEXC.rESP]	;get SS:ESP into ES:EDI
 	sub edi,sizeof MYEXC			;make room for MYEXC
 	mov [ebp.DPMIEXC.rESP],edi
@@ -1149,7 +1149,7 @@ if ?USECLIENTSTACK	;this only works if a switch to LPMS has occured
 else
 	mov edi, offset g_myexc
 	mov ds, cs:g_csalias
-  ife ?CLEARHIGHEBP
+  ife ?DPMI16
 	mov edx,[ebp.DPMIEXC.rEflags]
 ;	mov ebx,[ebp.DPMIEXC.errc]
   else
@@ -1166,7 +1166,7 @@ endif
 
 	mov eax,offset calldoexc		;set new EIP
 	mov ecx,cs
-ife ?CLEARHIGHEBP
+ife ?DPMI16
 	xchg eax,[ebp.DPMIEXC.rEip]
 	xchg ecx,[ebp.DPMIEXC.rCS]
 else
@@ -1241,7 +1241,7 @@ endif
 
 		mov g_cntStack,1
 		push ds
-if ?CLEARHIGHEBP
+if ?DPMI16
 		lds dx, [ebp].DPMIEXC.rSSSP
 		movzx edx,dx
 else
@@ -1254,7 +1254,7 @@ afterstacktest::
 		mov al,g_cntStack
 		mov g_cntStack,0
 		.if (!al)
-if ?CLEARHIGHEBP
+if ?DPMI16
 			movzx eax,[ebp].DPMIEXC.rEsp
 else
 			mov eax,[ebp].DPMIEXC.rEsp
@@ -1265,7 +1265,7 @@ endif
 ;--- a fatal exit because esp cannot be used and no memory available
 			invoke FatalAppExitA, 0, addr szFatalExit
 @@:
-if ?CLEARHIGHEBP
+if ?DPMI16
 			mov [ebp].DPMIEXC.rEsp, ax
 else
 			mov [ebp].DPMIEXC.rEsp, eax
@@ -1299,7 +1299,7 @@ endif
 doexc_exit:
 	popad
 	add esp,4	 ;skip ?EXCPARM parameter
-if ?CLEARHIGHEBP
+if ?DPMI16
 	db 66h
 endif
 	retf
@@ -1325,7 +1325,7 @@ if 0
 	cmp cs:[g_bHost], HF_HDPMI
 	jnz nohdpmi
 	pushad
- if ?CLEARHIGHEBP
+ if ?DPMI16
 	movzx ebp,sp
  else
 	mov ebp,esp
@@ -1342,7 +1342,7 @@ if 0
 	mov eax, [ebp+8*4+sizeof IRETDS]	;and EIP is above IRET frame
 @@:     
 	mov [dwExcEip], eax
- if ?CLEARHIGHEBP
+ if ?DPMI16
 	mov word ptr [ebp+8*4+sizeof IRETDS], offset myint75ex
  else
 	mov dword ptr [ebp+8*4+sizeof IRETDS], offset myint75ex

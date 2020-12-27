@@ -172,7 +172,7 @@ local	dosfnd:DOSFIND
 	mov cl,FINDATTR
 	mov ch,0
 	mov edx,pFileSpec
-if ?CLEARHIGHEBP
+if ?DPMI16
 	test edx,0FFFF0000h
 	jnz error
 endif

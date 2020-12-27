@@ -20,7 +20,7 @@ endif
 ?CLI		equ 1	;disable interrupts while in this proc
 
 IRETS	struct
-if ?CLEARHIGHEBP
+if ?DPMI16
 rIP		dw ?
 rCS		dw ?
 rFlags	dw ?
@@ -47,7 +47,7 @@ g_dwDosSel	dd 0
 g_wDosSeg	dw 0
 		align 4
 
-if ?CLEARHIGHEBP
+if ?DPMI16
 g_oldvec21	LPFAR16 0
 ?SEGOFFS	equ 2
 else
@@ -157,7 +157,7 @@ if ?USEFNTAB
         neg     ecx
         mov     edi,cs:[ecx*4+offset lfnjmp+sizelfnfn*4-4]
         pop		ecx
-if ?CLEARHIGHEBP
+if ?DPMI16
 		push	ebp
         movzx	ebp,sp
         mov 	[ebp+8], edi
@@ -221,7 +221,7 @@ endif
 
 SetCarry proc
 		jc		@F
-if ?CLEARHIGHEBP
+if ?DPMI16
 		push	ebp
 		movzx	ebp,sp
 		and		byte ptr [ebp+1*4].IRETS.rFlags,not 1	;reset Carry
@@ -232,7 +232,7 @@ else
 		iretd
 endif
 @@:		
-if ?CLEARHIGHEBP
+if ?DPMI16
 		push	ebp
 		movzx	ebp,sp
 		or		byte ptr [ebp+1*4].IRETS.rFlags,1
@@ -251,7 +251,7 @@ copy2TLBesi proc
 		push	es
 		mov		edi, cs:g_dwDosLin
 		mov		es, cs:g_flatsel
-if ?CLEARHIGHEBP
+if ?DPMI16
 		movzx	esi, si
 endif		 
 		mov 	ecx, 260
@@ -284,7 +284,7 @@ copy2TLBn proc pSrc:dword, dwSize:dword
 		push	es
 		mov		edi, cs:g_dwDosLin2
 		mov		es, cs:g_flatsel
-if ?CLEARHIGHEBP
+if ?DPMI16
 		movzx	esi, word ptr pSrc
 else
 		mov		esi, pSrc
@@ -304,7 +304,7 @@ copy2TLBesedi proc
 		push	ds
 		push	es
 		pop		ds
-if ?CLEARHIGHEBP
+if ?DPMI16
 		movzx	esi, di
 else
 		mov		esi, edi
@@ -330,7 +330,7 @@ copyfromTLB	proc pDest:dword
 		push	ds
 		mov		ds, cs:g_flatsel
 		mov		esi, cs:g_dwDosLin2
-if ?CLEARHIGHEBP
+if ?DPMI16
 		movzx	edi, word ptr pDest
 else
 		mov		edi, pDest
@@ -353,7 +353,7 @@ copyfromTLBn proc pDest:dword, dwSize:dword
 		push	ds
 		mov		ds, cs:g_flatsel
 		mov		esi, cs:g_dwDosLin2
-if ?CLEARHIGHEBP
+if ?DPMI16
 		movzx	edi, word ptr pDest
 else
 		mov		edi, pDest

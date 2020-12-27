@@ -319,6 +319,8 @@
   FindAtomA
   FindClose
   FindFirstFileA
+  FindFirstFileExA
+  FindFirstFileExW
   FindFirstFileW
   FindNextFileA
   FindNextFileW
@@ -402,6 +404,8 @@
   GetModuleFileNameA
   GetModuleFileNameW
   GetModuleHandleA
+  GetModuleHandleExA
+  GetModuleHandleExW
   GetModuleHandleW
   GetNamedPipeHandleStateA       dummy
   GetNumberFormatA               dummy
@@ -497,6 +501,7 @@
   HeapWalk
   InitializeCriticalSection
   InitializeCriticalSectionAndSpinCount
+  InitializeSListHead            dummy
   InterlockedCompareExchange
   InterlockedDecrement
   InterlockedExchange

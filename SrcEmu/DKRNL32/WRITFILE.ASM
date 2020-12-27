@@ -16,7 +16,7 @@ endif
 
 	.CODE
 
-if ?CLEARHIGHEBP
+if ?DPMI16
 simint21 proto 	;emulate int 21h for 32bit clients
 endif
 
@@ -98,7 +98,7 @@ rawmode:
 		pop ecx
 	.endif
 	mov ah,40h
-if ?CLEARHIGHEBP
+if ?DPMI16
 	call simint21
 else
 	int 21h
@@ -128,7 +128,7 @@ write1char:
 	mov edx,esp
 	@mov ecx,1
 	mov ah,40h
-if ?CLEARHIGHEBP
+if ?DPMI16
 	call simint21
 else
 	int 21h

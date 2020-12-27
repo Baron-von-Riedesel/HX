@@ -19,8 +19,6 @@
 
 !include <..\dirs>
 
-MASM=0
-
 !ifndef DEBUG
 DEBUG=0
 !endif
@@ -42,16 +40,11 @@ OBJNAMES= $(SRCMODS:.ASM=.OBJ)
 OBJMODS = $(OBJNAMES:.\=OMF\)
 
 ASMOPT= -c -nologo -Cp -D_GDI32_=1 -Sg $(AOPTD) -I$(INC32DIR) -D?FLAT=1 -Fl$* -Fo$*
-!if $(MASM)
-ASM=@ml.exe $(ASMOPT)
-!else
-ASM=@jwasm.exe -zlc -zld $(ASMOPT)
-!endif
 
 .SUFFIXES: .asm .obj
 
 .asm{$(OUTDIR)}.obj:
-	$(ASM) $<
+	@$(ASM) $(ASMOPT) $<
 
 ALL: $(OUTDIR) $(OUTDIR)\$(NAME).LIB
 

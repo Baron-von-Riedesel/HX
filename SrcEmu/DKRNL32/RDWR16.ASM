@@ -20,7 +20,7 @@ endif
 	include macros.inc
 	include dpmi.inc
 
-if ?CLEARHIGHEBP
+if ?DPMI16
 
 ?CHKSIZE equ 8000h
 

@@ -100,7 +100,7 @@
                      SRC\Makefile and SRCEMU\Makefile have 'install' branch.
                      SRC\EDITPE added.
   07/28/2018, V2.18: HDPMI binaries changed to PE format. Tools EDITPE and
-                     EXTRMT added, tool EXTRSECT removed.
+                     EXTRMZ added, tool EXTRSECT removed.
   08/11/2011, V2.17: in v2.16, directory DUSER32\RES was missing.
                      JWlink is used exclusively, MS link no longer used.
   11/16/2009, V2.16: Source for VERSION.DLL added.

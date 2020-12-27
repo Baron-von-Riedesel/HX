@@ -51,7 +51,7 @@ Install proc uses ebx
 	mov ax,0204h
 	mov bl,24h
 	int 31h
-if ?CLEARHIGHEBP
+if ?DPMI16
 	movzx edx,dx
 endif
 	mov dword ptr oldint24+0,edx

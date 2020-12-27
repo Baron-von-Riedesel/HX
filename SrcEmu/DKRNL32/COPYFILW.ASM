@@ -24,7 +24,7 @@ CopyFileW proc public lpExistingFileName:ptr WORD, lpNewFileName:ptr WORD, bFail
 	mov eax, lpNewFileName
 	call ConvertWStr
 	invoke CopyFileA, lpExistingFileName, eax, bFailIfExists
-	@strace	<"CopyFileW(", lpExistingFileName, ", ", lpNewFileName, ", ",  bFailIfExists, ")=", eax>
+	@strace <"CopyFileW(", lpExistingFileName, ", ", lpNewFileName, ", ",  bFailIfExists, ")=", eax>
 	ret
 	align 4
 

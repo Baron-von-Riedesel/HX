@@ -87,18 +87,10 @@ dwordout_0x:	; display dword in EAX, base x, leading zeros
 nextdigit:
 	xor edx,edx
 	div ebx
-	add dl,'0'
-	cmp dl,'9'
-	jbe @F
-	add dl,7
-@@:
 	push dx
+	dec cx
 	and eax,eax
 	jnz nextdigit
-	mov ax,bp
-	sub ax,sp
-	shr ax,1
-	sub cx,ax
 	.while sword ptr cx > 0
 		mov al,'0'
 		call _putchar
@@ -106,6 +98,11 @@ nextdigit:
 	.endw
 	.repeat
 		pop ax
+		add al,'0'
+		cmp al,'9'
+		jbe @F
+		add al,7
+@@:
 		call _putchar
 	.until bp == sp
 	pop bp

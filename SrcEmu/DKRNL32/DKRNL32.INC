@@ -60,7 +60,7 @@ pCmpProc	LPFNDEVICECMPPROC ?
 VXDENTRY ends
 
 DPMIEXC struct
-if ?CLEARHIGHEBP
+if ?DPMI16
 dpmiip  dw ?
 dpmics  dw ?
 errc    dw ?
@@ -98,7 +98,7 @@ DPMIEXC ends
 
 DPMI10EXC struct
 		DPMIEXC <>
-if ?CLEARHIGHEBP
+if ?DPMI16
 		db 10h dup (?)
 endif
 rDPMIIPx	dd ?	;+20h
@@ -122,7 +122,7 @@ PF16	typedef far16 ptr
 PF32	typedef far32 ptr
 
 IRETDS struct
-if ?CLEARHIGHEBP
+if ?DPMI16
 rEip    dw ?
 rCS     dw ?
 rEflags dw ?
@@ -218,10 +218,10 @@ HBLOCK ends
 ;--- heap item  (+ freelist item)
 ;--- used by HeapAlloc, HeapFree
 
-FLITEM	struct
+FLITEM struct
 dwSize	DWORD ?
 pNext	DWORD ?
-FLITEM	ends
+FLITEM ends
 
 ;*** heap item flags (bits 0+1 of dwSize)
 
@@ -590,10 +590,10 @@ else
 @bios	equ <gs>
 endif
 
-;--- ?CLEARHIGHEBP is 1 for 16 bit DPMI client
+;--- ?DPMI16 is 1 for 16 bit DPMI client
 
 @iret   macro
-if ?CLEARHIGHEBP
+if ?DPMI16
 	iret
 else
 	iretd
@@ -601,7 +601,7 @@ endif
 	endm
 
 @pushf  macro
-if ?CLEARHIGHEBP
+if ?DPMI16
 	pushf
 else
 	pushfd

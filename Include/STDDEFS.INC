@@ -17,50 +17,24 @@ if ?FLAT eq 0
 endif
 endif
 
-ifndef ?W32
-?W32 = 0
-endif
-
-ifndef ?FLAT
- if ?W32
-  ?FLAT = 1
- else
-  ?FLAT = 0
- endif
-endif
-
-ifndef ?CLEARHIGHEBP
-?CLEARHIGHEBP = 0
-endif
-
-ifndef ?WINDOWS
-?WINDOWS = 0
-endif
-
-ifndef ?DF
- if @Model eq 0
-   ?DF = 1
- else
-   ?DF = 0
- endif
+ifndef ?DPMI16
+?DPMI16 = 0
 endif
 
 if ?FLAT
   @flat   textequ <ds>
-  if ?CLEARHIGHEBP
-    %out ?CLEARHIGHEBP and ?FLAT cannot be used together
-    .err1
+  if ?DPMI16
+    %out ?DPMI16 and ?FLAT cannot be used together
+    .err
   endif
 else
   @flat   textequ <gs>
 endif
 
-ifndef ?INDCALL
 if ?FLAT
 ?INDCALL = 1
 else
 ?INDCALL = 0
-endif
 endif
 
 if ?INDCALL

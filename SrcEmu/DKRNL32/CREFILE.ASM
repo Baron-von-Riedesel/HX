@@ -112,6 +112,31 @@ exit:
 
 translate_action endp
 
+;*** attributes:
+;-- FILE_ATTRIBUTE_READONLY             EQU 00000001h
+;-- FILE_ATTRIBUTE_HIDDEN               EQU 00000002h
+;-- FILE_ATTRIBUTE_SYSTEM               EQU 00000004h
+;-- FILE_ATTRIBUTE_DIRECTORY            EQU 00000010h
+;-- FILE_ATTRIBUTE_ARCHIVE              EQU 00000020h
+;-- FILE_ATTRIBUTE_ENCRYPTED            EQU 00000040h
+;-- FILE_ATTRIBUTE_NORMAL               EQU 00000080h
+;-- FILE_ATTRIBUTE_TEMPORARY            EQU 00000100h
+;-- FILE_ATTRIBUTE_SPARSE_FILE          EQU 00000200h
+;-- FILE_ATTRIBUTE_REPARSE_POINT        EQU 00000400h
+;-- FILE_ATTRIBUTE_COMPRESSED           EQU 00000800h
+;-- FILE_ATTRIBUTE_OFFLINE              EQU 00001000h
+;-- FILE_ATTRIBUTE_NOT_CONTENT_INDEXED  EQU 00002000h
+;-- FILE_FLAG_WRITE_THROUGH         EQU 80000000h
+;-- FILE_FLAG_OVERLAPPED            EQU 40000000h
+;-- FILE_FLAG_NO_BUFFERING          EQU 20000000h
+;-- FILE_FLAG_RANDOM_ACCESS         EQU 10000000h
+;-- FILE_FLAG_SEQUENTIAL_SCAN       EQU 08000000h
+;-- FILE_FLAG_DELETE_ON_CLOSE       EQU 04000000h
+;-- FILE_FLAG_BACKUP_SEMANTICS      EQU 02000000h
+;-- FILE_FLAG_POSIX_SEMANTICS       EQU 01000000h
+;-- FILE_FLAG_OPEN_REPARSE_POINT    EQU 00200000h
+;-- FILE_FLAG_OPEN_NO_RECALL        EQU 00100000h
+
 translate_attributes proc
 
 ;ax = HIDDEN,NORMAL,READONLY,SYSTEM (TEMPORARY,COMPRESSED,ARCHIVE)
@@ -235,8 +260,7 @@ _strcmpi endp
 ;              3=openexisting
 ;              4=openalways
 ;              5=truncateexisting
-;*** attributes:
-;			80h = normal
+
 ;--- CreateFile should set error FILE_ALREADY_EXISTS if flags
 ;--- CREATE_ALWAYS or OPEN_ALWAYS were set and the file existed.
 ;--- Else last error should be set to 0.
@@ -322,6 +346,11 @@ nospecial:
 	mov eax,fCreation
 	call translate_action	   ;set DX
 	mov eax,attributes
+ifdef _DEBUG
+	.if eax & FILE_FLAG_DELETE_ON_CLOSE
+		@strace <"file flag DELETE_ON_CLOSE not supported yet!">
+	.endif
+endif
 	call translate_attributes   ;set CX
 	mov di,0
 	mov dh,00

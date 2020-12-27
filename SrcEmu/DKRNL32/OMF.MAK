@@ -44,21 +44,12 @@ OTHERMODS=.\int21lfn.obj
 OBJNAMES= $(SRCMODS:.ASM=.OBJ)
 OBJMODS = $(OBJNAMES:.\=OMF\)
 
-!ifndef MASM
-MASM=0
-!endif
-
 ASMOPT= -c -nologo -Cp -Sg -D?FLAT=1 -D_KERNEL32_=1 -D?OMF=1 $(AOPTD) -I$(INC32DIR) -Fl$* -Fo$*
-!if $(MASM)
-ASM=@ml.exe $(ASMOPT) 
-!else
-ASM=@jwasm.exe -zlc -zld $(ASMOPT)
-!endif
 
 .SUFFIXES: .asm .obj
 
 .asm{$(OUTDIR)}.obj:
-	$(ASM) $<
+	@$(ASM) $(ASMOPT) $<
 
 ALL: $(OUTDIR) $(OUTDIR)\$(NAME).LIB
 

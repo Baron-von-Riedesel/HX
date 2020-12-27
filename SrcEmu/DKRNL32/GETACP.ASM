@@ -1,4 +1,11 @@
 
+;--- GetACP() - ANSI codepage
+;--- GetOEMCP() - OEM codepage
+;--- GetConsoleCP()
+;--- SetConsoleCP()
+;--- GetConsoleOutputCP()
+;--- SetConsoleOutputCP()
+
 	.386
 if ?FLAT
 	.MODEL FLAT, stdcall

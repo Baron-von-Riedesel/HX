@@ -6,7 +6,7 @@ if ?FLAT
 	.MODEL FLAT, stdcall
 else
 	.MODEL SMALL, stdcall
-DGROUP	group _TEXT 	   
+DGROUP	group _TEXT
 endif
 
 	option proc:private
@@ -53,7 +53,7 @@ BKEYFLAGS	equ 496h
         
 	.DATA
 
-if ?CLEARHIGHEBP
+if ?DPMI16
 g_oldirq1	PF16 0
 else
 g_oldirq1	PF32 0
@@ -318,7 +318,7 @@ install proc uses ebx
 	inc bl
 	mov ax,0204h
 	int 31h
-if ?CLEARHIGHEBP
+if ?DPMI16
 	mov word ptr g_oldirq1+0,dx
 	mov word ptr g_oldirq1+2,cx
 else
@@ -378,7 +378,7 @@ if ?SETBREAK
 	mov ax,3302h	;get/set ctrl-c check
 	int 21h
 endif
-if ?CLEARHIGHEBP
+if ?DPMI16
 	mov cx,word ptr g_oldirq1+2
 else
 	mov cx,word ptr g_oldirq1+4

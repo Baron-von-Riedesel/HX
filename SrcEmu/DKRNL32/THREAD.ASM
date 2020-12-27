@@ -119,7 +119,7 @@ externdef   g_dwSetLastError:dword
 
 _initializethread proto stdcall
 
-if ?CLEARHIGHEBP
+if ?DPMI16
 OrgExc01	PF16 0
 if ?SETINT01 
 OrgInt01	PF16 0
@@ -135,7 +135,7 @@ endif
 if ?USERTC
 g_hDispTimer	dd 0
 else
-  if ?CLEARHIGHEBP
+  if ?DPMI16
 OrgIrq00	PF16 0
   else
 OrgIrq00	PF32 0
@@ -149,7 +149,7 @@ endif
 
 if ?TRAPDOS
 g_DosMutex	dd 0	;store thread which owns DOS mutex here
-  if ?CLEARHIGHEBP
+  if ?DPMI16
 OrgInt21	PF16 0
   else
 OrgInt21	PF32 0
@@ -432,7 +432,7 @@ readfile:
 @@:
 		mov eax, ebp
 		@pushf
-if ?CLEARHIGHEBP
+if ?DPMI16
 		push word ptr cs
 		push LOWWORD(offset @F)
 		jmp dos_nohook
@@ -472,7 +472,7 @@ endif
 
 myexc01 proc
 	push ebp
-if ?CLEARHIGHEBP
+if ?DPMI16
 	movzx ebp, sp
 else
 	mov ebp, esp
@@ -495,7 +495,7 @@ if 1
 endif
 	push ds
 	mov ds,cs:[g_csalias]
-if ?CLEARHIGHEBP
+if ?DPMI16
 	movzx eax,word ptr [ebp+4].DPMIEXC.rEip
 	mov [ebp+4].DPMIEXC.rEip, LOWWORD(offset calldispatch1)
 else
@@ -504,7 +504,7 @@ else
 endif
 	mov g_ConCtrl.rEip, eax
 	mov g_bDispReq,1+2
-if ?CLEARHIGHEBP
+if ?DPMI16
 	mov ax,[ebp+4].DPMIEXC.rCS
 	mov word ptr [ebp+4].DPMIEXC.rCS, cs
 else
@@ -512,7 +512,7 @@ else
 	mov [ebp+4].DPMIEXC.rCS, cs
 endif
 	mov g_ConCtrl.SegCs, eax
-if ?CLEARHIGHEBP
+if ?DPMI16
 	mov ax,word ptr [ebp+4].DPMIEXC.rEflags
 else
 	mov eax,[ebp+4].DPMIEXC.rEflags
@@ -535,7 +535,7 @@ exit2:
 	and byte ptr [ebp+4].DPMIEXC.rEflags+1, not 1	;reset TF
 	pop eax
 	pop ebp
-if ?CLEARHIGHEBP
+if ?DPMI16
 	db 66h
 endif
 	retf			  ;terminate dpmi exceptions with RETF
@@ -644,7 +644,7 @@ _dispatch proc
 	cli
 	cld
 	push ebp
-if ?CLEARHIGHEBP
+if ?DPMI16
 	movzx ebp,sp
 else
 	mov ebp, esp
@@ -1014,7 +1014,7 @@ exctestdone:
 	ret
 tmpexc01:
 	and byte ptr [esp].DPMIEXC.rEflags+1,not 1
-if ?CLEARHIGHEBP
+if ?DPMI16
 	mov [esp].DPMIEXC.rEip, LOWWORD(offset exctestdone)
 	db 66h
 else
@@ -1053,7 +1053,7 @@ if ?TRAPDOS
 	mov bl,21h
 	mov ax,0204h
 	int 31h
-if ?CLEARHIGHEBP
+if ?DPMI16
 	mov word ptr OrgInt21+0,dx
 	mov word ptr OrgInt21+2,cx
 else
@@ -1073,7 +1073,7 @@ endif
 	mov bl,01
 	mov ax,0202h
 	int 31h
-if ?CLEARHIGHEBP
+if ?DPMI16
 	mov word ptr OrgExc01+0,dx
 	mov word ptr OrgExc01+2,cx
 else
@@ -1096,7 +1096,7 @@ if ?SETINT01
 		mov bl,01
 		mov ax,0204h
 		int 31h
-  if ?CLEARHIGHEBP
+  if ?DPMI16
 		mov word ptr OrgInt01+0,dx
 		mov word ptr OrgInt01+2,cx
   else
@@ -1135,7 +1135,7 @@ else
 	mov bl,byte ptr g_wPics+1
 	mov ax,0204h
 	int 31h
- if ?CLEARHIGHEBP
+ if ?DPMI16
 	mov word ptr OrgIrq00+0,dx
 	mov word ptr OrgIrq00+2,cx
  else
@@ -1184,7 +1184,7 @@ if ?USERTC
 ;		mov g_hDispTimer, 0
 	.endif
 else
-  if ?CLEARHIGHEBP
+  if ?DPMI16
 	mov dx,word ptr OrgIrq00+0
 	mov cx,word ptr OrgIrq00+2
   else
@@ -1201,7 +1201,7 @@ if ?DIRECTDISP
 	jnz @F
 	and [g_bDispatchFlags],not FTI_DIRDISP
 endif
-if ?CLEARHIGHEBP
+if ?DPMI16
 	mov dx,word ptr OrgExc01+0
 	mov cx,word ptr OrgExc01+2
 else
@@ -1213,7 +1213,7 @@ endif
 	int 31h
 if ?SETINT01
 	.if (g_bHost == HF_WIN9X)
-  if ?CLEARHIGHEBP
+  if ?DPMI16
 		mov dx,word ptr OrgInt01+0
 		mov cx,word ptr OrgInt01+2
   else
@@ -1228,7 +1228,7 @@ endif
 @@:
 
 if ?TRAPDOS
-if ?CLEARHIGHEBP
+if ?DPMI16
 	mov cx,word ptr OrgInt21+2
 	mov dx,word ptr OrgInt21+0
 else

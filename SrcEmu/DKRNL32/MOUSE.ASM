@@ -406,7 +406,7 @@ endif
 
 evntproc proc
 	push ds
-if ?CLEARHIGHEBP
+if ?DPMI16
 	movzx edi,di
 	movzx esi,si
 endif

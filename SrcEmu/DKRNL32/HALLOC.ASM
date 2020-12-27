@@ -1,5 +1,6 @@
 
 ;--- HeapAlloc, HeapFree, HeapReAlloc
+;--- known bug: HeapAlloc() won't allow to allocate 0 bytes
 
 	.386
 if ?FLAT
@@ -14,7 +15,6 @@ endif
 	include dkrnl32.inc
 	include heap32.inc
 	include macros.inc
-
 
 ?DONTFREE	equ 0	;0 for debugging: dont free item in HeapFree
 ?CHKITEM	equ 1	;1 check if item is free already
@@ -469,38 +469,37 @@ if ?CHKITEM
 	jnz error1
 endif
 	mov edx, dwNewSize
-if ?EXTCHK
-	and edx, edx
-	jz error1				;size 0 not allowed
-	add edx, 3+?ADDBYTES
-	and dl, 0FCh			;DWORD align 
-else
-	add edx, 3
-;	and dl, 0FCh			;DWORD align 
-;	and edx, edx
+	add edx, 4-1
 	and edx,not 3
-	jz error1				;size 0 not allowed
+;--- 23.12.2020: allow shrinking to size 0
+;	jz error1				;size 0 not allowed
+	jnz @F
+	mov dl,4				;ensure that true size is at least 4
+@@:
+if ?EXTCHK
+	add edx, ?ADDBYTES
 endif
 	mov edi, edx
 
-;----------------------------------------- is item shrinking?
+;--------------------------- is item shrinking?
 checkitem:        
 	mov ecx, [ebx-4]		;current size
 	sub ecx, edi
 	jc isgrowing
 	mov eax, ebx			;now eax=handle
-	jz exit				;size doesnt change
+	jz exit					;size doesnt change
 
-	cmp ecx, 8
-	jc exit				;a free item must have 8 bytes at least
-	mov [ebx-4], edi
-	add ebx, edi
+;--- item is shrinking, ecx=size of free space behind item 
+	cmp ecx, sizeof FLITEM	;to add the free item to the "free item" list, its size
+	jc exit					;must be at least 8
+	mov [ebx-4], edi		;set the new size of the shrinking block
+	add ebx, edi			;let ebx point to the new free item
 	sub ecx, 4
-	mov [ebx], ecx
+	mov [ebx], ecx			;set size of free item
 if ?EXTCHK
 	mov dword ptr [ebx-4], 0DEADBABEh
 endif
-	add ebx, 4
+	add ebx, 4				;now ebx=handle of new free item
 	push eax
 	mov esi, hHeap
 	mov ecx, flags

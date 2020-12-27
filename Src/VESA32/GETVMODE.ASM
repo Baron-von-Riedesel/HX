@@ -113,7 +113,7 @@ local	rmcs:RMCS
 	xor eax,eax
 if ?FLAT eq 0
 	push es
-	push gs
+	push @flat
 	pop es
 	rep stosd
 	pop es
@@ -137,7 +137,7 @@ endif
 	mov ecx,sizeof SVGAINFO/4
 if ?FLAT eq 0
 	push ds
-	push gs
+	push @flat
 	pop ds
 	rep movsd
 	pop ds

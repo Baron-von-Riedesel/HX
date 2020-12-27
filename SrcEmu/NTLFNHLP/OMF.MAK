@@ -26,10 +26,6 @@ AOPTD=
 OUTDIR=OMF
 !endif
 
-!ifndef MASM
-MASM=0
-!endif
-
 NAME=NTLFNHLP
 
 SRCMODS = \
@@ -39,16 +35,11 @@ OBJNAMES= $(SRCMODS:.ASM=.OBJ)
 OBJMODS = $(OBJNAMES:.\=OMF\)
 
 ASMOPT= -c -nologo -Cp -Sg $(AOPTD) -I$(INC32DIR) -D?FLAT=1 -Fl$* -Fo$*
-!if $(MASM)
-ASM=@ml.exe $(ASMOPT)
-!else
-ASM=@jwasm.exe $(ASMOPT)
-!endif
 
 .SUFFIXES: .asm .obj
 
 .asm{$(OUTDIR)}.obj:
-	$(ASM) $<
+	$(ASM) $(ASMOPT) $<
 
 ALL: $(OUTDIR) $(OUTDIR)\$(NAME).lib
 

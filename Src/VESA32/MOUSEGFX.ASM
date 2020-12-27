@@ -224,7 +224,7 @@ endif
 			mov bl,33h
 			mov ax,204h
 			int 31h
-if ?CLEARHIGHEBP
+if ?DPMI16
 			movzx edx,dx
 endif
 			mov dword ptr [g_oldint33+0],edx
@@ -237,7 +237,7 @@ endif
 			mov bl,10h
 			mov ax,204h
 			int 31h
-if ?CLEARHIGHEBP
+if ?DPMI16
 			movzx edx,dx
 endif
 			mov dword ptr [g_oldint10+0],edx

@@ -226,7 +226,7 @@ InitRTCTimer proc public uses ebx
 	mov ax,204h
 	int 31h
 	mov word ptr g_OldIrq08+4,cx
-if ?CLEARHIGHEBP
+if ?DPMI16
 	movzx edx,dx
 endif
 	mov dword ptr g_OldIrq08+0,edx

@@ -72,6 +72,10 @@ endif
 		and cl, 0FCh
 		lea esi, [esi+ecx+4]
 	.endw
+	;--- 23.12.2020: pMem==NULL checks the whole heap
+	.if edx == 0 && dword ptr [esi] == _HEAP_END
+		inc eax
+	.endif
 done:
 	test byte ptr [ebx].HEAPDESC.flags, HEAP_NO_SERIALIZE
 	jnz @F

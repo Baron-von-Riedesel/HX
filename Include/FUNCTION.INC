@@ -18,7 +18,7 @@ endif
 
         include stddefs.inc
 
-if ?CLEARHIGHEBP
+if ?DPMI16
 
 @prologue macro procname,flag,parmbyte,localbyte,reglist,userparms
 
@@ -85,7 +85,7 @@ endm
 endm
 
 @loadesp macro x
-if ?CLEARHIGHEBP
+if ?DPMI16
         movzx x,sp
 else
         mov x,esp

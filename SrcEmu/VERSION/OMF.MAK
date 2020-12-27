@@ -38,20 +38,10 @@ OBJMODS = $(OBJNAMES:.\=OMF\)
 
 ASMOPT= -c -nologo -Cp -Sg $(AOPTD) -I$(INC32DIR) -D?FLAT=1 -Fl$* -Fo$*
 
-!ifndef MASM
-MASM=0
-!endif
-
-!if $(MASM)
-ASM=ml.exe $(ASMOPT)
-!else
-ASM=jwasm.exe $(ASMOPT)
-!endif
-
 .SUFFIXES: .asm .obj
 
 .asm{$(OUTDIR)}.obj:
-	@$(ASM) $<
+	@$(ASM) $(ASMOPT) $<
 
 $(OUTDIR)\$(NAME).LIB: $(OBJMODS) $(OUTDIR)\version.obj
 	@cd $(OUTDIR)

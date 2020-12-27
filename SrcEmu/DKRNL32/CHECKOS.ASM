@@ -47,7 +47,7 @@ DGROUP  group .BASE$IA, .BASE$XA
 endif
 
 IRETS struct
-if ?CLEARHIGHEBP
+if ?DPMI16
 rIP		dw ?
 rCS		dw ?
 rFlags	dw ?
@@ -82,7 +82,7 @@ else
 endif
 
 	align 4
-if ?CLEARHIGHEBP
+if ?DPMI16
 oldvec21	LPFAR16 0
 oldvec31	LPFAR16 0
 ?SEGOFFS	equ 2
@@ -98,7 +98,7 @@ endif
 int2160 proc
 	pushad
 	push es
-if ?CLEARHIGHEBP
+if ?DPMI16
 	movzx ebp, sp
 	sub esp, sizeof RMCS + 2
 else
@@ -130,7 +130,7 @@ rmcs	textequ <[ebp - (sizeof RMCS + 2)].RMCS>
 	jnz @B
 	push ss
 	pop es
-if ?CLEARHIGHEBP
+if ?DPMI16
 	movzx edi, sp
 else
 	mov edi, esp
@@ -210,7 +210,7 @@ int211a proc
 	mov ds,ebx
 	xor edx,edx
 	mov ah,1Ah
-if ?CLEARHIGHEBP
+if ?DPMI16
 	pushf
 else
 	pushfd
@@ -231,7 +231,7 @@ IretWithFlagsUpdate:
 	push eax
 	lahf
 	and ah,1
-if ?CLEARHIGHEBP
+if ?DPMI16
 	push ebp
 	movzx ebp,sp
 	and byte ptr [ebp+2*4].IRETS.rFlags,not 1	;reset Carry
@@ -256,7 +256,7 @@ if ?DYNLFN								;only required if LFNHLP is dynlinked
 	cmp ah,71h					;LFN function call?
 	jz int2171
 endif
-ife ?CLEARHIGHEBP
+ife ?DPMI16
 	cmp ah,1ah					;set dta doesnt work
 	jnz @F
 	test edx,0FFFF0000h
