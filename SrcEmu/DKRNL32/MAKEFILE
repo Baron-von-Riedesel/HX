@@ -49,10 +49,6 @@ OBJMODS = $(OBJMODS:.\=RELEASE\)
 
 OTHERMODS=.\int21lfn.obj
 
-!ifndef MSLINK
-MSLINK=0
-!endif
-
 AOPT1= -c -coff -nologo -Sg -D_KERNEL32_=1 $(AOPTD) -I$(INC32DIR) -D?FLAT=1 -Fl$* -Fo$*
 AOPT2= -c -coff -nologo -Sg -D_KERNEL32_=1 $(AOPTD) -I$(INC32DIR) -D?FLAT=1 -Fl$* -Fo$* -D?DIRECTDISP=1 
 

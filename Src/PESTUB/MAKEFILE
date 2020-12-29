@@ -49,7 +49,6 @@ LOPTD=
 !endif
 
 AOPT= -c -coff -nologo -Sg -Fl$* -Fo$* -D?FLAT=1 $(AOPTD) -I$(INC32DIR)
-MSLINK=0
 
 !if $(USEDLL)
 CRTLIB=$(LIBCOFF)\crtdll.lib

@@ -8,13 +8,13 @@ ifndef @Model
 endif
 
 if @Model eq 7
-ifndef ?FLAT
+  ifndef ?FLAT
 ?FLAT = 1
-endif
-if ?FLAT eq 0
+  endif
+  if ?FLAT eq 0
 %out definition ?FLAT/.flat inconsistent
 .err
-endif
+  endif
 endif
 
 ifndef ?DPMI16

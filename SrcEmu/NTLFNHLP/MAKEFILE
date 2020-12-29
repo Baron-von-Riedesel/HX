@@ -33,8 +33,6 @@ OBJMODS = $(OBJMODS:.\=DEBUG\)
 OBJMODS = $(OBJMODS:.\=RELEASE\)
 !endif
 
-MSLINK=0
-
 .SUFFIXES: .asm .obj
 
 .asm{$(OUTDIR)}.obj:

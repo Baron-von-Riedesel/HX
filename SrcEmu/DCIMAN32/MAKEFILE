@@ -19,8 +19,6 @@ AOPTD=
 OUTDIR=RELEASE
 !endif
 
-MSLINK=0
-
 SRCMODS = \
 !include modules.inc
 

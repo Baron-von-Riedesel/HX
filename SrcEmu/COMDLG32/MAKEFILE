@@ -29,8 +29,6 @@ OBJMODS = $(OBJMODS:.\=DEBUG\)
 OBJMODS = $(OBJMODS:.\=RELEASE\)
 !endif
 
-MSLINK=0
-
 AOPT= -c -coff -nologo -Sg $(AOPTD) -I..\..\Include -D?FLAT=1 -Fl$* -Fo$* 
 
 LOPTS= /NOLOGO /MAP /SUBSYSTEM:CONSOLE /DLL /ENTRY:DllMain /LIBPATH:$(LIBCOFF)

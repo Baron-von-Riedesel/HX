@@ -29,8 +29,6 @@ OBJMODS = $(OBJMODS:.\=DEBUG\)
 OBJMODS = $(OBJMODS:.\=RELEASE\)
 !endif
 
-MSLINK=0
-
 AOPT= -c -coff -nologo -Sg -D_VERSION_=1 $(AOPTD) -I$(INC32DIR) -D?FLAT=1 -Fl$* -Fo$* 
 
 LOPTS= /NOLOGO /MAP /DLL /MERGE:.rdata=.text /DEF:$(NAME).def /OUT:$*.DLL /LIBPATH:$(LIBCOFF)

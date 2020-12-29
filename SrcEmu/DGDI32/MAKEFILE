@@ -29,8 +29,6 @@ OBJMODS = $(OBJMODS:.\=DEBUG\)
 OBJMODS = $(OBJMODS:.\=RELEASE\)
 !endif
 
-MSLINK=0
-
 AOPT= -c -coff -nologo -Cp -Sg -D_GDI32_=1 $(AOPTD) -I$(INC32DIR) -D?FLAT=1 -Fl$* -Fo$*
 
 NAME=DGDI32

@@ -17,8 +17,6 @@ OUTDIR=DEBUG
 OUTDIR=RELEASE
 !endif
 
-MSLINK=0
-
 AOPT1= -c -coff -nologo -Sg -Fl$* -Fo$* -D?FLAT=1 -D_KERNEL32_ -D_USER32_ -I$(INC32DIR)
 
 LIBS=$(LIBCOFF)\duser32s.lib

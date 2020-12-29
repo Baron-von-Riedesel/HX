@@ -31,7 +31,7 @@ Y		dw ?
 COORD ends
 
 ifndef NT_INCLUDED
-		include winnt.inc
+	include winnt.inc
 endif
 
 LMEM_FIXED		equ 00h
@@ -564,7 +564,7 @@ CE_MODE		EQU	8000h
 
 DCB_R0	RECORD fDummy2:17,fAbortOnError:1,fRtsControl:2,fNull:1,fErrorChar:1,fInX:1,fOutX:1,fTXContinueOnXoff:1,fDsrSensitivity:1,fDtrControl:2,fOutxDsrFlow:1,fOutxCtsFlow:1,fParity:1,fBinary:1
 
-DCB	struct 
+DCB struct 
 DCBlength	DWORD	?	;+0
 BaudRate	DWORD	?	;+4
 r0			DCB_R0 <>	;+8
@@ -580,7 +580,7 @@ ErrorChar	SBYTE	?	;+23
 EofChar		SBYTE	?	;+24
 EvtChar		SBYTE	?	;+25
 wReserved1	WORD	?	;+26
-DCB	ends
+DCB ends
 
 ;--- BaudRate values
 
@@ -755,6 +755,22 @@ PURGE_RXABORT	EQU	0002h
 PURGE_TXCLEAR	EQU	0004h
 PURGE_RXCLEAR	EQU	0008h
 
+FINDEX_INFO_LEVELS typedef DWORD
+FindExInfoStandard equ 0
+FindExInfoBasic    equ 1
+FindExInfoMaxInfoLevel equ 2
+
+FINDEX_SEARCH_OPS typedef DWORD
+FindExSearchNameMatch          equ 0
+FindExSearchLimitToDirectories equ 1
+FindExSearchLimitToDevices     equ 2
+FindExSearchMaxSearchOp        equ 3
+
+;--- FindFirstFileEx dwAdditionalFlags
+FIND_FIRST_EX_CASE_SENSITIVE       equ 1
+FIND_FIRST_EX_LARGE_FETCH          equ 2
+FIND_FIRST_EX_ON_DISK_ENTRIES_ONLY equ 4
+
 	include winerror.inc
 
 if ?INDCALL_ eq 0
@@ -802,6 +818,8 @@ FileTimeToSystemTime    proto near stdcall :ptr FILETIME, :ptr SYSTEMTIME
 FindAtomA				proto near stdcall :ptr byte
 FindClose				proto near stdcall :dword
 FindFirstFileA			proto near stdcall :ptr BYTE, :ptr WIN32_FIND_DATAA
+FindFirstFileExA		proto near stdcall :ptr BYTE, :FINDEX_INFO_LEVELS, :LPVOID, :FINDEX_SEARCH_OPS, :LPVOID, :DWORD
+FindFirstFileExW		proto near stdcall :ptr WORD, :FINDEX_INFO_LEVELS, :LPVOID, :FINDEX_SEARCH_OPS, :LPVOID, :DWORD
 FindFirstFileW			proto near stdcall :ptr WORD, :ptr WIN32_FIND_DATAW
 FindNextFileA			proto near stdcall :dword, :ptr WIN32_FIND_DATAA
 FindNextFileW			proto near stdcall :dword, :ptr WIN32_FIND_DATAW
@@ -1029,7 +1047,9 @@ externdef stdcall  _imp__FileTimeToSystemTime@8     :pfunc@8
 externdef stdcall  _imp__FindAtomA@4				:pfunc@4
 externdef stdcall  _imp__FindClose@4				:pfunc@4
 externdef stdcall  _imp__FindFirstFileA@8			:pfunc@8
+externdef stdcall  _imp__FindFirstFileW@8			:pfunc@8
 externdef stdcall  _imp__FindNextFileA@8			:pfunc@8
+externdef stdcall  _imp__FindNextFileW@8			:pfunc@8
 externdef stdcall  _imp__FindResourceA@12			:pfunc@12
 externdef stdcall  _imp__FindResourceExA@16			:pfunc@16
 externdef stdcall  _imp__FindResourceW@12			:pfunc@12
@@ -1235,7 +1255,9 @@ FileTimeToSystemTime    equ <_imp__FileTimeToSystemTime@8>
 FindAtomA				equ <_imp__FindAtomA@4>
 FindClose				equ <_imp__FindClose@4>
 FindFirstFileA			equ <_imp__FindFirstFileA@8>
+FindFirstFileW			equ <_imp__FindFirstFileW@8>
 FindNextFileA			equ <_imp__FindNextFileA@8>
+FindNextFileW			equ <_imp__FindNextFileW@8>
 FindResourceA			equ <_imp__FindResourceA@12>
 FindResourceExA			equ <_imp__FindResourceExA@16>
 FindResourceW			equ <_imp__FindResourceW@12>
