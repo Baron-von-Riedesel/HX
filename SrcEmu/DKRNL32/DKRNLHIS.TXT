@@ -19,6 +19,7 @@
   þ HeapValidate: argument pMem==0 wasn't handled correctly.
   þ GetLocaleInfoA: added a few locales.
   þ GetLocaleInfoW: check LOCALE_RETURN_NUMBER flag.
+  þ DeviceIoControl: return correct detection type for physical disk info.
   
   07/28/2018: version 3.6
 

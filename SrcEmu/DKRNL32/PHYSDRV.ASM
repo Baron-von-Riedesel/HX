@@ -167,6 +167,7 @@ local	rmcs:RMCS
 	xor eax, eax
 	jmp exit
 	align 4
+
 isread:
 	@strace <"physdrive.isread">
 	mov eax, nOutBuf
@@ -243,6 +244,7 @@ iscdromread:			;absolute cdrom read:
 	add esi, dwOfs
 	call setretvalues2	;eax=bytes read
 	jmp copyback2
+
 iswrite:
 	@strace <"physdrive.iswrite">
 	mov eax, nInBuf
@@ -308,25 +310,36 @@ endif
 	call dosignal
 	jmp exit
 	align 4
+
 isdrvgeometry:
 	call getdrvgeometry
 	jc error
 	mov eax, sizeof DISK_GEOMETRY
 	call dosignal
 	jmp exit
+
 isdrvgeometryex:
 	call getdrvgeometry
 	jc error
+	mov edx, eax
 	mov eax, sizeof DISK_GEOMETRY
 	mov ecx, nOutBuf
 	cmp ecx, DISK_GEOMETRY_EX.Data
 	jb isg_1
-	mov eax, [edi].DISK_GEOMETRY.TracksPerCylinder
-	mul [edi].DISK_GEOMETRY.SectorsPerTrack
-	mul dword ptr [edi].DISK_GEOMETRY.Cylinders
-	mul [edi].DISK_GEOMETRY.BytesPerSector
+
+	push edx
+	.if edx == DetectExInt13
+		invoke _mul64, [esi].EDD.qwNumSecs, [edi].DISK_GEOMETRY.BytesPerSector 
+	.else
+		mov eax, [edi].DISK_GEOMETRY.TracksPerCylinder
+		mul [edi].DISK_GEOMETRY.SectorsPerTrack
+		mul dword ptr [edi].DISK_GEOMETRY.Cylinders
+		mul [edi].DISK_GEOMETRY.BytesPerSector
+	.endif
 	mov dword ptr [edi].DISK_GEOMETRY_EX.DiskSize+0, eax
 	mov dword ptr [edi].DISK_GEOMETRY_EX.DiskSize+4, edx
+
+	pop edx
 	mov esi, edi
 	lea edi, [edi+DISK_GEOMETRY_EX.Data]
 	mov eax, DISK_GEOMETRY_EX.Data
@@ -334,12 +347,13 @@ isdrvgeometryex:
 	jb isg_1
 	mov [edi].DISK_PARTITION_INFO.SizeOfPartitionInfo, sizeof DISK_PARTITION_INFO
 	mov [edi].DISK_PARTITION_INFO.PartitionStyle, PARTITION_STYLE_MBR
+;	mov [edi].DISK_PARTITION_INFO.Mbr.Signature, 	;fill with dword at MBR.1B8h
 	mov eax, DISK_GEOMETRY_EX.Data + sizeof DISK_PARTITION_INFO
 	cmp ecx, DISK_GEOMETRY_EX.Data + sizeof DISK_PARTITION_INFO + sizeof DISK_DETECTION_INFO
 	jb isg_1
 	lea edi, [edi+sizeof DISK_PARTITION_INFO]
 	mov [edi].DISK_DETECTION_INFO.SizeOfDetectInfo, sizeof DISK_DETECTION_INFO
-	mov [edi].DISK_DETECTION_INFO.DetectionType, DetectInt13
+	mov [edi].DISK_DETECTION_INFO.DetectionType, edx
 	; todo: fill the Int13 struct
 	mov eax, dword ptr [esi].DISK_GEOMETRY.Cylinders
 	.if (eax >= 1024)
@@ -351,13 +365,14 @@ isdrvgeometryex:
 	mov eax, [esi].DISK_GEOMETRY.TracksPerCylinder
 	dec eax
 	mov [edi].DISK_DETECTION_INFO.Int13.MaxHeads, ax
-	movzx eax,byte ptr @flat:[475h] 	   
+	movzx eax,byte ptr @flat:[475h]
 	mov [edi].DISK_DETECTION_INFO.Int13.NumberDrives, ax
 
 	mov eax, DISK_GEOMETRY_EX.Data + sizeof DISK_PARTITION_INFO + sizeof DISK_DETECTION_INFO
 isg_1:
 	call dosignal
 	jmp exit
+
 ischeckverify:
 	test [ebx].FILE.flags, FF_DRIVE
 	jz error
@@ -562,13 +577,15 @@ getdrvgeometry:
 	test [ebx].FILE.flags, FF_CHS
 	jnz noedd
 
-	mov eax,42h		;size 42h, get a EDD
+;	mov eax,42h		;size 42h, get a EDD
+	mov eax,4Ah		;01/2020: size 4Ah, get a EDD30
 	call getdosbuffer
 	jc gdg_error
 
 	mov dh,48h      ;value for AH in rmcs
 	call fillrmcs	;in: DOS buffer in AX, out: buffer in ECX
-	mov dword ptr [ecx], 42h
+;	mov dword ptr [ecx], 42h
+	mov dword ptr [ecx], 4Ah	;01/2020: size of EDD30=4Ah
 	mov al,13h
 	call dormcall
 	jc gdg_error
@@ -585,6 +602,7 @@ getdrvgeometry:
 
 	mov eax,dword ptr [esi].EDD.qwNumSecs+0
 	mov edx,dword ptr [esi].EDD.qwNumSecs+4
+
 	;--- 01/2014: checking wFlags instead of cylinder value
 ;	cmp eax, 63*16*16383	;below the 8 GB limit?
 ;	jbe @F
@@ -608,6 +626,7 @@ setgeovals:
 	mov [edi].DISK_GEOMETRY.SectorsPerTrack, eax
 	movzx eax,[esi].EDD.wSecSiz
 	mov [edi].DISK_GEOMETRY.BytesPerSector, eax
+	mov eax,DetectExInt13
 	clc
 	retn
 gdg_error:
@@ -637,6 +656,8 @@ noedd:
 	mov dword ptr [edi].DISK_GEOMETRY.Cylinders+0, eax
 	mov dword ptr [edi].DISK_GEOMETRY.Cylinders+4, 0
 	mov [edi].DISK_GEOMETRY.BytesPerSector, 200h
+	mov eax,DetectInt13
+	clc
 	retn
 	align 4
 physdrvhandler endp
