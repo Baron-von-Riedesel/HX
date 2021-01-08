@@ -1,0 +1,16 @@
+
+;--- FASM template source to define an import
+
+	format MS COFF
+
+macro defext name {
+	extrn name
+    match realname, name
+    \{public __imp_\# realname
+    __imp_\# realname dd name \}
+}
+
+	section '.data' data readable writeable
+    
+    defext ?IMP
+

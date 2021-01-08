@@ -1,0 +1,5 @@
+LIBRARY TEST
+EXPORTS
+ "_AccessCheck@32"
+ "_AccessCheckAndAuditAlarmA@44"
+ "_AccessCheckAndAuditAlarmW@44"

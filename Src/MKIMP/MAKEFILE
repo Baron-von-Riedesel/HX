@@ -1,0 +1,25 @@
+
+# creates MKIMP.EXE
+
+!include <..\dirs>
+
+NAME=MKIMP
+OUTD=Release
+
+ALL: $(OUTD) $(OUTD)\$(NAME).EXE
+
+$(OUTD):
+	@mkdir $(OUTD)
+
+$(OUTD)\$(NAME).EXE: $(OUTD)\$(NAME).obj MAKEFILE
+	@jwlink.exe format win pe name $*.EXE file $*.obj @<<
+lib $(HXINST)\Lib\dkrnl32.lib, $(HXINST)\Lib\libc32s.lib
+op MAP=$*, start=_mainCRTStartup
+<<
+
+$(OUTD)\$(NAME).OBJ: $(NAME).asm
+	@jwasm.exe -c -nologo -coff -Fl$* -Fo$* -I$(INC32DIR) mkimp.asm 
+
+clean:
+	@del $(OUTD)\*.obj
+	@del $(OUTD)\*.exe

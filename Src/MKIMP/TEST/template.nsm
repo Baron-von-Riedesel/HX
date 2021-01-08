@@ -1,0 +1,17 @@
+
+;--- NASM template source to define an import
+;--- to be assembled without errors, it needs 2 external definitions:
+;--- nasm.exe -f win32 -D?IMP=<name> -o <name> template.nsm
+;--- usually this is not done manually but by running mkimp.
+
+	cpu	386
+
+%macro @defimp 1
+extern %1
+global __imp_%1
+__imp_%1 dd %1
+%endmacro
+
+	[segment .data align=4]
+
+	@defimp ?IMP
