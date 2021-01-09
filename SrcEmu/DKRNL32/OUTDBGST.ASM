@@ -16,6 +16,8 @@ endif
 
 	option dotname
 
+;_DEBUG = 1
+
 TIBSEG segment use16
 TIBSEG ends
 	assume fs:TIBSEG	;declare FS=TIB a 16 bit segment (saves space)

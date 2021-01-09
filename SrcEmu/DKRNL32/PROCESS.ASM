@@ -17,7 +17,7 @@ endif
 
 _initializethread proto stdcall
 
-;;_DEBUG	equ 1
+;_DEBUG equ 1
 ?SHORTNAME	equ 1	;convert path to a short name
 ?SAVECURDIR	equ 1	;save/restore current directory
 ?FTDIRECT	equ 1	;std=?, 1=access file table in psp directly
@@ -110,6 +110,8 @@ endif
 	pop ebx
 	mov dwPSP, ebx		;linear address of current PSP
 
+	and byte ptr @flat:[ebx+4Fh],0FEh	;01/2021: reset flag that forces use of CMDLINE
+
 	xor eax,eax
 	mov pNewEnv, eax
 	mov wDosSel, ax
@@ -178,9 +180,7 @@ endif
 		jmp step2
 	.endif
 
-	@trace <"Length commandline=">
-	@tracedw eax
-	@trace <13,10>
+	@strace <"Length commandline=",eax>
 
 ;--- get environment if not specified
 

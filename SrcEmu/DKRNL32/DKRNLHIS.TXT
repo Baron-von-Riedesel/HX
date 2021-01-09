@@ -20,6 +20,9 @@
   þ GetLocaleInfoA: added a few locales.
   þ GetLocaleInfoW: check LOCALE_RETURN_NUMBER flag.
   þ DeviceIoControl: return correct detection type for physical disk info.
+  þ CreateProcess: if the cmdline was <= 126 bytes, but a previous call
+    of CreateProcess had a cmdline > 126, the called process got a wrong
+    cmdline.
   
   07/28/2018: version 3.6
 

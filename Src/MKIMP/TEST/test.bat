@@ -1,6 +1,6 @@
 @echo off
-erase TEMP\*.obj >NUL
-..\Release\mkimp.exe -q -d -o TEMP test.def
-cd TEMP
-lib *.obj /out:..\TEST.LIB
-cd ..
+rem erase TEMP\*.obj >NUL
+..\Release\mkimp.exe -q -o TEMP test.def
+rem cd TEMP
+rem lib *.obj /out:..\TEST.LIB
+rem cd ..

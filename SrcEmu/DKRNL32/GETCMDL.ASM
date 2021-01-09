@@ -96,9 +96,7 @@ local	cmdline[1024]:byte
 	and eax, eax
 	jnz exit
 	invoke GetDosCmdTail, addr cmdline, sizeof cmdline
-	@trace <"Length of dos command tail: ">
-	@tracedw edx
-	@trace <13,10>
+	@strace <"Length of dos command tail: ", edx>
 	.if (edx > 7Eh)
 		invoke GetEnvironmentVariableA, CStr("CMDLINE"), addr cmdline, sizeof cmdline
 	.endif
