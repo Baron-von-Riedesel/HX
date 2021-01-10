@@ -1,6 +1,5 @@
 
 # to create hxhelp16.exe enter: nmake -f hxhelp16.mak
-# adjust path for Open Watcom first (OWPATH=\watcom).
 
 # switch MAKEMZ must remain 0. Currently there is no support for 
 # hxhelp.exe in MZ file format.
@@ -23,7 +22,7 @@ DEBUG=0
 !endif
 
 NAME=HXHELP16
-OWPATH=$(OWDIR)
+#OWPATH=$(OWDIR)
 MAKEMZ=0
 
 !if $(DEBUG)==0
@@ -32,16 +31,7 @@ OUTDIR=REL16
 OUTDIR=DEB16
 !endif
 
-!ifndef MASM
-MASM=0
-!endif
-
 ASMOPT= -c -nologo -Sg -Fl$* -Fo$* -I$(INC32DIR) -D?FLAT=0 -D?NE=1 -D?DEBUGLEVEL=$(DEBUG)
-!if $(MASM)
-ASM = ml.exe $(ASMOPT) 
-!else
-ASM = jwasm.exe $(ASMOPT)
-!endif
 
 ALL: $(OUTDIR) $(OUTDIR)\$(NAME).EXE
 
@@ -52,10 +42,10 @@ $(OUTDIR)\$(NAME).EXE: $(OUTDIR)\hxhelp16.obj $(OUTDIR)\privprof.obj HXHELP16.ma
 	$(LINK16BIN) format win dpmi file $*.obj, $(OUTDIR)\privprof.obj name $*.EXE op q, map=$*.MAP, stub=$(HXINST)\BIN\DPMILD16.BIN, stack=0x800, protmode seg type code fixed seg type data fixed
 
 $(OUTDIR)\$(NAME).obj: hxhelp.asm hxhelp.inc version.inc rmdbghlp.inc HXHELP16.MAK
-	@$(ASM) hxhelp.asm
+	@$(ASM) $(ASMOPT) hxhelp.asm
 
 $(OUTDIR)\privprof.obj: privprof.asm HXHELP16.MAK
-    @$(ASM) privprof.asm
+    @$(ASM) $(ASMOPT) privprof.asm
 
 clean:
 	@del $(OUTDIR)\*.exe

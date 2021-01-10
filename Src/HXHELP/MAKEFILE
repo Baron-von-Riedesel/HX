@@ -1,6 +1,5 @@
 
 # to create hxhelp.exe enter: nmake
-# adjust path for Open Watcom first (OWPATH).
 # ignore MS linker warning L4096 saying /BASE value being invalid for
 # win95. This is no win32 app.
 
@@ -18,7 +17,7 @@ DEBUG=0
 !endif
 
 NAME=HXHELP
-OWPATH=$(OWDIR)
+#OWPATH=$(OWDIR)
 MAKEMZ=0
 
 !if $(MAKEMZ)==0
