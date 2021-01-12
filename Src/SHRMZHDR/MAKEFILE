@@ -1,0 +1,38 @@
+
+# nmake makefile to create SHRMZHDR.EXE, SETMZHDR.EXE, ADDMZHDR
+# setmzhdr is used for hdpmi creation (non-pe versions only)
+# shrmzhdr is used for hdpmi creation if MS link is used (very unusual)
+# addmzhdr is probably obsolete by now.
+# uses: jwasm,jwlink
+
+NAME=SHRMZHDR
+NAME2=SETMZHDR
+NAME3=ADDMZHDR
+
+!include <..\dirs>
+
+OUTDIR=Release
+
+ALL: $(OUTDIR) $(OUTDIR)\$(NAME).EXE $(OUTDIR)\$(NAME2).EXE
+
+$(OUTDIR):
+	@mkdir $(OUTDIR)
+
+$(OUTDIR)\$(NAME).EXE: $*.obj Makefile
+	@jwlink format win pe f $* n $* libpath $(HXINST)\Lib lib dkrnl32,libc32s op q,m=$*,stub=dpmist32.bin,start=_mainCRTStartup,norelocs
+
+$(OUTDIR)\$(NAME).obj: $(NAME).asm
+	@jwasm -nologo -coff -Sg -Fl$* -Fo$* -I$(INC32DIR) $(NAME).asm
+
+$(OUTDIR)\$(NAME2).EXE: $*.obj Makefile
+	@jwlink format win pe f $* n $* libpath $(HXINST)\Lib lib dkrnl32,libc32s op q,m=$*,stub=dpmist32.bin,start=_mainCRTStartup,norelocs
+
+$(OUTDIR)\$(NAME2).obj: $(NAME2).asm
+	@jwasm -nologo -coff -Sg -Fl$* -Fo$* -I$(INC32DIR) $(NAME2).asm
+
+#$(OUTDIR)\$(NAME3).EXE: $(NAME3).asm Makefile
+#	@jwasm -c -nologo -mz -Sg -Fl$* -Fo$*.EXE -I$(INC32DIR) $(NAME3).asm
+
+clean:
+	@erase $(OUTDIR)\*.lst
+	@erase $(OUTDIR)\*.exe
