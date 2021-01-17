@@ -1,343 +1,380 @@
 
 ;--- tool to change a PE binary to PX
 ;--- this will ensure it is not loaded as Win32 app
+;--- optionally the patch may be reverted ( -r option)
+;--- finally, the tool may make code sections writable (for debugging)
 
-;--- this is DOS 16bit source code
-
-	.286
-	.model small, stdcall
-	option proc:private
-	.dosseg
 	.386
+	.model flat, stdcall
+	option proc:private
+
+?REBASE equ 0
+
+fopen proto c :ptr, :ptr
+fclose proto c :dword
+fread proto c :ptr, :dword, :dword, :dword
+fwrite proto c :ptr, :dword, :dword, :dword
+fseek proto c :ptr, :dword, :dword
+printf proto c :ptr, :vararg
+
+SEEK_SET equ 0
 
 	include winnt.inc
-;	include macros.inc
 
 CStr macro text:VARARG
 local sym
 	.const
   ifidni <text>,<"">
-	sym db 0
+sym db 0
   else
-	sym db text,0
+sym db text,0
   endif
 	.code
 	exitm <offset sym>
-	endm
+endm
 
-?MAXSEC	equ 24
+?MAXSEC equ 24
         
-O_RDWR	equ 2
-
-@DosOpen macro pszName, mode
-	mov al,mode
-	mov dx,pszName
-	mov ah,3Dh
-	int 21h
-	endm
-
-@DosClose macro hFile
-	mov bx,hFile
-	mov ah,3Eh
-	int 21h
-	endm
-
-	.const
-
-text1   db 'patchPE V1.5 Copyright Japheth 2005-2009',13,10
-        db 'changes signature of PE files to PX',13,10
-        db 'usage: patchPE <-w> filename',13,10
-        db '   -w: make all code sections writeable',13,10
-        db 0
-text2   db 'file "',00
-text2a  db '" not found',13,10,00
-text4   db 'dos seek error',13,10,00
-text5   db 'dos read error',13,10,00
-text6   db 'Not a MZ binary',13,10,00
-text7   db 'dos write error',13,10,00
-text8   db 'Not a PE/PX binary',13,10,00
-
 	.data
 
-bCodeWriteable	db 0
-bModified		db 0
+pszFN dd 0
+
+if ?REBASE
+dwBase dd 0
+endif
+dwStkRes dd 0
+dwStkCommit dd -1
+dwHeapRes dd 0
+dwHeapCommit dd -1
+
+if ?REBASE
+bBase db 0
+endif
+bCodeWriteable db 0
+bHeap db 0
+bModified db 0
+bPatchPE db 0
+bPatchPX db 0
+bStack db 0
+bVerbose db 0
+bOptions db 0
 
 	.data?
 
 MZ_hdr	db 40h dup (?)        
 PE_hdr	IMAGE_NT_HEADERS <>        
-
+	dd 12 dup (?)
 Sections db ?MAXSEC * sizeof IMAGE_SECTION_HEADER dup (?)
 
 	.code
 
-DosRead proc hFile:WORD, pBuffer:ptr byte, wSize:WORD
-	mov cx,wSize
-	mov dx,pBuffer
-	mov bx,hFile
-	mov ax,3F00h
-	int 21h
-	ret
-DosRead	endp
-
-DosWrite proc hFile:WORD, pBuffer:ptr byte, wSize:WORD
-	mov cx,wSize
-	mov dx,pBuffer
-	mov bx,hFile
-	mov ax,4000h
-	int 21h
-	ret
-DosWrite endp
-
-DosSeek proc hFile:WORD, dwOffs:DWORD, wMethod:WORD
-	mov bx,hFile
-	mov cx,word ptr dwOffs+2
-	mov dx,word ptr dwOffs+0
-	mov al,byte ptr wMethod
-	mov ah,42h
-	int 21h
-	ret
-DosSeek endp
-
-STDOUT	equ 1
-
-StringOut proc pszString:ptr byte
-	mov bx,pszString
-	mov cx,0
-	.while (1)
-		.break .if (byte ptr [bx] == 0)
-		inc bx
-		inc cx
-	.endw
-	invoke DosWrite, STDOUT, pszString, cx
-	ret
-StringOut endp
-
-StringOutX proc pszString:ptr byte
-	invoke StringOut, CStr("patchPE: ")
-	invoke StringOut, pszString
-	ret
-StringOutX endp
-
-
-;*** get cmdline parameter
-
-getpar  proc pszFN:ptr byte
-
-		mov bx,0080h
-		mov cl,byte ptr es:[bx]
-		.if (!cl)
-			jmp parerr1
-		.endif
-		inc bx
-nextparm:
-		.while (cl)
-			mov al,es:[bx]
-			.break .if (al != ' ')
-			inc bx
-			dec cl
-		.endw
-		.if (!cl)
-			jmp parerr1
-		.endif
-		.if ((al == '/') || (al == '-'))
-			inc bx
-			dec cl
-			.if (!cl)
-				jmp parerr1
-			.endif
-			mov al,es:[bx]
-			or al,20h
-			.if (al == 'w')
-				or bCodeWriteable,1
-			.else
-				jmp parerr1
-			.endif
-			inc bx
-			dec cl
-			jmp nextparm
-		.endif
-		mov si,pszFN
-		mov ah,0
-		.if (al == '"')
-			inc bx
-			dec cl
-			inc ah
-		.endif
-		.while (cl)
-			mov al,es:[bx]
-			.if ((al == '"') && ah)
-				inc bx
-				dec cl
-				.break
-			.endif
-			mov [si],al
-			inc bx
-			inc si
-			dec cl
-		.endw
-		mov byte ptr [si],0
-		mov ax,1
-		ret
-parerr1:
-		xor ax,ax
-		ret
-
-getpar  endp
-
 ;*** patch a file
 
-patch proc pszFN:ptr byte
+patch proc
 
-local	hFile:WORD
+local	pFile:DWORD
+local	dwRead:dword
 local	dwPEPos:DWORD
-local	wSections:WORD
-local	wSectionSize:WORD
+local	dwSectionSize:DWORD
+local	dwSections:DWORD
 
-	@DosOpen pszFN, O_RDWR
-	.if (CARRY?)
-		invoke StringOutX, addr text2	;file xxx not found
-		invoke StringOut, pszFN
-		invoke StringOut, addr text2a
+	invoke fopen, pszFN, CStr("rb+")
+	.if eax == 0
+		invoke printf, CStr("file '%s' not found",10), pszFN
 		ret
 	.endif
-	mov hFile,ax
-	invoke DosRead, hFile, addr MZ_hdr, sizeof MZ_hdr
-	.if (CARRY? || (ax != cx))
-		invoke StringOutX, addr text5	;dos read error
+	mov pFile,eax
+	invoke fread, addr MZ_hdr, 1, sizeof MZ_hdr, pFile
+	.if eax != sizeof MZ_hdr
+		invoke printf, CStr('dos read error',10)
 		jmp exit
 	.endif
 	.if (word ptr MZ_Hdr+0 != "ZM")
-		invoke StringOutX, addr text6	;not a MZ binary
+		invoke printf, CStr('Not a MZ binary: %s',10), pszFN
 		jmp exit
 	.endif
 if 0
 	.if (word ptr MZ_Hdr+18h < 40h)		;relocation table offset < 40h?
-		invoke StringOutX, addr text8	;then it is not a PE binary
+		invoke printf, CStr('Not a PE/PX binary: %s',10), pszFN
 		jmp exit
 	.endif
 endif
 	mov eax, dword ptr MZ_hdr+3ch
 	mov dwPEPos, eax
-	invoke DosSeek, hFile, dwPEPos, 0
-	.if (CARRY?)
-		invoke StringOutX, addr text8	;not a PE/PX binary
+	invoke fseek, pFile, dwPEPos, SEEK_SET
+	.if eax == -1
+		invoke printf, CStr('cannot position to PE/PX header',10)
 		jmp exit
 	.endif
-	invoke DosRead, hFile, addr PE_hdr, 4 + sizeof IMAGE_FILE_HEADER
-	.if (CARRY? || (ax != cx))
-		invoke StringOutX, addr text8	;not a PE/PX binary
+	mov dwRead, 4 + sizeof IMAGE_FILE_HEADER
+	invoke fread, addr PE_hdr, 1, 4 + sizeof IMAGE_FILE_HEADER, pFile
+	.if eax != 4 + sizeof IMAGE_FILE_HEADER
+		invoke printf, CStr('cannot read PE/PX header',10)
 		jmp exit
 	.endif
 	.if ((PE_Hdr.Signature == "EP") || (PE_Hdr.Signature == "XP"))
-		mov cx, PE_Hdr.FileHeader.SizeOfOptionalHeader
-		invoke DosRead, hFile, addr PE_Hdr.OptionalHeader, cx
-		.if (CARRY? || (ax != cx))
-			invoke StringOutX, addr text8	;not a PE/PX binary
+		invoke fread, addr PE_Hdr.OptionalHeader, 1, PE_Hdr.FileHeader.SizeofOptionalHeader, pFile
+		.if ax != PE_Hdr.FileHeader.SizeofOptionalHeader
+			invoke printf, CStr('cannot read PE/PX optional header',10)
 			jmp exit
 		.endif
-		.if (ax > IMAGE_OPTIONAL_HEADER.Subsystem)
-			.if (PE_Hdr.OptionalHeader.Subsystem == IMAGE_SUBSYSTEM_WINDOWS_GUI)
-				invoke StringOutX, CStr(<"aborted, because this is a Win32 GUI app!",13,10>)
-				jmp exit
+		add dwRead, eax
+if 0
+		.if (PE_Hdr.OptionalHeader.Subsystem == IMAGE_SUBSYSTEM_WINDOWS_GUI)
+			invoke printf, CStr("aborted, because this is a Win32 GUI app!",10)
+			jmp exit
+		.endif
+endif
+		.if bStack
+			mov eax,dwStkRes
+			mov PE_Hdr.OptionalHeader.SizeOfStackReserve, eax
+			mov eax,dwStkCommit
+			.if eax != -1
+				mov PE_Hdr.OptionalHeader.SizeOfStackCommit, eax
+			.endif
+			;--- don't allow reserve to be < commit
+			mov eax, PE_Hdr.OptionalHeader.SizeOfStackReserve
+			.if eax < PE_Hdr.OptionalHeader.SizeOfStackCommit
+				mov PE_Hdr.OptionalHeader.SizeOfStackCommit, eax
 			.endif
 		.endif
-		.if (bCodeWriteable)
-			mov cx, PE_Hdr.FileHeader.NumberOfSections
-			.if (cx > ?MAXSEC)
-				invoke StringOutX, CStr(<"too many sections in binary, will not check all of them",13,10>)
-				mov cx, ?MAXSEC
+if ?REBASE
+		.if bBase
+			;--- read the relocs and rebase
+			mov eax,dwBase
+			mov PE_Hdr.OptionalHeader.ImageBase, eax
+		.endif
+endif
+		.if bHeap
+			mov eax,dwHeapRes
+			mov PE_Hdr.OptionalHeader.SizeOfHeapReserve, eax
+			mov eax,dwHeapCommit
+			.if eax != -1
+				mov PE_Hdr.OptionalHeader.SizeOfHeapCommit, eax
 			.endif
-			mov wSections,cx
-			mov ax, sizeof IMAGE_SECTION_HEADER
-			mul cx
-			mov wSectionSize, ax
-			invoke DosRead, hFile, addr Sections, ax
-			.if (CARRY? || (ax != cx))
-				invoke StringOutX, addr text8
+			;--- don't allow reserve to be < commit
+			mov eax, PE_Hdr.OptionalHeader.SizeOfHeapReserve
+			.if eax < PE_Hdr.OptionalHeader.SizeOfHeapCommit
+				mov PE_Hdr.OptionalHeader.SizeOfHeapCommit, eax
+			.endif
+		.endif
+		.if bCodeWriteable
+			movzx ecx, PE_Hdr.FileHeader.NumberOfSections
+			.if (ecx > ?MAXSEC)
+				invoke printf, CStr("too many sections in binary, will not check all of them",10)
+				mov ecx, ?MAXSEC
+			.endif
+			mov dwSections,ecx
+			mov eax, sizeof IMAGE_SECTION_HEADER
+			mul ecx
+			mov dwSectionSize, eax
+			invoke fread, addr Sections, 1, eax, pFile
+			.if eax != dwSectionSize
+				invoke printf, CStr("cannot read object table",10)
 				jmp exit
 			.endif
-			mov si,offset Sections
-			mov cx, wSections
-			.while (cx)
-				mov eax, [si].IMAGE_SECTION_HEADER.Characteristics
+			mov esi,offset Sections
+			mov ecx, dwSections
+			.while ecx
+				mov eax, [esi].IMAGE_SECTION_HEADER.Characteristics
 				.if (eax & IMAGE_SCN_MEM_EXECUTE)
 					.if (!(eax & IMAGE_SCN_MEM_WRITE))
-						or [si].IMAGE_SECTION_HEADER.Characteristics, IMAGE_SCN_MEM_WRITE
+						or [esi].IMAGE_SECTION_HEADER.Characteristics, IMAGE_SCN_MEM_WRITE
 						mov bModified, 1
 					.endif
 				.endif
-				add si, sizeof IMAGE_SECTION_HEADER
-				dec cx
+				add esi, sizeof IMAGE_SECTION_HEADER
+				dec ecx
 			.endw
-			.if (bModified)
+			.if bModified
 				mov eax, dwPEPos
 				movzx ecx, PE_hdr.FileHeader.SizeOfOptionalHeader
 				add ecx, sizeof IMAGE_FILE_HEADER
 				add ecx, 4
 				add eax, ecx
-				invoke DosSeek, hFile, eax, 0
-				.if (CARRY?)
-					invoke StringOutX, addr text8
+				invoke fseek, pFile, eax, SEEK_SET
+				.if eax == -1
+					invoke printf, CStr("fseek error",10)
 					jmp exit
 				.endif
-				invoke DosWrite, hFile, addr Sections, wSectionSize
-				.if ((CARRY?) || (ax != cx))
-					invoke StringOutX, addr text7
+				invoke fwrite, addr Sections, 1, dwSectionSize, pFile
+				.if eax != dwSectionSize
+					invoke printf, CStr('write error',10)
 					jmp exit
 				.endif
 			.endif
 		.endif
 
-		mov byte ptr PE_Hdr.Signature+1, 'X'
-		invoke DosSeek, hFile, dwPEPos, 0
-		.if (CARRY?)
-			invoke StringOutX, addr text4	;dos seek error
+		.if bPatchPE
+			mov byte ptr PE_Hdr.Signature+1, 'E'
+		.elseif bPatchPX || bOptions == 0
+			mov byte ptr PE_Hdr.Signature+1, 'X'
+		.endif
+		invoke fseek, pFile, dwPEPos, SEEK_SET
+		.if eax == -1
+			invoke printf, CStr("fseek error",10)
 			jmp exit
 		.endif
-		invoke DosWrite, hFile, addr PE_Hdr, 2
-		.if (CARRY?)
-			invoke StringOutX, addr text7	;dos write error
+		invoke fwrite, addr PE_Hdr, 1, dwRead, pFile
+		.if eax != dwRead
+			invoke printf, CStr('write error',10)
 			jmp exit
 		.endif
 	.else
-		invoke StringOutX, addr text8		;not a PE/PX binary
+		invoke printf, CStr('not a PE/PX binary: %s',10), pszFN
 	.endif
 exit:
-	@DosClose hFile
+	invoke fclose, pFile
 	ret
 patch endp
 
-;--- main
+chkdigit proc
+	movzx eax,al
+	sub al,'0'
+	jb done
+	cmp al,10
+	jb check
+	sub al,7
+	and al,not 20h
+check:
+	cmp edi,eax
+done:
+	ret
+chkdigit endp
 
-main proc
+getnum proc uses esi edi
+	xor esi,esi
+	mov edi,10
+	mov ch,0
+	mov ax,[ebx]
+	cmp ax,"x0"
+	jnz @F
+	add ebx,2
+	mov edi,16
+@@:
+	mov al,[ebx]
+	call chkdigit
+	jc done
+	movzx eax,al
+	imul esi,edi
+	add esi,eax
+	inc ch
+	inc ebx
+	jmp @B
+done:
+	mov eax,esi
+	cmp ch,1
+	ret
+getnum endp
 
-local	szFN[128]:byte
+getoption proc uses ebx pszOption:ptr byte
 
-	invoke getpar, addr szFN
-	.if (!ax)
-		invoke StringOut, addr text1
-		mov al,1
+	mov ebx, pszOption
+	mov al,[ebx]
+	.if ((al == '/') || (al == '-'))
+		inc ebx
+		mov ax,[ebx]
+		or al, 20h
+		.if (ax == '?')
+			stc
+if ?REBASE
+		.elseif (ax == ':b')
+			add ebx,2
+			call getnum
+			jc exit
+			mov dwBase, eax
+			or bBase,1
+			cmp byte ptr [ebx],1
+			cmc
+endif
+		.elseif (ax == 'e')
+			or bPatchPE, 1
+		.elseif (ax == ':h')
+			add ebx,2
+			call getnum
+			jc exit
+			mov dwHeapRes, eax
+			.if byte ptr [ebx] == ','
+				inc ebx
+				call getnum
+				jc exit
+				mov dwHeapCommit, eax
+			.endif
+			or bHeap,1
+			cmp byte ptr [ebx],1
+			cmc
+		.elseif (ax == ':s')
+			add ebx,2
+			call getnum
+			jc exit
+			mov dwStkRes, eax
+			.if byte ptr [ebx] == ','
+				inc ebx
+				call getnum
+				jc exit
+				mov dwStkCommit, eax
+			.endif
+			or bStack,1
+			cmp byte ptr [ebx],1
+			cmc
+		.elseif (ax == 'v')
+			or bVerbose, 1
+		.elseif (ax == 'w')
+			or bCodeWriteable,1
+		.elseif (ax == 'x')
+			or bPatchPX, 1
+		.else
+			jmp err
+		.endif
+		inc bOptions
 		ret
 	.endif
-	invoke patch, addr szFN
-	mov  al,00
+	.if !pszFN
+		mov pszFN, ebx
+		clc
+	.else
+err:
+		stc
+	.endif
+exit:
+	ret
+
+getoption endp
+
+;--- main
+
+main proc c public argc:dword, argv:ptr
+
+	mov ecx, 1
+	mov ebx, argv
+	.while ecx < argc
+		push ecx
+		invoke getoption, dword ptr [ebx+ecx*4]
+		pop ecx
+		jc usage
+		inc ecx
+	.endw
+	.if !pszFN
+		jmp usage
+	.endif
+	invoke patch
+	xor eax,eax
+	ret
+usage:
+	invoke printf, CStr("patchPE v2.0 Copyright Japheth 2005-2021",10)
+	invoke printf, CStr(" allows to change a few attributes of PE/PX binaries",10)
+	invoke printf, CStr(" usage: patchPE [ options ] filename",10)
+	invoke printf, CStr(" options are:",10)
+if ?REBASE
+	invoke printf, CStr("  -b:base   set image base address",10)
+endif
+	invoke printf, CStr("  -e   patch header to 'PE'.",10)
+	invoke printf, CStr("  -h:reserve[,commit]   set heap size",10)
+	invoke printf, CStr("  -s:reserve[,commit]   set stack size",10)
+	invoke printf, CStr("  -w   make all code sections writeable",10)
+	invoke printf, CStr("  -x   patch header to 'PX'.",10)
+	invoke printf, CStr(" if no option is given, -x is assumed",10)
 	ret
 main endp
 
-start:
-	mov ax, DGROUP
-	mov ds, ax
-	mov dx, ss
-	sub dx, ax
-	shl dx,4
-	add dx,sp
-	mov ss, ax
-	mov sp, dx
-	call main
-	mov ah,4ch
-	int 21h
-
-	.stack 400h
-
-	END start
+	END

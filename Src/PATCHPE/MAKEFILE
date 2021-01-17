@@ -21,27 +21,18 @@ ALL: $(OUTDIR) $(OUTDIR)\$(PGM).EXE
 $(OUTDIR):
 	@mkdir $(OUTDIR)
 
-!if 0
-
-LINK=jwlink.exe
-
-AOPT= -c -nologo -Sg -Fl$* -Fo$* -I$(INC32DIR)
+!if 1
 
 $(OUTDIR)\$(PGM).EXE: $*.obj makefile
-	@$(LINK) @<<
-format dos mz
-file $*.obj
-name $*.EXE
-op map=$*.MAP
-<<
+	@jwlink format win pe file $*.obj name $*.EXE libpath $(HXINST)\lib lib dkrnl32,libc32s op map=$*.MAP,stub=dpmist32.bin,start=_mainCRTStartup
 
 $(OUTDIR)\$(PGM).obj: $(PGM).asm makefile
-	@$(ASM) $(AOPT) $(PGM).asm
+	@$(ASM) -c -coff -nologo -Sg -Fl$* -Fo$* -I$(INC32DIR) $(PGM).asm
 
 !else
 
 $(OUTDIR)\$(PGM).EXE: $(PGM).asm makefile
-	@$(ASM) -mz -c -nologo -Sg -Fl$* -Fo$*.EXE -I$(INC32DIR) $(PGM).asm
+	@$(ASM) -pe -c -nologo -Sg -Fl$* -Fo$*.EXE -I$(INC32DIR) $(PGM).asm
 
 !endif
 
