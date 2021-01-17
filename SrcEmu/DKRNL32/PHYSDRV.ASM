@@ -147,6 +147,7 @@ physdrvhandler proc uses ebx esi edi handle:dword, dwCtrlCode:dword,pInBuf:dword
 
 local	dwDosMem:DWORD
 local	dwOfs:DWORD
+local	dgex:dword
 local	rmcs:RMCS
 
 	@strace <"physdrive(", handle, ", ", dwCtrlCode, ", ", pInBuf, ", ", nInBuf, ", ", pOutBuf, ", ", nOutBuf, ",...) enter">
@@ -329,7 +330,9 @@ isdrvgeometryex:
 
 	push edx
 	.if edx == DetectExInt13
+		push ecx
 		invoke _mul64, [esi].EDD.qwNumSecs, [edi].DISK_GEOMETRY.BytesPerSector 
+		pop ecx
 	.else
 		mov eax, [edi].DISK_GEOMETRY.TracksPerCylinder
 		mul [edi].DISK_GEOMETRY.SectorsPerTrack
@@ -340,7 +343,7 @@ isdrvgeometryex:
 	mov dword ptr [edi].DISK_GEOMETRY_EX.DiskSize+4, edx
 
 	pop edx
-	mov esi, edi
+	mov dgex, edi
 	lea edi, [edi+DISK_GEOMETRY_EX.Data]
 	mov eax, DISK_GEOMETRY_EX.Data
 	cmp ecx, DISK_GEOMETRY_EX.Data + sizeof DISK_PARTITION_INFO
@@ -351,22 +354,38 @@ isdrvgeometryex:
 	mov eax, DISK_GEOMETRY_EX.Data + sizeof DISK_PARTITION_INFO
 	cmp ecx, DISK_GEOMETRY_EX.Data + sizeof DISK_PARTITION_INFO + sizeof DISK_DETECTION_INFO
 	jb isg_1
+
 	lea edi, [edi+sizeof DISK_PARTITION_INFO]
 	mov [edi].DISK_DETECTION_INFO.SizeOfDetectInfo, sizeof DISK_DETECTION_INFO
 	mov [edi].DISK_DETECTION_INFO.DetectionType, edx
-	; todo: fill the Int13 struct
-	mov eax, dword ptr [esi].DISK_GEOMETRY.Cylinders
+
+	mov edx, dgex
+	mov eax, dword ptr [edx].DISK_GEOMETRY.Cylinders
 	.if (eax >= 1024)
 		mov eax,1023
 	.endif
 	mov [edi].DISK_DETECTION_INFO.Int13.MaxCylinders, eax
-	mov eax, [esi].DISK_GEOMETRY.SectorsPerTrack
+	mov eax, [edx].DISK_GEOMETRY.SectorsPerTrack
 	mov [edi].DISK_DETECTION_INFO.Int13.SectorsPerTrack, ax
-	mov eax, [esi].DISK_GEOMETRY.TracksPerCylinder
+	mov eax, [edx].DISK_GEOMETRY.TracksPerCylinder
 	dec eax
 	mov [edi].DISK_DETECTION_INFO.Int13.MaxHeads, ax
 	movzx eax,byte ptr @flat:[475h]
 	mov [edi].DISK_DETECTION_INFO.Int13.NumberDrives, ax
+	.if [edi].DISK_DETECTION_INFO.DetectionType == DetectExInt13
+		lea edi,[edi].DISK_DETECTION_INFO.ExInt13
+		push edi
+		mov ecx, sizeof DISK_EX_INT13_INFO / 4
+		rep movsd
+		pop edi
+		test [edi].DISK_EX_INT13_INFO.ExFlags,2
+		jnz @F
+		mov eax,dword ptr [edx].DISK_GEOMETRY.Cylinders
+		mov [edi].DISK_EX_INT13_INFO.ExCylinders, eax
+		mov eax,[edx].DISK_GEOMETRY.TracksPerCylinder
+		mov [edi].DISK_EX_INT13_INFO.ExHeads, eax
+@@:
+	.endif
 
 	mov eax, DISK_GEOMETRY_EX.Data + sizeof DISK_PARTITION_INFO + sizeof DISK_DETECTION_INFO
 isg_1:
@@ -600,19 +619,20 @@ getdrvgeometry:
 @@:
 	mov [edi].DISK_GEOMETRY.MediaType, eax
 
-	mov eax,dword ptr [esi].EDD.qwNumSecs+0
-	mov edx,dword ptr [esi].EDD.qwNumSecs+4
-
 	;--- 01/2014: checking wFlags instead of cylinder value
 ;	cmp eax, 63*16*16383	;below the 8 GB limit?
 ;	jbe @F
 	test [esi].EDD.wFlags, 2	;CHS values valid?
 	jnz @F
-	;--- calculate cylinder value
-	div [esi].EDD.dwSecs
-	xor edx, edx	;just to be sure
+	mov eax, [esi].EDD.dwSecs
 	mov ecx, 255	;assume 255 heads
+	mul ecx
+	mov ecx, eax
+	;--- calculate cylinder value
+	mov eax,dword ptr [esi].EDD.qwNumSecs+0
+	mov edx,dword ptr [esi].EDD.qwNumSecs+4
 	div ecx
+	mov ecx,255
 	jmp setgeovals 
 @@:
 	mov eax,[esi].EDD.dwCyl
