@@ -19,6 +19,10 @@ endif
 	.cref
 	.list
 
+?WOPT equ 0
+?XOPT equ 0
+?ZOPT equ 0
+
 LPSTR	typedef ptr BYTE
 lf		equ 0Ah
 
@@ -42,14 +46,20 @@ dwHdrMax		DWORD 0
 dwWarnings		DWORD 0
 dwWarnings2		DWORD 0
 fNoBackup		BYTE 0		;dont write a backup file
+if ?XOPT
 fPX				BYTE 0		;patch PE to PX
+endif
 fVerbose		BYTE 0		;display maximum msgs
 fAdjustSOH		BYTE 0		;adjust SizeOfHeaders (problem with XP!)
 fReadOnly		BYTE 0
 fIgnoreWarnings	BYTE 0
+if ?WOPT
 fWriteable		BYTE 0
+endif
 fQuiet			BYTE 0
+if ?ZOPT
 fZ 				BYTE 0
+endif
 
 wvsprintfA proto stdcall :dword, :dword, :dword
 ;printf proto C a1:LPSTR, a2:VARARG
@@ -301,13 +311,13 @@ PatchObjectTable proc uses ebx esi edi pPE:ptr IMAGE_NT_HEADERS, pNewObjTab:ptr,
 			sub [edi].IMAGE_SECTION_HEADER.PointerToRelocations,eax
 			add [edi].IMAGE_SECTION_HEADER.PointerToRelocations,edx
 		.endif
-
+if ?WOPT
 		.if (fWriteable)
 			.if ([edi].IMAGE_SECTION_HEADER.Characteristics & (IMAGE_SCN_MEM_EXECUTE or IMAGE_SCN_CNT_CODE))
 				or [edi].IMAGE_SECTION_HEADER.Characteristics, IMAGE_SCN_MEM_WRITE
 			.endif
 		.endif
-
+endif
 		.if ([edi].IMAGE_SECTION_HEADER.Misc.VirtualSize)
 			mov eax, [edi].IMAGE_SECTION_HEADER.VirtualAddress
 			.if (eax >= [esi].IMAGE_NT_HEADERS.OptionalHeader.SizeOfImage)
@@ -350,15 +360,19 @@ getoption proc uses esi pszArgument:LPSTR
 @@:
 	shr eax,8
 	or al,20h
+if ?XOPT
 	cmp ax,"x"
 	jnz @F
 	mov fPX, 1		;patch PE to PX
 	jmp done
 @@:
+endif
+if ?ZOPT
 	cmp ax,"z"
 	jnz @F
 	mov fZ, 1
 	jmp done
+endif
 @@:
 	cmp ax,"v"
 	jnz @F
@@ -385,11 +399,13 @@ getoption proc uses esi pszArgument:LPSTR
 	mov fAdjustSOH, 1
 	jmp done
 @@:
+if ?WOPT
 	cmp ax,"w"
 	jnz @F
 	mov fWriteable, 1
 	jmp done
 @@:
+endif
 	cmp ax,"n"
 	jnz error
 	mov fNoBackup, 1
@@ -472,10 +488,11 @@ local	szTempFile[MAX_PATH]:byte
 		.endif
 		jmp main_ex
 	.endif
+if ?ZOPT
 	.if ( fZ )
 		jmp nostub
 	.endif
-
+endif
 ;--------------------------- open stub
 	mov edx,pszStubname
 	.if (!edx)
@@ -583,7 +600,7 @@ nostub:
 		invoke printf, CStr(<"%s has no valid PE|PX format - magic bytes PE|PX not found",lf>), pszFilename
 		jmp main_ex
 	.endif
-
+if ?ZOPT
 	.if ( fZ )
 		mov byte ptr pehdr.Signature+1, 'X'
 		invoke _llseek, hFileInp, dwSizeStubOld, FILE_BEGIN 
@@ -597,18 +614,20 @@ nostub:
 		xor eax, eax
 		jmp @exit
 	.endif
-
+endif
 	invoke _lread, hFileInp, addr pehdr.FileHeader, sizeof IMAGE_NT_HEADERS.FileHeader
 	.if (eax != sizeof IMAGE_NT_HEADERS.FileHeader)
 		invoke printf, CStr(<"Error reading FileHeader",lf>)
 		jmp main_ex
 	.endif
+if ?XOPT
 	.if ((fPX) && (pehdr.FileHeader.Characteristics & IMAGE_FILE_RELOCS_STRIPPED))
 		invoke printf, CStr(<"warning: this binary is linked without relocations!",lf>)
 		invoke printf, CStr(<"         most likely the HX PE loader cannot load it within a DOS box",lf>)
 		invoke printf, CStr(<"         and Windows won't accept it anymore because cmdline option -x was set.",lf>)
 		inc dwWarnings2
 	.endif
+endif
 	invoke ZeroMemory, addr pehdr.OptionalHeader, sizeof pehdr.OptionalHeader
 	movzx eax, pehdr.FileHeader.SizeOfOptionalHeader
 	.if (eax > sizeof IMAGE_OPTIONAL_HEADER)
@@ -753,11 +772,11 @@ nostub:
 		mov eax, dwSizeHeader
 		mov pehdr.OptionalHeader.SizeOfHeaders, eax
 	.endif
-
+if ?XOPT
 	.if (fPX)
 		mov pehdr.Signature, 'XP'
 	.endif
-
+endif
 	.if (fVerbose)
 		invoke printf, CStr(<"writing PE file header [%u bytes] to temporary file...",lf>), 4 + sizeof IMAGE_FILE_HEADER
 	.endif
@@ -856,7 +875,7 @@ endif
 	mov bError, FALSE
 	jmp main_ex
 displayusage:
-	invoke printf, CStr(<"pestub v3.1, copyright japheth 2003-2018",lf>)
+	invoke printf, CStr(<"pestub v3.2, copyright japheth 2003-2021",lf>)
 	invoke printf, CStr(<"pestub may be used to exchange stub of a PE|PX binary, or to",lf>)
 	invoke printf, CStr(<"check it for being compatible with HX's PE|PX loader.",lf,lf>)
 	invoke printf, CStr(<"usage: pestub [ options ] filename [stubname]",lf>)
@@ -868,9 +887,15 @@ displayusage:
 	invoke printf, CStr(<" -r = read only mode, don't modify the binary",lf>)
 	invoke printf, CStr(<" -s = adjust field OptionalHeader.SizeOfHeaders",lf>)
 	invoke printf, CStr(<" -v = verbose mode",lf>)
+if ?WOPT
 	invoke printf, CStr(<" -w = make code sections writeable",lf>)
+endif
+if ?XOPT
 	invoke printf, CStr(<" -x = patch PE to PX (same as PatchPE.exe)",lf>)
+endif
+if ?ZOPT
 	invoke printf, CStr(<" -z = don't replace stub (useful for -x)",lf>)
+endif
 	jmp @exit
 main_ex:
 	.if (hFileOut != -1)

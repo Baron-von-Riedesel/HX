@@ -7,8 +7,7 @@
 name = PESTUB
 
 #--- this app may be generated as standard MZ executable as well.
-#--- however, OW WLink complains about multiple start addresses.
-#--- so another OMF linker is required.
+#--- however, jwLink may complain about multiple start addresses.
 
 MZAPP=0
 USEDLL=0
@@ -37,7 +36,6 @@ LOPTD=
 AOPT= -c -nologo -Sg -Fl$* -Fo$* -D?FLAT=0 -D_ML $(AOPTD) -I$(INC32DIR)
 
 LIBS=$(LIBOMF)\jmppm32.lib $(LIBOMF)\dkrnl32s.lib $(LIBOMF)\libc32.lib
-LINK=jwlink.exe
 MODS=$*.obj $(LIBOMF)\jmppm32.obj
 
 !else
@@ -55,8 +53,12 @@ CRTLIB=$(LIBCOFF)\crtdll.lib
 !else
 CRTLIB=$(LIBCOFF)\libc32s.lib
 !endif
+
 LIBS= $(LIBCOFF)\dkrnl32.lib $(LIBCOFF)\duser32s.lib $(CRTLIB)
+
+!if $(MSLINK)
 LOPT=/OUT:$*.EXE /NOLOGO /NODEFAULTLIB /MAP:$*.map /SUBSYSTEM:CONSOLE $(LOPTD) /FIXED:NO  /STUB:dpmist32.bin /MERGE:.rdata=.data /MERGE:.reloc=.text /OPT:NOWIN98 /STACK:0x4000
+!endif
 
 !endif
 
@@ -68,22 +70,15 @@ $(OUTDIR):
 !if $(MZAPP)
 
 $(OUTDIR)\$(name).EXE: $*.obj makefile
-	@$(LINK) @<<
-format dos
-op q
-file {$(MODS)}
-name $*.EXE
-op map=$*.MAP
-lib {$(LIBS)}
-<<
+	@$(LINK16BIN) format dos file {$(MODS)} name $*.EXE lib {$(LIBS)} op q,map=$*.MAP
 
 !else
 
 $(OUTDIR)\$(name).EXE: $*.obj makefile
 !if $(MSLINK)
-	@link $* $(LIBS) $(LOPT)
+	@$(LINKBIN) $* $(LIBS) $(LOPT)
 !else
-	@$(LINKBIN) format win pe file $* lib { $(LIBS) } op q, stub=dpmist32.bin, map=$*
+	@$(LINKBIN) format win pe file $* lib { $(LIBS) } op q, stub=dpmist32.bin, map=$*, stack=0x2000, heap=0x1000
 !endif
 
 !endif

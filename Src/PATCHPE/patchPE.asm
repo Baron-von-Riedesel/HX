@@ -209,6 +209,10 @@ endif
 			mov byte ptr PE_Hdr.Signature+1, 'E'
 		.elseif bPatchPX || bOptions == 0
 			mov byte ptr PE_Hdr.Signature+1, 'X'
+			.if PE_Hdr.FileHeader.Characteristics & IMAGE_FILE_RELOCS_STRIPPED
+				invoke printf, CStr("Warning: relocations stripped.",10)
+				invoke printf, CStr("Binary won't run with all DPMI hosts.",10)
+			.endif
 		.endif
 		invoke fseek, pFile, dwPEPos, SEEK_SET
 		.if eax == -1

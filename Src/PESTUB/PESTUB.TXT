@@ -79,6 +79,10 @@
 
   5. History
 
+  2021/01/17: V3.2
+  
+  þ removed options -w, -x and -z.
+
   2018/08/25: V3.1
 
   þ accept PX file format as well.
