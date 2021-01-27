@@ -489,7 +489,7 @@ searchhandle endp
 
 _freememint proc
 if ?ADDRISHANDLE
-	mov 	ebx,[ebx.MEMITEM.dwBase]
+	mov ebx,[ebx.MEMITEM.dwBase]
 endif
 _freememint endp	;fall through
 
@@ -556,6 +556,7 @@ _freememintEx proc
 	clc
 	ret
 error:
+	@dprintf "freememint: error"
 	popad
 	stc
 	ret
@@ -1334,6 +1335,7 @@ unmapphysregion proc public
 	pushad
 	shl ebx, 16
 	mov bx, cx
+	and bx,0F000h		;v3.19: reset bits 0-11, else the handle wouldn't be found
 	call _freememintEx
 if _LTRACE_
 	jc @F
