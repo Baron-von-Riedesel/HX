@@ -1082,7 +1082,7 @@ if ?DPMI10EX
 ;--- ESI=memory handle
 ;--- EBX=offset within block
 ;--- ECX=no of pages
-;--- EDX=linear address of memory to map
+;--- EDX=physical address of memory to map
 
 	@ResetTrace
 
@@ -1114,7 +1114,7 @@ mapdos endp
 ;--- ESI=memory handle
 ;--- EBX=offset within block
 ;--- ECX=no of pages (0 is allowed)
-;--- EDX=linear address of memory to map
+;--- EDX=physical address of memory to map
 
 mapx proc
 	pushad
@@ -1143,7 +1143,7 @@ mapx proc
 	or [esi].MEMITEM.flags, HDLF_MAPPED
 	cmp [esp].PUSHADS._AL,08	;is it int 31h, ax=508?
 	setz bl						;set BL=1 -> page flags "write thru" + "cache disable"
-	call _mapphysregion			;cannot fail
+	call pm_mapphysregion		;cannot fail
 	popad
 	clc
 	ret
@@ -1296,7 +1296,7 @@ endif
 	or [eax].MEMITEM.flags, HDLF_MAPPED
 	mov eax,[eax.MEMITEM.dwBase]
 	mov bl,0					;dont set PWT flag in PTEs
-	call _mapphysregion			;map ECX pages, cannot fail
+	call pm_mapphysregion		;map ECX pages, cannot fail
 
 	@dprintf "mapphysregion: phys2lin successfull, mapped at %lX",eax
 found:

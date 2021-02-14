@@ -24,7 +24,7 @@ _FreeUserSpace		proto near		;free user address space
 _AllocSysAddrSpace	proto near		;allocate system address space
 _getaddrspace		proto near		;get free/total user address space
 _searchphysregion	proto near		;search a mapped physical region
-_mapphysregion		proto near		;map physical address to user space
+pm_mapphysregion	proto near		;map physical address to user space
 _makeregionreadonly	proto near		;make region readonly
 if 0
 _SetPage 			proto near		;set PTE for a linear address

@@ -375,19 +375,26 @@ _searchphysregion endp
 ;***      EAX=linear address space to map the region to
 ;***      BL=1 -> set PTF_PWT bit in PTEs
 
+;--- DPMI calls 508h/509h will "uncommit" the region before it
+;--- is remapped. This may cause memory leaks if a region is allocated
+;--- with committed memory - the page table entries are lost - and hence
+;--- the physical pages. No big problem, since the host will recover
+;--- when the client terminates, but there may exist borderline conditions
+;--- where it matters.
+
 	@ResetTrace
 
-_mapphysregion proc public uses es
+pm_mapphysregion proc public uses es
 
 	pushad
 
-	@dprintf "mapphysregion: addr=%lX,size=%lX",edx,ecx
+	@dprintf "pm_mapphysregion: phys. addr=%lX, size=%lX", edx, ecx
 	jecxz done
 
 	push byte ptr _FLATSEL_
 	pop es
 	call _Linear2PT			;get addr PTR in EDI for linear address in EAX
-	@dprintf "mapphysregion: adspace allocated, ^pagetab=%lX, addr=%lX",edi,eax
+	@dprintf "pm_mapphysregion: pPagetab=%lX, addr=%lX", edi, eax
 	mov eax,edx
 	or al, PTF_PRESENT or PTF_WRITEABLE or PTF_USER
 	test bl,1
@@ -402,7 +409,7 @@ done:
 	ret
 	align 4
 
-_mapphysregion endp
+pm_mapphysregion endp
 
 ;--- physical memory
 
