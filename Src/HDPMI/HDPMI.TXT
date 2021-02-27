@@ -528,12 +528,19 @@
    - 0C00h + 0C01h, DPMI TSRs
    - 0D00h - 0D03h, shared memory
 
-   Additionally, some privileged opcodes are emulated (this feature
-   is not active if cmdline option -s ['safe' mode] is given):
+   Int 31h, AX=508h (map device in memory block) will set paging flags
+   "write through" and "cache disabled". OTOH, function int 31h, AX=800h
+   will NOT set those flags. Int 31h, AX=509h (map conventional memory) 
+   will copy PTEs, so the destination region will become a clone of the
+   source region, with any UMBs mapped in.
+
+   Some privileged opcodes are emulated (this feature is not active if
+   cmdline option -s ['safe' mode] is given):
 
    - HLT (F4) 
    - MOV reg,CRx (0F 20 xx) - using ESP for <reg> will not work!
    - MOV CRx,reg (0F 22 xx) - using ESP for <reg> will not work!
+
 
  6.7 VDS API
 

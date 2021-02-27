@@ -4307,22 +4307,24 @@ if ?MAPDOSHIGH
 	mov ecx,?STACKPAGES		;reserve 3|6 pages
 	call _AllocSysAddrSpace
 	jc error
-	mov edx, eax
+	mov ebx, eax
 	mov ecx,2				;into the first 2 the host's DOS code is mapped
 	mov eax,dwSSBase
-	call _CopyPTEs
-	lea eax,[edx + 2 * 1000h]
+	xor edx,edx
+	mov dl,PTF_WRITEABLE
+	call pm_CopyPTEs
+	lea eax,[ebx + 2 * 1000h]
 	mov ecx,?STACKPAGES - 2	;the rest is used for (TSS and) host stack
-	push edx
+;	push edx
 	mov dl,PTF_PRESENT or PTF_WRITEABLE
-	call _CommitRegionZeroFill
-	pop edx
+	call _CommitRegionZeroFill	;commit region eax, ecx pages
+;	pop edx
 	jc error
 	mov eax, dwSSBase
 	and eax, 0FFFh
-	lea eax, [edx+eax]
+	lea eax, [ebx+eax]
 
-	lea ebx,[edx+?STACKPAGES * 1000h]
+	lea ebx,[ebx+?STACKPAGES * 1000h]
 	sub ebx, eax
 
 	mov edx, eax

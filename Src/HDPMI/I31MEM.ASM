@@ -1102,19 +1102,22 @@ mapphysx endp
 ;--- EDX=linear address of memory to map
 
 mapdos proc public
-	test edx, 0FFF00000h
-	jz mapx
+;	test edx, 0FFF00000h
+;	jz mapx
+	cmp edx, 110000h
+	jb mapx
 	mov ax,8003h
 	stc
 	ret
 	align 4
 mapdos endp        
 
-;*** map a physical address space
+;*** either a) map a physical address space 
+;--- or b) copy PTEs
 ;--- ESI=memory handle
 ;--- EBX=offset within block
 ;--- ECX=no of pages (0 is allowed)
-;--- EDX=physical address of memory to map
+;--- EDX=address of memory to map
 
 mapx proc
 	pushad
@@ -1140,10 +1143,22 @@ mapx proc
 	pushad
 	call _UncommitRegion
 	popad
+
+;--- to be fixed: the "mapped" flag must be on the PTE level!
 	or [esi].MEMITEM.flags, HDLF_MAPPED
+
 	cmp [esp].PUSHADS._AL,08	;is it int 31h, ax=508?
-	setz bl						;set BL=1 -> page flags "write thru" + "cache disable"
-	call pm_mapphysregion		;cannot fail
+	jnz ax509
+	mov bl,1					;set BL=1 -> page flags "write thru" + "cache disable"
+	call pm_mapphysregion		;cannot fail, eax=lin dst, edx=phys src
+	jmp done
+ax509:	;v3.19: if DOS memory is to be mapped, copy PTEs, so it works correctly with UMBs
+	mov ebx, eax
+	mov eax, edx
+	xor edx,edx
+	mov dl, PTF_WRITEABLE or PTF_USER
+	call pm_CopyPTEs	;eax=linear src, ebx=linear dst, ecx=pages, dx=flags
+done:
 	popad
 	clc
 	ret

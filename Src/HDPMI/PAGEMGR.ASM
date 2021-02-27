@@ -239,23 +239,24 @@ exit:
 	align 4
 PT2Linear endp
 
-if ?MAPDOSHIGH
+if 1;?MAPDOSHIGH
 
 ;--- copy PTEs 
 ;--- EAX: source linear address
-;--- EDX: dest linear address
+;--- EBX: dest linear address
 ;--- ECX: #pages
+;--- EDX: (additional) page flags
 
-_CopyPTEs proc public
-	@dprintf "CopyPTEs: src=%lX, dst=%lX, pages=%lX",eax,edx,ecx
+pm_CopyPTEs proc public
+	@dprintf "pm_CopyPTEs: src=%lX, dst=%lX, pages=%lX",eax,ebx,ecx
 	push ds
 	push es
 	pushad
 	call _Linear2PT	;get source PTEs
 	mov esi, edi
-	mov eax, edx
+	mov eax, ebx
 	call _Linear2PT	;get dest PTEs
-	@dprintf "CopyPTEs: src PTR=%lX, dst PTE=%lX, pages=%lX",esi,edi,ecx
+	@dprintf "pm_CopyPTEs: src PTR=%lX, dst PTE=%lX, pages=%lX",esi,edi,ecx
 	push byte ptr _FLATSEL_
 	pop ds
 	push ds
@@ -268,12 +269,13 @@ else
 	lodsd
 ;	and al,0E0h
 	and ax,0F000h	;reset PG and all user-reserved flags
-	or al, PTF_PRESENT or PTF_WRITEABLE
+	or al, PTF_PRESENT
+	or ax, dx
 	stosd
 	loop @B
 endif
 if 0
-	mov ebx,[esp].PUSHADS.rEDX
+	mov ebx,[esp].PUSHADS.rEBX
 	mov ecx,[esp].PUSHADS.rECX
 	call updatetlb
 endif
@@ -281,7 +283,7 @@ endif
 	pop es
 	pop ds
 	ret
-_CopyPTEs endp
+pm_CopyPTEs endp
 
 endif
 
@@ -368,7 +370,7 @@ error:
 	align 4
 _searchphysregion endp
 
-;*** helper for DPMI functions 0800h, 0508h, 0509h
+;*** helper for DPMI functions 0800h, 0508h
 ;*** map a physical address region into linear address space
 ;*** INP: EDX=physical address region start
 ;***      ECX=length of region in pages (may be 0!)

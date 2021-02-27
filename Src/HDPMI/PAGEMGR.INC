@@ -30,8 +30,8 @@ if 0
 _SetPage 			proto near		;set PTE for a linear address
 endif
 _setregionattributes proto near		;set PTE bits for a region
-if ?MAPDOSHIGH
-_CopyPTEs			proto near
+if 1;?MAPDOSHIGH
+pm_CopyPTEs			proto near
 endif
 pm_init_rm			proto near16	;page mgr server init real-mode
 pm_init2_rm			proto near16	;page mgr cleanup after prot-mode init
