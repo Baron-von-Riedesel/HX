@@ -59,7 +59,7 @@ nexthandle:						   ;<----
 ;	@dprintf "_getspecaddrspace: hdl=%lX,nxt=%lX,base=%lX,siz=%lX,fl=%X",esi,\
 ;	[esi].MEMITEM.pNext,[esi].MEMITEM.dwBase,[esi].MEMITEM.dwSize,[esi].MEMITEM.flags
 
-	test byte ptr [esi].MEMITEM.flags,HDLF_ALLOC
+	test [esi].MEMITEM.flags,HDLF_ALLOC
 	jnz skipitem
 	mov edx, [esi].MEMITEM.dwSize
 	and ebx,ebx
@@ -295,7 +295,7 @@ _AllocMem proc
 	mov ebx, eax
 	test byte ptr [esp],HDLF_COMMIT
 	jz done
-	test byte ptr [ebx.MEMITEM.flags], HDLF_COMMIT
+	test [ebx].MEMITEM.flags, HDLF_COMMIT
 	jnz done
 	@dprintf "AllocMem: commit %lX pages for base %lX", [ebx.MEMITEM.dwSize], [ebx.MEMITEM.dwBase]
 	call _commitblock
@@ -382,7 +382,7 @@ endif
 nextitem:
 	and ebx, ebx
 	jz done
-	test [ebx.MEMITEM.flags], HDLF_ALLOC
+	test [ebx].MEMITEM.flags, HDLF_ALLOC
 	jnz skipitem
 	mov esi, [ebx.MEMITEM.dwSize]
 	cmp ecx, esi
@@ -500,20 +500,20 @@ _freememintEx proc
 	@dprintf "freememint: ebx=%lX", ebx
 	call searchhandle				;get previous handle in EAX, sets ds to GROUP16
 	jc error
-	test byte ptr [ebx].MEMITEM.flags,HDLF_ALLOC;is region already free?
+	test [ebx].MEMITEM.flags,HDLF_ALLOC;is region already free?
 	jz error
 
 	mov esi, eax					;save previous block is ESI
 	mov edi,[ebx].MEMITEM.pNext		;save next block in EDI
 
 	call _uncommitblock
-	and byte ptr [ebx].MEMITEM.flags,not HDLF_ALLOC
+	and [ebx].MEMITEM.flags,not HDLF_ALLOC
 
 	@dprintf "freememint: block released, handle=%lX, addr=%lX, size=%lX",\
 		ebx, [ebx].MEMITEM.dwBase, [ebx].MEMITEM.dwSize
 
 ;--- is next handle a free block?
-	test byte ptr [edi].MEMITEM.flags,HDLF_ALLOC
+	test [edi].MEMITEM.flags,HDLF_ALLOC
 	jnz @F
 	@dprintf "freememint: next block is free, base=%lX, size=%lX",\
 		[edi].MEMITEM.dwBase, [edi].MEMITEM.dwSize
@@ -534,7 +534,7 @@ _freememintEx proc
 @@:
 	cmp esi, offset pMemItems		;is there a previous block?
 	jz @F
-	test byte ptr [esi].MEMITEM.flags, HDLF_ALLOC
+	test [esi].MEMITEM.flags, HDLF_ALLOC
 	jnz @F
 	@dprintf "freememint: previous block is free, base=%lX, size=%lX",\
 		[esi].MEMITEM.dwBase, [esi].MEMITEM.dwSize
@@ -640,7 +640,7 @@ moveblock endp
 endif
 
 ;--- internal function used by int 31h, ax=503h and ax=505h
-;--- eax=new size
+;--- eax=new size in bytes
 ;--- ebx=handle
 ;--- ebp, bit 0: commit block
 ;--- out: new handle in eax
@@ -649,23 +649,23 @@ endif
 	@ResetTrace
 
 _resizememint proc
-	call checksize					;size in eax to edx (in pages)
-	jc error
-	call searchhandle				;search handle of memory block, sets DS to GROUP16
-	jc resizememerr
+	call checksize				;size in eax to edx (in pages)
+	jc resizememerr7
+	call searchhandle			;search handle of memory block, sets DS to GROUP16
+	jc resizememerr4
 	@dprintf "resizemem: handle found (%lX,Base=%lX,Size=%lX,Flags=%X)",\
 		 ebx,[ebx.MEMITEM.dwBase],[ebx.MEMITEM.dwSize],[ebx.MEMITEM.flags]
 
 	mov edi,[ebx].MEMITEM.dwBase	;save old base
 
-	test byte ptr [ebx.MEMITEM.flags],HDLF_ALLOC
-	jz resizememerr
-	test byte ptr [ebx.MEMITEM.flags],HDLF_MAPPED
-	jnz resizememerr
+	test [ebx].MEMITEM.flags,HDLF_ALLOC	;don't resize free blocks
+	jz resizememerr5
+	test [ebx].MEMITEM.flags,HDLF_MAPPED	;todo: explain why this flag prohibits resizing
+	jnz resizememerr6
 
-	cmp edx,[ebx.MEMITEM.dwSize] 	;what is to be done?
+	cmp edx,[ebx.MEMITEM.dwSize];what is to be done?
 	jz done						;---> nothing, size doesnt change
-	jc resizemem3					;---> block shrinks
+	jc resizemem3				;---> block shrinks
 
 ;-------------- block grows
 
@@ -687,7 +687,7 @@ _resizememint proc
 	test ebp,1
 	jz @F
 	call _commitblock
-	jc error5
+	jc resizememerr1
 @@:
 	mov edx, [ebx.MEMITEM.dwSize]
 	mov ecx, [eax.MEMITEM.pNext]
@@ -707,7 +707,7 @@ resizemem3:
 	@dprintf "resizemem: block shrinks to %lX pages", edx
 	mov eax, ebx
 	call _allocmemhandle 			;get new handle in EBX
-	jc resizememerr
+	jc resizememerr0
 	@dprintf "resizemem: new handle %lX", ebx
 	mov ecx,[eax.MEMITEM.dwSize]
 	mov [eax.MEMITEM.dwSize],edx
@@ -719,7 +719,7 @@ resizemem3:
 	shl edx,12
 	add edx,[eax.MEMITEM.dwBase]
 	mov [ebx.MEMITEM.dwBase], edx
-	or [ebx.MEMITEM.flags], HDLF_ALLOC
+	or [ebx].MEMITEM.flags, HDLF_ALLOC
 	@dprintf "resizemem: changed hdl=%lX, nxt=%lX, base=%lX, size=%lX",\
 		eax, [eax.MEMITEM.pNext], [eax.MEMITEM.dwBase], [eax.MEMITEM.dwSize]
 	@dprintf "resizemem: free block hdl=%lX, nxt=%lX, base=%lX, size=%lX",\
@@ -752,7 +752,7 @@ resizemem2:
 	push es
 	call _CommitRegion				;commit new space of new block
 	pop es
-	jc error3
+	jc resizememerr3
 	@dprintf "resizemem: for new block new space committed"
 @@:
 	mov ecx,[esi].MEMITEM.dwSize
@@ -781,13 +781,16 @@ if _LTRACE_
 endif
 	clc
 	ret
-error5:
-error3:
-	call _freememint					;free (new) ebx block
-resizememerr2:
-resizememerr:
+resizememerr1:	;new block cannot be committed
+resizememerr3:	;new address space cannot be allocated
+	call _freememint	;free (new) ebx block
+resizememerr2:	;address space cannot be enlarged
+resizememerr4:	;invalid handle
+resizememerr5:	;free block (handle was released previously)
+resizememerr6:	;mapped flag set - why?
+resizememerr0:	;error allocating new handle
+resizememerr7:	;new size invalid
 	@dprintf "resizemem: error ,ebx=%lX",ebx
-error:
 	stc
 	ret
 	align 4
@@ -1144,7 +1147,7 @@ mapx proc
 	call _UncommitRegion
 	popad
 
-;--- to be fixed: the "mapped" flag must be on the PTE level!
+;--- the "mapped" flag "forbids" block to be resized
 	or [esi].MEMITEM.flags, HDLF_MAPPED
 
 	cmp [esp].PUSHADS._AL,08	;is it int 31h, ax=508?
@@ -1386,7 +1389,7 @@ nextscan:
 	mov ebx,offset pMemItems
 	jmp nexthandle
 freememory_1:
-	test byte ptr [ebx].MEMITEM.flags,HDLF_ALLOC
+	test [ebx].MEMITEM.flags,HDLF_ALLOC
 	jz nexthandle
 	cmp byte ptr [ebx].MEMITEM.owner,cl
 	jnz nexthandle

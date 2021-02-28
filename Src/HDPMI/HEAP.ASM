@@ -121,7 +121,7 @@ endif
 	mov ebx,eax
 	xor eax,eax
 	@dprintf "allocmemhandle: new handle allocated: %lX",ebx
-	mov [ebx].MEMITEM.flags,ax
+	mov [ebx].MEMITEM.flags,al
 @@:
 	pop eax
 	pop ecx
@@ -129,7 +129,7 @@ endif
 allocmemhandle1:
 	push eax
 	xor eax,eax
-	mov [ebx].MEMITEM.flags,ax
+	mov [ebx].MEMITEM.flags,al
 	xchg [ebx].MEMITEM.pNext,eax
 	mov pFreeMemItems, eax
 	@dprintf "allocmemhandle: could use a free mem handle: %lX",ebx

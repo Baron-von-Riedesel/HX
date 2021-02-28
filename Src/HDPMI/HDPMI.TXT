@@ -532,7 +532,7 @@
    "write through" and "cache disabled". OTOH, function int 31h, AX=800h
    will NOT set those flags. Int 31h, AX=509h (map conventional memory) 
    will copy PTEs, so the destination region will become a clone of the
-   source region, with any UMBs mapped in.
+   source region, with UMBs mapped.
 
    Some privileged opcodes are emulated (this feature is not active if
    cmdline option -s ['safe' mode] is given):

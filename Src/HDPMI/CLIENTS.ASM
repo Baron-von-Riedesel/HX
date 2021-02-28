@@ -126,7 +126,7 @@ ife ?USESYSSPACE2
 	mov cl, HDLF_COMMIT
 	call _AllocMem
 	jc exit2
-	mov edi,[ebx].HDLELM.dwBase
+	mov edi,[ebx].MEMITEM.dwBase
 else
 	shr ecx,12			;bytes -> pages
 	inc ecx

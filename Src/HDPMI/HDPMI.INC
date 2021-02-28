@@ -618,15 +618,15 @@ TSSSEG ends
 ;--- client memory item struct
 ;--- used by heap.asm and I31mem.asm
 
-MEMITEM struct
+MEMITEM struct 4
 pNext	dd  ?			; points to next element (must be first)
 dwBase  dd  ?			; linear address
 dwSize	dd  ?			; size (in pages)
-flags	dw  ?			; flags (see HDLF_xxx)
+flags	db  ?			; flags (see HDLF_xxx)
 owner	dw  ?			; owner (just no of current client)
 MEMITEM ends
 
-;------------------------ values of flags in HDLELM
+;------------------------ values of flags in MEMITEM
 
 HDLF_ALLOC  equ 01h     ; 0=block free, 1=block allocated
 HDLF_COMMIT equ 02h     ; was originally allocated as committed block

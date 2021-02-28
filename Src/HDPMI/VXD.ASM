@@ -261,7 +261,7 @@ endif
 			mov edx,ecx
 			mov cl,0			;no commit
 			call _AllocMem		;pages in edx, flags in cl
-			mov eax,[ebx].HDLELM.dwBase
+			mov eax,[ebx].MEMITEM.dwBase
 		.endif
 		.if (CARRY?)
 			mov eax,-1
