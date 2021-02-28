@@ -1282,6 +1282,40 @@ failed2:
 	ret
 chk2f168a endp
 
+print_caps proc
+	@printf <"capabilities: %x [">, bx
+	test bl,1
+	jz @F
+	@printf <"paged_acc/dirty ">
+@@:
+	test bl,2
+	jz @F
+	@printf <"exc_restartability ">
+@@:
+	test bl,4
+	jz @F
+	@printf <"dev_mapping ">
+@@:
+	test bl,8
+	jz @F
+	@printf <"conv_mem_mapping ">
+@@:
+	test bl,16
+	jz @F
+	@printf <"demand_zero-fill ">
+@@:
+	test bl,32
+	jz @F
+	@printf <"write-prot_client ">
+@@:
+	test bl,64
+	jz @F
+	@printf <"write-prot_host ">
+@@:
+	@printf <"]",lf>
+	ret
+print_caps endp
+
 ;*** main for protected-mode 
 
 do_protmode proc
@@ -1421,8 +1455,8 @@ do_protmode proc
 	movzx cx, buffer+1
 	lea si, buffer+2
 	@printf <"vendor: %s, version: %u.%u",lf>, si, ax, cx
-	pop ax
-	@printf <"capabilities: %x",lf>, ax
+	pop bx
+	call print_caps
 no401:
 	call chk2f168a
 
