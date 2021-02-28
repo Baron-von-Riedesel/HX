@@ -1172,7 +1172,11 @@ endm
   endif
   for arg, <a11,a10,a9,a8,a7,a6,a5,a4,a3,a2,a1>
    ifnb <arg>
-	push arg
+	if type arg eq 1
+	 push word ptr arg
+	else
+	 push arg
+	endif
    endif
   endm
 	call _stroutx

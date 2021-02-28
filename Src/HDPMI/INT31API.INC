@@ -121,10 +121,9 @@ i31f0E proto near
 
 ;_getspecaddrspace proto near ;alloc specific address space
 _freeclientmemory proto near 
-ife ?32BIT
-_AllocMem proto near
+ife ?USESYSSPACE2
+_AllocMemEx proto near    
 endif
-;_AllocMemEx proto near    
 
 if ?DPMI10
 _TEXT32 segment dword ?USE32 public 'CODE'

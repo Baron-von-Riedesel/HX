@@ -385,6 +385,7 @@ endif
 	popad
 	xor cx,cx
 	xor dx,dx
+;--- todo: check CR0.WP bit and set flag DPMI10_WRITEPROTHOST accordingly
 	mov ax,HOSTCAPS
 	cmp cs:dpmi5functions,5
 	jnc @F
@@ -393,7 +394,7 @@ endif
 	clc
 	ret
 endif
-func08:                                 ;map real -> virt
+func08: 				;map real -> virt
 	pop ebx
 if ?DPMI10
 	cmp al,1

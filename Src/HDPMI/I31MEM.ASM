@@ -253,7 +253,7 @@ checksize proc
 	test eax,0FFF00000h	;max is 0FFFFF pages (4096 MB - 4kB)
 	jnz _errret
 	ret
-_errret::
+_errret:
 	stc
 	ret
 	align 4
@@ -265,26 +265,20 @@ checksize endp
 ;--- alloc memory, committed or uncommitted
 ;--- called by int 31h, ax=501h and ax=504h (if ebx==0)
 ;--- EAX=bytes
-;--- CL = type (committed?)
+;--- CL = PTE flags (un/committed?)
+;--- out: EBX=handle
+;--- modifies eax, edx and ebx
 
 _AllocMemEx proc
 
 	call checksize		;get size in pages in EDX
-	jc _errret
+	jc error
 	push ss
 	pop ds
 	assume ds:GROUP16
 
-_AllocMemEx endp				;<--- fall thru
-
-;*** general memory allocator
-;*** inp: pages in EDX
-;***      flags in CL
-;***      DS=GROUP16
-;*** out: EBX=handle
-;*** modifies eax, edx and ebx
-
-_AllocMem proc
+;_AllocMemEx endp		;<--- fall thru
+;_AllocMem proc
 
 	push ecx
 	@dprintf "AllocMem: request for %lX pages, flags=%X", edx, cx
@@ -322,7 +316,8 @@ error:
 	ret
 	align 4
 
-_AllocMem endp
+;_AllocMem endp
+_AllocMemEx endp
 
 
 ;*** functions int 31h, ax=05xxh
@@ -494,6 +489,7 @@ endif
 _freememint endp	;fall through
 
 ;--- internal function: free EBX external handle
+;--- used by int 31h, ax=502h and ax=801h
 
 _freememintEx proc
 	pushad
@@ -579,6 +575,8 @@ freemem proc public
 	pop ebx
 if _LTRACE_
 	jnc @F
+	push ebx
+	push ecx
   if ?32BIT
 	mov cx,[esp+3*4].IRETS.rCS
 	mov ebx,[esp+3*4].IRETS.rIP
@@ -587,8 +585,9 @@ if _LTRACE_
 	movzx ebx,[esp+3*4].IRETS.rIP
   endif
 	@dprintf "freemem: free mem block FAILED, handle %X%X, CS:(E)IP=%X:%lX",si,di,cx,ebx
-
 ;	call displayhdltab
+	pop ecx
+	pop ebx
 @@:
 endif
 	ret
@@ -643,8 +642,11 @@ endif
 ;--- eax=new size in bytes
 ;--- ebx=handle
 ;--- ebp, bit 0: commit block
+;--- esp -> PUSHAD struct of caller registers
 ;--- out: new handle in eax
 ;--- old base in edi (+ old size in esi if block has moved)
+;--- if the size increases, the base address may change.
+;--- if the size decreases, the base address never changes.
 
 	@ResetTrace
 
@@ -660,7 +662,9 @@ _resizememint proc
 
 	test [ebx].MEMITEM.flags,HDLF_ALLOC	;don't resize free blocks
 	jz resizememerr5
-	test [ebx].MEMITEM.flags,HDLF_MAPPED	;todo: explain why this flag prohibits resizing
+
+;--- the "mapped" flag indicates a region allocated thru int 31h, ax=800h
+	test [ebx].MEMITEM.flags,HDLF_MAPPED
 	jnz resizememerr6
 
 	cmp edx,[ebx.MEMITEM.dwSize];what is to be done?
@@ -759,8 +763,8 @@ resizemem2:
 	mov edx,[ebx].MEMITEM.dwBase
 	mov eax,[esi].MEMITEM.dwBase
 	@dprintf "resizemem: moving PTEs, old=%lX, size=%lX, new=%lX", eax, ecx, edx
-	call _MovePTEs				;move PTEs from eax to edx, size ecx
-	@dprintf "resizemem: PTE moved"
+	call pm_MovePTEs				;move PTEs from eax to edx, size ecx
+	@dprintf "resizemem: PTEs moved"
 	push ebx
 	mov ebx, esi
 	mov esi, [ebx].MEMITEM.dwSize	;get old size in ESI
@@ -787,7 +791,7 @@ resizememerr3:	;new address space cannot be allocated
 resizememerr2:	;address space cannot be enlarged
 resizememerr4:	;invalid handle
 resizememerr5:	;free block (handle was released previously)
-resizememerr6:	;mapped flag set - why?
+resizememerr6:	;mapped flag set
 resizememerr0:	;error allocating new handle
 resizememerr7:	;new size invalid
 	@dprintf "resizemem: error ,ebx=%lX",ebx
@@ -1148,7 +1152,11 @@ mapx proc
 	popad
 
 ;--- the "mapped" flag "forbids" block to be resized
+;--- v3.19: since this flag's purpose is to prohibit resizing,
+;--- it's no longer set for functions 508/509.
+if 0
 	or [esi].MEMITEM.flags, HDLF_MAPPED
+endif
 
 	cmp [esp].PUSHADS._AL,08	;is it int 31h, ax=508?
 	jnz ax509

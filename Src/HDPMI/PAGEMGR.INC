@@ -9,7 +9,7 @@ _CommitRegionZeroFill proto near	;commit region EAX, size ECX and clear it
 _Linear2PT			proto near		;get page table addr of linear addr
 _getpageattributes	proto near		;get page flags for a region
 _setpageattributes	proto near		;set page flags for a region
-_MovePTEs			proto near		;move PTEs between address spaces
+pm_MovePTEs			proto near		;move PTEs between address spaces
 _AllocUserPages		proto near		;alloc memory in user address region
 _AllocSysPages		proto near		;alloc memory in sysreg 0 (user,r/w)
 _AllocSysPagesX		proto near		;alloc memory in sysreg 0 (system,r/w)

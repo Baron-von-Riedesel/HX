@@ -1825,7 +1825,7 @@ _UncommitRegion endp
 ;--- edx = lin addr of new block
 ;--- ecx = size in pages (may be 0)
 
-_MovePTEs proc public uses es esi edi ebx
+pm_MovePTEs proc public uses es esi edi ebx
 	push byte ptr _FLATSEL_
 	pop es
 	@dprintf "MovePTEs: mov %lX pages from %lX to %lX",ecx,eax,edx
@@ -1857,7 +1857,7 @@ _MovePTEs proc public uses es esi edi ebx
 ;	@dprintf "MovePTEs: exit"
 	ret
 	align 4
-_MovePTEs endp
+pm_MovePTEs endp
 
 	@ResetTrace
 

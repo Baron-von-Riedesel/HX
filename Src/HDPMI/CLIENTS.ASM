@@ -120,11 +120,9 @@ _saveclientstate proc public
 	call _getsavelength
 	@dprintf "saveclientstate: total size of data to save=%lX", ecx
 ife ?USESYSSPACE2
-	mov edx, ecx
-	shr edx,12			;bytes -> pages
-	inc edx
+	mov eax, ecx
 	mov cl, HDLF_COMMIT
-	call _AllocMem
+	call _AllocMemEx
 	jc exit2
 	mov edi,[ebx].MEMITEM.dwBase
 else
