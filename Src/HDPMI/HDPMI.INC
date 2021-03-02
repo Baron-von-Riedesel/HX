@@ -125,6 +125,7 @@ endif
 ?NOINVLPG		equ 0	;std 0: 1=optionally disable INVLPG usage
 ?SETEXCHS		equ 1	;std 1: 1=set exception host stack value
 ?CHECKHOSTSTACK	equ 1	;std 1: 1=detect host stack exhaustion (in host reentries)
+?CHECKLPMS		equ 1	;std 1: 1=detect LPMS exhaustion; v3.19
 ?RESTRICTMEM	equ 0ffffh	;std=0ffffh - free page restriction is 256MB, 0 disables
 
 if ?DPMI10EXX
@@ -365,6 +366,9 @@ if ?CHECKHOSTSTACK
 _EAERR5_  equ 0005H			; host stack exhausted
 endif
 _EAERR6_  equ 0006H 		; PSP error on getpspsel (helper.asm)
+if ?CHECKLPMS
+_EAERR7_  equ 0007H 		; LPMS out of space
+endif
 if ?TRAPINT06RM
 _EAERR8_  equ 0008H 		; exception 06 in real mode
 endif

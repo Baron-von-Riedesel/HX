@@ -1805,6 +1805,9 @@ lpms_call_exc proc
 	movzx edi,di
 @@:
 	sub edi,sizeof DPMIEXC
+if ?CHECKLPMS
+	jbe _exitclientEx7
+endif
 
 lpms_ce_2:
 	mov ds,eax
@@ -5089,6 +5092,13 @@ closeinterrupts endp
 ;--- exit a client, possibly exit server as well
 
 ?ALWAYSRESTORE	equ 1	;restore task state always (a dummy task state exists)
+
+if ?CHECKLPMS
+_exitclientEx7:
+	@dprintf "lpms_call_exc: LPMS out of space, edi=%lX, fatal exit", edi
+	mov ax,_EAERR7_
+	jmp _exitclientEx
+endif
 
 if ?CHECKHOSTSTACK
 _exitclientEx5 proc public
