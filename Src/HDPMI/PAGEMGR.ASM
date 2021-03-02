@@ -340,14 +340,15 @@ found:
 checkpt endp
 
 ;--- search a region of physical pages in linear address space
+;--- called by int 31h, ax=800h
 ;--- edx=physical address start
 ;--- eax=size in pages
 ;--- out: NC: found, eax=linear address
 ;--- else C, all preserved
 
-_searchphysregion proc public uses ds
+pm_searchphysregion proc public uses ds
 	pushad
-	@dprintf "searchphysregion: addr=%lX,pages=%lX",edx,eax
+	@dprintf "pm_searchphysregion: addr=%lX,pages=%lX",edx,eax
 
 	mov edi,eax 			;search in spaces already mapped
 	push byte ptr _FLATSEL_
@@ -368,7 +369,7 @@ error:
 	popad
 	ret
 	align 4
-_searchphysregion endp
+pm_searchphysregion endp
 
 ;*** helper for DPMI functions 0800h, 0508h
 ;*** map a physical address region into linear address space
@@ -3103,11 +3104,16 @@ endif
 	mov cr3,eax
 	@dprintf "pm_createvm: new value for CR3 set"
 
-;--- new page dir is set and mapped, but the address space isn't reserved yet
+;--- new page dir is set, but the address space isn't reserved yet
 
 ;	mov eax, SysAddrDown
 	mov eax, ?SYSAREA1 - 1000h
 	mov pPageDir, eax
+
+;--- v3.19: reset user bit for mapped page dir;
+;--- prevents this linaddr to be found by pm_searchphysregion (int 31h, ax=800h)
+	and bl,NOT PTF_USER
+
 	mov es:[?PTSYSAREA0 + 0FFCh], ebx	; map page dir at FFBFF000h
 
 ;--- now reinit pPageTab0

@@ -572,24 +572,18 @@ freemem proc public
 	push di
 	pop ebx
 	call _freememintEx
-	pop ebx
 if _LTRACE_
 	jnc @F
-	push ebx
-	push ecx
   if ?32BIT
-	mov cx,[esp+3*4].IRETS.rCS
 	mov ebx,[esp+3*4].IRETS.rIP
   else
-	mov cx,[esp+3*4].IRETS.rCS
 	movzx ebx,[esp+3*4].IRETS.rIP
   endif
-	@dprintf "freemem: free mem block FAILED, handle %X%X, CS:(E)IP=%X:%lX",si,di,cx,ebx
+	@dprintf "freemem: free mem block FAILED, handle %X%X, cs:eip=%X:%lX",si,di,[esp+4*4].IRETS.rCS,ebx
 ;	call displayhdltab
-	pop ecx
-	pop ebx
 @@:
 endif
+	pop ebx
 	ret
 	align 4
 freemem endp
@@ -1311,7 +1305,7 @@ if 1
 	shr eax,12
 endif
 
-	call _searchphysregion	;search region EDX, size EAX (pages)
+	call pm_searchphysregion	;search region EDX, size EAX (pages)
 	jnc found
 	xor ebx, ebx
 	mov ecx, eax
