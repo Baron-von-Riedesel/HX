@@ -4576,7 +4576,9 @@ endif
 	mov wLDTLimit, 0
 	mov rmsels,0			;just to be sure
 	mov al,-2
+if ?INTRM2PM
 	mov int96hk.bInt, al	;do not hook int 96/int 2F
+endif
 	mov int2Fhk.bInt, al	
 	mov eax, pdGDT.dwBase
 	add eax, _TSSSEL_

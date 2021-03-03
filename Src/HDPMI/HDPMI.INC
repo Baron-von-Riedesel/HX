@@ -65,7 +65,9 @@ endif
 						; functions 31h, ax=0200/0201 for internal rm cbs
 ?INTRM2PM		equ 1	;std=1, use a real-mode int to protect switch to
 						;protected mode (int 96h)
+if ?INTRM2PM
 ?XRM2PM 		equ 96h	;std=96h, real-mode to prot-mode int no
+endif
 ?GUARDPAGE0		equ 1	;std=1, optionally guard page 0 access (HDPMI=1);
 ?DYNTLBALLOC	equ 1	;std=1, 1=alloc a temp 64 kB TLB for int 21, ah=3f/40
 ?SETRMIOPL		equ 0	;std=0, 1=set IOPL for real mode (not needed)

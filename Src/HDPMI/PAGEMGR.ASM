@@ -3009,6 +3009,10 @@ nohmamapping:
 	mov edi, ?TEMPBASE
 	lodsd				;get PDE for SA1 (= 3FC000 )
 	stosd
+if 0
+;--- protect page mapping region FFC00000h. drawback: slows-down host
+	and al,not PTF_USER
+endif
 	mov [ebx+?SYSTEMSPACE+4],eax
 	@dprintf "pm_createvm: new PDE for FFC00000=%lX",eax
 

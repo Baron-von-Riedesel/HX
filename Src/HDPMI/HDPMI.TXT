@@ -765,7 +765,7 @@
      on a switch to a lower privilege level if the D bit of the destination
      ring SS descriptor is not set (16-bit stack). Some 32-bit DPMI clients 
      which (temporarily) use a 16-bit stack aren't aware of this potential
-     problem, among these are apps written with the DOS4G extender.
+     problem, among these are apps written with the DOS/4G extender.
   þ  A client can allocate up to 16 real-mode callbacks. 
 
 
@@ -782,10 +782,15 @@
 
  8. Known Problems / Hints
 
-  þ DOS4G(W) may require option -i or environment variable HDPMI=1 to be
-    set. This most often is the case if the DOS-extended application uses
-    sound. Generally, setting this option should be the first thing to do
-    if a client doesn't run with HDPMI.
+  þ The DOS/4G(W) DOS-extender will crash in XMS mode if it isn't loaded
+    in an EMB that starts below the 16 MB barrier. That's why it usually
+    isn't very compatible with other extenders, including HDPMI ( even if
+    the HDPMI instance is disabled ). To overcome this issue one can use
+    a compatible extender like DOS32A or run DOS/4G(W) as VCPI client. 
+    OTOH, DOS/4G(W) programs may run under HDPMI. They may require option -i
+    or environment variable HDPMI=1 to be set. This most often is the case
+    if the DOS-extended application uses sound. Generally, setting this option
+    should be the first thing to do if a client doesn't run with HDPMI.
 
   þ Some DOS extenders will prefer to use a VCPI host over DPMI and thus
     ignore an installed copy of HDPMI. Usually there is a way to make them

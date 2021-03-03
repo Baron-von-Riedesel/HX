@@ -1187,7 +1187,7 @@ if ?SUPPDISABLE
 IsHDPMIDisabled proc uses es
 	call IsHDPMIRunning		;find a running instance of HDPMI
 	jnc nothidden			;jump if a running instance found
-if 0
+ife ?INTRM2PM
 	mov ax,5802h			;get umb link status
 	int 21h
 	xor ah,ah
