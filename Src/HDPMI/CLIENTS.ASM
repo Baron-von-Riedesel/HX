@@ -121,6 +121,7 @@ _saveclientstate proc public
 	@dprintf "saveclientstate: total size of data to save=%lX", ecx
 ife ?USESYSSPACE2
 	mov eax, ecx
+	xor ebx,ebx
 	mov cl, 1;HDLF_COMMIT
 	call _AllocMemEx
 	jc exit2

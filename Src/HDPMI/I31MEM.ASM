@@ -244,6 +244,7 @@ _uncommitblock endp
 
 checksize proc
 
+if 0
 	xor edx, edx
 	test ax,0FFFh
 	setnz dl
@@ -252,6 +253,14 @@ checksize proc
 	jz _errret			;size 0 is error
 	test eax,0FFF00000h	;max is 0FFFFF pages (4096 MB - 4kB)
 	jnz _errret
+else
+	add eax,1000h-1		;sizes > fffff000h are invalid
+	jc _errret
+	shr eax,12
+	jz _errret			;size 0 is invalid
+	mov edx,eax
+	clc
+endif
 	ret
 _errret:
 	stc
@@ -263,31 +272,34 @@ checksize endp
 	@ResetTrace
 
 ;--- alloc memory, committed or uncommitted
-;--- called by int 31h, ax=501h and ax=504h (if ebx==0)
-;--- EAX=bytes
+;--- called by int 31h, ax=501h and ax=504h
+;--- EAX= size in bytes
+;--- EBX= requested address or 0
 ;--- CL = bit 0 -> un/committed
-;--- out: EBX=handle
+;--- out: NC, EBX=handle
+;---       C, AX=error
 ;--- modifies eax, edx and ebx
 
 _AllocMemEx proc
 
-	call checksize		;get size in pages in EDX
-	jc error
 	push ss
 	pop ds
+	call checksize		;get size in pages in EDX
+	jc err8021
 	assume ds:GROUP16
 
 ;_AllocMemEx endp		;<--- fall thru
 ;_AllocMem proc
 
-	push ecx
 	@dprintf "AllocMem: request for %lX pages, flags=%X", edx, cx
+	push ecx
 	mov ecx,edx
-	xor ebx,ebx
+;	xor ebx,ebx
 	call _getspecaddrspace
-	jc error
+	pop ecx
+	jc err8012
 	mov ebx, eax
-	test byte ptr [esp],1;HDLF_COMMIT
+	test cl,1		;committed memory?
 	jz done
 
 ;--- v3.19: HDLF_COMMIT bit in MEMITEM.flags is obsolete
@@ -296,7 +308,7 @@ _AllocMemEx proc
 
 	@dprintf "AllocMem: commit %lX pages for base %lX", [ebx.MEMITEM.dwSize], [ebx.MEMITEM.dwBase]
 	call _commitblock
-	jc error2
+	jc err8013
 if _LTRACE_
 	mov eax, [ebx].MEMITEM.dwBase
 	push es
@@ -308,14 +320,17 @@ if _LTRACE_
 endif
 done:
 	@dprintf "AllocMem: request successful, handle=%lX, base=%lX", ebx, [ebx.MEMITEM.dwBase]
-	pop ecx
 	ret
-error2:
+err8013:
 	call _freememint
-error:
-	@dprintf "AllocMem: request failed"
-	pop ecx
+	mov ax,8013h
 	stc
+	ret
+err8012:
+	mov ax,8012h
+	ret
+err8021:
+	mov ax,8021h
 	ret
 	align 4
 
@@ -424,6 +439,7 @@ allocmem proc public
 	pop eax		;size -> EAX
 	@dprintf "allocmem: bx:cx=%X:%X", bx, cx
 	mov cl, 1;HDLF_COMMIT
+	xor ebx,ebx
 	call _AllocMemEx
 	jc error1
 	@dprintf "allocmem: no error, ebx=%lX, base=%lX", ebx, [ebx].MEMITEM.dwBase
@@ -441,7 +457,10 @@ endif
 	mov [esp].PUSHADS.rBX, dx
 	mov [esp].PUSHADS.rSI, ax
 	clc
+	popad
+	ret
 error1:
+	mov [esp].PUSHADS.rAX, ax
 	popad
 	ret
 	align 4
@@ -861,37 +880,12 @@ allocmemx proc public
 
 	pushad
 	@dprintf "allocmemx: linear memory request, ebx=%lX, ecx=%lX, dx=%X", ebx, ecx, dx
-	and ebx, ebx
-	jz anyaddress
 	test bx,0FFFh
 	jnz error8025
-	push ss
-	pop ds
-	push edx
 	mov eax, ecx
-	call checksize
-	mov ecx, edx
-	pop edx
-	jc error8021
-	call _getspecaddrspace	 ;get addr space base=EBX,size=ECX
-	jc error8012
-	mov ebx, eax
-	test dl, 1
-	jz done
-	@dprintf "allocmemx: commit block %lX pages", [ebx.MEMITEM.dwSize]
-	call _commitblock
-	jnc done
-	jmp error8013
-anyaddress: 					;EBX=0
-	mov eax, ecx
-	mov cl,1;HDLF_COMMIT
-	test dl,1
-	jnz @F
-	mov cl,0
-@@:
-	call _AllocMemEx		;modifies EBX
-	jc errorX
-done:
+	mov cl,dl			;bit 0: 1=committed
+	call _AllocMemEx
+	jc error
 	mov eax, [ebx.MEMITEM.dwBase]
 	mov [esp].PUSHADS.rEBX, eax
 ife ?ADDRISHANDLE
@@ -899,25 +893,10 @@ ife ?ADDRISHANDLE
 endif
 	mov [esp].PUSHADS.rESI, eax
 	popad
-	clc
 	ret
-errorX:
+error:
+	mov [esp].PUSHADS.rAX, ax
 	popad
-	stc
-	ret
-error8012:
-	popad
-	mov ax,8012h
-	ret
-error8013:
-	call _freememint
-	popad
-	mov ax,8013h
-	stc
-	ret
-error8021:
-	popad
-	mov ax,8021h
 	ret
 error8025:
 	popad
