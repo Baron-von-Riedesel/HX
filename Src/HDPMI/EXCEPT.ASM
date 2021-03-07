@@ -331,7 +331,7 @@ if ?KDSUPP
 	mov al, fDebug
 	mov savedfDebug, al
 endif
-	and fMode2, not FM2_NOLOG	;enable displays in case they were suppressed
+	or fMode2, FM2_LOG	;enable displays in case they were suppressed
 endif
 ;--- dump exception number
 

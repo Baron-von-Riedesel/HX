@@ -115,4 +115,14 @@
 
   þ support for INT 24h is not fully implemented. The stack frame
     does not contain the registers pushed by DOS.
-  
+
+
+ 4. HDPMI Debug Version
+ 
+  The debug version has an additional cmdline option:
+ 
+   -z: toggles log writing
+
+  The log writing can be enabled/disabled dynamically by calling
+  int 31h, ax=0A00h, dx=0 (disables log) or dx=-1 (enables log).
+

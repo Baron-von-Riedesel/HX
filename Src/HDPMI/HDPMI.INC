@@ -422,7 +422,7 @@ FM2_FORCETEXT	equ 10h ;-k: force text mode when displaying register dump
 FM2_NOINVLPG	equ 20h ;don't use invlpg (80386 or option -g)
 FM2_RESTRMEM	equ 40h ;restrict free memory reported to client to 256MB
 ifdef _DEBUG
-FM2_NOLOG		equ 80h ;suppress log file writing
+FM2_LOG			equ 80h ;log file writing enabled
 endif
 
 ;--- flags in bEnvFlags (low byte of environment variable HDPMI)
@@ -635,8 +635,8 @@ MEMITEM ends
 ;------------------------ values of flags in MEMITEM
 
 HDLF_ALLOC  equ 01h     ; 0=block free, 1=block allocated
-HDLF_COMMIT equ 02h     ; was originally allocated as committed block
-HDLF_MAPPED equ 04h     ; is a mapped physical area
+;HDLF_COMMIT equ 02h     ; obsolete by now, was: allocated as committed block
+HDLF_MAPPED equ 04h     ; allocated thru int 31h, ax=800h (mapped physical area)
 
 ;--- CR0 flags
 

@@ -14,6 +14,8 @@
     it copies PTEs, which was the intention.
   þ fixed int 31h, ax=503h/505h: resizing was rejected if block contained
     "mapped" pages (included thru functions 508h/509h).
+  þ fixed int 31h, ax=503h/505h: resizing may have failed if the block's
+    address space was previously used to map a device (int 31h, ax=800h).
   þ DPMI function 0Eh (get coprocessor state): a 80487 is returned
     instead of an 80387 if cpu is 80486+.
   þ CR0.NE flag is no longer modified; that makes cmdline option -t 

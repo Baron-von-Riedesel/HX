@@ -246,8 +246,8 @@ endif
 _putchrx proc public
 
 ifdef _DEBUG
-	test ss:fMode2,FM2_NOLOG
-	jnz _ret
+	test ss:fMode2,FM2_LOG
+	jz _ret
 endif
 	push es
 	pushad

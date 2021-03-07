@@ -335,7 +335,11 @@ wSegTLB	dw 0				;defined here so this variable can be
 		dw 0				;accessed by another host instance
 cApps	db 0				;number of clients
 fMode	db 0				;flags (FM_xxx)
+ifdef _DEBUG
+fMode2	db FM2_LOG
+else
 fMode2	db 0				;more flags (FM2_xxx)
+endif
 
 ;--- IDT (vectors 00-7F only)
 ;--- the IDT usually is moved to extended memory

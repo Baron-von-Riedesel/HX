@@ -1876,7 +1876,7 @@ switchlog:
 	pop ds
 	retn
 @@:
-	xor fMode2, FM2_NOLOG
+	xor fMode2, FM2_LOG
 	pop ds
 	retn
 endif

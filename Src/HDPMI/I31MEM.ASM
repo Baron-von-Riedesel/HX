@@ -265,7 +265,7 @@ checksize endp
 ;--- alloc memory, committed or uncommitted
 ;--- called by int 31h, ax=501h and ax=504h (if ebx==0)
 ;--- EAX=bytes
-;--- CL = PTE flags (un/committed?)
+;--- CL = bit 0 -> un/committed
 ;--- out: EBX=handle
 ;--- modifies eax, edx and ebx
 
@@ -287,10 +287,13 @@ _AllocMemEx proc
 	call _getspecaddrspace
 	jc error
 	mov ebx, eax
-	test byte ptr [esp],HDLF_COMMIT
+	test byte ptr [esp],1;HDLF_COMMIT
 	jz done
-	test [ebx].MEMITEM.flags, HDLF_COMMIT
-	jnz done
+
+;--- v3.19: HDLF_COMMIT bit in MEMITEM.flags is obsolete
+;	test [ebx].MEMITEM.flags, HDLF_COMMIT
+;	jnz done
+
 	@dprintf "AllocMem: commit %lX pages for base %lX", [ebx.MEMITEM.dwSize], [ebx.MEMITEM.dwBase]
 	call _commitblock
 	jc error2
@@ -420,7 +423,7 @@ allocmem proc public
 	push cx
 	pop eax		;size -> EAX
 	@dprintf "allocmem: bx:cx=%X:%X", bx, cx
-	mov cl, HDLF_COMMIT
+	mov cl, 1;HDLF_COMMIT
 	call _AllocMemEx
 	jc error1
 	@dprintf "allocmem: no error, ebx=%lX, base=%lX", ebx, [ebx].MEMITEM.dwBase
@@ -447,8 +450,10 @@ allocmem endp
 
 ;*** search handle in handle list, used by freemem + resizemem
 ;*** inp: handle in ebx
-;*** out: handle in ebx, previous handle in eax
+;*** out: NC, handle in ebx, previous handle in eax
+;--- C if handle not found, ebx=0.
 ;*** changes eax, ds=GROUP16
+;--- used by freememint, resizememint, getsetpageattr, mapx, getmemsize
 
 searchhandle proc uses ecx
 
@@ -503,16 +508,20 @@ _freememintEx proc
 	mov edi,[ebx].MEMITEM.pNext		;save next block in EDI
 
 	call _uncommitblock
-	and [ebx].MEMITEM.flags,not HDLF_ALLOC
 
-	@dprintf "freememint: block released, handle=%lX, addr=%lX, size=%lX",\
-		ebx, [ebx].MEMITEM.dwBase, [ebx].MEMITEM.dwSize
+;--- v3.19: reset "mapped" flag - else resizing a memory block may fail under certain conditions;
+;--- see test case i3105033.asm.
+;	and [ebx].MEMITEM.flags,not HDLF_ALLOC
+	and [ebx].MEMITEM.flags,not (HDLF_ALLOC or HDLF_MAPPED)
+
+	@dprintf "freememint: block released, handle=%lX (addr=%lX size=%lX flgs=%X)",\
+		ebx, [ebx].MEMITEM.dwBase, [ebx].MEMITEM.dwSize, [ebx].MEMITEM.flags
 
 ;--- is next handle a free block?
 	test [edi].MEMITEM.flags,HDLF_ALLOC
 	jnz @F
-	@dprintf "freememint: next block is free, base=%lX, size=%lX",\
-		[edi].MEMITEM.dwBase, [edi].MEMITEM.dwSize
+	@dprintf "freememint: next block is free (base=%lX size=%lX flgs=%X)",\
+		[edi].MEMITEM.dwBase, [edi].MEMITEM.dwSize, [edi].MEMITEM.flags
 	mov ecx,[ebx].MEMITEM.dwSize
 	mov edx, ecx
 	shl edx, 12
@@ -532,8 +541,8 @@ _freememintEx proc
 	jz @F
 	test [esi].MEMITEM.flags, HDLF_ALLOC
 	jnz @F
-	@dprintf "freememint: previous block is free, base=%lX, size=%lX",\
-		[esi].MEMITEM.dwBase, [esi].MEMITEM.dwSize
+	@dprintf "freememint: previous block is free (base=%lX size=%lX flgs=%X)",\
+		[esi].MEMITEM.dwBase, [esi].MEMITEM.dwSize, [esi].MEMITEM.flags
 	mov edi,[esi].MEMITEM.pNext		;this next block is always free!
 	mov eax,[esi].MEMITEM.dwSize
 	shl eax, 12
@@ -633,10 +642,9 @@ moveblock endp
 endif
 
 ;--- internal function used by int 31h, ax=503h and ax=505h
-;--- eax=new size in bytes
+;--- in: eax=new size in bytes
 ;--- ebx=handle
 ;--- ebp, bit 0: commit block
-;--- esp -> PUSHAD struct of caller registers
 ;--- out: new handle in eax
 ;--- old base in edi (+ old size in esi if block has moved)
 ;--- if the size increases, the base address may change.
@@ -645,11 +653,11 @@ endif
 	@ResetTrace
 
 _resizememint proc
-	call checksize				;size in eax to edx (in pages)
+	call checksize				;convert byte_size in eax to page_size in edx
 	jc resizememerr7
 	call searchhandle			;search handle of memory block, sets DS to GROUP16
 	jc resizememerr4
-	@dprintf "resizemem: handle found (%lX,Base=%lX,Size=%lX,Flags=%X)",\
+	@dprintf "resizemem: handle found, %lX (base=%lX size=%lX flgs=%X)",\
 		 ebx,[ebx.MEMITEM.dwBase],[ebx.MEMITEM.dwSize],[ebx.MEMITEM.flags]
 
 	mov edi,[ebx].MEMITEM.dwBase	;save old base
@@ -718,9 +726,9 @@ resizemem3:
 	add edx,[eax.MEMITEM.dwBase]
 	mov [ebx.MEMITEM.dwBase], edx
 	or [ebx].MEMITEM.flags, HDLF_ALLOC
-	@dprintf "resizemem: changed hdl=%lX, nxt=%lX, base=%lX, size=%lX",\
+	@dprintf "resizemem: changed hdl=%lX (nxt=%lX base=%lX, size=%lX)",\
 		eax, [eax.MEMITEM.pNext], [eax.MEMITEM.dwBase], [eax.MEMITEM.dwSize]
-	@dprintf "resizemem: free block hdl=%lX, nxt=%lX, base=%lX, size=%lX",\
+	@dprintf "resizemem: free block hdl=%lX (nxt=%lX base=%lX size=%lX)",\
 		ebx, [ebx.MEMITEM.pNext], [ebx.MEMITEM.dwBase], [ebx.MEMITEM.dwSize]
 	call _freememint 			   ;release block in EBX
 	mov ebx,eax
@@ -768,12 +776,12 @@ resizemem2:
 done:
 	mov eax, ebx
 
-	@dprintf "resizemem: exit, handle=%lX,addr=%lX,size=%lX,flags=%X",\
+	@dprintf "resizemem: exit, handle=%lX (base=%lX size=%lX flgs=%X)",\
 		ebx,[ebx.MEMITEM.dwBase],[ebx.MEMITEM.dwSize],[ebx.MEMITEM.flags]
 if _LTRACE_
 	push ebx
 	mov ebx,[ebx.MEMITEM.pNext]
-	@dprintf "resizemem: next handle=%lX,addr=%lX,size=%lX,flags=%X",\
+	@dprintf "resizemem: next handle=%lX (base=%lX size=%lX flgs=%X)",\
 		ebx,[ebx.MEMITEM.dwBase],[ebx.MEMITEM.dwSize],[ebx.MEMITEM.flags]
 	pop ebx
 endif
@@ -876,7 +884,7 @@ allocmemx proc public
 	jmp error8013
 anyaddress: 					;EBX=0
 	mov eax, ecx
-	mov cl, HDLF_COMMIT
+	mov cl,1;HDLF_COMMIT
 	test dl,1
 	jnz @F
 	mov cl,0

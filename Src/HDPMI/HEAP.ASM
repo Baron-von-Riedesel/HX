@@ -190,8 +190,12 @@ nextitem:
 @@:
 	cmp [ebx].MEMITEM.pNext,0
 	jnz nextitem
-	test byte ptr [ebx].MEMITEM.flags,HDLF_ALLOC or HDLF_COMMIT
+
+;v3.19: HDLF_COMMIT in MEMITEM.flags is obsolete
+;	test byte ptr [ebx].MEMITEM.flags,HDLF_ALLOC or HDLF_COMMIT
+	test byte ptr [ebx].MEMITEM.flags,HDLF_ALLOC
 	jnz linkmemhandle_2
+
 	mov ecx,[ebx].MEMITEM.dwBase	;blocks contiguous?
 	mov edx,[ebx].MEMITEM.dwSize
 	shl edx,12
