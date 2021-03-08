@@ -1,7 +1,7 @@
  
  History HDPMI 
 
-  27.02.2021, version 3.19
+  08.03.2021, version 3.19
 
   þ fixed regression in v3.18: HDPMI32 & HDPMI16 couldn't be installed 
     simultaneously.
@@ -28,6 +28,7 @@
     the current screen resolution had 128 colums.
   þ added HDPMIST.EXE, to display status of currently running HDPMI hosts.
   þ exhaustion of locked protected-mode stack will exit with fatal error.
+  þ error codes returned in AX for int 31h, ax=503h/505h.
 
   08.09.2018, version 3.18
 

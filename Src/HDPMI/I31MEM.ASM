@@ -9,7 +9,7 @@
 	option proc:private
 
 ?ADDRISHANDLE	equ 1		;std=1, 1=handle is address of block
-?NEVERFREEMEM	equ 0		;std=0, 1=never free a memory block
+;?DONTFREEMEM	equ 0		;std=0, 1=don't free memory blocks
 
 ;--- extended structure for int 31h, ax=50bh
 MEMINFOX struct
@@ -32,8 +32,6 @@ _TEXT32  segment
 
 	@ResetTrace
 
-;*** adress space
-
 ;*** search/alloc a free address space
 ;*** IN: ECX=size in pages
 ;***     EBX=linear address (or any if ebx=NULL)
@@ -54,7 +52,7 @@ _getspecaddrspace proc public
 nextscan:
 	mov esi, offset pMemItems
 	jmp skipitem
-nexthandle:						   ;<----
+nexthandle:			;<----
 
 ;	@dprintf "_getspecaddrspace: hdl=%lX,nxt=%lX,base=%lX,siz=%lX,fl=%X",esi,\
 ;	[esi].MEMITEM.pNext,[esi].MEMITEM.dwBase,[esi].MEMITEM.dwSize,[esi].MEMITEM.flags
@@ -580,7 +578,8 @@ _freememintEx proc
 	clc
 	ret
 error:
-	@dprintf "freememint: error"
+	@dprintf "freememint: error, invalid handle"
+;	mov word ptr [esp].PUSHADS.rEAX, 80??
 	popad
 	stc
 	ret
@@ -684,9 +683,11 @@ _resizememint proc
 	test [ebx].MEMITEM.flags,HDLF_ALLOC	;don't resize free blocks
 	jz resizememerr5
 
+if ?ADDRISHANDLE
 ;--- the "mapped" flag indicates a region allocated thru int 31h, ax=800h
 	test [ebx].MEMITEM.flags,HDLF_MAPPED
 	jnz resizememerr6
+endif
 
 	cmp edx,[ebx.MEMITEM.dwSize];what is to be done?
 	jz done						;---> nothing, size doesnt change
@@ -806,16 +807,33 @@ if _LTRACE_
 endif
 	clc
 	ret
-resizememerr1:	;new block cannot be committed
-resizememerr3:	;new address space cannot be allocated
+resizememerr1:	;commit error (block growing), 8013
+resizememerr3:	;commit error (new block), 8013
 	call _freememint	;free (new) ebx block
-resizememerr2:	;address space cannot be enlarged
-resizememerr4:	;invalid handle
-resizememerr5:	;free block (handle was released previously)
-resizememerr6:	;mapped flag set
-resizememerr0:	;error allocating new handle
-resizememerr7:	;new size invalid
-	@dprintf "resizemem: error ,ebx=%lX",ebx
+	@dprintf "resizemem: error 8013"
+	mov ax,8013h
+	stc
+	ret
+resizememerr2:	;out of address space, 8012
+	@dprintf "resizemem: error 8012"
+	mov ax,8012h
+	stc
+	ret
+resizememerr4:	;handle not found, invalid handle, 8023
+resizememerr5:	;is a free block, handle already released, invalid handle, 8023
+resizememerr6:	;mapped flag set, invalid handle, 8023
+	@dprintf "resizemem: error 8023"
+	mov ax,8023h
+	stc
+	ret
+resizememerr0:	;error allocating new handle, 8010
+	@dprintf "resizemem: error 8010"
+	mov ax,8010h
+	stc
+	ret
+resizememerr7:	;new size invalid, 8021
+	@dprintf "resizemem: error 8021"
+	mov ax,8021h
 	stc
 	ret
 	align 4
@@ -844,7 +862,7 @@ resizemem proc public
 	pop ebx
 	mov ebp,1
 	call _resizememint
-	jc @F
+	jc error
 	mov edx, [eax].MEMITEM.dwBase
 if ?ADDRISHANDLE
 	mov eax, edx
@@ -856,7 +874,10 @@ endif
 	shr edx, 16
 	mov [esp].PUSHADS.rBX, dx
 	clc
-@@:
+	popad
+	ret
+error:
+	mov [esp].PUSHADS.rAX,ax
 	popad
 	ret
 	align 4
@@ -982,8 +1003,8 @@ endif
 	popad
 	ret
 error:
+	mov [esp].PUSHADS.rAX, ax
 	popad
-	stc
 	ret
 	align 4
 
@@ -1335,21 +1356,48 @@ mapphysregion endp
 
 if ?DPMI10
 
+ife ?ADDRISHANDLE
+searchaddr proc
+	push ss
+	pop ds
+	assume ds:GROUP16
+	mov ecx,ebx
+	mov eax, offset pMemItems
+	jmp @F
+nextitem:
+	cmp ecx,[ebx.MEMITEM.dwBase]
+	jz done
+	mov eax,ebx
+@@:
+	mov ebx,[eax.MEMITEM.pNext]
+	and ebx,ebx
+	jnz nextitem
+	stc
+done:
+	ret
+endif
+
 ;--- int 31h, ax=0801h, bx:cx=linear address of region to unmap
 
 unmapphysregion proc public
 
-	pushad
-	shl ebx, 16
-	mov bx, cx
+	push ebx
+	push bx
+	push cx
+	pop ebx
+	@dprintf "unmapphysregion: addr=%lX", ebx
 	and bx,0F000h		;v3.19: reset bits 0-11, else the handle wouldn't be found
+if ?ADDRISHANDLE
 	call _freememintEx
-if _LTRACE_
+else
+	pushad
+	call searchaddr
 	jc @F
-	@dprintf "unmapphysregion: unmap successfull"
+	call _freememintEx
 @@:
-endif
 	popad
+endif
+	pop ebx
 	ret
 	align 4
 
