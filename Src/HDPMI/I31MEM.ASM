@@ -36,25 +36,25 @@ _TEXT32  segment
 ;*** IN: ECX=size in pages
 ;***     EBX=linear address (or any if ebx=NULL)
 ;---     DS=GROUP16
-;*** OUT: NC + EAX=handle, else C
+;*** OUT: NC + EAX=handle, else C + AX=errorcode
 
 ;*** scans memory handle linked list for a
-;*** free object of requested size
+;*** free MEMITEM object of requested size;
 ;*** if none is found, calls pagemgr to
 ;*** create a new addr space
 
 	assume DS:GROUP16
 
-_getspecaddrspace proc public
+_allocaddrspace proc public
 
 	pushad
-	@dprintf "getspecaddrspace: req base=%lX, size=%lX", ebx, ecx
+	@dprintf "allocaddrspace: req base=%lX, size=%lX", ebx, ecx
 nextscan:
 	mov esi, offset pMemItems
 	jmp skipitem
 nexthandle:			;<----
 
-;	@dprintf "_getspecaddrspace: hdl=%lX,nxt=%lX,base=%lX,siz=%lX,fl=%X",esi,\
+;	@dprintf "_allocaddrspace: hdl=%lX,nxt=%lX,base=%lX,siz=%lX,fl=%X",esi,\
 ;	[esi].MEMITEM.pNext,[esi].MEMITEM.dwBase,[esi].MEMITEM.dwSize,[esi].MEMITEM.flags
 
 	test [esi].MEMITEM.flags,HDLF_ALLOC
@@ -67,12 +67,12 @@ nexthandle:			;<----
 ;---- we can decide here that the space is not free
 
 	cmp ebx, [esi].MEMITEM.dwBase
-	jb error
+	jb err8012
 
 	shl edx, 12
 	add edx, [esi].MEMITEM.dwBase	;get max address of block in edx
 
-	@dprintf "getspecaddrspace: hdl=%lX,base=%lX,end=%lX (req=%lX,siz=%lX)",esi,\
+	@dprintf "allocaddrspace: hdl=%lX,base=%lX,end=%lX (req=%lX,siz=%lX)",esi,\
 		[esi].MEMITEM.dwBase, edx, ebx, ecx
 
 	cmp ebx, edx					;is req. address in this block?
@@ -85,15 +85,15 @@ nexthandle:			;<----
 	mov eax,[esi].MEMITEM.pNext
 	and eax, eax
 	stc
-	jnz error						;no, so its an error
+	jnz err8012						;no, so its an error
 getnewspace:
 	mov eax, ecx					;get new addr space. this will
 	sub eax, edx					;increase the last block
 	call _AllocUserSpace			;get new address space, EAX pages
-	jc error
+	jc err8012
 	call _addmemhandle				;add adress space to list
-	jnc nextscan
-	jmp error
+	jc err8016
+	jmp nextscan
 nospec:
 	cmp edx,ecx						;size large enough?
 	jnc found1
@@ -117,14 +117,20 @@ skipitem:
 if 1
 	sub eax, [esi].MEMITEM.dwSize
 endif
-	@dprintf "getspecaddrspace: create addr space, size=%lX (%lX)",eax,ecx
+	@dprintf "allocaddrspace: create addr space, size=%lX (%lX)",eax,ecx
 	call _AllocUserSpace		;get new address space 
-	jc error
+	jc err8012
 	call _addmemhandle	;add adress space to list
 	jnc nextscan
-error:
-	@dprintf "getspecaddrspace: alloc failed"
+err8016:	;handle unavailable
+	@dprintf "allocaddrspace: failed, ax=8016"
 	popad
+	mov ax,8016h
+	ret
+err8012:	;linear memory unavailable
+	@dprintf "allocaddrspace: failed, ax=8012"
+	popad
+	mov ax,8012h
 	ret
 
 ;----------------- found a free area large enough for spec address
@@ -139,8 +145,8 @@ found:
 
 	mov edx,ebx
 	call _allocmemhandle ;get new handle in EBX
+	jc err8016
 	xchg edx, ebx		;new handle to EDX, ebx = req. base
-	jc error
 	push ecx
 	mov ecx, edx
 	xchg ecx, [eax].MEMITEM.pNext
@@ -152,14 +158,14 @@ found:
 	shr ebx, 12
 	mov [edx].MEMITEM.dwSize, ebx
 	sub [esi].MEMITEM.dwSize, ebx
-	@dprintf "getspecaddrspace: new free handle, handle=%lX,base=%lX,size=%lX",\
+	@dprintf "allocaddrspace: new free handle, handle=%lX,base=%lX,size=%lX",\
 		edx,[edx].MEMITEM.dwBase,[edx].MEMITEM.dwSize
-	@dprintf "getspecaddrspace: next free handle, handle=%lX,base=%lX,size=%lX",\
+	@dprintf "allocaddrspace: next free handle, handle=%lX,base=%lX,size=%lX",\
 		esi,[esi].MEMITEM.dwBase,[esi].MEMITEM.dwSize
 	mov eax, edx
 	pop ecx
 
-if _LTRACE_
+if 0;_LTRACE_
 ?DISPLAYHDLTAB equ 1
 	call displayhdltab
 endif
@@ -173,14 +179,14 @@ found1:
 	cmp ecx,[esi].MEMITEM.dwSize	;fully meets request
 	jz exit
 @@:
-;	@dprintf "_getspecaddrspace: new handle required"
+;	@dprintf "_allocaddrspace: new handle required"
 
 ;-------------------------------- allocate a new handle. this will be the
 ;-------------------------------- one we return
 
 	call _allocmemhandle ;get new handle in EBX
-	jc error
-;;	@dprintf "getspecaddrspace: new handle allocated"
+	jc err8016
+;;	@dprintf "allocaddrspace: new handle allocated"
 	mov [ebx].MEMITEM.dwSize, ecx
 	sub [esi].MEMITEM.dwSize, ecx
 	mov edx, [esi].MEMITEM.dwBase
@@ -197,7 +203,7 @@ if _LTRACE_
 endif
 
 exit:
-	@dprintf "getspecaddrspace: alloc ok, handle=%lX,addr=%lX,size=%lX",\
+	@dprintf "allocaddrspace: alloc ok, handle=%lX,addr=%lX,size=%lX",\
 		esi,[esi].MEMITEM.dwBase,[esi].MEMITEM.dwSize
 	or [esi].MEMITEM.flags, HDLF_ALLOC
 	movzx ax,byte ptr [cApps]
@@ -206,7 +212,7 @@ exit:
 	popad
 	ret
 	align 4
-_getspecaddrspace endp
+_allocaddrspace endp
 
 	@ResetTrace
 
@@ -293,9 +299,9 @@ _AllocMemEx proc
 	push ecx
 	mov ecx,edx
 ;	xor ebx,ebx
-	call _getspecaddrspace
+	call _allocaddrspace
 	pop ecx
-	jc err8012
+	jc error
 	mov ebx, eax
 	test cl,1		;committed memory?
 	jz done
@@ -324,8 +330,7 @@ err8013:
 	mov ax,8013h
 	stc
 	ret
-err8012:
-	mov ax,8012h
+error:	;_allocaddrspace failed (and set AX already to 8012/8016)
 	ret
 err8021:
 	mov ax,8021h
@@ -578,9 +583,9 @@ _freememintEx proc
 	clc
 	ret
 error:
-	@dprintf "freememint: error, invalid handle"
-;	mov word ptr [esp].PUSHADS.rEAX, 80??
 	popad
+	@dprintf "freememint: error, ax=8023h"
+	mov ax, 8023h
 	stc
 	ret
 	align 4
@@ -702,7 +707,7 @@ endif
 	shl eax, 12
 	add eax,[ebx.MEMITEM.dwBase]	;address for new pages to commit
 	mov ebx, eax
-	call _getspecaddrspace
+	call _allocaddrspace
 	jc resizemem2
 
 ;-------------- block grows and we successfully allocated a new block 
@@ -764,7 +769,7 @@ resizemem2:
 
 	xor ebx, ebx
 	mov ecx, edx
-	call _getspecaddrspace
+	call _allocaddrspace
 	jc resizememerr2				;error 'no more space'
 	@dprintf "resizemem: new address space allocated %lX",[eax].MEMITEM.dwBase
 	mov ebx, eax
@@ -814,9 +819,9 @@ resizememerr3:	;commit error (new block), 8013
 	mov ax,8013h
 	stc
 	ret
-resizememerr2:	;out of address space, 8012
-	@dprintf "resizemem: error 8012"
-	mov ax,8012h
+resizememerr2:	;_allocaddrspace failed (no handle/out of address space)
+	@dprintf "resizemem: error %X",ax
+;--- _allocaddrspace set AX already
 	stc
 	ret
 resizememerr4:	;handle not found, invalid handle, 8023
@@ -826,9 +831,9 @@ resizememerr6:	;mapped flag set, invalid handle, 8023
 	mov ax,8023h
 	stc
 	ret
-resizememerr0:	;error allocating new handle, 8010
-	@dprintf "resizemem: error 8010"
-	mov ax,8010h
+resizememerr0:	;error allocating new handle, 8016
+	@dprintf "resizemem: error 8016"
+	mov ax,8016h
 	stc
 	ret
 resizememerr7:	;new size invalid, 8021
@@ -1319,7 +1324,7 @@ endif
 	mov ecx, eax
 	push ss
 	pop ds
-	call _getspecaddrspace		;changes eax only
+	call _allocaddrspace		;changes eax only
 	jc error
 	or [eax].MEMITEM.flags, HDLF_MAPPED
 	mov eax,[eax.MEMITEM.dwBase]
@@ -1335,21 +1340,14 @@ found:
 	shr eax, 16
 	mov [esp].PUSHADS.rBX, ax
 	clc
-ife _LTRACE_
-error:
-endif
 	popad
 ;	or byte ptr [esp+2*4+2*4+1],1	;set client TF (debugging)
 	ret
-if _LTRACE_
 error:
-	@dprintf "mapphysregion: phys2lin failed"
-?DISPLAYHDLTAB equ 1
-	call displayhdltab
+	@dprintf "mapphysregion: error, ax=%X", ax
 	stc
 	popad
 	ret
-endif
 	align 4
 
 mapphysregion endp
@@ -1381,7 +1379,7 @@ endif
 
 unmapphysregion proc public
 
-	push ebx
+	pushad
 	push bx
 	push cx
 	pop ebx
@@ -1390,14 +1388,12 @@ unmapphysregion proc public
 if ?ADDRISHANDLE
 	call _freememintEx
 else
-	pushad
 	call searchaddr
 	jc @F
 	call _freememintEx
 @@:
-	popad
 endif
-	pop ebx
+	popad
 	ret
 	align 4
 

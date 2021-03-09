@@ -68,7 +68,10 @@ _enablea20 proto near16
 ;--- vxd
 
 checkvxd proto near
-_I2f168A proto near
+_I2f168A_Msdos proto near
+ifdef _DEBUG
+_I2f168A_HDPMI proto near
+endif
 _vxd_0001 proto near
 _vxd_0009 proto near
 _vxd_0017 proto near
@@ -216,7 +219,10 @@ vcpi_pmentry proto near
 externdef _RETCB_:abs
 externdef _RMSWT_:abs
 externdef _SRTSK_:abs
-externdef _I2F168A_:abs
+externdef _I2F168A_MSDOS:abs
+ifdef _DEBUG
+externdef _I2F168A_HDPMI:abs
+endif
 externdef _I2F1684_0001_:abs
 externdef _I2F1684_0009_:abs
 externdef _I2F1684_0017_:abs
@@ -371,7 +377,9 @@ externdef ltaskaddr:dword		;linear address next client data
 externdef pMemItems:dword		;start list of memory items
 ;externdef rmcbs:RMCB			;start client real-mode callbacks
 externdef rmsels:dword			;start real-mode selector list
+if ?SUPP32RTM
 externdef szVirtual:byte		;string "VIRTUAL SUPPORT"
+endif
 externdef pmstate:PMSTATE		;client pm segregs
 externdef v86iret:V86IRET		;client v86/real-mode segments
 externdef vcpiOfs:dword			;offset VCPI host entry

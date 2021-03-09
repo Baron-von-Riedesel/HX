@@ -123,6 +123,11 @@
  
    -z: toggles log writing
 
-  The log writing can be enabled/disabled dynamically by calling
-  int 31h, ax=0A00h, dx=0 (disables log) or dx=-1 (enables log).
+  It also supports DPMI API int 2Fh, ax=168Ah, with ds:e/si pointing to "HDPMI".
+  This call returns in es:e/di a far16/far32 address that may be called with:
+  
+    AX    function
+   ------------------------------ 
+   0000   disable log writing
+   0001   enable log writing
 

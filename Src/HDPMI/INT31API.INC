@@ -119,7 +119,6 @@ i31f0E proto near
 
 ;--- others
 
-;_getspecaddrspace proto near ;alloc specific address space
 _freeclientmemory proto near 
 ife ?USESYSSPACE2
 _AllocMemEx proto near    

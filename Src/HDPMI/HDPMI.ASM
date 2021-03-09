@@ -846,7 +846,12 @@ endif
 ;--- here start PMBREAKs with retf frame
 _RETF_ equ ($ - offset spectab) / 2 + 200h
 	@defx _srtask, _SRTSK_		;save/restore task state (call)
-	@defx _I2f168A, _I2F168A_	;DPMI extensions entry (retf)
+if ?INT21API
+	@defx _I2f168A_Msdos, _I2F168A_MSDOS	;"MS-DOS" DPMI extensions entry (retf)
+endif
+ifdef _DEBUG
+	@defx _I2f168A_HDPMI, _I2F168A_HDPMI	;"HDPMI" DPMI extensions entry (retf)
+endif
 if ?SUPI2F16840001
 	@defx _vxd_0001, _I2F1684_0001_
 endif

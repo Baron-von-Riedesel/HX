@@ -210,9 +210,11 @@ endif
 ?EMUMOVCR0REG	equ 0	;std 0: 1=emulate mov cr0, reg
 ?EMUMOVREGDRX	equ 0	;std 0: 1=emulate mov reg, drX
 ?EMUMOVDRXREG	equ 0	;std 0: 1=emulate mov drX, reg
-?SUPP32RTM		equ 1	;std 1: 1=support int2f, ax=168a, "VIRTUAL SUPPORT"
-?CATCHREBOOT	equ 1	;std 1; 1=catch ctrl-alt-delete
 
+;--- v3.19: set this switch to 0, until it's clear what this "vendor" is supposed to do
+?SUPP32RTM		equ 0	;std 0: 1=support int2f, ax=168a, "VIRTUAL SUPPORT"
+
+?CATCHREBOOT	equ 1	;std 1; 1=catch ctrl-alt-delete
 ?SAVERMCR3		equ 0	;std 0: save/restore real mode CR3
 ?SAVERMIDTR		equ 0	;std 0: save real mode idtr
 ?SAVERMGDTR		equ 0	;std 0: save real mode gdtr

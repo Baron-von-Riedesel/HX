@@ -110,11 +110,7 @@ subfunctab label byte
 dpmi5functions db ?FUNC05	;05 (may be modified while this code is low)
 	db 05h,04h			;06-07
 	db ?FUNC08			;08
-ifdef _DEBUG
-	db 03h,01h,04h		;09-0B
-else
 	db 03h,00h,04h		;09-0B
-endif
 	db 00h,00h,02h		;0C-0E
 
 	align 4
@@ -461,12 +457,6 @@ lockunlock:
 func06 endp
 
 func0A:
-ifdef _DEBUG
-;--- ax=0A00h
-	and dl,FM2_LOG
-	and ss:fMode2,not FM2_LOG
-	or  ss:fMode2,dl
-endif
 func0C:
 func0D:
 	pop ebx
