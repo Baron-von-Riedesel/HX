@@ -128,7 +128,7 @@ endif
 ?SETEXCHS		equ 1	;std 1: 1=set exception host stack value
 ?CHECKHOSTSTACK	equ 1	;std 1: 1=detect host stack exhaustion (in host reentries)
 ?CHECKLPMS		equ 1	;std 1: 1=detect LPMS exhaustion; v3.19
-?RESTRICTMEM	equ 0ffffh	;std=0ffffh - free page restriction is 256MB, 0 disables
+?RESTRICTMEM	equ 1	;std 1: 1=support -x option to restrict reported free mem
 
 if ?DPMI10EXX
 ?EXCRESTART		equ 1	;std 1: 1=support exception restartability
@@ -622,23 +622,6 @@ _LDT	dd ?	;+60
 wFlags  dw ?	;+64
 wOffs   dw 68h	;+66
 TSSSEG ends
-
-;--- client memory item struct
-;--- used by heap.asm and I31mem.asm
-
-MEMITEM struct 4
-pNext	dd  ?			; points to next element (must be first)
-dwBase  dd  ?			; linear address
-dwSize	dd  ?			; size (in pages)
-flags	db  ?			; flags (see HDLF_xxx)
-owner	dw  ?			; owner (just no of current client)
-MEMITEM ends
-
-;------------------------ values of flags in MEMITEM
-
-HDLF_ALLOC  equ 01h     ; 0=block free, 1=block allocated
-;HDLF_COMMIT equ 02h     ; obsolete by now, was: allocated as committed block
-HDLF_MAPPED equ 04h     ; allocated thru int 31h, ax=800h (mapped physical area)
 
 ;--- CR0 flags
 

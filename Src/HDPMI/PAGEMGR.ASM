@@ -1684,7 +1684,7 @@ endif
 ;*** out: EAX=linear address, EDX = pages
 ;--- DS=GROUP16
 
-_AllocUserSpace proc public
+pm_AllocUserSpace proc public
 
 	push es
 	pushad
@@ -1700,12 +1700,12 @@ _AllocUserSpace proc public
 	pop es
 	ret
 	align 4
-_AllocUserSpace endp
+pm_AllocUserSpace endp
 
 ;*** Inp: ECX num pages
 ;*** Inp: EAX linear address
 
-_FreeUserSpace proc public
+pm_FreeUserSpace proc public
 
 	push es
 	pushad
@@ -1716,7 +1716,7 @@ _FreeUserSpace proc public
 	pop es
 	ret
 	align 4
-_FreeUserSpace endp
+pm_FreeUserSpace endp
 
 	@ResetTrace
 
@@ -1891,7 +1891,7 @@ _CommitRegionZeroFill endp
 
 	@ResetTrace
 
-_AllocSysAddrSpace proc public
+pm_AllocSysAddrSpace proc public
 	mov eax,[SysAddrUp]
 	cmp [SysAddrSize],ecx
 	jc error
@@ -1902,7 +1902,7 @@ _AllocSysAddrSpace proc public
 error:
 	ret
 	align 4
-_AllocSysAddrSpace endp
+pm_AllocSysAddrSpace endp
 
 if 0
 ;--- not really useful, since if WP bit is set,
@@ -1941,7 +1941,7 @@ AllocSysPages_Common::
 	call _CommitRegionZeroFill	;first do a commit
 	jc error					;no more memory
 	push ecx
-	call _AllocSysAddrSpace		;now allocate address space
+	call pm_AllocSysAddrSpace	;now allocate address space
 	pop ecx
 error:
 	ret
@@ -1985,11 +1985,14 @@ _FreeSysPagesDn proc public
 _FreeSysPagesDn endp
 endif
 
+if 0
 ;--- alloc committed memory in user address space
 ;--- in:ECX=pages
 ;--- out: eax=linear address
+;--- v3.19: was used to allocate page for IDT if ENVF2_LDTLOW == 1,
+;--- now obsolete.
 
-_AllocUserPages proc public
+pm_AllocUserPages proc public
 	pushad
 	call AllocUserAddrSpace
 	jc exit
@@ -2000,7 +2003,9 @@ exit:
 	popad
 	ret
 	align 4
-_AllocUserPages endp
+pm_AllocUserPages endp
+
+endif
 
 ;*** destructor routines Page Manager PM
 

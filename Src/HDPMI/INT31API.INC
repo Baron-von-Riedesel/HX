@@ -119,10 +119,8 @@ i31f0E proto near
 
 ;--- others
 
+_allocaddrspaceX  proto near
 _freeclientmemory proto near 
-ife ?USESYSSPACE2
-_AllocMemEx proto near    
-endif
 
 if ?DPMI10
 _TEXT32 segment dword ?USE32 public 'CODE'

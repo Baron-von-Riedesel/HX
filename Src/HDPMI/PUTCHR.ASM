@@ -175,32 +175,32 @@ scroll proc near
 if _LTRACE_
 	call checkpause
 endif
-	push ds
+;	push ds
 	pushad
-	push es
-	pop ds
+;	push es
+;	pop ds
 if ?MONOOUT
 	mov eax,0
 else
-	movzx eax,word ptr ds:[BIOSPGOFS]
+	movzx eax,word ptr es:[BIOSPGOFS]
 endif
 	add esi,eax
 	mov edi,esi
 if ?MONOOUT
 	mov eax,80
 else
-	movzx eax,word ptr ds:[BIOSCOLS]
+	movzx eax,word ptr es:[BIOSCOLS]
 endif
 	push eax
 	lea esi, [esi+2*eax]
 	mul cl
 	mov ecx,eax
-	rep movsw
+	rep movsw es:[edi], es:[esi]
 	pop ecx
 	mov ax,0720h
 	rep stosw
 	popad
-	pop ds
+;	pop ds
 	ret
 scroll endp
 
@@ -239,18 +239,23 @@ slowdown endp
 endif
 
 ;--- display a char in AL
-;--- do not assume SS == GROUP16 here!
+;--- do not assume SS == GROUP16 here, because this function
+;--- may be called by int 41h.
 ;--- no registers modified
 ;--- it's public, becaused optionally used by int 41h trap handler
 
 _putchrx proc public
 
-ifdef _DEBUG
-	test ss:fMode2,FM2_LOG
-	jz _ret
-endif
-	push es
 	pushad
+	push es
+ifdef _DEBUG
+	mov edx,ss
+	cmp dx,_SSSEL_		;ring 0 with SS==GROUP16?
+	jnz @F
+	test ss:fMode2,FM2_LOG
+	jz exit
+@@:
+endif
 if ?USEDEBUGOUTPUT	;is active only if ?WDEB386 is on 
 	mov edx,ss
 	cmp dx,_SSSEL_		;ring 0 with SS==GROUP16?
@@ -425,9 +430,8 @@ putchr_1:
 	out dx,al
 endif					;?SEROUT
 exit:
-	popad
 	pop es
-_ret:
+	popad
 	ret
 _putchrx endp
 

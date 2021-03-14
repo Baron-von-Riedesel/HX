@@ -975,9 +975,9 @@ endif
 if ?SAVEMSW
 wMSW	dw 0					;real-mode MSW on entry
 endif
-if ?VM
-wCloneSize dw 0
-endif
+;if ?VM
+;wCloneSize dw 0				;v3.19: variable moved to _TEXT16 (see below)
+;endif
 
 dwOldVec96 dd 0
 
@@ -4103,15 +4103,21 @@ endif
 
 ;---- alloc address space for LDT
 
-	mov ecx,10h				 ;alloc 64k for LDT
-	mov edx, offset _AllocSysAddrSpace
+	mov ecx,10h				;alloc 64k for LDT
 	test bEnvFlags2, ENVF2_LDTLOW
 	jz @F
-	mov eax, ecx
-	mov edx, offset _AllocUserSpace
+if 1
+	xor ebx, ebx			;no specific address needed
+	call _allocaddrspaceX
+else
+	mov eax,ecx
+	call pm_AllocUserSpace
+endif
+	jnc ldtallocated
 @@:
-	call edx
+	call pm_AllocSysAddrSpace
 	jc exit
+ldtallocated:
 	mov [dwLDTAddr],eax
 	@dprintf "space for LDT is allocated: %lX", eax
 
@@ -4317,7 +4323,7 @@ if _LTRACE_
 endif
 if ?MAPDOSHIGH
 	mov ecx,?STACKPAGES		;reserve 3|6 pages
-	call _AllocSysAddrSpace
+	call pm_AllocSysAddrSpace
 	jc error
 	mov ebx, eax
 	mov ecx,2				;into the first 2 the host's DOS code is mapped
@@ -4393,6 +4399,7 @@ if ?VM
 ;--- heap function to call when a new VM is created
 
 hp_createvm proto
+mem_createvm proto
 
 ;--- CreateVM is called by initclient_pm
 ;--- during client's initial switch to protected-mode
@@ -4608,8 +4615,10 @@ endif
 	@dprintf "CreateVM: GDT.base=%lX, dwSSBase=%lX, wSegTLB=%X, TLB=%lX", pdGDT.dwBase, dwSSBase, wSegTLB, edx
 	@dprintf "CreateVM: taskseg.esp0=%lX, dwHSExcR3=%lX ltaskaddr=%lX", taskseg._Esp0, dwHSExcR3, ltaskaddr
 
-;--- let the heap do its reinitialization
+;--- let the heap/memmgr do their reinitialization
 	call hp_createvm
+	call mem_createvm
+
 	@dprintf "CreateVM: GDT and instance switched, new instance=%X, RMS=%X:%X", wHostSeg, v86iret.rSS, v86iret.rSP
 
 ;--- let the page manager do its reinitialization
@@ -4716,6 +4725,7 @@ INITCLRM ends
 	@ResetTrace
 
 _initclient_pm proc
+
 	push ss
 	pop ds
 	assume ds:GROUP16
@@ -5807,6 +5817,8 @@ if ?SUPI2F160A
 @@:
 endif
 if ?SUPP32RTM
+;--- this code isn't active by default;
+;--- int 2Fh, ax=168ah, is a DPMI function supposed to be "protected-mode only".
 	cmp al,8ah
 	jz int2f168a
 endif
@@ -5823,7 +5835,9 @@ int2f1687:
 if ?VM
 	cmp cs:cApps,0
 	jz @F
-	add si,cs:wCloneSize
+;	add si,cs:wCloneSize
+	add si,128			;'128' to make sure the "word" form of the opcode is used.
+wCloneSize equ word ptr $-2
 @@:
 endif
 

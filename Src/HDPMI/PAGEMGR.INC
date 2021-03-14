@@ -10,7 +10,7 @@ _Linear2PT			proto near		;get page table addr of linear addr
 _getpageattributes	proto near		;get page flags for a region
 _setpageattributes	proto near		;set page flags for a region
 pm_MovePTEs			proto near		;move PTEs between address spaces
-_AllocUserPages		proto near		;alloc memory in user address region
+;pm_AllocUserPages	proto near		;alloc memory in user address region
 _AllocSysPages		proto near		;alloc memory in sysreg 0 (user,r/w)
 _AllocSysPagesX		proto near		;alloc memory in sysreg 0 (system,r/w)
 ;_AllocSysPagesRo	proto near		;alloc memory in sysreg 0 (user,r/o)
@@ -19,9 +19,9 @@ _FreeSysPagesDn		proto near		;free memory in sysreg 0 down
 _GetNumPhysPages	proto near		;get free/total physical pages
 _freeI15mem			proto near		;free some mem for Int 15h in raw mode
 _restoreI15mem		proto near		;restore the mem in raw mode
-_AllocUserSpace 	proto near		;allocate user address space
-_FreeUserSpace		proto near		;free user address space
-_AllocSysAddrSpace	proto near		;allocate system address space
+pm_AllocUserSpace	proto near		;allocate user address space
+pm_FreeUserSpace	proto near		;free user address space
+pm_AllocSysAddrSpace proto near		;allocate system address space
 _getaddrspace		proto near		;get free/total user address space
 pm_searchphysregion	proto near		;search a mapped physical region
 pm_mapphysregion	proto near		;map physical address to user space

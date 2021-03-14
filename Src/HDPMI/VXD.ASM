@@ -251,18 +251,11 @@ endif
 			mov ebx, edx
 		.endif
 		shl ebx, 12
-		.if (ebx)
-			mov  dl,0			;dont commit
-			shl  ecx,12			;size in bytes
-			@dprintf "vwin32 mmgr: ebx=%lX ecx=%lX", ebx, ecx
-			call allocmemx
-			mov eax, ebx
-		.else
-			mov edx,ecx
-			mov cl,0			;no commit
-			call _AllocMem		;pages in edx, flags in cl
-			mov eax,[ebx].MEMITEM.dwBase
-		.endif
+		mov dl,0			;dont commit
+		shl ecx,12			;size in bytes
+		@dprintf "vwin32 mmgr: ebx=%lX ecx=%lX", ebx, ecx
+		call allocmemx
+		mov eax, ebx
 		.if (CARRY?)
 			mov eax,-1
 		.endif

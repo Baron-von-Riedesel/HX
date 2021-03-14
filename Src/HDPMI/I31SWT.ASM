@@ -740,8 +740,10 @@ getsraddr proc near public
 	mov si,_INTSEL_				;protected-mode entry
 if ?32BIT
 	mov edi,_SRTSK_
+	@dprintf "get save/restore address, bx:cx=%X:%X, si:edi=%X:%lX", bx, cx, si, edi
 else
 	mov di,_SRTSK_
+	@dprintf "get save/restore address, bx:cx=%X:%X, si:di=%X:%X", bx, cx, si, di
 endif
 	clc
 	ret
@@ -756,6 +758,7 @@ getsraddr endp
 ;--- buffer consists of pmstate and the real-mode segreg values in v86iret
 
 _srtask proc public
+	@dprintf "save/restore enter, ax=%X, es:edi=%lX:%lX", ax, es, edi
 	push ds
 	push es
 ife ?32BIT
@@ -946,10 +949,11 @@ getrmsa proc near public
 	mov si,_INTSEL_
 if ?32BIT
 	mov edi,_RMSWT_
+	@dprintf "get raw mode switch addresses, si:edi=%X:%lX, bx:cx=%X:%X",si,edi,bx,cx
 else
 	mov di,_RMSWT_
-endif
 	@dprintf "get raw mode switch addresses, si:di=%X:%X, bx:cx=%X:%X",si,di,bx,cx
+endif
 	clc
 	ret
 	align 4

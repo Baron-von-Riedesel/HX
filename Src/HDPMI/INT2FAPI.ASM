@@ -240,6 +240,7 @@ szHDPMI db "HDPMI",0
 ;--- almost certainly this is nonsense,
 ;--- hence disabled in v3.19.
 isVirtual:
+	@dprintf "I2F, ax=168a vendor VIRTUAL_SUPPORT"
 	popad
 	pop es
 	push esi
@@ -292,6 +293,8 @@ _I2f168A_HDPMI proc near public
 	jz is0000
 	cmp ax,1
 	jz is0001
+	cmp ax,2
+	jz is0002
 	stc
 	ret
 is0000:
@@ -299,6 +302,9 @@ is0000:
 	ret
 is0001:
 	or  ss:fMode2,FM2_LOG
+	ret
+is0002:
+	mov ss:traceflgs,bx	;see HDPMI.INC, ?LOG_xxx for flags details
 	ret
 _I2f168A_HDPMI endp
 endif

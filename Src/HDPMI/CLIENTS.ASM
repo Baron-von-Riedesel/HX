@@ -120,12 +120,13 @@ _saveclientstate proc public
 	call _getsavelength
 	@dprintf "saveclientstate: total size of data to save=%lX", ecx
 ife ?USESYSSPACE2
-	mov eax, ecx
-	xor ebx,ebx
-	mov cl, 1;HDLF_COMMIT
-	call _AllocMemEx
+;v3.19: use allocmem, _AllocMemEx no longer public
+	shld ebx,ecx,16
+	call allocmem
 	jc exit2
-	mov edi,[ebx].MEMITEM.dwBase
+	push bx
+	push cx
+	pop edi
 else
 	shr ecx,12			;bytes -> pages
 	inc ecx

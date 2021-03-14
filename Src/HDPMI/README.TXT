@@ -94,8 +94,24 @@
   The _DATA16C/_DATA32C segments are saved when a new client starts and
   restored when it's terminating. 
 
+
+ 3. HDPMI Debug Version
  
- 3. Wish List
+  The debug version has an additional cmdline option:
+ 
+   -z: toggles log writing
+
+  It also supports DPMI API int 2Fh, ax=168Ah, with ds:e/si pointing to "HDPMI".
+  This call returns in es:e/di a far16/far32 address that may be called with:
+  
+    AX    function
+   ------------------------------ 
+   0000   disable log writing
+   0001   enable log writing
+   0002   set flags (in bx) for extended log writing
+
+
+ 4. Todo List
 
   þ implement the missing functions to make HDPMI a full V1.0 host:
     - DPMI TSRs (int 31h, ah=0Ch)
@@ -115,19 +131,4 @@
 
   þ support for INT 24h is not fully implemented. The stack frame
     does not contain the registers pushed by DOS.
-
-
- 4. HDPMI Debug Version
- 
-  The debug version has an additional cmdline option:
- 
-   -z: toggles log writing
-
-  It also supports DPMI API int 2Fh, ax=168Ah, with ds:e/si pointing to "HDPMI".
-  This call returns in es:e/di a far16/far32 address that may be called with:
-  
-    AX    function
-   ------------------------------ 
-   0000   disable log writing
-   0001   enable log writing
 

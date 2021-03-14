@@ -29,6 +29,7 @@
   þ added HDPMIST.EXE, to display status of currently running HDPMI hosts.
   þ exhaustion of locked protected-mode stack will exit with fatal error.
   þ error codes returned in AX for int 31h, ax=503h/505h.
+  þ disabled code for int 2Fh, ax=168a, ds:e/si="VIRTUAL SUPPORT" (32rtm).
 
   08.09.2018, version 3.18
 

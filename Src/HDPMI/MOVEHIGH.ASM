@@ -147,10 +147,32 @@ if ?MOVEIDT
   if ?USERIDT
 	test bEnvFlags2, ENVF2_LDTLOW
 	jz @F
+   if 1 ;todo: check if allocmem() can be safely called at this stage
+if 0
+	mov cx,1000h
+	xor ebx,ebx
+	call allocmem	;alloc page for IDT
+	jc @F
+	push bx			;if NC, SI:DI and BX:CX are modified!
+	push cx
+	pop edi
+endif
+	xor ebx,ebx
 	mov ecx,1
-	call _AllocUserPages			;alloc page for IDT
+	call _allocaddrspaceX	;returns linear address in EAX
+	jc @F
+	call _CommitRegion
 	jc @F
 	mov edi,eax
+   else
+	mov eax,1		;alloc 1 page
+	call pm_AllocUserSpace
+	jc @F
+	mov ecx,1
+	call _CommitRegion	;ES set to FLAT inside this function
+	jc @F
+	mov edi,eax
+   endif
 @@:
   endif
 ife ?MOVEGDT

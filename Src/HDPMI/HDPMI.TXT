@@ -815,7 +815,9 @@
 
   þ Some combinations of DOS, HDPMI32 and Borland's 32RTM.EXE will only
     work with environment switch HDPMI=2048. This is due to a bug in
-    32RTM.EXE.
+    32RTM. Additionally, it may be necessary to make HDPMI declare itself
+    as a v1.0 host, so probably the best option to run 32RTM on top of
+    HDPMI32 is to set HDPMI=2052. 
 
   þ Some clients are incompatible with HDPMI if it hasn't been installed
     with option -r. Usually this is because they try to restore real-mode

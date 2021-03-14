@@ -37,11 +37,6 @@ unsuppcallx proto near
 ;--- heap
 
 _heapalloc        proto near
-_allocmemhandle   proto near
-_freememhandle    proto near
-_addmemhandle     proto near
-;_linkmemhandle   proto near
-;_unlinkmemhandle proto near
 
 ;--- output routines
 
@@ -374,7 +369,6 @@ externdef fHost:byte			;flag: running as VCPI/XMS client?
 externdef fXMSAlloc:byte		;XMS alloc command (v2/v3)
 externdef fXMSQuery:byte		;XMS query command (v2/v3)
 externdef ltaskaddr:dword		;linear address next client data
-externdef pMemItems:dword		;start list of memory items
 ;externdef rmcbs:RMCB			;start client real-mode callbacks
 externdef rmsels:dword			;start real-mode selector list
 if ?SUPP32RTM
