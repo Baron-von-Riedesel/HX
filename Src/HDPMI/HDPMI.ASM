@@ -335,11 +335,7 @@ wSegTLB	dw 0				;defined here so this variable can be
 		dw 0				;accessed by another host instance
 cApps	db 0				;number of clients
 fMode	db 0				;flags (FM_xxx)
-ifdef _DEBUG
-fMode2	db FM2_LOG
-else
 fMode2	db 0				;more flags (FM2_xxx)
-endif
 
 ;--- IDT (vectors 00-7F only)
 ;--- the IDT usually is moved to extended memory
@@ -614,7 +610,7 @@ else
 endif    
 tssdesc label DESCRPTR
 	@defdesc <0067h,0,0,89h,0,0>,_TSSSEL_		;30 available 386 TSS
-	@defdesc <-1,0,0,82h,0,0>,_LDTSEL_			;38 LDT
+	@defdesc <0,0,0,82h,0,0>,_LDTSEL_			;38 LDT
 
 ;--- 40+3 BIOS Data (fix)
 
@@ -4352,11 +4348,19 @@ if ?MAPDOSHIGH
 	@dprintf "setuphoststack: old/new HS base=%lX/%lX, new v86iret esp=%lX", dwSSBase, eax, edx
 	mov v86iretesp, edx
 	mov dwSSBase, eax
+
 	mov ecx, pdGDT.dwBase
+	push eax
 	mov es:[ecx+_SSSEL_].DESCRPTR.A0015, ax
 	shr eax,16
 	mov es:[ecx+_SSSEL_].DESCRPTR.A1623, al
 	mov es:[ecx+_SSSEL_].DESCRPTR.A2431, ah
+	pop eax
+
+	add ecx, _TSSSEL_
+	sub ecx, eax
+	mov dwTSSdesc, ecx
+
 else
 	mov ecx,?STACKPAGES
 	call _AllocSysPagesX
@@ -4599,7 +4603,7 @@ endif
 	mov eax, pdGDT.dwBase
 	add eax, _TSSSEL_
 	sub eax, dwSSBase
-	mov dwTSSdesc, eax		;this var must be init for real-mode
+	mov dwTSSdesc, eax		;this var must be init for real-mode access
 
 ;--- restore ltaskaddr
 	mov eax, taskseg._Esi

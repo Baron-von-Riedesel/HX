@@ -10,6 +10,7 @@
 	option proc:private
 
 OPT_PTES equ 1	;display PTEs
+OPT_GDT  equ 2	;display GDT
 
 	@seg _ITEXT16
 
@@ -168,6 +169,85 @@ local buffer2[1024]:dword
 	ret
 printpd endp
 
+;--- get physical address of linear address
+;--- esi=PD
+
+getphysaddr proc stdcall uses esi edi dwAddr:dword
+
+local pPDE:dword
+local pPTE:dword
+
+	mov eax, dwAddr
+	shr eax, 20
+	and al, 0FCh
+	add esi, eax
+	mov di, ss
+	movzx edi,di
+	shl edi,4
+	push edi
+	lea bx,pPDE
+	movzx ebx,bx
+	add edi,ebx
+	mov cx,sizeof pPDE
+	call copymem
+
+	mov esi, pPDE
+	and si, 0F000h
+	mov eax, dwAddr
+	shr eax, 10
+	and ax, 0FFCh
+	add si, ax
+
+	pop edi
+	lea bx,pPTE
+	add edi,ebx
+	mov cx,sizeof pPTE
+	call copymem
+	mov eax,pPTE
+	and ax,0F000h
+
+	mov ecx,dwAddr
+	and cx,0FFFh
+	add ax,cx
+	ret
+
+getphysaddr endp
+
+;--- print Global Descriptor Table (physical address of PD in ESI)
+
+printgdt proc stdcall dwAddr:dword, wLimit:word
+
+local gdt[2048]:byte
+
+	invoke getphysaddr, dwAddr
+	mov esi, eax
+	@rprintf <"   GDT: [physical address %lX]",lf>, eax
+	mov di, ss
+	movzx edi,di
+	shl edi,4
+	lea bx,gdt
+	movzx ebx,bx
+	add edi,ebx
+	mov cx,wLimit
+	inc cx
+	call copymem
+	xor bx,bx
+	lea si,gdt
+	.while bx < wLimit
+		mov cx,ss:[bx+si+0]
+		mov dx,ss:[bx+si+5]
+		mov ah,ss:[bx+si+7]
+		mov al,ss:[bx+si+4]
+		shl eax,16
+		mov ax,ss:[bx+si+2]
+		.if dx
+			@rprintf <"   %X: %lX %X %X",lf>, bx, eax, cx, dx
+		.endif
+		add bx,8
+	.endw
+	ret
+printgdt endp
+
 ;--- print mode flags
 
 printmode proc
@@ -265,6 +345,9 @@ local buffer[8]:byte
 	@rprintf <" ]",lf>
 	mov esi, v86topm._cr3
 	invoke printpd, fOptions
+	.if fOptions & OPT_GDT
+		invoke printgdt, pdGDT.dwBase, pdGDT.wLimit
+	.endif
 	assume es:nothing
 	mov ax,1
 	ret
@@ -297,11 +380,14 @@ local fOptions:word
 			or al,20h
 			.if al == 'p'
 				or fOptions, OPT_PTES
+			.elseif al == 'g'
+				or fOptions, OPT_GDT
 			.elseif al == '?'
 				@rprintf <"HDPMIST displays states of currently loaded HDPMI instances",lf>
 				@rprintf <"usage: HDPMIST [options]",lf>
 				@rprintf <"options are:",lf>
 				@rprintf <"  -? display this help",lf>
+				@rprintf <"  -g display GDT",lf>
 				@rprintf <"  -p display PTEs",lf>
 				jmp exit
 			.else

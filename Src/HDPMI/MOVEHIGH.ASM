@@ -31,6 +31,8 @@ _TEXT32  segment
 ;--- 1. alloc 1 page for PM breaks
 ;--- 2. set GDT descriptor for PM breaks
 ;--- 3. init the tab with "int 30h" opcode
+
+;--- alloc 1 page for GDT/IDT
 ;--- 4. optionally move GDT at offset 800h/400h of this same page
 ;--- 5. alloc 1 page for IDT
 ;--- 6. move IDT to this page
@@ -108,7 +110,7 @@ if ?MOVEGDT
 	test bEnvFlags2, ENVF2_LDTLOW
 	jnz nogdtmove
 	mov ecx,1
-	call ebp
+	call ebp	;alloc a 4kB page for GDT/IDT
 	jc error
 	mov edi, eax
 	mov esi, pdGDT.dwBase
@@ -117,7 +119,7 @@ if ?MOVEGDT
 
 	lea eax, [edi+_TSSSEL_]
 	sub eax, [dwSSBase]
-	mov [dwTSSdesc],eax		;update TSS descriptor linear address
+	mov [dwTSSdesc],eax		;update TSS descriptor "normalized" linear address
 
   if ?KDSUPP
 	mov eax, edi
@@ -144,35 +146,25 @@ nogdtmove:
 endif	;?MOVEGDT
 
 if ?MOVEIDT
-  if ?USERIDT
+  if ?USERIDT ;IDT optionally located in user space?
 	test bEnvFlags2, ENVF2_LDTLOW
 	jz @F
-   if 1 ;todo: check if allocmem() can be safely called at this stage
-if 0
-	mov cx,1000h
-	xor ebx,ebx
-	call allocmem	;alloc page for IDT
-	jc @F
-	push bx			;if NC, SI:DI and BX:CX are modified!
-	push cx
-	pop edi
-endif
+
+;	mov cx,1000h
+;	xor ebx,ebx
+;	call allocmem
+;	jc @F
+;	push bx			;if NC, SI:DI and BX:CX are modified!
+;	push cx
+;	pop edi
+
 	xor ebx,ebx
 	mov ecx,1
 	call _allocaddrspaceX	;returns linear address in EAX
 	jc @F
-	call _CommitRegion
-	jc @F
-	mov edi,eax
-   else
-	mov eax,1		;alloc 1 page
-	call pm_AllocUserSpace
-	jc @F
-	mov ecx,1
 	call _CommitRegion	;ES set to FLAT inside this function
 	jc @F
 	mov edi,eax
-   endif
 @@:
   endif
 ife ?MOVEGDT

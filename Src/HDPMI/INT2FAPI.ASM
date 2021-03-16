@@ -287,6 +287,9 @@ _I2f168A_Msdos endp
 endif
 
 ifdef _DEBUG
+
+displayhdltab proto near
+
 _I2f168A_HDPMI proc near public
 	push offset iret_with_CF_mod
 	cmp ax,0
@@ -295,6 +298,8 @@ _I2f168A_HDPMI proc near public
 	jz is0001
 	cmp ax,2
 	jz is0002
+	cmp ax,3
+	jz is0003
 	stc
 	ret
 is0000:
@@ -305,6 +310,13 @@ is0001:
 	ret
 is0002:
 	mov ss:traceflgs,bx	;see HDPMI.INC, ?LOG_xxx for flags details
+	ret
+is0003:
+	push ds
+	push ss
+	pop ds
+	call displayhdltab
+	pop ds
 	ret
 _I2f168A_HDPMI endp
 endif

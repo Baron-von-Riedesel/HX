@@ -1546,6 +1546,7 @@ ifdef _DEBUG
  if ?DOSOUTPUT and ?USEHOSTPSP
  	mov cs:wHostPSP,es
  endif
+;	or cs:fMode2,FM2_LOG	;enable if the very first logs are to be displayed
 endif
 	@drprintf "hdpmi startup code, CS=%X, SS:SP=%X:%X",cs,ss,sp
 	cld

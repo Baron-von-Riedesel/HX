@@ -34,6 +34,7 @@ endm
 xmsaddr		PF16 0	;far16 address of XMS host
 dwXMSHighest dd 0	;highest physical address managed by XMS
 dwAlloc		dd 0	;amount of memory to alloc before starting shell
+dwLinAddr	dd 400000h;addr of memory to alloc with ax=504h
 dwI15		dd 0	;free memory in kB returned by Int 15h ax=e801
 dwPort		dd 21h	;default port used for IN benchmark
 wXMSVer		dw 0
@@ -92,14 +93,14 @@ szHelp label byte
 	db "  -e: provoke host stack exhaustion",lf
 	db "  -f: fill allocated memory block (-m, -s) with value 'DPMI'",lf
 	db "  -i<port>: measure execution time of IN opcode in protected-mode",lf
-	db "  -l: allocate 1000h bytes at 400000h with AX=0504",lf
-	db "  -m: allocate largest free block with AX=0501",lf
+	db "  -l[addr]: allocate 1000h bytes at addr (def 400000h) with function 504h",lf
+	db "  -m: allocate largest free block with function 501h",lf
 	db "  -n: realloc a memory block until an error occurs",lf
 	db "  -r: measure mode switch execution time",lf
 	db "  -s<n>: allocate <n> kB of extended memory, then launch a shell",lf
-	db "  -t<n>: test nested execution of mode switches (n = nesting level)",lf
+	db "  -t[n]: test nested execution of mode switches; n: nesting level (def 2)",lf
 	db "  -w: wait in protected-mode for a keypress before terminating",lf
-	db "  -x: try to get extended memory infos thru int 31h, ax=50Bh",lf
+	db "  -x: try to get extended memory infos thru function 50Bh",lf
 	db 0
 
 	.data?
@@ -1203,16 +1204,16 @@ done:
 realloc endp
 
 linalloc proc
-	mov ebx,400000h
+	mov ebx,dwLinAddr
 	mov ecx,1000h
 	mov edx,1
 	mov ax,0504h
 	int 31h
 	jc linalloc_failed
-	@printf <"alloc linear memory at 400000h returned handle %lx, base %lx",lf>, esi, ebx
+	@printf <"alloc linear memory at %lxh returned handle %lx, base %lx",lf>, dwLinAddr, esi, ebx
 	ret
 linalloc_failed:
-	@printf <"alloc linear memory failed, AX=%x",lf>,ax
+	@printf <"alloc linear memory at %lxh failed, AX=%x",lf>,dwLinAddr,ax
 	ret
 linalloc endp
 
@@ -1224,13 +1225,33 @@ local mix:MEMINFOX
 	mov ax,050Bh
 	int 31h
 	jc notsupp
-	@printf <"total physical=%lx",lf>, mix.dwTotalPhys
-	@printf <"total/free host=%lx/%lx",lf>, mix.dwTotalHost, mix.dwFreeHost
-	@printf <"total/free VM=%lx/%lx",lf>, mix.dwTotalVM, mix.dwFreeVM
-	@printf <"total/free Client=%lx/%lx",lf>, mix.dwTotalClient, mix.dwFreeClient
-	@printf <"total/max locked=%lx/%lx",lf>, mix.dwTotalLocked, mix.dwMaxLocked
+	mov eax, mix.dwTotalPhys
+	shr eax, 10
+	@printf <"total physical=%lx (%lu kB)",lf>, mix.dwTotalPhys, eax
+	mov eax, mix.dwTotalHost
+	shr eax, 10
+	mov ecx, mix.dwFreeHost
+	shr ecx, 10
+	@printf <"total/free host=%lx/%lx (%lu/%lu kB)",lf>, mix.dwTotalHost, mix.dwFreeHost, eax, ecx
+	mov eax, mix.dwTotalVM
+	shr eax, 10
+	mov ecx, mix.dwFreeVM
+	shr ecx, 10
+	@printf <"total/free VM=%lx/%lx (%lu/%lu kB)",lf>, mix.dwTotalVM, mix.dwFreeVM, eax, ecx
+	mov eax, mix.dwTotalClient
+	shr eax, 10
+	mov ecx, mix.dwFreeClient
+	shr ecx, 10
+	@printf <"total/free Client=%lx/%lx (%lu/%lu kB)",lf>, mix.dwTotalClient, mix.dwFreeClient, eax, ecx
+	mov eax, mix.dwTotalLocked
+	shr eax, 10
+	mov ecx, mix.dwMaxLocked
+	shr ecx, 10
+	@printf <"total/max locked=%lx/%lx (%lu/%lu kB)",lf>, mix.dwTotalLocked, mix.dwMaxLocked, eax, ecx
 	@printf <"highest addr=%lx",lf>, mix.dwHighestAddr
-	@printf <"largest block=%lx",lf>, mix.dwLargestBlock
+	mov eax, mix.dwLargestBlock
+	shr eax, 10
+	@printf <"largest block=%lx (%lu kB)",lf>, mix.dwLargestBlock, eax
 	@printf <"min. size=%lx",lf>, mix.dwMinSize
 	@printf <"allocation unit=%lx",lf>, mix.dwAllocUnit
 	ret
@@ -1551,6 +1572,11 @@ main proc c
 				mov bFill, 1
 			.elseif (al == 'l')
 				or bOpt1, OP_LINALLOC
+				mov bl,16
+				call getnum
+				jc @F
+				mov dwLinAddr, edx
+@@:
 			.elseif (al == 's')
 				or bOpt1, OP_SHELL
 				mov bl,10

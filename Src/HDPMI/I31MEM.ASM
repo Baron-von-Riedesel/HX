@@ -203,7 +203,12 @@ _addmemhandle endp
 ;*** scans memory handle linked list for a
 ;*** free MEMITEM object of requested size;
 ;*** if none is found, calls pagemgr to
-;*** create a new addr space
+;*** create a new addr space.
+
+;--- pagemgr cannot create a specific address space,
+;--- so if such a space is requested, all the space
+;--- between that space and the last allocated space
+;--- will have to be created as well.
 
 _allocaddrspace proc
 
@@ -1632,33 +1637,35 @@ ifdef ?DISPLAYHDLTAB
 
 _LTRACE_ = 1	;this should always be 1
 
-displayhdltab proc
+;--- assumes DS:GROUP16
+
+displayhdltab proc public
 	pushad
-	@dprintf "handle   size     flgs owner"
-	@dprintf "-----------------------------"
+	@dprintf "addr              size     flgs owner"
+	@dprintf "--------------------------------------"
 	mov ebx, pMemItems
 	xor esi, esi
+	jmp check
 next:
-	and ebx, ebx
-	jz done
-	@dprintf "%lX %lX %X %X",\
-		[ebx.MEMITEM.dwBase],[ebx.MEMITEM.dwSize],[ebx.MEMITEM.flags],[ebx.MEMITEM.owner]
+	mov edx,[ebx].MEMITEM.dwSize
+	shl edx,12
+	add edx,[ebx].MEMITEM.dwBase
+	@dprintf "%lX-%lX %lX %X %X",\
+		[ebx].MEMITEM.dwBase, edx, [ebx].MEMITEM.dwSize,[ebx].MEMITEM.flags,[ebx].MEMITEM.owner
 	add esi, [ebx].MEMITEM.dwSize
 	mov ebx, [ebx].MEMITEM.pNext
-	jmp next
-done:
-	@dprintf "-----------------------------"
+check:
+	and ebx, ebx
+	jnz next
+	@dprintf "--------------------------------------"
 	mov ecx, esi
 	shr ecx, 10
-	add ecx, esi
-	@dprintf "         %lX (%lX incl PDEs)", esi, ecx
-	call _GetNumPhysPages  ;get free pages
-	@dprintf "pages free phys=%lX, total phys=%lX, res=%lX", eax, edx, ecx
+	@dprintf "                  %lX (+%X for PDEs)", esi, cx
+;	call _GetNumPhysPages  ;get free pages
+;	@dprintf "pages free phys=%lX, total phys=%lX, res=%lX", eax, edx, ecx
 	popad
 	ret
 	align 4
-
-	@ResetTrace
 
 displayhdltab endp
 

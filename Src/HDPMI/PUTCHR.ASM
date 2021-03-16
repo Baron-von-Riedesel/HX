@@ -247,15 +247,15 @@ endif
 _putchrx proc public
 
 	pushad
-	push es
 ifdef _DEBUG
 	mov edx,ss
 	cmp dx,_SSSEL_		;ring 0 with SS==GROUP16?
 	jnz @F
 	test ss:fMode2,FM2_LOG
-	jz exit
+	jz exit2
 @@:
 endif
+	push es
 if ?USEDEBUGOUTPUT	;is active only if ?WDEB386 is on 
 	mov edx,ss
 	cmp dx,_SSSEL_		;ring 0 with SS==GROUP16?
@@ -431,6 +431,7 @@ putchr_1:
 endif					;?SEROUT
 exit:
 	pop es
+exit2:
 	popad
 	ret
 _putchrx endp
@@ -469,8 +470,8 @@ ifdef _DEBUG
  if ?DOSOUTPUT and ?USEHOSTPSP
 	push 0
 	push es
-	mov eax,_FLATSEL_
-	mov es,eax
+	push byte ptr _FLATSEL_
+	pop es
 	mov edx,ss:[dwSDA]
 	cmp es:[edx].DOSSDA.bInDOS,0
 	jnz @F

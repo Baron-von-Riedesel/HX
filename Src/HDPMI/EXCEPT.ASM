@@ -18,6 +18,12 @@
 ?RESETMOUSE		= 0 ;std 1, 1=reset mouse before getting a key
 ?SAFERMSTACK	= 0 ;std 0, 1=ensure real-mode stack is usable
 
+ifdef _DEBUG
+?DISPGDT equ 0
+else
+?DISPGDT equ 0
+endif
+
 @checkssattr macro x,y
 local xxxx
 if ?CHECKSSIS32
@@ -438,14 +444,34 @@ novalidsel:
 	sub esp,2*6
 	sidt [esp+6]
 	sgdt [esp+0]
+if ?DISPGDT
+	mov edx,[esp+2]
+endif
 	@printf "GDTR=%X:%lX IDTR=%X:%lX PTE CR2="
-	add esp,2*6
+;	add esp,2*6
 	mov eax,cr2
 	call PTEout
 if 0
 	@printf <" Stat=%X",lf>, word ptr cApps
 else
 	call _lfout
+endif
+
+if ?DISPGDT
+	@printf <" relTSS=%lX",lf>, dwTSSdesc
+	mov ecx,4
+@@:
+	mov ah,es:[edx+7]
+	mov al,es:[edx+4]
+	shl eax,16
+	mov ax,es:[edx+2]
+	mov bh,es:[edx+7+8]
+	mov bl,es:[edx+4+8]
+	shl ebx,16
+	mov bx,es:[edx+2+8]
+	@printf <"GDT: %X-%lX-%X %X-%lX-%X",lf>, word ptr es:[edx+0], eax, word ptr es:[edx+5], word ptr es:[edx+8], ebx, word ptr es:[edx+5+8]
+	add edx,16
+	loop @B
 endif
 
 	mov eax,cr3
