@@ -1165,8 +1165,8 @@ mapPageTable endp
 ;--- called by int 31h, ax=0500h
 ;--- ds=GROUP16
 
-_getaddrspace proc public
-	xor edx,edx 			   ;  00000000h
+pm_getaddrspace proc public
+	xor edx,edx			; 00000000h
 	sub edx, pPageTab0
 	sub edx,[dwOfsPgTab0]
 	shr edx,2
@@ -1176,7 +1176,7 @@ _getaddrspace proc public
 	shr eax,2
 	ret
 	align 4
-_getaddrspace endp
+pm_getaddrspace endp
 
 ;--- if a page table is totally clear (4 MB)
 ;--- free physical memory (PTE in mapping page table) + reset to zero

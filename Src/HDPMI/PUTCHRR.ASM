@@ -274,10 +274,10 @@ _ret:
 
 ife ?DOSOUTPUT
 scrollr:
-	push ds
+;	push ds
+;	push es
+;	pop ds
 
-	push es
-	pop ds
 	mov di,si
 	push di
 	mov si,cols
@@ -288,7 +288,7 @@ scrollr:
 	mul cl
 	mov cx,ax
 	cld
-	rep movsw
+	rep movsw es:[di],es:[si]
 	push di
 	mov cx,cols
 
@@ -299,7 +299,7 @@ scrollr:
 	pop di
 	sub ax,di
 
-	pop ds
+;	pop ds
 	retn
 endif
 _$putchrx endp

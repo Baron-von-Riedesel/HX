@@ -22,7 +22,7 @@ _restoreI15mem		proto near		;restore the mem in raw mode
 pm_AllocUserSpace	proto near		;allocate user address space
 pm_FreeUserSpace	proto near		;free user address space
 pm_AllocSysAddrSpace proto near		;allocate system address space
-_getaddrspace		proto near		;get free/total user address space
+pm_getaddrspace		proto near		;get free/total user address space
 pm_searchphysregion	proto near		;search a mapped physical region
 pm_mapphysregion	proto near		;map physical address to user space
 _makeregionreadonly	proto near		;make region readonly

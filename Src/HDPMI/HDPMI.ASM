@@ -4106,8 +4106,8 @@ if 1
 	xor ebx, ebx			;no specific address needed
 	call _allocaddrspaceX
 else
-	mov eax,ecx
-	call pm_AllocUserSpace
+;	mov eax,ecx
+;	call pm_AllocUserSpace
 endif
 	jnc ldtallocated
 @@:
@@ -4434,48 +4434,53 @@ else
 endif
 	push edi				;will become linear address of new instance (in conv. memory)
 	mov ds:taskseg._Edi, edi;save new base here temporarily
-	xor esi, esi
-	mov ecx, offset _Endof16bitres
-	shr ecx, 2
 
 ;--- we need ltaskaddr, it's in _DATA16C, so copy it to _DATA16
 	mov eax, ltaskaddr
 	mov ds:taskseg._Esi, eax	;save it in _DATA16, so it won't be overwritten
+
 ;--- now copy the full 16-bit part!
+;--- v3.19: The source has to be the true conventional memory, not the "remapped"
+;--- DOS pages, because these are just 2 pages - for the debug version this might
+;--- not be enough to contain the full resident part.
+	movzx ecx, ds:wCloneSize
+	mov esi,ds:dwHostSeg
+
+;--- set ds=flatsel
+	push es
+	pop ds
+
+	shl esi,4
+	shl ecx, 2
 	rep movsd
-	@dprintf "CreateVM: real-mode code + host data copied (size %lX)", dword ptr offset _Endof16bitres
+	@dprintf "CreateVM: %X paragraphs real-mode code + host data copied", ss:wCloneSize
+
 	mov esi, eax
 	mov ecx, offset _EndOfClientData
 	sub ecx, offset _StartOfVMData
 	@dprintf "CreateVM: prev client VM data=%lX (size %lX)", esi, ecx
 	shr ecx, 2
-	push es
-	pop ds
-	mov eax, edi
+
+;	mov eax, edi
 	mov edi,[esp]	;get new base
 	add edi,offset _StartOfVMData
 	rep movsd
-	mov edi, eax
+;	mov edi, eax
 	@dprintf "CreateVM: client + VM data copied, edi=%lX",edi
 
 	mov ecx,(?GDTLIMIT+1)/4
 if ?MOVEGDT
 	test ss:bEnvFlags2, ENVF2_LDTLOW	;IDT+LDT in user space?
 	jz @F
-	mov edx, edi		;EDX = new GDT address
-	mov esi, offset curGDT
-	@dprintf "CreateVM: GDT in GROUP16 at %lX will be copied (size %lX)", esi, ecx
-	push ss
-	pop ds
-	rep movsd
-	push es
-	pop ds
+	mov edx,[esp]	;get new base
+	add edx,offset curGDT	;EDX = new GDT address
+;--- if GDT is in conv. memory, it has been copied already!
+	@dprintf "CreateVM: GDT in conv. memory, new base=%lX, ", edx
 	jmp gdtok
 @@:
 endif
 
 ;--- create new GDT
-;--- ds=es=flatsel
 
 ;--- copy GDT temporarily in TLB
 	mov edi, ss:dwSegTLB

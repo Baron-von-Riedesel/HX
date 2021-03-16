@@ -41,11 +41,12 @@ MEMINFOX ends
 ;--- client memory item struct
 
 MEMITEM struct 4
-pNext	dd  ?		; points to next element (must be first)
-dwBase  dd  ?		; linear address
-dwSize	dd  ?		; size (in pages)
-flags	db  ?		; flags (see HDLF_xxx)
-owner	dw  ?		; owner (just no of current client)
+pNext	dd ?		; points to next element (must be first)
+dwBase  dd ?		; linear address
+dwSize	dd ?		; size (in pages)
+flags	db ?		; flags (see HDLF_xxx)
+		db ?
+bOwner	db ?		; owner (# of current client)
 MEMITEM ends
 
 ;--- values of flags in MEMITEM
@@ -371,8 +372,8 @@ exit:
 	@dprintf "allocaddrspace: alloc ok, handle=%lX,addr=%lX,size=%lX",\
 		esi,[esi].MEMITEM.dwBase,[esi].MEMITEM.dwSize
 	or [esi].MEMITEM.flags, HDLF_ALLOC
-	movzx ax,byte ptr [cApps]
-	mov [esi].MEMITEM.owner, ax
+	mov al, [cApps]
+	mov [esi].MEMITEM.bOwner, al
 	mov [esp].PUSHADS.rEAX, esi
 	popad
 	ret
@@ -386,7 +387,7 @@ _allocaddrspace endp
 _allocaddrspaceX proc public
 	call _allocaddrspace
 	jc @F
-	mov [eax].MEMITEM.owner,0	;ensure this space isn't released when client terminates
+	mov [eax].MEMITEM.bOwner,0	;ensure this space isn't released when client terminates
 	mov eax,[eax].MEMITEM.dwBase
 @@:
 	ret
@@ -552,17 +553,17 @@ if ?MEMBUFF
 	xor ecx, ecx
 @@:
 endif
-	mov es:[edi.MEMINFO.freePhys],eax		;+20 free phys pages
-	mov es:[edi.MEMINFO.totalPhys],edx		;+24 total phys pages
-	mov es:[edi.MEMINFO.unlocked],eax		;+16 unlocked phys pages
+	mov es:[edi].MEMINFO.freePhys,eax		;+20 free phys pages
+	mov es:[edi].MEMINFO.totalPhys,edx		;+24 total phys pages
+	mov es:[edi].MEMINFO.unlocked,eax		;+16 unlocked phys pages
 	sub eax, ecx
-	mov es:[edi.MEMINFO.freeUnlocked],eax	;+4 max free unlocked
-	mov es:[edi.MEMINFO.maxLockable],eax	;+8 max free lockable
+	mov es:[edi].MEMINFO.freeUnlocked,eax	;+4 max free unlocked
+	mov es:[edi].MEMINFO.maxLockable,eax	;+8 max free lockable
 	shl eax,12
-	mov es:[edi.MEMINFO.maxBlock],eax		;+0 max free (bytes)
-	mov es:[edi.MEMINFO.swapFile],-1		;swap file
-	call _getaddrspace
-	@dprintf "getmeminfo: free space=%lX, total space=%lX", eax, edx
+	mov es:[edi].MEMINFO.maxBlock,eax		;+0 max free (bytes)
+	mov es:[edi].MEMINFO.swapFile,-1		;swap file
+	call pm_getaddrspace
+	@dprintf "getmeminfo: free/total space returned by pm=%lX/%lX", eax, edx
 
 	mov ebx, pMemItems
 	mov ecx, eax
@@ -572,27 +573,27 @@ nextitem:
 	jz done
 	test [ebx].MEMITEM.flags, HDLF_ALLOC
 	jnz skipitem
-	mov esi, [ebx.MEMITEM.dwSize]
+	mov esi, [ebx].MEMITEM.dwSize
 	cmp ecx, esi
 	jnc @F
 	mov ecx, esi
 @@:
 	add eax, esi
 skipitem:
-	mov ebx, [ebx.MEMITEM.pNext]
+	mov ebx, [ebx].MEMITEM.pNext
 	jmp nextitem
 done:
 ;-------------------------- ecx contains the largest free addr space
-	cmp ecx, es:[edi.MEMINFO.maxLockable]
+	cmp ecx, es:[edi].MEMINFO.maxLockable
 	jnc @F
 	@dprintf "getmeminfo: maxblock reduced to %lX", ecx
-	mov es:[edi.MEMINFO.maxLockable], ecx
+	mov es:[edi].MEMINFO.maxLockable, ecx
 	shl ecx, 12
-	mov es:[edi.MEMINFO.maxBlock], ecx
+	mov es:[edi].MEMINFO.maxBlock, ecx
 @@:
-	@dprintf "getmeminfo: max Block=%lX", es:[edi.MEMINFO.maxBlock]
-	mov es:[edi.MEMINFO.freeAdrSpace],eax	;free linear space
-	mov es:[edi.MEMINFO.totalAdrSpace],edx	;linear space
+	@dprintf "getmeminfo: max Block=%lX", es:[edi].MEMINFO.maxBlock
+	mov es:[edi].MEMINFO.freeAdrSpace,eax	;free linear space
+	mov es:[edi].MEMINFO.totalAdrSpace,edx	;linear space
 	@dprintf "getmeminfo: free addr space=%lX", eax
 	popad
 	clc
@@ -1594,10 +1595,10 @@ nextscan:
 freememory_1:
 	test [ebx].MEMITEM.flags,HDLF_ALLOC
 	jz nexthandle
-	cmp byte ptr [ebx].MEMITEM.owner,cl
+	cmp [ebx].MEMITEM.bOwner,cl
 	jnz nexthandle
 	@dprintf "freeclientmemory: free handle=%lX, base=%lX, size=%lX, owner=%X",ebx,\
-		[ebx].MEMITEM.dwBase,[ebx].MEMITEM.dwSize,[ebx].MEMITEM.owner
+		[ebx].MEMITEM.dwBase,[ebx].MEMITEM.dwSize,[ebx].MEMITEM.bOwner
 	call _freememint
 	jmp nextscan
 nexthandle:
@@ -1651,7 +1652,7 @@ next:
 	shl edx,12
 	add edx,[ebx].MEMITEM.dwBase
 	@dprintf "%lX-%lX %lX %X %X",\
-		[ebx].MEMITEM.dwBase, edx, [ebx].MEMITEM.dwSize,[ebx].MEMITEM.flags,[ebx].MEMITEM.owner
+		[ebx].MEMITEM.dwBase, edx, [ebx].MEMITEM.dwSize,[ebx].MEMITEM.flags,[ebx].MEMITEM.bOwner
 	add esi, [ebx].MEMITEM.dwSize
 	mov ebx, [ebx].MEMITEM.pNext
 check:
