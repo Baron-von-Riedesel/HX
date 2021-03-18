@@ -43,8 +43,9 @@
  references to other PE modules (no imports). LOADPE.BIN will load
  HDPMI32 if no DPMI host is installed, LOADPEX.BIN contains HDPMI32
  already and will activate it if no host is active. LOADPXNR.BIN is
- like LOADPE.BIN, but lacks the ability to relocate the binary; it
- mostly exists for testing purposes only. 
+ like LOADPE.BIN, but lacks the ability to relocate the binary - it
+ must be loaded at its preferred address. Hence this version needs a
+ host that supports int 31h, ax=504h.
 
 
  5. History
