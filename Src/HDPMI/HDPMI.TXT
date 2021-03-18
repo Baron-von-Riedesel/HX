@@ -159,7 +159,7 @@
        for this to work it is required that HDPMI16 is installed first.
        Installing HDPMI16 permanently is the only way to run 16bit clients
        while HDPMI32 is loaded. The hosts will share one TLB, so both hosts
-       will consume just about 20 kB conventional DOS memory.
+       will consume just about 13 kB conventional DOS memory.
 
 
  4. Environment Settings

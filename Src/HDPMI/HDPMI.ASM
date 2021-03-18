@@ -4357,6 +4357,14 @@ if ?MAPDOSHIGH
 	mov es:[ecx+_SSSEL_].DESCRPTR.A2431, ah
 	pop eax
 
+if 1	;v3.19: set linear address of TSS to high memory
+	lea edx,[eax+offset taskseg]
+	mov es:[ecx+_TSSSEL_].DESCRPTR.A0015, dx
+	shr edx,16
+	mov es:[ecx+_TSSSEL_].DESCRPTR.A1623, dl
+	mov es:[ecx+_TSSSEL_].DESCRPTR.A2431, dh
+endif
+
 	add ecx, _TSSSEL_
 	sub ecx, eax
 	mov dwTSSdesc, ecx
@@ -4455,19 +4463,18 @@ endif
 	rep movsd
 	@dprintf "CreateVM: %X paragraphs real-mode code + host data copied", ss:wCloneSize
 
+;--- reinitialize contents of _DATA16V and _DATA16C 
 	mov esi, eax
 	mov ecx, offset _EndOfClientData
 	sub ecx, offset _StartOfVMData
 	@dprintf "CreateVM: prev client VM data=%lX (size %lX)", esi, ecx
 	shr ecx, 2
-
-;	mov eax, edi
 	mov edi,[esp]	;get new base
 	add edi,offset _StartOfVMData
 	rep movsd
-;	mov edi, eax
 	@dprintf "CreateVM: client + VM data copied, edi=%lX",edi
 
+;--- setup clone's GDT
 	mov ecx,(?GDTLIMIT+1)/4
 if ?MOVEGDT
 	test ss:bEnvFlags2, ENVF2_LDTLOW	;IDT+LDT in user space?
@@ -4475,13 +4482,11 @@ if ?MOVEGDT
 	mov edx,[esp]	;get new base
 	add edx,offset curGDT	;EDX = new GDT address
 ;--- if GDT is in conv. memory, it has been copied already!
-	@dprintf "CreateVM: GDT in conv. memory, new base=%lX, ", edx
-	jmp gdtok
+	@dprintf "CreateVM: GDT in conv. memory, new base=%lX", edx
+	jmp gdt_copied
 @@:
 endif
-
 ;--- create new GDT
-
 ;--- copy GDT temporarily in TLB
 	mov edi, ss:dwSegTLB
 	shl edi, 4
@@ -4489,7 +4494,7 @@ endif
 	mov esi, ss:pdGDT.dwBase
 	rep movsd
 	@dprintf "CreateVM: GDT copied to %lX (temp location in TLB), ds=%lX", edx, ds
-gdtok:
+gdt_copied:
 
 	mov eax, [esp]		;get new dwSSBase
 	mov [edx+_SSSEL_].DESCRPTR.A0015,ax

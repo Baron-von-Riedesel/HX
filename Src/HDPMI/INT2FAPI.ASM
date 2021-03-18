@@ -28,9 +28,9 @@ endif
 ;--- allegedly required by winsetup.exe?
 ;--- v3.19: restrict this to 16-bit host.
 if ?32BIT
-?SUPI2F4300    = 0
+?I2F4300ERR    = 0
 else
-?SUPI2F4300    = 1
+?I2F4300ERR    = 1
 endif
 
 ?PRTI2F15	   = 0	;std=0, display unsupported int 2f,ah=15 calls
@@ -50,11 +50,13 @@ _LTRACE_ = 0
 
 intr2F proc public
 if _LTRACE_
-	cmp ah,40h			;???
+ ife ?32BIT
+	cmp ah,40h			;Win3x video virtualization?
 	jz @F
+	cmp ax,1689h		;don't log the win kernel idle calls
+	jz @F
+ endif
 	cmp ax,1680h
-	jz @F
-	cmp ax,1689h		;don't log the idle calls
 	jz @F
 	@dprintf "I2F: ax=%X bx=%X cx=%X dx=%X si=%lX",ax,bx,cx,dx,esi
 @@:
@@ -65,9 +67,9 @@ if ?INT2F15
 endif
 	cmp ah,16h			;DPMI, Windows?
 	jz int2f16
-if ?SUPI2F4300
+if ?I2F4300ERR
 	cmp ax,4300h		;XMS installed?
-	jz error			;required by 16bit winsetup.exe
+	jz error			;don't route ( required by 16bit winsetup.exe )
 endif
 callok:
 	@callrmsint 2Fh		;route call to real-mode (this is a JMP!)
