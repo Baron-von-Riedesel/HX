@@ -39,7 +39,7 @@ hp_createvm endp
 endif
 
 ;*** alloc small amounts of memory
-;*** Input: EAX = size
+;*** Input: [ESP+4] = size
 ;***        DS=GROUP16
 ;*** Output: EAX = handle (normalized)
 ;--- C set on errors
@@ -48,6 +48,7 @@ endif
 
 _heapalloc proc public
 
+	mov eax,[esp+4]
 	push ecx
 tryagain:
 	@dprintf "heapalloc: try to alloc a heap item, size=%lX", eax
@@ -62,12 +63,12 @@ tryagain:
 	add eax,[dwCurPg]
 	@dprintf "heapalloc: heap item allocated, eax=%lX",eax
 	pop ecx
-	ret
+	ret 4
 heapalloc_1:
 	@dprintf "heapalloc: try to alloc a new page for heap"
 	pushad
 	mov ecx,1				;1 page
-	call _AllocSysPagesX	;alloc host heap space
+	call pm_AllocSysPagesX	;alloc host heap space
 	jc @F
 	@dprintf "heapalloc: new page for heap allocated: %lX",eax
 	sub eax,[dwSSBase]  ;since no FLAT model, normalize address
@@ -79,7 +80,7 @@ heapalloc_1:
 	jnc tryagain
 	pop ecx
 	@dprintf "heapalloc: allocating new page failed"
-	ret
+	ret 4
 	align 4
 
 _heapalloc endp

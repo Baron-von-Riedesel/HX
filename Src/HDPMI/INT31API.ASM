@@ -423,7 +423,7 @@ if 0
 	jz @F
 	or ax,PTF_DIRTY
 @@:
-	call _setregionattributes
+	call pm_setregionattributes
 	pop edx
 	pop eax
 exit:

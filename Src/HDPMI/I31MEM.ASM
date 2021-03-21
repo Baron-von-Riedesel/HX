@@ -92,7 +92,7 @@ _allocmemhandle proc
 	and ebx,ebx
 	jnz allocmemhandle1
 	push ecx
-	mov eax,sizeof MEMITEM
+	push sizeof MEMITEM
 	call _heapalloc
 	jc @F
 	mov ebx,eax
@@ -129,7 +129,9 @@ _freememhandle endp
 
 ;--- insert handle of a free memory block.
 ;--- in: handle in EBX
-;--- list is sorted by linear address.
+;--- list is supposed to be sorted by linear address.
+;--- it's assumed that the new item's address is highest,
+;--- so it's appended at the list's end.
 ;--- merge free blocks here!
 ;--- registers can be modified here
 
@@ -174,18 +176,18 @@ linkmemhandle_2:
 _linkmemhandle endp
 
 ;--- add an item to the MEMITEM list, it's always uncommitted memory.
-;--- in: EAX=lin addr, EDX=pages
+;--- in: EAX=lin addr, ECX=pages
 ;---     DS=GROUP16
 ;--- called by _allocaddrspace().
 ;--- registers preserved
 
 _addmemhandle proc
 	pushad
-	call _allocmemhandle				;alloc new handle
+	call _allocmemhandle			;alloc MEMITEM object
 	jc @F
-	@dprintf "addmemhandle: addr=%lX, size=%lX", eax, edi
+	@dprintf "addmemhandle: addr=%lX, size=%lX", eax, ecx
 	mov [ebx].MEMITEM.dwBase,eax
-	mov [ebx].MEMITEM.dwSize,edx
+	mov [ebx].MEMITEM.dwSize,ecx
 	call _linkmemhandle				;add item to (sorted) list
 @@:
 	popad
@@ -216,6 +218,7 @@ _allocaddrspace proc
 	pushad
 	@dprintf "allocaddrspace: req base=%lX, size=%lX", ebx, ecx
 nextscan:
+	mov ecx,[esp].PUSHADS.rECX
 	mov esi, offset pMemItems
 	jmp skipitem
 nexthandle:			;<----
@@ -253,13 +256,15 @@ nexthandle:			;<----
 	stc
 	jnz err8012						;no, so its an error
 getnewspace:
-	mov eax, ecx					;get new addr space. this will
-	sub eax, edx					;increase the last block
-	call pm_AllocUserSpace			;get new address space, EAX pages
+;--- get new addr space. this will
+;--- increase the last block
+	sub ecx, edx
+	call pm_AllocUserSpace			;get new address space of ECX pages, returns linearaddr in EAX
 	jc err8012
-	call _addmemhandle				;add adress space to list
+	call _addmemhandle				;add adress space (addr EAX, size ECX) to list
 	jc err8016
 	jmp nextscan
+
 nospec:
 	cmp edx,ecx						;size large enough?
 	jnc found1
@@ -283,10 +288,11 @@ skipitem:
 if 1
 	sub eax, [esi].MEMITEM.dwSize
 endif
+	mov ecx, eax
 	@dprintf "allocaddrspace: create addr space, size=%lX (%lX)",eax,ecx
-	call pm_AllocUserSpace		;get new address space 
+	call pm_AllocUserSpace		;get ECX pages new address space 
 	jc err8012
-	call _addmemhandle	;add adress space to list
+	call _addmemhandle	;add adress space (addr EAX, size ECX) to list
 	jnc nextscan
 err8016:	;handle unavailable
 	@dprintf "allocaddrspace: failed, ax=8016"
@@ -380,6 +386,7 @@ exit:
 	align 4
 _allocaddrspace endp
 
+if ?USEI31MEM
 ;--- alloc address space for system tables (LDT,IDT) if ENVF2_LDTLOW is set
 ;--- ebx=linear address or 0
 ;--- ecx=pages
@@ -392,6 +399,7 @@ _allocaddrspaceX proc public
 @@:
 	ret
 _allocaddrspaceX endp
+endif
 
 	@ResetTrace
 
@@ -403,7 +411,7 @@ _commitblock proc
 	pushad
 	mov eax,[ebx].MEMITEM.dwBase
 	mov ecx,[ebx].MEMITEM.dwSize
-	call _CommitRegion
+	call pm_CommitRegion
 	popad
 	pop es
 	ret
@@ -417,7 +425,7 @@ _uncommitblock proc
 	pushad
 	mov eax,[ebx].MEMITEM.dwBase
 	mov ecx,[ebx].MEMITEM.dwSize
-	call _UncommitRegion
+	call pm_UncommitRegion
 	popad
 	ret
 	align 4
@@ -529,7 +537,7 @@ getmeminfo proc public
 	push ss
 	pop ds
 
-	call _GetNumPhysPages	;eax=free pages, edx=total pages, ecx=reserved
+	call pm_GetNumPhysPages	;eax=free pages, edx=total pages, ecx=reserved
 	@dprintf "getmeminfo: free phys=%lX, total phys=%lX, res=%lX", eax, edx, ecx
 if ?RESTRICTMEM
 	test ss:[fMode2],FM2_RESTRMEM
@@ -952,7 +960,7 @@ resizemem2:
 	shl eax, 12
 	add eax,[ebx].MEMITEM.dwBase	;eax == end of old block
 	push es
-	call _CommitRegion				;commit new space of new block
+	call pm_CommitRegion			;commit new space of new block
 	pop es
 	jc err8013_2
 	@dprintf "resizemem: for new block new space committed"
@@ -1230,10 +1238,10 @@ endif
 	add ebx, edi
 	cmp [esp].PUSHADS._AL,07
 	jz @F
-	call _getpageattributes	;es:edx -> word table, ebx=addr, ecx= size in pages
+	call pm_getpageattributes	;es:edx -> word table, ebx=addr, ecx= size in pages
 	jmp exit
 @@:
-	call _setpageattributes	;es:edx -> word table, ebx=addr, ecx= size in pages
+	call pm_setpageattributes	;es:edx -> word table, ebx=addr, ecx= size in pages
 	jnc exit
 	mov [esp].PUSHADS.rECX, ecx
 	mov [esp].PUSHADS.rAX, 8013h	;physical memory unavailable
@@ -1326,7 +1334,7 @@ mapx proc
 	mov eax, [esi].MEMITEM.dwBase
 	add eax, ebx
 	pushad
-	call _UncommitRegion
+	call pm_UncommitRegion
 	popad
 
 ;--- the "mapped" flag "forbids" block to be resized
@@ -1413,7 +1421,7 @@ getmeminfox proc public
 
 	@dprintf "getmeminfox (%X): es:edi=%lX:%lX",ax,es,edi
 
-	call _GetNumPhysPages  ;get free pages
+	call pm_GetNumPhysPages  ;get free pages
 if ?32BIT eq 0
 	movzx edi,di
 endif
@@ -1662,7 +1670,7 @@ check:
 	mov ecx, esi
 	shr ecx, 10
 	@dprintf "                  %lX (+%X for PDEs)", esi, cx
-;	call _GetNumPhysPages  ;get free pages
+;	call pm_GetNumPhysPages  ;get free pages
 ;	@dprintf "pages free phys=%lX, total phys=%lX, res=%lX", eax, edx, ecx
 	popad
 	ret

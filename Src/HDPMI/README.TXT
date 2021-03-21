@@ -109,6 +109,7 @@
    0000   disable log writing
    0001   enable log writing
    0002   set flags (in bx) for extended log writing
+   0003   display memory handles
 
 
  4. Todo List

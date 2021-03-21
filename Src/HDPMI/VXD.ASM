@@ -263,7 +263,7 @@ endif
 		mov eax,edx
 		shl eax,12
 		mov dl,?PF_PRESENT or ?PF_WRITEABLE or ?PF_USER
-		call _CommitRegionZeroFill ;ecx pages at eax
+		call pm_CommitRegionZeroFill ;ecx pages at eax
 		.if (CARRY?)
 			xor eax,eax
 		.else
@@ -272,7 +272,7 @@ endif
 	.elseif (al == 2)		;_PageDecommit
 		mov eax,edx
 		shl eax,12
-		call _UncommitRegion;ecx pages at eax
+		call pm_UncommitRegion;ecx pages at eax
 		.if (CARRY?)
 			xor eax,eax
 		.else

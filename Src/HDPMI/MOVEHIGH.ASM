@@ -50,7 +50,7 @@ _movehigh proc public
 if ?DYNBREAKTAB
 ;--- alloc PM BREAK table
 	mov ecx,1
-	call _AllocSysPages
+	call pm_AllocSysPages
 	jc error
 	mov edi,eax
 	@dprintf "movehigh_pm: setting pm breakpoint descriptor to base %lX",eax
@@ -96,15 +96,15 @@ endif
 	pop eax
 ifdef ?PE
 	mov ecx,1
-	call _makeregionreadonly
+	call pm_makeregionreadonly
 endif
 endif ;?DYNBREAKTAB
 
 	xor edi, edi
-	mov ebp,offset _AllocSysPages
+	mov ebp,offset pm_AllocSysPages
 	test bEnvFlags2, ENVF2_SYSPROT
 	jz @F
-	mov ebp,offset _AllocSysPagesX
+	mov ebp,offset pm_AllocSysPagesX
 @@:
 if ?MOVEGDT
 	test bEnvFlags2, ENVF2_LDTLOW
@@ -150,19 +150,15 @@ if ?MOVEIDT
 	test bEnvFlags2, ENVF2_LDTLOW
 	jz @F
 
-;	mov cx,1000h
-;	xor ebx,ebx
-;	call allocmem
-;	jc @F
-;	push bx			;if NC, SI:DI and BX:CX are modified!
-;	push cx
-;	pop edi
-
-	xor ebx,ebx
 	mov ecx,1
+if ?USEI31MEM
+	xor ebx,ebx
 	call _allocaddrspaceX	;returns linear address in EAX
+else
+	call pm_AllocUserSpace	;returns linear address in EAX
+endif
 	jc @F
-	call _CommitRegion	;ES set to FLAT inside this function
+	call pm_CommitRegion	;commit ECX pages (ES set to FLAT inside!)
 	jc @F
 	mov edi,eax
 @@:

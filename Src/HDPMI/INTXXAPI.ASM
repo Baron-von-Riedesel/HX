@@ -456,11 +456,11 @@ endif
 	mov ebp, eax
 	mov esi,es:[edi].EDDS.dwSize
 	lea esi, [eax+esi-1]
-	call _Linear2PT
+	call pm_Linear2PT
 	jc error07
 	push edi
 	mov eax, esi
-	call _Linear2PT
+	call pm_Linear2PT
 	mov ecx, edi
 	pop edi
 	jc error07

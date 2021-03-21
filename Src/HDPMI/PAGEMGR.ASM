@@ -25,6 +25,8 @@
 ?XMSBLOCKCNT	= 1	;std 1, 1=count XMS blocks to improve alloc strategy
 ?SETPTE equ 0
 
+PTF_NORMAL	equ PTF_WRITEABLE + PTF_USER
+
 @seg _ITEXT16
 
 ifndef ?USEINVLPG
@@ -180,7 +182,7 @@ _TEXT32  segment
 
 	@ResetTrace
 
-_Linear2PT proc public uses ecx
+pm_Linear2PT proc public uses ecx
 
 	@DebugBreak 0
 	push eax
@@ -208,7 +210,7 @@ _Linear2PT proc public uses ecx
 	@dprintf "Linear2PT: lin addr %lX - addr PTE %lX, max addr PTE %lX",eax,edi,ss:[pMaxPageTab]
 	ret
 	align 4
-_Linear2PT endp
+pm_Linear2PT endp
 
 ;--- get linear address from a PTE address
 ;--- in: eax = linear address where PTE is stored
@@ -252,10 +254,10 @@ pm_CopyPTEs proc public
 	push ds
 	push es
 	pushad
-	call _Linear2PT	;get source PTEs
+	call pm_Linear2PT	;get source PTEs
 	mov esi, edi
 	mov eax, ebx
-	call _Linear2PT	;get dest PTEs
+	call pm_Linear2PT	;get dest PTEs
 	@dprintf "pm_CopyPTEs: src PTR=%lX, dst PTE=%lX, pages=%lX",esi,edi,ecx
 	push byte ptr _FLATSEL_
 	pop ds
@@ -364,7 +366,7 @@ pm_searchphysregion proc public uses ds
 	shr ecx, 2
 	call checkpt
 	jc error
-	mov [esp.PUSHADS.rEAX],eax
+	mov [esp].PUSHADS.rEAX,eax
 error:
 	popad
 	ret
@@ -396,7 +398,7 @@ pm_mapphysregion proc public uses es
 
 	push byte ptr _FLATSEL_
 	pop es
-	call _Linear2PT			;get addr PTR in EDI for linear address in EAX
+	call pm_Linear2PT			;get addr PTR in EDI for linear address in EAX
 	@dprintf "pm_mapphysregion: pPagetab=%lX, addr=%lX", edi, eax
 	mov eax,edx
 	or al, PTF_PRESENT or PTF_WRITEABLE or PTF_USER
@@ -505,7 +507,7 @@ getavailxmspages endp
 ;*** get number of physical pages
 ;*** out: eax=free pages, edx=total pages, ecx=reserved for address space
 
-_GetNumPhysPages proc public
+pm_GetNumPhysPages proc public
 
 	assume ds:GROUP16
 
@@ -580,7 +582,7 @@ endif
 	@dprintf "GetNumPhysPages: total=%lX, free=%lX, res=%lX",edx,eax,ecx
 	ret
 	align 4
-_GetNumPhysPages endp
+pm_GetNumPhysPages endp
 
 ;*** get physical address of a linear address in 1. MB
 ;*** inp: eax=linear address
@@ -664,7 +666,7 @@ found:
 	mov [eax].PHYSBLK.pNext, edx
 	ret
 notfound:
-	mov eax,sizeof PHYSBLK
+	push sizeof PHYSBLK
 	call _heapalloc					;this call cannot fail now
 	ret
 	align 4
@@ -1252,7 +1254,7 @@ FreeUserAddrSpace proc
 	lea edx, [edi+ecx*4]
 	cmp edx, pMaxPageTab	;is it the "last" space?
 	jnz @F
-	mov pMaxPageTab, edi
+	mov pMaxPageTab, edi	;set new, decreased pMaxPageTab
 	inc ebp
 @@:
 
@@ -1313,9 +1315,9 @@ exit:
 	align 4
 FreeUserAddrSpace endp
 
-;*** allocate user address space
+;*** create user address space
 ;*** in: ECX=pages, DS=GROUP16, ES=FLAT
-;*** out: NC if successful, EAX=linear address
+;*** out: NC if successful, EAX=linear address, ECX preserved.
 ;*** C on error
 ;*** modifies EDI, ESI, EBX, EDX
 ;*** updates: pMaxPageTab
@@ -1325,11 +1327,11 @@ FreeUserAddrSpace endp
 
 	@ResetTrace
 
-AllocUserAddrSpace proc near
+CreateUserAddrSpace proc near
 
 	assume ds:GROUP16
 
-	@dprintf "AllocUserAddrSpace: alloc %lX pages",ecx
+	@dprintf "CreateUserAddrSpace: alloc %lX pages",ecx
 	mov edi,[pMaxPageTab]	;top used address space (may be 0!)
 ;	and edi, edi
 ;	jz error
@@ -1353,33 +1355,40 @@ nextpage:
 donenewpagetab:
 	mov eax,es:[edi]
 	mov al,PTF_NORMAL
-;	@dprintf "AllocUserAddrSpace: mem page at %lX",edi
-	stosd							;save PTE in page table
+;	@dprintf "CreateUserAddrSpace: mem page at %lX",edi
+	stosd					;save PTE in page table
 	dec ecx
 	jnz nextpage
 	mov [pMaxPageTab],edi
-	pop edx
+	pop eax
 	pop ecx
-									;page tables are stored so that
-									;it is very simple to get linear
-									;address from pointer to PTE
-	@dprintf "AllocUserAddrSpace: edx=%lX, pPageTab0=%lX", edx, pPageTab0
-	sub edx, pPageTab0
-	shl edx,10					;* 1024 -> jetzt in edx die lin addr
-	mov eax, edx
-	@dprintf "AllocUserAddrSpace: new addrspace generated: addr=%lX,size=%lX",eax,ecx
+;--- page tables are stored so that it is very simple to get linear address
+;--- from pointer to PTE: (pPageTab - pPageTab0) * 1024 = linear address
+;	@dprintf "CreateUserAddrSpace: eax=%lX, pPageTab0=%lX", eax, pPageTab0
+	sub eax, pPageTab0
+	shl eax,10
+	@dprintf "CreateUserAddrSpace: new addrspace generated: addr=%lX, size=%lX", eax, ecx
 	clc
 	ret
+
 newpagetab:
+
+;--- convert PTE pointer EDI to offset in PT of SYSAREA1 (mapped page tables)
+;--- example:
+;--- addr 400000 -> EDI=FFC03000
+;--- subtract FFC00000 = 3000
+;--- shr 10 = 0C
+;--- load PTE of FFC00000+0C
+
 	mov esi,edi
 	mov edx,pPageTables
 	sub esi,edx
 	shr esi,10					;1000h -> 004, 2000h -> 8
 	mov eax,es:[esi+edx]		;get current PTE
-	test al,PTF_PRESENT
+	test al,PTF_PRESENT			;is page table mapped in SYSAREA 1?
 	jnz @F
 
-;--- set ECX (is a parameter for XMS mem alloc)
+;--- set ECX (is just a "hint" parameter for XMS mem alloc)
 
 	push ecx
 	mov ecx,[esp+8]				; address space pages
@@ -1396,11 +1405,12 @@ newpagetab:
 	mov ebx, pPageDir			;get pointer to current PDE
 	mov es:[ebx+esi-?SYSPGDIRAREA],eax	;set PDE in page dir
 	jmp donenewpagetab
+
 error2:
 	pop edi 					;get pMaxPageTab
 	mov eax, ecx
 	mov ecx,[esp]				;total size in pages
-	@dprintf "AllocUserAddrSpace: alloc %lX pages failed at %lX", ecx, eax
+	@dprintf "CreateUserAddrSpace: alloc %lX pages failed at %lX", ecx, eax
 	sub ecx, eax				;subtract pages not allocated so far
 	mov eax, edi
 	sub eax, pPageTab0
@@ -1412,7 +1422,7 @@ error:
 	ret
 	align 4
 
-AllocUserAddrSpace endp
+CreateUserAddrSpace endp
 
 
 if ?DPMI10
@@ -1427,10 +1437,10 @@ if ?DPMI10
 ;--- bit 3: writable
 ;--- bit 4: bit 5+6 valid (accessed+dirty)
 
-_getpageattributes proc public
+pm_getpageattributes proc public
 	@dprintf "getpageattributes: lin addr %lX - copy %lX attr to %lX:%lX",ebx, ecx, es, edx
 	mov eax, ebx
-	call _Linear2PT
+	call pm_Linear2PT
 	jc exit
 	push byte ptr _FLATSEL_
 	pop ds
@@ -1461,7 +1471,7 @@ done:
 exit:
 	ret
 	align 4
-_getpageattributes endp
+pm_getpageattributes endp
 
 if 0
 
@@ -1472,7 +1482,7 @@ if 0
 
 ;--- this is for DPMI functions 06xx and 07xx
 
-_setregionattributes proc public
+pm_setregionattributes proc public
 	pushad
 	push bx
 	push cx
@@ -1498,7 +1508,7 @@ noal1:
 
 	@dprintf "setregionattributes, adjusted: addr %lX, size(pg) %lX", eax, ecx
 
-	call _Linear2PT	;get PTE address in EDI
+	call pm_Linear2PT	;get PTE address in EDI
 	jc exit
 	push byte ptr _FLATSEL_
 	pop ds
@@ -1526,7 +1536,7 @@ exit:
 	popad
 	ret
 	align 4
-_setregionattributes endp
+pm_setregionattributes endp
 
 endif
 
@@ -1534,9 +1544,9 @@ endif
 ;--- eax=linear address
 ;--- ecx=pages
 
-_makeregionreadonly proc public
+pm_makeregionreadonly proc public
 	pushad
-	call _Linear2PT
+	call pm_Linear2PT
 @@:
 	and byte ptr es:[edi],not PTF_WRITEABLE
 	add edi,4
@@ -1546,7 +1556,7 @@ _makeregionreadonly proc public
 	call updatetlb
 	popad
 	ret
-_makeregionreadonly endp
+pm_makeregionreadonly endp
 
 ;--- clear tlb for linear address EBX, size ECX pages
 
@@ -1583,10 +1593,10 @@ updatetlb endp
 
 	@ResetTrace
 
-_setpageattributes proc public
+pm_setpageattributes proc public
 	@dprintf "setpageattr: lin addr %lX - copy %lX attr from %lX:%lX",ebx, ecx, es, edx
 	mov eax, ebx
-	call _Linear2PT	;shouldn't fail since ebx was verified to be valid
+	call pm_Linear2PT	;shouldn't fail since ebx was verified to be valid
 	jc exit
 	push byte ptr _FLATSEL_
 	pop ds
@@ -1672,7 +1682,7 @@ error:
 	ret
 	align 4
 
-_setpageattributes endp
+pm_setpageattributes endp
 
 endif
 
@@ -1680,8 +1690,8 @@ endif
 
 ;*** get user address space
 ;*** RC: C on errors
-;*** Inp: EAX num pages
-;*** out: EAX=linear address, EDX = pages
+;*** Inp: ECX num pages
+;*** out: EAX=linear address
 ;--- DS=GROUP16
 
 pm_AllocUserSpace proc public
@@ -1690,11 +1700,9 @@ pm_AllocUserSpace proc public
 	pushad
 	push byte ptr _FLATSEL_
 	pop es
-	mov ecx, eax
-	call AllocUserAddrSpace
+	call CreateUserAddrSpace
 	jc @F
 	mov [esp].PUSHADS.rEAX, eax
-	mov [esp].PUSHADS.rEDX, ecx
 @@:
 	popad
 	pop es
@@ -1722,19 +1730,21 @@ pm_FreeUserSpace endp
 
 ;--- commit region u/ser, r/w and p/resent
 
-_CommitRegion proc near public
+pm_CommitRegion proc near public
 	mov dl,PTF_PRESENT or PTF_WRITEABLE or PTF_USER
-_CommitRegion endp	;fall throu
+pm_CommitRegion endp	;fall throu
 
 ;*** commit a region
-;--- INP: EAX=linear addr, ECX=size in pages, DL=page flags
+;--- IN: EAX=linear addr
+;---     ECX=size in pages
+;---      DL=page flags
 ;--- modifies ES (=FLAT)
 
 commitblockx proc near
 	pushad
 	push byte ptr _FLATSEL_
 	pop es
-	call _Linear2PT
+	call pm_Linear2PT
 	jc error
 	@dprintf "commitblockx: alloc %lX pages at %lX, ptr PTE=%lX",ecx,eax,edi
 nextpage:						;<---- commit next page
@@ -1785,14 +1795,14 @@ commitblockx endp
 ;*** EAX=linear address, ECX=size in pages
 ;--- eax, ecx, edx modified
 
-_UncommitRegion proc public
+pm_UncommitRegion proc public
 	jecxz exit
 	mov edx, eax			;save linear address begin
 	push es
 	push byte ptr _FLATSEL_
 	pop es
 	@dprintf "UncommitRegion: free %lX pages at %lX, pPoolMax=%lX",ecx,eax,ss:pPoolMax
-	call _Linear2PT
+	call pm_Linear2PT
 	push ebx
 	push ecx
 	mov ebx,ss:pPoolMax
@@ -1819,7 +1829,7 @@ exit:
 	ret
 	align 4
 
-_UncommitRegion endp
+pm_UncommitRegion endp
 
 ;--- move PTEs from one block to another
 ;--- eax = lin addr of old block
@@ -1833,10 +1843,10 @@ pm_MovePTEs proc public uses es esi edi ebx
 	push eax
 	push ecx
 
-	call _Linear2PT
+	call pm_Linear2PT
 	mov esi, edi
 	mov eax, edx
-	call _Linear2PT
+	call pm_Linear2PT
 	push ds
 
 	push es
@@ -1864,7 +1874,7 @@ pm_MovePTEs endp
 
 ;*** dl=flags,eax=lin addr, ecx=pages ***
 
-_CommitRegionZeroFill proc public
+pm_CommitRegionZeroFill proc public
 
 	push es
 	@dprintf "CommitRegionZeroFill: addr=%lX, size=%lX", eax, ecx
@@ -1882,7 +1892,7 @@ _CommitRegionZeroFill proc public
 	pop es
 	ret
 	align 4
-_CommitRegionZeroFill endp
+pm_CommitRegionZeroFill endp
 
 ;--- allocate address space in system region 0
 ;--- cannot be freed anymore
@@ -1907,38 +1917,38 @@ pm_AllocSysAddrSpace endp
 if 0
 ;--- not really useful, since if WP bit is set,
 ;--- we cant do anything with such pages.
-;--- so alloc pages with _AllocSysPages, fill them
+;--- so alloc pages with pm_AllocSysPages, fill them
 ;--- and then make them r/o!
 
 ;--- alloc pages with attr p/resent, r/o, u/ser
 ;*** IN: ECX pages, DS=GROUP16
 ;--- OUT: EAX=Addr
 
-_AllocSysPagesRo proc public
+pm_AllocSysPagesRo proc public
 	mov dl,PTF_PRESENT or PTF_USER
 	jmp AllocSysPages_Common
 	align 4
-_AllocSysPagesRo endp
+pm_AllocSysPagesRo endp
 endif
 
 ;--- alloc ecx pages with attr p/resent, r/w, s/ystem
 
-_AllocSysPagesX proc public
+pm_AllocSysPagesX proc public
 	mov dl,PTF_PRESENT or PTF_WRITEABLE
 	jmp AllocSysPages_Common
 	align 4
-_AllocSysPagesX endp
+pm_AllocSysPagesX endp
 
 ;--- alloc ecx pages with attr p/resent, r/w, u/ser
 ;--- return linear address in EAX
 
-_AllocSysPages proc public
+pm_AllocSysPages proc public
 	mov dl,PTF_PRESENT or PTF_WRITEABLE or PTF_USER
 AllocSysPages_Common::
 	mov eax,[SysAddrUp]
 	cmp [SysAddrSize],ecx
 	jc error
-	call _CommitRegionZeroFill	;first do a commit
+	call pm_CommitRegionZeroFill;first do a commit
 	jc error					;no more memory
 	push ecx
 	call pm_AllocSysAddrSpace	;now allocate address space
@@ -1946,10 +1956,10 @@ AllocSysPages_Common::
 error:
 	ret
 	align 4
-_AllocSysPages endp
+pm_AllocSysPages endp
 
 if ?USESYSSPACE2
-_AllocSysPagesDn proc public
+pm_AllocSysPagesDn proc public
 	cmp [SysAddrSize],ecx
 	jc error
 	mov edx,ecx
@@ -1957,7 +1967,7 @@ _AllocSysPagesDn proc public
 	mov eax,[SysAddrDown]
 	sub eax,edx
 	mov dl,PTF_PRESENT or PTF_WRITEABLE
-;	call _CommitRegion	;alloc pages u/ser, r/w
+;	call pm_CommitRegion;alloc pages u/ser, r/w
 	call commitblockx	;alloc pages s/ystem, r/w
 	jc error
 	mov [SysAddrDown],eax
@@ -1965,12 +1975,12 @@ _AllocSysPagesDn proc public
 error:
 	ret
 	align 4
-_AllocSysPagesDn endp
+pm_AllocSysPagesDn endp
 
-_FreeSysPagesDn proc public
+pm_FreeSysPagesDn proc public
 	push ecx
 	push eax
-	call _UncommitRegion
+	call pm_UncommitRegion
 	pop eax
 	pop ecx
 	cmp eax,[SysAddrDown]
@@ -1982,7 +1992,7 @@ _FreeSysPagesDn proc public
 @@:
 	ret
 	align 4
-_FreeSysPagesDn endp
+pm_FreeSysPagesDn endp
 endif
 
 if 0
@@ -1994,9 +2004,9 @@ if 0
 
 pm_AllocUserPages proc public
 	pushad
-	call AllocUserAddrSpace
+	call CreateUserAddrSpace
 	jc exit
-	call _CommitRegion
+	call pm_CommitRegion
 	jc exit		;the address space cannot be freed currently
 	mov [esp].PUSHADS.rEAX, eax
 exit:
@@ -2123,11 +2133,11 @@ if ?SETPTE
 
 	@ResetTrace
 
-_SetPage proc public
+pm_SetPage proc public
 	pushad
 	@dprintf "SetPage: edx=%lX, eax=%lX", edx, eax
 	mov eax, edx
-	call _Linear2PT		;get address of PTE in EDI for the address in EAX
+	call pm_Linear2PT		;get address of PTE in EDI for the address in EAX
 	jc exit
 	mov eax, [esp].PUSHADS.rEAX
 	xchg eax, es:[edi]	;set the new PTE
@@ -2139,7 +2149,7 @@ exit:
 	popad
 	ret
 	align 4
-_SetPage endp
+pm_SetPage endp
 
 endif
 
@@ -2155,7 +2165,7 @@ _ClonePage proc
 	push edi
 	push eax
 	mov eax, edx
-	call _Linear2PT
+	call pm_Linear2PT
 	pop eax
 	jc error1
 ifdef ?PE
@@ -2221,7 +2231,7 @@ CopyPageContent proc
 ;--- get current PTE
 
 	mov eax, edx
-	call _Linear2PT
+	call pm_Linear2PT
 	mov eax, es:[edi]
 
 if 0
@@ -2685,7 +2695,7 @@ if 0
 ;--- simple solution: do the cleanup when the cApps counter 
 ;--- goes to zero and the host is resident.
 
-_freeI15mem proc public
+pm_freeI15mem proc public
 	test ss:[fHost], FH_XMS or FH_VCPI
 	jnz exit
 	push eax
@@ -2702,11 +2712,11 @@ _freeI15mem proc public
 exit:
 	ret
 	align 4
-_freeI15mem endp
+pm_freeI15mem endp
 
 ;--- called after a int21, ax=4b00 in i21srvr.asm
 
-_restoreI15mem proc public
+pm_restoreI15mem proc public
 	test ss:[fHost], FH_XMS or FH_VCPI
 	jnz exit
 	push eax
@@ -2718,7 +2728,7 @@ _restoreI15mem proc public
 exit:
 	ret
 	align 4
-_restoreI15mem endp
+pm_restoreI15mem endp
 
 endif
 
@@ -2764,7 +2774,7 @@ endif
 	@dprintf "pm_CloneGroup32 done, last PTE=%lX, ppt=%lX", eax, edi
 	ret
 isfirst:
-	call _AllocSysPages		;alloc pages for GROUP32
+	call pm_AllocSysPages		;alloc pages for GROUP32
 	jc error
 	@dprintf "pm_CloneGroup32: copying code to extended memory"
 	mov edi, eax
@@ -2787,7 +2797,7 @@ endif
 ifdef ?PE
 	sub ecx,2	;the last 2 pages get special flags
 endif
-	call _Linear2PT	;get PTE ptr in edi
+	call pm_Linear2PT	;get PTE ptr in edi
 @@:
 ifdef ?PE
 	and byte ptr es:[edi],not (PTF_DIRTY or PTF_ACCESSED or PTF_USER or PTF_WRITEABLE)
@@ -2900,7 +2910,7 @@ if ?FREEPDIRPM
 endif
 
 if 1
-	invoke _GetNumPhysPages
+	invoke pm_GetNumPhysPages
 	@dprintf "pm_createvm: free/total phys pages: %lX/%lX", eax, edx
 	cmp eax, 10
 	jc exit
@@ -3050,7 +3060,7 @@ endif
 ;--- Also, make them r/o.
 
 	mov eax, ltaskaddr
-	call _Linear2PT
+	call pm_Linear2PT
 	mov esi, edi
 	sub edi, ?PTSYSAREA0
 	add edi, ?TEMPBASE + ?SA0OFS
@@ -3322,7 +3332,7 @@ if ?I15MEMMGR	;this is 0
 ;--- set int15 pages to free by server, edx=pages to free
 ;--- obsolete
 
-seti15pages proc near
+pm_seti15pages proc near
 	mov eax,cs:PhysBlk.dwFree ;return size in eax
 	sub edx,cs:[dwResI15Pgs]  ;don't count the already reserved pages
 	jc set15_1				  ;size shrinks
@@ -3336,7 +3346,7 @@ set15_1:
 @@:
 	stc
 	ret
-seti15pages endp
+pm_seti15pages endp
 
 endif
 

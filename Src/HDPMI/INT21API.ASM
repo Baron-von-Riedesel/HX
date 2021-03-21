@@ -505,7 +505,7 @@ availpages proc
 	pushad
 	push ss
 	pop ds
-	call _GetNumPhysPages
+	call pm_GetNumPhysPages
 	sub eax, ecx
 	shl eax,8			;pages -> paras
 if ?32BIT

@@ -261,6 +261,7 @@ else
 ?MAPDOSHIGH		equ 0	;std 0: no need to map dos if ?HSINEXTMEM is zero.
 ?CHECKSSIS32	equ 0	;std 0
 endif
+?USEI31MEM      equ 0	;std 0: 1=use i31mem to allocate IDT/LDT in user space
 
 ?LPMSSIZE		equ 1000h	;std 1000h: size of LPMS
 ?DBGSUPP		equ 1		;std 1: 1=set TF on client's switch to pmode
@@ -298,16 +299,15 @@ endif
 
 ;--- paging flags
 
-PTF_PRESENT 	equ 01h	;1=present,0=not present
-PTF_WRITEABLE	equ 02h	;1=writeable,0=readonly
-PTF_USER		equ 04h	;1=user,0=system
-PTF_PWT 		equ 08h	;1=write throu
-PTF_PCD 		equ 10h	;1=cache disabled
-PTF_ACCESSED	equ 20h	;1=accessed, 0=not accessed
-PTF_DIRTY		equ 40h	;1=dirty, 0=clean
-PTF_PAT			equ 80h	;1=page attribute table
+PTF_PRESENT 	equ 001h;1=present,0=not present
+PTF_WRITEABLE	equ 002h;1=writeable,0=readonly
+PTF_USER		equ 004h;1=user,0=system
+PTF_PWT 		equ 008h;1=write throu
+PTF_PCD 		equ 010h;1=cache disabled
+PTF_ACCESSED	equ 020h;1=accessed, 0=not accessed
+PTF_DIRTY		equ 040h;1=dirty, 0=clean
+PTF_PAT			equ 080h;1=page attribute table
 PTF_GLOBAL		equ 100h;1=global
-PTF_NORMAL		equ PTF_WRITEABLE + PTF_USER
 
 ?GPBIT			equ PTF_USER	;if ?GUARDPAGE0 = 1
 

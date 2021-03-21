@@ -1841,7 +1841,7 @@ endif
 	mov eax, cr2
 	mov [edi].DPMI10EXC.rCR2, eax
 	push edi
-	call _Linear2PT
+	call pm_Linear2PT
 	mov ax,0
 	jc @F
 	push ds
@@ -4102,12 +4102,11 @@ endif
 	mov ecx,10h				;alloc 64k for LDT
 	test bEnvFlags2, ENVF2_LDTLOW
 	jz @F
-if 1
+if ?USEI31MEM
 	xor ebx, ebx			;no specific address needed
 	call _allocaddrspaceX
 else
-;	mov eax,ecx
-;	call pm_AllocUserSpace
+	call pm_AllocUserSpace
 endif
 	jnc ldtallocated
 @@:
@@ -4125,7 +4124,7 @@ ldtallocated:
 	@dprintf "LDT is initialized, allocating LPMS"
 							;alloc memory for LPMS
 	mov ecx,1
-	call _AllocSysPages		;LPMS
+	call pm_AllocSysPages	;LPMS
 	jc exit
 	@dprintf "LPMS allocated"
 
@@ -4331,7 +4330,7 @@ if ?MAPDOSHIGH
 	mov ecx,?STACKPAGES - 2	;the rest is used for (TSS and) host stack
 ;	push edx
 	mov dl,PTF_PRESENT or PTF_WRITEABLE
-	call _CommitRegionZeroFill	;commit region eax, ecx pages
+	call pm_CommitRegionZeroFill	;commit region eax, ecx pages
 ;	pop edx
 	jc error
 	mov eax, dwSSBase
@@ -4371,7 +4370,7 @@ endif
 
 else
 	mov ecx,?STACKPAGES
-	call _AllocSysPagesX
+	call pm_AllocSysPagesX
 	jc error
 	lea ebx, [eax+?STACKPAGES*1000h]
 	sub ebx, dwSSBase

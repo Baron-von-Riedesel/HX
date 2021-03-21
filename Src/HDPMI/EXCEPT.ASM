@@ -143,7 +143,7 @@ endif
 ;*** display PTE for linear address in eax
 
 PTEout:
-	call _Linear2PT		;returns address of PTE in EDI
+	call pm_Linear2PT	;returns address of PTE in EDI
 	jc @F				;address not allocated
 	@printf "%lX", dword ptr es:[edi]
 	ret

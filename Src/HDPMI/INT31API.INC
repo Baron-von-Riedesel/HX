@@ -119,7 +119,9 @@ i31f0E proto near
 
 ;--- others
 
-_allocaddrspaceX  proto near
+if ?USEI31MEM
+_allocaddrspaceX  proto near	;may be used to alloc LDT/IDT in user space
+endif
 _freeclientmemory proto near 
 
 if ?DPMI10

@@ -266,7 +266,7 @@ setrmsel proc public uses ebx eax ds
 	xor eax,eax
 	call getrmentry				;get a free entry
 	jnc @F						;found one
-	mov eax,sizeof RMSEL		;no free entry, allocate one
+	push sizeof RMSEL			;no free entry, allocate one
 	call _heapalloc
 	jc error
 	mov [ebx].RMSEL.pNext,eax
@@ -373,7 +373,7 @@ notfound:
 	mov esi, ebx
 	pop ebx
 	jnc @F
-	mov eax,sizeof RMSEL
+	push sizeof RMSEL
 	call _heapalloc
 	jc error
 	@dprintf "new entry %lX for rm sel allocated",eax

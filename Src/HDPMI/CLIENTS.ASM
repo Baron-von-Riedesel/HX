@@ -130,7 +130,7 @@ ife ?USESYSSPACE2
 else
 	shr ecx,12			;bytes -> pages
 	inc ecx
-	call _AllocSysPagesDn	;alloc space for client state
+	call pm_AllocSysPagesDn	;alloc space for client state
 	jc exit2
 	@dprintf "saveclientstate: AllocSysPagesDn()=%lX", eax
 	mov edi, eax
@@ -399,7 +399,7 @@ else
 	shr ecx, 12
 	inc ecx
 	pop eax
-	call _FreeSysPagesDn
+	call pm_FreeSysPagesDn
 endif
 
 if _LTRACE_
@@ -450,7 +450,7 @@ ResizeLDT proc near
 	sub cx,ax				;ecx=F000,E000,...,0000
 	shr cx,12				;ecx=0F,0E,...,00
 	add eax,[dwLDTAddr]
-	call _UncommitRegion	;free memory starting at eax, ecx pages
+	call pm_UncommitRegion	;free memory starting at eax, ecx pages
 	ret
 	align 4
 ResizeLDT endp
@@ -520,7 +520,7 @@ EnlargeLDT proc near public
 	jnz @F
 	or dl,PTF_USER
 @@:
-	call _CommitRegionZeroFill
+	call pm_CommitRegionZeroFill
 	jc exit
 
 	cmp wLDTLimit,1
