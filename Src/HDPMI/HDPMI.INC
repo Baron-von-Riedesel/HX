@@ -261,7 +261,6 @@ else
 ?MAPDOSHIGH		equ 0	;std 0: no need to map dos if ?HSINEXTMEM is zero.
 ?CHECKSSIS32	equ 0	;std 0
 endif
-?USEI31MEM      equ 0	;std 0: 1=use i31mem to allocate IDT/LDT in user space
 
 ?LPMSSIZE		equ 1000h	;std 1000h: size of LPMS
 ?DBGSUPP		equ 1		;std 1: 1=set TF on client's switch to pmode

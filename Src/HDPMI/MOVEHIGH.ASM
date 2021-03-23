@@ -151,12 +151,7 @@ if ?MOVEIDT
 	jz @F
 
 	mov ecx,1
-if ?USEI31MEM
-	xor ebx,ebx
 	call _allocaddrspaceX	;returns linear address in EAX
-else
-	call pm_AllocUserSpace	;returns linear address in EAX
-endif
 	jc @F
 	call pm_CommitRegion	;commit ECX pages (ES set to FLAT inside!)
 	jc @F

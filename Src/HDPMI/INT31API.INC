@@ -84,6 +84,7 @@ _srtask proto near
 
 ;--- ah=05
 
+mem_createvm proto near
 getmeminfo proto near			;0500
 allocmem proto near				;0501
 freemem proto near				;0502
@@ -119,9 +120,7 @@ i31f0E proto near
 
 ;--- others
 
-if ?USEI31MEM
 _allocaddrspaceX  proto near	;may be used to alloc LDT/IDT in user space
-endif
 _freeclientmemory proto near 
 
 if ?DPMI10

@@ -4102,12 +4102,7 @@ endif
 	mov ecx,10h				;alloc 64k for LDT
 	test bEnvFlags2, ENVF2_LDTLOW
 	jz @F
-if ?USEI31MEM
-	xor ebx, ebx			;no specific address needed
 	call _allocaddrspaceX
-else
-	call pm_AllocUserSpace
-endif
 	jnc ldtallocated
 @@:
 	call pm_AllocSysAddrSpace
@@ -4410,7 +4405,6 @@ if ?VM
 ;--- heap function to call when a new VM is created
 
 hp_createvm proto
-mem_createvm proto
 
 ;--- CreateVM is called by initclient_pm
 ;--- during client's initial switch to protected-mode
@@ -4628,9 +4622,8 @@ endif
 	@dprintf "CreateVM: GDT.base=%lX, dwSSBase=%lX, wSegTLB=%X, TLB=%lX", pdGDT.dwBase, dwSSBase, wSegTLB, edx
 	@dprintf "CreateVM: taskseg.esp0=%lX, dwHSExcR3=%lX ltaskaddr=%lX", taskseg._Esp0, dwHSExcR3, ltaskaddr
 
-;--- let the heap/memmgr do their reinitialization
+;--- let the heap mgr do its reinitialization
 	call hp_createvm
-	call mem_createvm
 
 	@dprintf "CreateVM: GDT and instance switched, new instance=%X, RMS=%X:%X", wHostSeg, v86iret.rSS, v86iret.rSP
 
@@ -4640,6 +4633,7 @@ endif
 	jc error
 	@dprintf "CreateVM: pm_createvm called, ltaskaddr=%lX",ltaskaddr
 
+	call mem_createvm
 
 if ?HSINEXTMEM
 	call setuphoststack	;this will modify dwSSBase and reload SS/DS caches!

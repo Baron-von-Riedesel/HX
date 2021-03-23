@@ -888,6 +888,8 @@ if ?HSINEXTMEM
 	@dprintf "initsvr_pm: new host stack bottom=%lX, top=%lX", eax, dwStackTop
 endif
 
+	call mem_createvm
+
 	@dprintf "initsvr_pm: call _movehigh"
 	call _movehigh			;allocates bp table, moves GDT + IDT
 	jc initsvr_pm_failed

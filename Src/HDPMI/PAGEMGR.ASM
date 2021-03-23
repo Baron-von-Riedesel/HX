@@ -2,6 +2,9 @@
 ;--- page handling
 ;--- handles physical memory, address space and un/committed memory
 
+;--- todo: get rid of dwMaxOfsPT - user address space is to be
+;---       managed by i31mem.
+
 	.486P
 
 	option proc:private
@@ -131,15 +134,19 @@ startvdata label near
 ;--- the page pool are uncommitted PTEs which are
 ;--- stored in the page tables. the pool is scanned from top to bottom
 
-; client address space:
-; - pMaxPageTab = FFC02444 on startup (corresponds to linear address 111000h)
-; after 8 MB address space allocation vars are:
-; - pMaxPageTab = FFC04444 (= linear address 911000h)
-
-
 dwPagePool	dd 0		;uncommitted PTEs (XMS+I15) in page pool
 pPoolMax	dd 0		;top of page pool
-pMaxPageTab	dd 0		;linear address free space in page table region
+
+;--- client address space is "managed" by dwMaxOfsPT.
+;--- it's an offset within SYSAREA1 (FFC00000).
+;--- on startup, the variable is initialized with 2444h in XMS/I15
+;--- (corresponds to linear address 111000h).
+;--- after 8 MB address space allocation, value would be 4444h.
+;--- no "holes" in user address space are possible, that's why
+;--- i31mem has to do additional work if a specific address region
+;--- is allocated. To be improved.
+
+dwMaxOfsPT	dd 0		;offset free space in page table region
 
 PhysBlk		PHYSBLK <0>	;linked list of physical memory blocks allocated
 
@@ -177,14 +184,12 @@ _TEXT32  segment
 ;*** get ptr to PTE of a linear address
 ;*** in: linear address in EAX
 ;*** out: EDI=linear address of PTE for address in EAX
-;*** C if address space isn't allocated (no page table exists)
 ;--- other registers preserved
 
 	@ResetTrace
 
-pm_Linear2PT proc public uses ecx
+Linear2PT proc uses ecx
 
-	@DebugBreak 0
 	push eax
 	mov edi,ss:pPageTables
 	mov ecx, ?SYSAREA1		 ; FFC00000?
@@ -201,15 +206,26 @@ pm_Linear2PT proc public uses ecx
 	shr eax,10				;div 1024 -> offset in page table
 	and al,0FCh
 	add edi,eax
-;------------------------------- pMaxPageTab may be NULL (all allocated)
-	mov ecx,ss:[pMaxPageTab]
-	jecxz @F
-	cmp ss:[pMaxPageTab],edi
-@@:
 	pop eax
-	@dprintf "Linear2PT: lin addr %lX - addr PTE %lX, max addr PTE %lX",eax,edi,ss:[pMaxPageTab]
+	@dprintf "Linear2PT: lin addr %lX - addr PTE %lX", eax, edi
 	ret
 	align 4
+Linear2PT endp
+
+;--- same as Linear2PT, but carry flag is set if
+;--- space isn't allocated yet (no PDE exists).
+
+pm_Linear2PT proc public
+
+	call Linear2PT
+	push eax
+	mov eax, ss:[dwMaxOfsPT]
+	add eax, ss:[pPageTables]
+	cmp eax, edi
+	pop eax
+	ret
+	align 4
+
 pm_Linear2PT endp
 
 ;--- get linear address from a PTE address
@@ -254,10 +270,10 @@ pm_CopyPTEs proc public
 	push ds
 	push es
 	pushad
-	call pm_Linear2PT	;get source PTEs
+	call Linear2PT	;get source PTEs
 	mov esi, edi
 	mov eax, ebx
-	call pm_Linear2PT	;get dest PTEs
+	call Linear2PT	;get dest PTEs
 	@dprintf "pm_CopyPTEs: src PTR=%lX, dst PTE=%lX, pages=%lX",esi,edi,ecx
 	push byte ptr _FLATSEL_
 	pop ds
@@ -361,8 +377,7 @@ pm_searchphysregion proc public uses ds
 ;------- get number of pages allocated so far in ECX
 
 	mov esi,ss:pPageTables
-	mov ecx,ss:[pMaxPageTab]
-	sub ecx, esi
+	mov ecx,ss:[dwMaxOfsPT]
 	shr ecx, 2
 	call checkpt
 	jc error
@@ -398,7 +413,7 @@ pm_mapphysregion proc public uses es
 
 	push byte ptr _FLATSEL_
 	pop es
-	call pm_Linear2PT			;get addr PTR in EDI for linear address in EAX
+	call Linear2PT			;convert linear address in EAX to PTE ptr in EDI
 	@dprintf "pm_mapphysregion: pPagetab=%lX, addr=%lX", edi, eax
 	mov eax,edx
 	or al, PTF_PRESENT or PTF_WRITEABLE or PTF_USER
@@ -997,11 +1012,11 @@ getphyspagex proc
 	dec [dwPagePool]
 if _LTRACE_
 	jns @F
-	@printf <"#getphyspagex: page pool cnt %lX < 0!, PTE=%lX, caller=%lX",lf>, dwPagePool, eax, dword ptr [esp]
-	@printf <"   pPageDir=%lX  pPageTables=%lX",lf>, pPageDir, pPageTables
-	@printf <"  pPageTab0=%lX  pMaxPageTab=%lX",lf>, pPageTab0, pMaxPageTab
-	@printf <" dwPagePool=%lX     pPoolMax=%lX",lf>, dwPagePool, pPoolMax
-	@printf <"edi=%lX",lf>, edi
+	@dprintf <"#getphyspagex: page pool cnt %lX < 0!, PTE=%lX, caller=%lX",lf>, dwPagePool, eax, dword ptr [esp]
+	@dprintf <"   pPageDir=%lX  pPageTables=%lX",lf>, pPageDir, pPageTables
+	@dprintf <"  pPageTab0=%lX  dwMaxOfsPT=%lX",lf>, pPageTab0, dwMaxOfsPT
+	@dprintf <" dwPagePool=%lX     pPoolMax=%lX",lf>, dwPagePool, pPoolMax
+	@dprintf <"edi=%lX",lf>, edi
 @@:
 endif
 exit:
@@ -1162,6 +1177,7 @@ endif
 mapPageTable endp
 
 
+if 0
 ;--- return free address space in eax (pages)
 ;--- total address space in edx (pages)
 ;--- called by int 31h, ax=0500h
@@ -1173,12 +1189,25 @@ pm_getaddrspace proc public
 	sub edx,[dwOfsPgTab0]
 	shr edx,2
 
-	xor eax,eax
-	sub eax,[pMaxPageTab]
+	mov eax,400000h
+	sub eax,[dwMaxOfsPT]
 	shr eax,2
 	ret
 	align 4
 pm_getaddrspace endp
+endif
+
+pm_getfreeuserspace proc public
+
+;--- eax=start user space, ecx=length user space (pages)
+	mov eax,dwOfsPgTab0
+	shl eax,10
+	mov ecx,?SYSAREA0
+	sub ecx,eax
+	shr ecx,12
+	ret
+	align 4
+pm_getfreeuserspace endp
 
 ;--- if a page table is totally clear (4 MB)
 ;--- free physical memory (PTE in mapping page table) + reset to zero
@@ -1245,19 +1274,24 @@ FreeUserAddrSpace proc
 
 	pushad
 	@dprintf "FreeUserAddrSpace: free space at %lX, %lX pages", eax, ecx
-	@dprintf "FreeUserAddrSpace: pMaxPageTab=%lX pPoolMax=%lX", pMaxPageTab, pPoolMax
-	mov edi, eax
-	shr edi, 10 			;400000h -> 1000h, 800000 -> 2000
-	add edi, pPageTab0
+	@dprintf "FreeUserAddrSpace: dwMaxOfsPT=%lX pPoolMax=%lX", dwMaxOfsPT, pPoolMax
+
+	call Linear2PT
 
 	xor ebp, ebp
-	lea edx, [edi+ecx*4]
-	cmp edx, pMaxPageTab	;is it the "last" space?
-	jnz @F
-	mov pMaxPageTab, edi	;set new, decreased pMaxPageTab
+	mov edx, edi
+	sub edx, pPageTables
+	lea edx, [edx+ecx*4]
+	cmp edx, dwMaxOfsPT	;is it the "last" space?
+	jc @F
+	sub edx, dwMaxOfsPT	;reduce size so it matches dwMaxOfsPT
+	shr edx, 2
+	sub ecx, edx
+	mov eax, edi
+	sub eax, pPageTables
+	mov dwMaxOfsPT, eax	;set new, decreased dwMaxOfsPT
 	inc ebp
 @@:
-
 	xor eax, eax
 	xor edx, edx			;count entries in page table
 	xor ebx, ebx
@@ -1316,14 +1350,15 @@ exit:
 FreeUserAddrSpace endp
 
 ;*** create user address space
-;*** in: ECX=pages, DS=GROUP16, ES=FLAT
+;*** in: ECX=pages, EBX=linear address or 0
+;---     DS=GROUP16, ES=FLAT
 ;*** out: NC if successful, EAX=linear address, ECX preserved.
 ;*** C on error
 ;*** modifies EDI, ESI, EBX, EDX
-;*** updates: pMaxPageTab
+;*** updates: dwMaxOfsPT
 ;--- 4 GB are 1.0000.0000/1000 == 100000 pages
-;--- example (pMaxPageTab = FFC20440h):
-;--- NEG(pMaxPageTab) = 3DFBC0h, SHR 2 = F7EF0h pages == F7EF0000h bytes
+;--- example (dwMaxOfsPT = 2440):
+;--- 400000h - 2440 = 3FDBC0, SHR 2 = FF6F0 pages, FF6F0000h bytes
 
 	@ResetTrace
 
@@ -1331,20 +1366,29 @@ CreateUserAddrSpace proc near
 
 	assume ds:GROUP16
 
-	@dprintf "CreateUserAddrSpace: alloc %lX pages",ecx
-	mov edi,[pMaxPageTab]	;top used address space (may be 0!)
-;	and edi, edi
-;	jz error
-;	cmp ecx,100000h
-;	jnc error
-;	lea eax, [ecx*4+edi]
-;	cmp eax, edi			;overflow?
-;	jc error				;then insufficient free address space
-	mov eax, edi
-	neg eax
+	@dprintf "CreateUserAddrSpace: request %lX pages at %lX", ecx, ebx
+	mov edi,[dwMaxOfsPT]	;top used address space (may be 0!)
+	and ebx, ebx
+	jz @F
+	mov eax, ebx
+	shr eax, 10
+	and al,0Fch
+	add eax, ?SYSPGDIRAREA * 400h
+	mov edi, eax
+	sub eax, [dwMaxOfsPT]
+	jbe @F
+	shr eax, 2
+	add ecx, eax
+	mov edi, [dwMaxOfsPT]
+@@:
+	@dprintf "CreateUserAddrSpace: dwMaxOfsPT=%lX, ecx=%lX edi=%lX", dwMaxOfsPT, ecx, edi
+
+	mov eax, 400000h
+	sub eax, edi
 	shr eax, 2				;remaining free pages
 	cmp ecx, eax
 	ja error
+	add edi,[pPageTables]
 
 	push ecx
 	push edi
@@ -1354,20 +1398,37 @@ nextpage:
 	jz newpagetab
 donenewpagetab:
 	mov eax,es:[edi]
+	test al,PTF_PRESENT
+	jnz @F
 	mov al,PTF_NORMAL
 ;	@dprintf "CreateUserAddrSpace: mem page at %lX",edi
+@@:
 	stosd					;save PTE in page table
 	dec ecx
 	jnz nextpage
-	mov [pMaxPageTab],edi
-	pop eax
+	sub edi, [pPageTables]
+	cmp edi, [dwMaxOfsPT]
+	jb @F
+	mov [dwMaxOfsPT],edi
+@@:
+	pop edx
 	pop ecx
-;--- page tables are stored so that it is very simple to get linear address
-;--- from pointer to PTE: (pPageTab - pPageTab0) * 1024 = linear address
-;	@dprintf "CreateUserAddrSpace: eax=%lX, pPageTab0=%lX", eax, pPageTab0
+if _LTRACE_
+	mov eax, edx
 	sub eax, pPageTab0
 	shl eax,10
 	@dprintf "CreateUserAddrSpace: new addrspace generated: addr=%lX, size=%lX", eax, ecx
+endif
+	mov eax, ebx
+	and eax, eax
+	jnz @F
+;--- page tables are stored so that it is very simple to get linear address
+;--- from pointer to PTE: (pPageTab - pPageTab0) * 1024 = linear address
+;	@dprintf "CreateUserAddrSpace: eax=%lX, pPageTab0=%lX", eax, pPageTab0
+	sub edx, pPageTab0
+	shl edx,10
+	mov eax, edx
+@@:
 	clc
 	ret
 
@@ -1402,12 +1463,12 @@ newpagetab:
 	or al, ?PAGETABLEATTR
 	call mapPageTable			;and map page table in sys region 1
 @@:
-	mov ebx, pPageDir			;get pointer to current PDE
-	mov es:[ebx+esi-?SYSPGDIRAREA],eax	;set PDE in page dir
+	mov edx, pPageDir			;get pointer to current PDE
+	mov es:[edx+esi-?SYSPGDIRAREA],eax	;set PDE in page dir
 	jmp donenewpagetab
 
 error2:
-	pop edi 					;get pMaxPageTab
+	pop edi 					;get Max PageTab ptr
 	mov eax, ecx
 	mov ecx,[esp]				;total size in pages
 	@dprintf "CreateUserAddrSpace: alloc %lX pages failed at %lX", ecx, eax
@@ -1436,12 +1497,12 @@ if ?DPMI10
 ;--- bit 0+1: 00=uncommitted, 01=committed, 02=mapped
 ;--- bit 3: writable
 ;--- bit 4: bit 5+6 valid (accessed+dirty)
+;--- it's ensured by the caller that the region is valid.
 
 pm_getpageattributes proc public
 	@dprintf "getpageattributes: lin addr %lX - copy %lX attr to %lX:%lX",ebx, ecx, es, edx
 	mov eax, ebx
-	call pm_Linear2PT
-	jc exit
+	call Linear2PT
 	push byte ptr _FLATSEL_
 	pop ds
 	mov esi, edi
@@ -1508,8 +1569,7 @@ noal1:
 
 	@dprintf "setregionattributes, adjusted: addr %lX, size(pg) %lX", eax, ecx
 
-	call pm_Linear2PT	;get PTE address in EDI
-	jc exit
+	call Linear2PT	;get PTE address in EDI
 	push byte ptr _FLATSEL_
 	pop ds
 	mov esi, edi
@@ -1546,7 +1606,7 @@ endif
 
 pm_makeregionreadonly proc public
 	pushad
-	call pm_Linear2PT
+	call Linear2PT
 @@:
 	and byte ptr es:[edi],not PTF_WRITEABLE
 	add edi,4
@@ -1596,8 +1656,7 @@ updatetlb endp
 pm_setpageattributes proc public
 	@dprintf "setpageattr: lin addr %lX - copy %lX attr from %lX:%lX",ebx, ecx, es, edx
 	mov eax, ebx
-	call pm_Linear2PT	;shouldn't fail since ebx was verified to be valid
-	jc exit
+	call Linear2PT
 	push byte ptr _FLATSEL_
 	pop ds
 	mov esi, edx
@@ -1690,7 +1749,8 @@ endif
 
 ;*** get user address space
 ;*** RC: C on errors
-;*** Inp: ECX num pages
+;*** Inp: ECX = #pages
+;---      ebx = linear address or 0
 ;*** out: EAX=linear address
 ;--- DS=GROUP16
 
@@ -1744,8 +1804,7 @@ commitblockx proc near
 	pushad
 	push byte ptr _FLATSEL_
 	pop es
-	call pm_Linear2PT
-	jc error
+	call Linear2PT
 	@dprintf "commitblockx: alloc %lX pages at %lX, ptr PTE=%lX",ecx,eax,edi
 nextpage:						;<---- commit next page
 	mov eax,es:[edi]
@@ -1802,7 +1861,7 @@ pm_UncommitRegion proc public
 	push byte ptr _FLATSEL_
 	pop es
 	@dprintf "UncommitRegion: free %lX pages at %lX, pPoolMax=%lX",ecx,eax,ss:pPoolMax
-	call pm_Linear2PT
+	call Linear2PT
 	push ebx
 	push ecx
 	mov ebx,ss:pPoolMax
@@ -1843,10 +1902,10 @@ pm_MovePTEs proc public uses es esi edi ebx
 	push eax
 	push ecx
 
-	call pm_Linear2PT
+	call Linear2PT
 	mov esi, edi
 	mov eax, edx
-	call pm_Linear2PT
+	call Linear2PT
 	push ds
 
 	push es
@@ -2137,8 +2196,7 @@ pm_SetPage proc public
 	pushad
 	@dprintf "SetPage: edx=%lX, eax=%lX", edx, eax
 	mov eax, edx
-	call pm_Linear2PT		;get address of PTE in EDI for the address in EAX
-	jc exit
+	call Linear2PT		;convert address in EAX to ptr PTE in EDI
 	mov eax, [esp].PUSHADS.rEAX
 	xchg eax, es:[edi]	;set the new PTE
 	mov [esp].PUSHADS.rEAX, eax
@@ -2165,9 +2223,8 @@ _ClonePage proc
 	push edi
 	push eax
 	mov eax, edx
-	call pm_Linear2PT
+	call Linear2PT
 	pop eax
-	jc error1
 ifdef ?PE
 	test byte ptr es:[edi],PTF_WRITEABLE
 	jnz @F
@@ -2179,9 +2236,17 @@ endif
 	mov ecx, eax
 	and ax, 0F000h or PTF_PRESENT or PTF_USER
 	@dprintf "ClonePage: addr=%lX, just PTE=%lX copied", edx, eax
+ifndef _DEBUG
 error1:
+endif
 	pop edi
 	ret
+ifdef _DEBUG
+error1:
+	@dprintf "ClonePage: addr=%lX, Linear2PT() failed", edx
+	pop edi
+	ret
+endif
 @@:
 	pop edi
 	push edx
@@ -2231,7 +2296,7 @@ CopyPageContent proc
 ;--- get current PTE
 
 	mov eax, edx
-	call pm_Linear2PT
+	call Linear2PT
 	mov eax, es:[edi]
 
 if 0
@@ -2285,7 +2350,7 @@ if _LTRACE_
 	shl edx, 12
 	add edx, PhysBlk.dwBase
 	@dprintf "compresspagepool: blk base=%lX, size=%lX, free=%lX, nxt free=%lX", PhysBlk.dwBase, PhysBlk.dwSize, PhysBlk.dwFree, edx
-	@dprintf "compresspagepool: pPoolMax=%lX, dwPagePool=%lX, pMaxPageTab=%lX",pPoolMax, dwPagePool, pMaxPageTab
+	@dprintf "compresspagepool: pPoolMax=%lX, dwPagePool=%lX, dwMaxOfsPT=%lX",pPoolMax, dwPagePool, dwMaxOfsPT
 endif
 nextblock:
 	call compresspool
@@ -2294,8 +2359,9 @@ nextblock:
 	sub ebx, PhysBlk.dwFree
 	shl ebx, 12
 	add ebx, edx
-	mov ecx, pMaxPageTab
+	mov ecx, dwMaxOfsPT
 	mov edi, pPageTables
+	add ecx, edi
 nextitem:
 	cmp edi, ecx
 	jz blockisfree
@@ -2317,8 +2383,8 @@ nextitem:
 	lea ebp, [edi-4]
 	cmp ebp, esi
 	jnc scandone		;no, so it can't be for page pool -> abort
-	mov esi, pMaxPageTab
-	sub esi, pPageTables
+	mov esi, dwMaxOfsPT
+;	sub esi, pPageTables
 	shr esi, 10
 	add esi, ?SYSPGDIRAREA
 	and si, 0FFFCh
@@ -2394,14 +2460,15 @@ if _LTRACE_
 	shl edx, 12
 	add edx, PhysBlk.dwBase
 	@dprintf "compresspagepool: blk base=%lX, size=%lX, free=%lX, nxt free=%lX", PhysBlk.dwBase, PhysBlk.dwSize, PhysBlk.dwFree, edx
-	@dprintf "compresspagepool: pPoolMax=%lX, dwPagePool=%lX, pMaxPageTab=%lX",pPoolMax, dwPagePool, pMaxPageTab
+	@dprintf "compresspagepool: pPoolMax=%lX, dwPagePool=%lX, dwMaxOfsPT=%lX",pPoolMax, dwPagePool, dwMaxOfsPT
 endif
 	pop es
 	ret
 	align 4
 compresspool:
 	cld
-	mov esi, pMaxPageTab
+	mov esi, dwMaxOfsPT
+	add esi, pPageTables
 	mov edi, esi
 	mov ecx, pPoolMax
 @@:
@@ -2460,7 +2527,8 @@ endif
 
 getpoolpage:
 	pushad
-	mov edi, pMaxPageTab
+	mov edi, dwMaxOfsPT
+	add edi, pPageTables
 	mov ecx, pPoolMax
 @@:
 	cmp edi, ecx
@@ -2497,7 +2565,8 @@ compressdosmem proc uses es
 	push byte ptr _FLATSEL_
 	pop es
 	mov esi, pPageTables
-	mov ecx, pMaxPageTab
+	mov ecx, dwMaxOfsPT
+	add ecx, esi
 
 	mov edx,[ebx].PHYSBLK.dwBase
 	mov edi,[ebx].PHYSBLK.dwSize
@@ -2586,7 +2655,7 @@ notidle:
 endif
 	popad
 	@dprintf "   pPageDir=%lX  pPageTables=%lX", pPageDir, pPageTables
-	@dprintf "  pPageTab0=%lX  pMaxPageTab=%lX", pPageTab0, pMaxPageTab
+	@dprintf "  pPageTab0=%lX  dwMaxOfsPT=%lX", pPageTab0, dwMaxOfsPT
 	@dprintf " dwPagePool=%lX     pPoolMax=%lX", dwPagePool, pPoolMax
 	ret
 	align 4
@@ -2797,7 +2866,7 @@ endif
 ifdef ?PE
 	sub ecx,2	;the last 2 pages get special flags
 endif
-	call pm_Linear2PT	;get PTE ptr in edi
+	call Linear2PT	;get PTE ptr in edi
 @@:
 ifdef ?PE
 	and byte ptr es:[edi],not (PTF_DIRTY or PTF_ACCESSED or PTF_USER or PTF_WRITEABLE)
@@ -2859,7 +2928,7 @@ pm_CloneGroup32 endp
 
 ;*** new variables set:
 ;*** pPageTables:lin  address page tables (=FFC00000)
-;*** pMaxPageTab:lin  address next entry in cur. page table
+;*** dwMaxOfsPT:lin  address next entry in cur. page table
 
 ?TEMPBASE	equ 3FC000h	;linear address of page tables for new VM in
 						;current VM (valid just temporarily inside here)
@@ -2892,6 +2961,7 @@ pm_createvm proc public
 	add edx, 4
 	cmp edx, offset GROUP16:endvdata
 	jb @B
+;	mov [dwMaxOfsPT],?SYSPGDIRAREA * 400h	;ensure that Linear2PT won't return with C
 
 	test fHost, FH_XMS or FH_VCPI
 	jnz noinit
@@ -3060,7 +3130,7 @@ endif
 ;--- Also, make them r/o.
 
 	mov eax, ltaskaddr
-	call pm_Linear2PT
+	call Linear2PT
 	mov esi, edi
 	sub edi, ?PTSYSAREA0
 	add edi, ?TEMPBASE + ?SA0OFS
@@ -3165,11 +3235,11 @@ endif
 
 ;--- init the vm's user address space
 
-	mov esi, pPageTab0
+	mov esi, ?SYSPGDIRAREA * 400h	;offset pt 0 within pagetables
 	add esi,dwOfsPgTab0
 ;;	add esi, 32				;if a security buffer is needed
-	mov [pMaxPageTab],esi
-	@dprintf "pm_createvm: pMaxPageTab=%lX, SysAddrUp=%lX, SysAddrDown=%lX", pMaxPageTab, SysAddrUp, SysAddrDown
+	mov [dwMaxOfsPT],esi
+	@dprintf "pm_createvm: dwMaxOfsPT=%lX, SysAddrUp=%lX, SysAddrDown=%lX", dwMaxOfsPT, SysAddrUp, SysAddrDown
 
 	@dprintf "pm_createvm exit"
 	clc

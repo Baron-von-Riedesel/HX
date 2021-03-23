@@ -18,7 +18,7 @@ pm_GetNumPhysPages	proto near		;get free/total physical pages
 pm_AllocUserSpace	proto near		;allocate user address space
 pm_FreeUserSpace	proto near		;free user address space
 pm_AllocSysAddrSpace proto near		;allocate system address space
-pm_getaddrspace		proto near		;get free/total user address space
+pm_getfreeuserspace	proto near		;get addr+size of user space
 pm_searchphysregion	proto near		;search a mapped physical region
 pm_mapphysregion	proto near		;map physical address to user space
 pm_CopyPTEs			proto near

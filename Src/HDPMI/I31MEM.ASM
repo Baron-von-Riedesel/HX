@@ -13,6 +13,7 @@
 
 ?ADDRISHANDLE	equ 1		;std=1, 1=handle is address of block
 ;?DONTFREEMEM	equ 0		;std=0, 1=don't free memory blocks
+?USESTDALLOC	equ 0		;std=?
 
 if ?RESTRICTMEM
 ;--- exact value for -x cmdline option may be set here, default 255 MB
@@ -52,11 +53,10 @@ MEMITEM ends
 ;--- values of flags in MEMITEM
 
 HDLF_ALLOC  equ 01h	; 0=block free, 1=block allocated
-;HDLF_COMMIT equ 02h; obsolete by now, was: allocated as committed block
 HDLF_MAPPED equ 04h	; allocated thru int 31h, ax=800h (mapped physical area)
 
 _DATA16V segment
-pMemItems		dd 0			;start of used memory items list
+pMemItems		dd 0
 pFreeMemItems	dd 0			;start of free memory items list
 _DATA16V ends
 
@@ -64,14 +64,18 @@ _TEXT32  segment
 
 	assume DS:GROUP16
 
-if ?VM
 mem_createvm proc public
-	xor eax, eax
-	mov pMemItems, eax
-	mov pFreeMemItems, eax
+
+	call _allocmemhandle
+	mov pMemItems, ebx
+	call pm_getfreeuserspace
+;	mov [ebx].MEMITEM.pNext, 0
+	mov [ebx].MEMITEM.dwBase, eax
+	mov [ebx].MEMITEM.dwSize, ecx
+	@dprintf "mem_createvm: client space start=%lX, size=%lX", eax, ecx
+;	mov [ebx].MEMITEM.bOwner, 0
 	ret
 mem_createvm endp
-endif
 
 	@ResetTrace
 
@@ -127,56 +131,8 @@ _freememhandle proc
 	align 4
 _freememhandle endp
 
-;--- insert handle of a free memory block.
-;--- in: handle in EBX
-;--- list is supposed to be sorted by linear address.
-;--- it's assumed that the new item's address is highest,
-;--- so it's appended at the list's end.
-;--- merge free blocks here!
-;--- registers can be modified here
-
-_linkmemhandle proc
-	mov eax, ebx
-	mov [eax].MEMITEM.pNext,0
-	mov ebx, pMemItems
-	and ebx, ebx
-	jnz @F
-	mov pMemItems, eax
-	ret
-nextitem:
-	mov ebx, [ebx].MEMITEM.pNext
-@@:
-	cmp [ebx].MEMITEM.pNext,0
-	jnz nextitem
-
-	@dprintf "linkmemhandle: last item addr=%lX, size=%lX, new item addr=%lX, size=%lX",\
-		[ebx].MEMITEM.dwBase, [ebx].MEMITEM.dwSize, [eax].MEMITEM.dwBase, [eax].MEMITEM.dwSize
-
-;v3.19: HDLF_COMMIT in MEMITEM.flags is obsolete
-;	test byte ptr [ebx].MEMITEM.flags,HDLF_ALLOC or HDLF_COMMIT
-	test byte ptr [ebx].MEMITEM.flags,HDLF_ALLOC
-	jnz linkmemhandle_2
-
-	mov ecx,[ebx].MEMITEM.dwBase	;blocks contiguous?
-	mov edx,[ebx].MEMITEM.dwSize
-	shl edx,12
-	add ecx,edx
-	cmp ecx,[eax].MEMITEM.dwBase
-	jnz linkmemhandle_1
-	mov ecx,[eax].MEMITEM.dwSize	;then adjust size of last item
-	add [ebx].MEMITEM.dwSize,ecx	;and
-	push eax
-	call _freememhandle				;throw away the new handle
-	ret
-linkmemhandle_1:
-linkmemhandle_2:
-	mov [ebx].MEMITEM.pNext,eax
-	ret
-	align 4
-_linkmemhandle endp
-
 ;--- add an item to the MEMITEM list, it's always uncommitted memory.
-;--- in: EAX=lin addr, ECX=pages
+;--- in: EAX=lin addr, ECX=pages, esi= current handle, edi = previous handle
 ;---     DS=GROUP16
 ;--- called by _allocaddrspace().
 ;--- registers preserved
@@ -188,7 +144,15 @@ _addmemhandle proc
 	@dprintf "addmemhandle: addr=%lX, size=%lX", eax, ecx
 	mov [ebx].MEMITEM.dwBase,eax
 	mov [ebx].MEMITEM.dwSize,ecx
-	call _linkmemhandle				;add item to (sorted) list
+
+	mov eax, [edi].MEMITEM.pNext
+	mov [edi].MEMITEM.pNext, ebx
+	mov [ebx].MEMITEM.pNext, eax
+
+	sub [esi].MEMITEM.dwSize, ecx
+	shl ecx,12
+	add [esi].MEMITEM.dwBase, ecx
+	mov [esp].PUSHADS.rEAX, ebx
 @@:
 	popad
 	ret
@@ -208,27 +172,28 @@ _addmemhandle endp
 ;*** if none is found, calls pagemgr to
 ;*** create a new addr space.
 
-;--- pagemgr cannot create a specific address space,
-;--- so if such a space is requested, all the space
+;--- although pm_AllocUserSpace() accepts EBX as linear start address,
+;--- it cannot truly create a specific address space.
+;--- if such a space is requested, all the space
 ;--- between that space and the last allocated space
-;--- will have to be created as well.
+;--- will be created as well. This is transparent, though, so
+;--- _allocaddrspace() can firmly assume that it's ok.
 
 _allocaddrspace proc
 
 	pushad
-	@dprintf "allocaddrspace: req base=%lX, size=%lX", ebx, ecx
-nextscan:
-	mov ecx,[esp].PUSHADS.rECX
-	mov esi, offset pMemItems
-	jmp skipitem
-nexthandle:			;<----
+	mov edi, offset pMemItems
+	mov esi, [edi]
+	@dprintf "allocaddrspace: req base=%lX, size=%lX, start hdl=%lX", ebx, ecx, esi
+
+nextitem:
 
 ;	@dprintf "_allocaddrspace: hdl=%lX,nxt=%lX,base=%lX,siz=%lX,fl=%X",esi,\
-;	[esi].MEMITEM.pNext,[esi].MEMITEM.dwBase,[esi].MEMITEM.dwSize,[esi].MEMITEM.flags
+;		[esi].MEMITEM.pNext,[esi].MEMITEM.dwBase,[esi].MEMITEM.dwSize,[esi].MEMITEM.flags
 
 	test [esi].MEMITEM.flags,HDLF_ALLOC
 	jnz skipitem
-	mov edx, [esi].MEMITEM.dwSize
+	mov eax, [esi].MEMITEM.dwSize
 	and ebx,ebx
 	jz nospec
 
@@ -238,142 +203,81 @@ nexthandle:			;<----
 	cmp ebx, [esi].MEMITEM.dwBase
 	jb err8012
 
-	shl edx, 12
-	add edx, [esi].MEMITEM.dwBase	;get max address of block in edx
+	shl eax, 12
+	add eax, [esi].MEMITEM.dwBase	;get max address of block in edx
 
-	@dprintf "allocaddrspace: hdl=%lX,base=%lX,end=%lX (req=%lX,siz=%lX)",esi,\
-		[esi].MEMITEM.dwBase, edx, ebx, ecx
+	@dprintf "allocaddrspace: hdl=%lX,base=%lX,end=%lX (req=%lX,siz=%lX)",esi,[esi].MEMITEM.dwBase, eax, ebx, ecx
 
-	cmp ebx, edx					;is req. address in this block?
-	jnc skipitem					;no, jump!
-	sub edx,ebx
-	shr edx, 12
-	cmp edx,ecx						;is free block large enough?
-	jnc found
-									;no, but is it the last block?
-	mov eax,[esi].MEMITEM.pNext
-	and eax, eax
-	stc
-	jnz err8012						;no, so its an error
-getnewspace:
-;--- get new addr space. this will
-;--- increase the last block
-	sub ecx, edx
-	call pm_AllocUserSpace			;get new address space of ECX pages, returns linearaddr in EAX
+	cmp ebx, eax					;is req. address in this block?
+	jnc skipitem					;if no, skip this item
+
+	sub eax, ebx
+	shr eax, 12
+	cmp eax,ecx						;is base+size still in this block (=block large enough)?
+	jc err8012						;no, so its an error
+
+	@dprintf "allocaddrspace: calling pm_AllocUserSpace, ebx=%lX, ecx=%lX", ebx, ecx
+	call pm_AllocUserSpace			;get ECX pages new address space at EBX
 	jc err8012
-	call _addmemhandle				;add adress space (addr EAX, size ECX) to list
+	cmp ebx,[esi].MEMITEM.dwBase	;is a free area BEFORE the requested address?
+	jz @F
+	push ecx
+	push eax
+	mov eax,[esi].MEMITEM.dwBase
+	mov ecx, ebx
+	sub ecx, eax
+	shr ecx,12
+	call _addmemhandle
+	mov edi,eax
+	pop eax
+	pop ecx
 	jc err8016
-	jmp nextscan
+@@:
+	cmp ecx, [esi].MEMITEM.dwSize
+	jz exit
+	call _addmemhandle
+	jc err8016
+	mov esi, eax
+	jmp exit
 
 nospec:
-	cmp edx,ecx						;size large enough?
+	cmp eax,ecx					;size large enough?
 	jnc found1
-
 skipitem:
-	mov eax,esi
+	mov edi,esi
 	mov esi,[esi].MEMITEM.pNext
 	and esi,esi
-	jnz nexthandle
-	xor edx, edx
-	cmp eax, offset pMemItems
-	jz getnewspace
-	mov esi, eax		 ;last handle to esi (this is always free)
-	mov eax, ebx
-	and eax, eax
-	jz @F
-	sub eax, [esi].MEMITEM.dwBase
-	shr eax, 12
-@@:
-	add eax, ecx
-if 1
-	sub eax, [esi].MEMITEM.dwSize
-endif
-	mov ecx, eax
-	@dprintf "allocaddrspace: create addr space, size=%lX (%lX)",eax,ecx
-	call pm_AllocUserSpace		;get ECX pages new address space 
-	jc err8012
-	call _addmemhandle	;add adress space (addr EAX, size ECX) to list
-	jnc nextscan
-err8016:	;handle unavailable
-	@dprintf "allocaddrspace: failed, ax=8016"
-	popad
-	mov ax,8016h
-	ret
+	jnz nextitem
+	stc
 err8012:	;linear memory unavailable
 	@dprintf "allocaddrspace: failed, ax=8012"
 	popad
 	mov ax,8012h
 	ret
 
-;----------------- found a free area large enough for spec address
-;----------------- EAX = prev handle
+err8016:	;handle unavailable
+	@dprintf "allocaddrspace: failed, ax=8016"
+	popad
+	mov ax,8016h
+	ret
 
-found:
-	cmp ebx, [esi].MEMITEM.dwBase
-	jz found1
-
-;---------------- we need a new handle which covers free area
-;---------------- until spec address
-
-	mov edx,ebx
-	call _allocmemhandle ;get new handle in EBX
-	jc err8016
-	xchg edx, ebx		;new handle to EDX, ebx = req. base
-	push ecx
-	mov ecx, edx
-	xchg ecx, [eax].MEMITEM.pNext
-	mov [edx].MEMITEM.pNext, ecx	 ;now EAX->EDX->ESI
-	mov ecx, [esi].MEMITEM.dwBase
-	mov [edx].MEMITEM.dwBase, ecx
-	mov [esi].MEMITEM.dwBase, ebx
-	sub ebx, ecx
-	shr ebx, 12
-	mov [edx].MEMITEM.dwSize, ebx
-	sub [esi].MEMITEM.dwSize, ebx
-	@dprintf "allocaddrspace: new free handle, handle=%lX,base=%lX,size=%lX",\
-		edx,[edx].MEMITEM.dwBase,[edx].MEMITEM.dwSize
-	@dprintf "allocaddrspace: next free handle, handle=%lX,base=%lX,size=%lX",\
-		esi,[esi].MEMITEM.dwBase,[esi].MEMITEM.dwSize
-	mov eax, edx
-	pop ecx
-
-if 0;_LTRACE_
-?DISPLAYHDLTAB equ 1
-	call displayhdltab
-endif
-
-;---------------- found a free area for unspec address
-;---------------- EAX=prev hdl, esi=free current hdl
+;--- found a free area for unspec address
+;--- EDI=prev hdl, esi=free current hdl
 
 found1:
-	cmp [esi].MEMITEM.pNext,0
-	jz @F
-	cmp ecx,[esi].MEMITEM.dwSize	;fully meets request
+
+	mov ebx,[esi].MEMITEM.dwBase
+	call pm_AllocUserSpace			;get ECX pages new address space at EBX
+	jc err8012
+	cmp ecx,[esi].MEMITEM.dwSize	;does size fit exactly?
 	jz exit
-@@:
-;	@dprintf "_allocaddrspace: new handle required"
 
-;-------------------------------- allocate a new handle. this will be the
-;-------------------------------- one we return
+;--- allocate a new handle. this will be the one we return
 
-	call _allocmemhandle ;get new handle in EBX
+	mov eax,ebx
+	call _addmemhandle
 	jc err8016
-;;	@dprintf "allocaddrspace: new handle allocated"
-	mov [ebx].MEMITEM.dwSize, ecx
-	sub [esi].MEMITEM.dwSize, ecx
-	mov edx, [esi].MEMITEM.dwBase
-	mov [ebx].MEMITEM.dwBase, edx
-	shl ecx, 12
-	add [esi].MEMITEM.dwBase, ecx
-	mov edx, ebx
-	xchg edx, [eax].MEMITEM.pNext
-	mov [ebx].MEMITEM.pNext, edx
-	mov esi, ebx
-if _LTRACE_
-?DISPLAYHDLTAB equ 1
-	call displayhdltab
-endif
-
+	mov esi, eax
 exit:
 	@dprintf "allocaddrspace: alloc ok, handle=%lX,addr=%lX,size=%lX",\
 		esi,[esi].MEMITEM.dwBase,[esi].MEMITEM.dwSize
@@ -386,20 +290,31 @@ exit:
 	align 4
 _allocaddrspace endp
 
-if ?USEI31MEM
 ;--- alloc address space for system tables (LDT,IDT) if ENVF2_LDTLOW is set
 ;--- ebx=linear address or 0
 ;--- ecx=pages
 
-_allocaddrspaceX proc public
+_allocaddrspaceX proc public uses ebx
+
+	xor ebx, ebx
+if ?USESTDALLOC
 	call _allocaddrspace
 	jc @F
 	mov [eax].MEMITEM.bOwner,0	;ensure this space isn't released when client terminates
 	mov eax,[eax].MEMITEM.dwBase
+else
+	call pm_AllocUserSpace
+	jc @F
+	mov edx,pMemItems
+	sub [edx].MEMITEM.dwSize, ecx
+	push ecx
+	shl ecx, 12
+	add [edx].MEMITEM.dwBase, ecx
+	pop ecx
+endif
 @@:
 	ret
 _allocaddrspaceX endp
-endif
 
 	@ResetTrace
 
@@ -570,28 +485,35 @@ endif
 	shl eax,12
 	mov es:[edi].MEMINFO.maxBlock,eax		;+0 max free (bytes)
 	mov es:[edi].MEMINFO.swapFile,-1		;swap file
-	call pm_getaddrspace
-	@dprintf "getmeminfo: free/total space returned by pm=%lX/%lX", eax, edx
 
-	mov ebx, pMemItems
+;--- obsolete. since v3.19 the user address space is managed by i31mem
+;	call pm_getaddrspace
+;	@dprintf "getmeminfo: free/total space returned by pm=%lX/%lX", eax, edx
+
+	xor eax, eax
 	mov ecx, eax
+	mov edx, eax
+	mov ebx, pMemItems
 ;-------------------------- scan free handles if a larger block is available
 nextitem:
 	and ebx, ebx
 	jz done
+	mov esi, [ebx].MEMITEM.dwSize
 	test [ebx].MEMITEM.flags, HDLF_ALLOC
 	jnz skipitem
-	mov esi, [ebx].MEMITEM.dwSize
 	cmp ecx, esi
 	jnc @F
 	mov ecx, esi
 @@:
 	add eax, esi
 skipitem:
+	add edx, esi
 	mov ebx, [ebx].MEMITEM.pNext
 	jmp nextitem
 done:
-;-------------------------- ecx contains the largest free addr space
+
+;--- ecx contains the largest free addr space
+
 	cmp ecx, es:[edi].MEMINFO.maxLockable
 	jnc @F
 	@dprintf "getmeminfo: maxblock reduced to %lX", ecx
@@ -1626,9 +1548,11 @@ if 1
 	mov eax, [ebx].MEMITEM.dwBase
 	mov ecx, [ebx].MEMITEM.dwSize
 	call pm_FreeUserSpace
-	mov pMemItems,0
+ if 0
 	push ebx
 	call _freememhandle
+	mov pMemItems,0
+ endif
 @@:
 endif
 if _LTRACE_
