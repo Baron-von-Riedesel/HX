@@ -1194,10 +1194,12 @@ endm
 @dprintfx macro cond, strg:REQ, xx:VARARG
 local lbl
 if _LTRACE_
+	pushfd
 	test ss:traceflgs, cond
 	jz lbl
 	@printf <"#",strg,lf>,xx
 lbl:
+	popfd
 endif
 endm
 

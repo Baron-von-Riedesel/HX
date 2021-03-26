@@ -12,8 +12,7 @@
 	option proc:private
 
 ?ADDRISHANDLE	equ 1		;std=1, 1=handle is address of block
-;?DONTFREEMEM	equ 0		;std=0, 1=don't free memory blocks
-?USESTDALLOC	equ 0		;std=?
+?USESTDALLOC	equ 0		;std=0, 1=use std allocation functions for IDT/LDT
 
 if ?RESTRICTMEM
 ;--- exact value for -x cmdline option may be set here, default 255 MB
@@ -53,11 +52,11 @@ MEMITEM ends
 ;--- values of flags in MEMITEM
 
 HDLF_ALLOC  equ 01h	; 0=block free, 1=block allocated
-HDLF_MAPPED equ 04h	; allocated thru int 31h, ax=800h (mapped physical area)
+HDLF_MAPPED equ 02h	; allocated thru int 31h, ax=800h (mapped physical area)
 
 _DATA16V segment
 pMemItems		dd 0
-pFreeMemItems	dd 0			;start of free memory items list
+pFreeMemItems	dd 0		;start of free MEMITEM list
 _DATA16V ends
 
 _TEXT32  segment
@@ -85,10 +84,11 @@ mem_createvm endp
 	@ResetTrace
 
 ;*** alloc a MEMITEM handle
-;*** inp: DS=GROUP16
+;*** inp: -
 ;--- out: NC ok, handle in EBX
 ;---       C failed, EBX modified
 ;--- other registers preserved
+;*** DS=GROUP16
 
 	@ResetTrace
 
@@ -122,7 +122,8 @@ allocmemhandle1:
 	align 4
 _allocmemhandle endp
 
-;--- free handle in [esp+4]
+;--- free MEMITEM object
+;--- in: [esp+4] = handle
 ;--- DS=GROUP16
 ;--- the handle is added to the "free item" list
 
@@ -138,7 +139,7 @@ _freememhandle endp
 
 ;--- add an item to the MEMITEM list, it's always uncommitted memory.
 ;--- in: EAX=lin addr, ECX=pages, esi= current handle, edi = previous handle
-;---     DS=GROUP16
+;--- DS=GROUP16
 ;--- called by _allocaddrspace().
 ;--- registers preserved
 
@@ -169,10 +170,9 @@ _addmemhandle endp
 ;*** search/alloc a free address space
 ;*** IN: ECX=size in pages
 ;***     EBX=linear address (or any if ebx=NULL)
-;---     DS=GROUP16
 ;*** OUT: NC + EAX=handle, else C + AX=errorcode
-;*** scans memory handle linked list for a
-;*** free MEMITEM object of requested size.
+;--- DS=GROUP16
+;*** scans MEMITEM list for a free block of requested size.
 ;--- pm_AllocUserSpace() accepts EBX as linear start address.
 ;--- However, currently it cannot create a specific address space
 ;--- that would leave "holes" in the address space.
@@ -296,17 +296,18 @@ _allocaddrspace endp
 
 _allocaddrspaceX proc public uses ebx
 
-	xor ebx, ebx
 if ?USESTDALLOC
+	xor ebx, ebx
 	call _allocaddrspace
 	jc @F
 	mov [eax].MEMITEM.bOwner,0	;ensure this space isn't released when client terminates
 	mov eax,[eax].MEMITEM.dwBase
 else
-	call pm_AllocUserSpace
-	jc @F
-;--- adjust base/size of the predefined handle created in mem_createvm
+;--- use the predefined handle created in mem_createvm
 	mov edx,pMemItems
+	mov ebx,[edx].MEMITEM.dwBase
+	call pm_AllocUserSpace		;get ECX pages new address space at EBX
+	jc @F
 	sub [edx].MEMITEM.dwSize, ecx
 	push ecx
 	shl ecx, 12
@@ -318,18 +319,17 @@ endif
 	align 4
 _allocaddrspaceX endp
 
-	@ResetTrace
-
-;*** check (new) size in bytes in eax, get size in pages in edx ***
+;*** in: EAX = (new) size in bytes
+;--- out: ECX = size in pages
 
 checksize proc
 
 if 0
-	xor edx, edx
+	xor ecx, ecx
 	test ax,0FFFh
 	setnz dl
 	shr eax,12			;convert to pages (0-FFFFF)
-	add edx,eax
+	add ecx,eax
 	jz _errret			;size 0 is error
 	test eax,0FFF00000h	;max is 0FFFFF pages (4096 MB - 4kB)
 	jnz _errret
@@ -338,7 +338,7 @@ else
 	jc _errret
 	shr eax,12
 	jz _errret			;size 0 is invalid
-	mov edx,eax
+	mov ecx,eax
 	clc
 endif
 	ret
@@ -355,36 +355,28 @@ checksize endp
 ;--- called by int 31h, ax=501h and ax=504h
 ;--- EAX= size in bytes
 ;--- EBX= requested address or 0
-;--- CL = bit 0 -> un/committed
+;--- DL = bit 0 -> un/committed
 ;--- out: NC, EBX=handle
 ;---       C, AX=error
 ;--- modifies eax, edx, ecx
 
-_AllocMem proc
+_AllocMemory proc
 
 	push ss
 	pop ds
-	call checksize		;get size in pages in EDX
+	call checksize		;get size in pages in ECX
 	jc err8021
+	@dprintf "AllocMemory: request for %lX pages, flags=%X", ecx, dx
 
-	@dprintf "AllocMem: request for %lX pages, flags=%X", edx, cx
-	push ecx
-	mov ecx,edx
-;	xor ebx,ebx
 	call _allocaddrspace
-	pop ecx
 	jc error
 	mov ebx, eax
-	test cl,1		;committed memory?
+	test dl,1		;committed memory?
 	jz done
-
-;--- v3.19: HDLF_COMMIT bit in MEMITEM.flags is obsolete
-;	test [ebx].MEMITEM.flags, HDLF_COMMIT
-;	jnz done
 
 	mov eax,[ebx].MEMITEM.dwBase
 	mov ecx,[ebx].MEMITEM.dwSize
-	@dprintf "AllocMem: commit %lX pages for base %lX", ecx, eax
+	@dprintf "AllocMemory: commit %lX pages for base %lX", ecx, eax
 	push es
 	call pm_CommitRegion
 	pop es
@@ -399,10 +391,10 @@ if _LTRACE_
 	pop es
 endif
 done:
-	@dprintf "AllocMem: request successful, handle=%lX, base=%lX", ebx, [ebx.MEMITEM.dwBase]
+	@dprintf "AllocMemory: request successful, handle=%lX, base=%lX", ebx, [ebx].MEMITEM.dwBase
 	ret
 err8013:
-	call _freememint
+	call _FreeMemoryInt
 	mov ax,8013h
 	stc
 	ret
@@ -413,8 +405,141 @@ err8021:
 	ret
 	align 4
 
-_AllocMem endp
+_AllocMemory endp
 
+	@ResetTrace
+
+;*** search handle in handle list, used by freemem + resizemem
+;*** in: handle in ebx
+;*** out: NC, handle in ebx, previous handle in eax
+;--- C if handle not found, ebx=0.
+;*** changes eax, ds=GROUP16
+;--- used by freememint, resizememint, getsetpageattr, mapx, getmemsize
+
+searchhandle proc uses ecx
+
+	push ss
+	pop ds
+
+	mov ecx,ebx
+	mov eax, offset pMemItems
+	jmp @F
+nextitem:
+if ?ADDRISHANDLE
+	cmp ecx,[ebx].MEMITEM.dwBase
+else
+	cmp ebx,ecx
+endif
+	jz done
+	mov eax,ebx
+@@:
+	mov ebx,[eax].MEMITEM.pNext
+	and ebx,ebx
+	jnz nextitem
+	stc
+done:
+	ret
+	align 4
+searchhandle endp
+
+	@ResetTrace
+
+;--- internal function: free EBX internal handle
+;--- it has to be done this way, since _FreeMemory
+;--- needs previous handle in EAX.
+
+_FreeMemoryInt proc
+if ?ADDRISHANDLE
+	mov ebx,[ebx].MEMITEM.dwBase
+endif
+_FreeMemoryInt endp	;fall thru
+
+;--- internal function: free memory item
+;--- in: EBX=memitem
+;--- used by int 31h, ax=502h and ax=801h
+
+_FreeMemory proc
+	pushad
+	@dprintf "FreeMemory: ebx=%lX", ebx
+	call searchhandle				;get previous handle in EAX, sets ds to GROUP16
+	jc error
+freememoryx::
+	test [ebx].MEMITEM.flags,HDLF_ALLOC;is region already free?
+	jz error
+
+	mov esi, eax					;save previous block is ESI
+
+	mov eax,[ebx].MEMITEM.dwBase
+	mov ecx,[ebx].MEMITEM.dwSize
+	call pm_UncommitRegion
+
+;--- v3.19: reset "mapped" flag - else resizing a memory block may fail under certain conditions;
+;--- see test case i3105033.asm.
+;	and [ebx].MEMITEM.flags,not HDLF_ALLOC
+	and [ebx].MEMITEM.flags,not (HDLF_ALLOC or HDLF_MAPPED)
+
+	@dprintf "FreeMemory: block released, handle=%lX (addr=%lX size=%lX flgs=%X)",\
+		ebx, [ebx].MEMITEM.dwBase, [ebx].MEMITEM.dwSize, [ebx].MEMITEM.flags
+
+;--- now check if predecessor and successor are also free blocks and merge them, if so.
+
+	mov edi,[ebx].MEMITEM.pNext		;save next block in EDI
+
+;--- is successor a free block? (note that there is always a successor, no need to test!)
+	test [edi].MEMITEM.flags,HDLF_ALLOC
+	jnz @F
+	@dprintf "FreeMemory: next block is free (base=%lX size=%lX flgs=%X)",\
+		[edi].MEMITEM.dwBase, [edi].MEMITEM.dwSize, [edi].MEMITEM.flags
+	mov ecx,[ebx].MEMITEM.dwSize
+;--- v3.19: blocks are always contiguous, no check needed.
+;	mov edx, ecx
+;	shl edx, 12
+;	add edx, [ebx].MEMITEM.dwBase
+;	cmp edx, [edi].MEMITEM.dwBase	;are blocks contiguous?
+;	jnz @F
+	add [edi].MEMITEM.dwSize, ecx
+	shl ecx, 12
+	sub [edi].MEMITEM.dwBase, ecx
+	push ebx
+	call _freememhandle
+	@dprintf "FreeMemory: handle %lX merged and released", ebx
+	mov [esi].MEMITEM.pNext, edi
+
+@@:
+	cmp esi, offset pMemItems		;is there a previous block?
+	jz @F
+	test [esi].MEMITEM.flags, HDLF_ALLOC
+	jnz @F
+	@dprintf "FreeMemory: previous block is free (base=%lX size=%lX flgs=%X)",\
+		[esi].MEMITEM.dwBase, [esi].MEMITEM.dwSize, [esi].MEMITEM.flags
+	mov edi,[esi].MEMITEM.pNext		;this next block is always free!
+;--- v3.19: blocks are always contiguous, no check needed.
+;   mov eax,[esi].MEMITEM.dwSize
+;   shl eax, 12
+;   add eax,[esi].MEMITEM.dwBase
+;   cmp eax,[edi].MEMITEM.dwBase	;are blocks contiguous?
+;   jnz @F
+	mov ecx,[edi].MEMITEM.dwSize
+	add [esi].MEMITEM.dwSize, ecx
+	mov ecx,[edi].MEMITEM.pNext
+	mov [esi].MEMITEM.pNext, ecx
+	push edi
+	call _freememhandle
+	@dprintf "FreeMemory: handle %lX merged and released", edi
+@@:
+	popad
+	clc
+	ret
+error:
+	popad
+	@dprintf "FreeMemory: error, ax=8023h"
+	mov ax, 8023h
+	stc
+	ret
+	align 4
+_FreeMemory endp
+
+	@ResetTrace
 
 ;*** functions int 31h, ax=05xxh
 
@@ -522,9 +647,9 @@ allocmem proc public
 	push cx
 	pop eax		;size -> EAX
 	@dprintf "allocmem: bx:cx=%X:%X", bx, cx
-	mov cl,1	;committed memory
+	mov dl,1	;committed memory
 	xor ebx,ebx	;no specific address needed
-	call _AllocMem
+	call _AllocMemory
 	jc error1
 	@dprintf "allocmem: no error, ebx=%lX, base=%lX", ebx, [ebx].MEMITEM.dwBase
 if ?ADDRISHANDLE
@@ -550,133 +675,6 @@ error1:
 	align 4
 allocmem endp
 
-
-;*** search handle in handle list, used by freemem + resizemem
-;*** inp: handle in ebx
-;*** out: NC, handle in ebx, previous handle in eax
-;--- C if handle not found, ebx=0.
-;*** changes eax, ds=GROUP16
-;--- used by freememint, resizememint, getsetpageattr, mapx, getmemsize
-
-searchhandle proc uses ecx
-
-	push ss
-	pop ds
-
-	mov ecx,ebx
-	mov eax, offset pMemItems
-	jmp @F
-nextitem:
-if ?ADDRISHANDLE
-	cmp ecx,[ebx].MEMITEM.dwBase
-else
-	cmp ebx,ecx
-endif
-	jz done
-	mov eax,ebx
-@@:
-	mov ebx,[eax].MEMITEM.pNext
-	and ebx,ebx
-	jnz nextitem
-	stc
-done:
-	ret
-	align 4
-searchhandle endp
-
-;--- internal function: free EBX internal handle
-
-	@ResetTrace
-
-_freememint proc
-if ?ADDRISHANDLE
-	mov ebx,[ebx.MEMITEM.dwBase]
-endif
-_freememint endp	;fall through
-
-;--- internal function: free EBX external handle
-;--- used by int 31h, ax=502h and ax=801h
-
-_freememintEx proc
-	pushad
-	@dprintf "freememint: ebx=%lX", ebx
-	call searchhandle				;get previous handle in EAX, sets ds to GROUP16
-	jc error
-	test [ebx].MEMITEM.flags,HDLF_ALLOC;is region already free?
-	jz error
-
-	mov esi, eax					;save previous block is ESI
-
-	mov eax,[ebx].MEMITEM.dwBase
-	mov ecx,[ebx].MEMITEM.dwSize
-	call pm_UncommitRegion
-
-;--- v3.19: reset "mapped" flag - else resizing a memory block may fail under certain conditions;
-;--- see test case i3105033.asm.
-;	and [ebx].MEMITEM.flags,not HDLF_ALLOC
-	and [ebx].MEMITEM.flags,not (HDLF_ALLOC or HDLF_MAPPED)
-
-	@dprintf "freememint: block released, handle=%lX (addr=%lX size=%lX flgs=%X)",\
-		ebx, [ebx].MEMITEM.dwBase, [ebx].MEMITEM.dwSize, [ebx].MEMITEM.flags
-
-;--- now check if predecessor and successor are also free blocks and merge them, if so.
-
-	mov edi,[ebx].MEMITEM.pNext		;save next block in EDI
-
-;--- is successor a free block? (note that there is always a successor, no need to test!)
-	test [edi].MEMITEM.flags,HDLF_ALLOC
-	jnz @F
-	@dprintf "freememint: next block is free (base=%lX size=%lX flgs=%X)",\
-		[edi].MEMITEM.dwBase, [edi].MEMITEM.dwSize, [edi].MEMITEM.flags
-	mov ecx,[ebx].MEMITEM.dwSize
-;--- v3.19: blocks are always contiguous, no check needed.
-;	mov edx, ecx
-;	shl edx, 12
-;	add edx, [ebx].MEMITEM.dwBase
-;	cmp edx, [edi].MEMITEM.dwBase	;are blocks contiguous?
-;	jnz @F
-	add [edi].MEMITEM.dwSize, ecx
-	shl ecx, 12
-	sub [edi].MEMITEM.dwBase, ecx
-	push ebx
-	call _freememhandle
-	@dprintf "freememint: handle %lX merged and released", ebx
-	mov [esi].MEMITEM.pNext, edi
-
-@@:
-	cmp esi, offset pMemItems		;is there a previous block?
-	jz @F
-	test [esi].MEMITEM.flags, HDLF_ALLOC
-	jnz @F
-	@dprintf "freememint: previous block is free (base=%lX size=%lX flgs=%X)",\
-		[esi].MEMITEM.dwBase, [esi].MEMITEM.dwSize, [esi].MEMITEM.flags
-	mov edi,[esi].MEMITEM.pNext		;this next block is always free!
-;--- v3.19: blocks are always contiguous, no check needed.
-;   mov eax,[esi].MEMITEM.dwSize
-;   shl eax, 12
-;   add eax,[esi].MEMITEM.dwBase
-;   cmp eax,[edi].MEMITEM.dwBase	;are blocks contiguous?
-;   jnz @F
-	mov ecx,[edi].MEMITEM.dwSize
-	add [esi].MEMITEM.dwSize, ecx
-	mov ecx,[edi].MEMITEM.pNext
-	mov [esi].MEMITEM.pNext, ecx
-	push edi
-	call _freememhandle
-	@dprintf "freememint: handle %lX merged and released", edi
-@@:
-	popad
-	clc
-	ret
-error:
-	popad
-	@dprintf "freememint: error, ax=8023h"
-	mov ax, 8023h
-	stc
-	ret
-	align 4
-_freememintEx endp
-
 ;*** int 31h, ax=0502h, free memory
 ;*** inp si:di = handle
 
@@ -689,7 +687,7 @@ freemem proc public
 	push si
 	push di
 	pop ebx
-	call _freememintEx
+	call _FreeMemory
 if _LTRACE_
 	jnc @F
   if ?32BIT
@@ -718,14 +716,14 @@ freemem endp
 	@ResetTrace
 
 _resizememint proc
-	call checksize				;convert byte_size in eax to page_size in edx
+	call checksize				;convert byte_size in EAX to page_size in ECX
 	jc err8021
 	call searchhandle			;search handle of memory block, sets DS to GROUP16
 	jc err8023_1
 	@dprintf "resizemem: handle found, %lX (base=%lX size=%lX flgs=%X)",\
-		 ebx,[ebx.MEMITEM.dwBase],[ebx.MEMITEM.dwSize],[ebx.MEMITEM.flags]
+		ebx,[ebx].MEMITEM.dwBase,[ebx].MEMITEM.dwSize,[ebx].MEMITEM.flags
 
-	mov edi,[ebx].MEMITEM.dwBase	;save old base
+	mov edi,[ebx].MEMITEM.dwBase	;save old base, used to update descriptor array for function 505h
 
 	test [ebx].MEMITEM.flags,HDLF_ALLOC	;don't resize free blocks
 	jz err8023_2
@@ -736,30 +734,35 @@ if ?ADDRISHANDLE
 	jnz err8023_3
 endif
 
-	cmp edx,[ebx].MEMITEM.dwSize;what is to be done?
+	cmp ecx,[ebx].MEMITEM.dwSize;what is to be done?
 	jz done						;---> nothing, size doesnt change
 	jc resizemem3				;---> block shrinks
 
 ;--- block is to grow
 
+	mov edx, ecx	;save new size in EDX, needed if block is to be moved
 	mov esi, ebx
 	mov eax,[ebx].MEMITEM.pNext
-	test [eax].MEMITEM.flags,HDLF_ALLOC
-	jnz resizemem2
-	mov ecx, edx
+	test [eax].MEMITEM.flags,HDLF_ALLOC	;next region allocated?
+	jnz resizemem2				;then block has to be moved.
 	sub ecx,[ebx].MEMITEM.dwSize
-	cmp [eax].MEMITEM.dwSize, ecx
+	cmp [eax].MEMITEM.dwSize,ecx;free block large enough?
 	jc resizemem2
 	push ebx
 	mov ebx,[eax].MEMITEM.dwBase
-	call pm_AllocUserSpace
+	call pm_AllocUserSpace		;get ECX pages new address space at EBX
 	pop ebx
-	jc resizemem2
+
+;--- if the call failed, it must be due to "out of physical memory"
+;--- since the address space itself was ok. No need to try with another location.
+;	jc resizemem2
+	jc err8013_1
+
 	test ebp,1
 	jz @F
 	@dprintf "resizemem: commit new addr space %lX, size %lX", eax, ecx
 	push es
-	call pm_CommitRegion
+	call pm_CommitRegion	;commit region EAX, size ECX
 	pop es
 	jc err8013_1
 @@:
@@ -778,29 +781,39 @@ endif
 ;--- block shrinks
 ;--- alloc a new handle, split the block
 ;--- at finally free the second block
+;--- ecx=new size
 
 resizemem3:
-	@dprintf "resizemem: block shrinks to %lX pages", edx
+	@dprintf "resizemem: block shrinks to %lX pages", ecx
 	mov eax, ebx
-	call _allocmemhandle 			;get new handle in EBX
+	call _allocmemhandle 		;get new handle in EBX
 	jc err8016
 	@dprintf "resizemem: new handle %lX", ebx
-	mov ecx,[eax].MEMITEM.dwSize
-	mov [eax].MEMITEM.dwSize,edx
-	sub ecx, edx					;pages for second block in ECX
-	mov [ebx].MEMITEM.dwSize, ecx
-	mov ecx, ebx
-	xchg ecx, [eax].MEMITEM.pNext	 ;current handle is done now
-	mov [ebx].MEMITEM.pNext, ecx
-	shl edx,12
-	add edx,[eax].MEMITEM.dwBase
-	mov [ebx].MEMITEM.dwBase, edx
-	or [ebx].MEMITEM.flags, HDLF_ALLOC
+
+;--- eax=allocated block
+;--- ebx=new free block
+;--- set new size in allocated block
+;--- set base/size in (new) free block
+
+	mov edx,[eax].MEMITEM.dwSize
+	mov [eax].MEMITEM.dwSize,ecx
+	sub edx, ecx					;pages for "free" block now in EDX
+	mov [ebx].MEMITEM.dwSize, edx
+	shl ecx,12
+	add ecx,[eax].MEMITEM.dwBase
+	mov [ebx].MEMITEM.dwBase, ecx
+
+	mov edx, ebx
+	xchg edx, [eax].MEMITEM.pNext	;current handle is done now
+	mov [ebx].MEMITEM.pNext, edx
+
 	@dprintf "resizemem: changed hdl=%lX (nxt=%lX base=%lX, size=%lX)",\
 		eax, [eax].MEMITEM.pNext, [eax].MEMITEM.dwBase, [eax].MEMITEM.dwSize
 	@dprintf "resizemem: free block hdl=%lX (nxt=%lX base=%lX size=%lX)",\
 		ebx, [ebx].MEMITEM.pNext, [ebx].MEMITEM.dwBase, [ebx].MEMITEM.dwSize
-	call _freememint 			   ;release block in EBX
+;--- to make _freememing work, set the "allocated" flag
+	or [ebx].MEMITEM.flags, HDLF_ALLOC
+	call _FreeMemoryInt 			;release block in EBX
 	mov ebx,eax
 	jmp done
 
@@ -808,6 +821,7 @@ resizemem3:
 ;--- we need a new block and have to move the PTEs
 ;--- the old block must then be released
 ;--- esi = current handle
+;--- edx = new size
 
 resizemem2:
 	@dprintf "resizemem: cannot enlarge memory block"
@@ -840,7 +854,7 @@ resizemem2:
 	push ebx
 	mov ebx, esi
 	mov esi, [ebx].MEMITEM.dwSize	;get old size in ESI
-	call _freememint				;free the old handle
+	call _FreeMemoryInt				;free the old handle
 	@dprintf "resizemem: old block freed"
 	pop ebx
 done:
@@ -857,9 +871,9 @@ if _LTRACE_
 endif
 	clc
 	ret
-err8013_1:	;commit error (block growing), 8013
 err8013_2:	;commit error (new block), 8013
-	call _freememint	;free (new) ebx block
+	call _FreeMemoryInt	;free (new) ebx block
+err8013_1:	;commit error (block growing), 8013
 	@dprintf "resizemem: error 8013"
 	mov ax,8013h
 	stc
@@ -892,9 +906,9 @@ _resizememint endp
 
 ;*** int 31h, ax=0503h, resize memory
 ;*** INP: SI:DI=Handle
-;***	  BX:CX=new SIZE
+;***      BX:CX=new SIZE
 ;*** OUT: SI:DI=Handle
-;***	  BX:CX=lin. address
+;***      BX:CX=lin. address
 
 	@ResetTrace
 
@@ -954,10 +968,10 @@ allocmemx proc public
 	test bx,0FFFh
 	jnz error8025
 	mov eax, ecx
-	mov cl,dl			;bit 0: 1=committed
-	call _AllocMem
+;--- DL bit 0: 1=committed
+	call _AllocMemory
 	jc error
-	mov eax, [ebx.MEMITEM.dwBase]
+	mov eax, [ebx].MEMITEM.dwBase
 	mov [esp].PUSHADS.rEBX, eax
 ife ?ADDRISHANDLE
 	mov eax, ebx
@@ -1431,11 +1445,11 @@ unmapphysregion proc public
 	@dprintf "unmapphysregion: addr=%lX", ebx
 	and bx,0F000h		;v3.19: reset bits 0-11, else the handle wouldn't be found
 if ?ADDRISHANDLE
-	call _freememintEx
+	call _FreeMemory
 else
 	call searchaddr
 	jc @F
-	call _freememintEx
+	call _FreeMemory
 @@:
 endif
 	popad
@@ -1473,7 +1487,7 @@ nextitem:
 	jnz nexthandle
 	@dprintf "freeclientmemory: free handle=%lX, base=%lX, size=%lX, owner=%X",ebx,\
 		[ebx].MEMITEM.dwBase,[ebx].MEMITEM.dwSize,[ebx].MEMITEM.bOwner
-	call _freememint
+	call _FreeMemoryInt
 	jmp nextscan
 nexthandle:
 	mov ebx,[ebx].MEMITEM.pNext

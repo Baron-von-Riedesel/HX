@@ -131,7 +131,7 @@ SysAddrSize	dd 0		;free pages in system region
 startvdata label near
 
 ;--- physical memory
-;--- the page pool are uncommitted PTEs which are
+;--- the page pool are uncommitted PTEs (from XMS only) which are
 ;--- stored in the page tables. the pool is scanned from top to bottom
 
 dwPagePool	dd 0		;uncommitted PTEs (XMS+I15) in page pool
@@ -395,13 +395,6 @@ pm_searchphysregion endp
 ;***      EAX=linear address space to map the region to
 ;***      BL=1 -> set PTF_PWT bit in PTEs
 
-;--- DPMI calls 508h/509h will "uncommit" the region before it
-;--- is remapped. This may cause memory leaks if a region is allocated
-;--- with committed memory - the page table entries are lost - and hence
-;--- the physical pages. No big problem, since the host will recover
-;--- when the client terminates, but there may exist borderline conditions
-;--- where it matters.
-
 	@ResetTrace
 
 pm_mapphysregion proc public uses es
@@ -421,15 +414,50 @@ pm_mapphysregion proc public uses es
 	jz @F
 	or al, PTF_PWT or PTF_PCD	;set 'write through' + 'cache disable'
 @@:
+nextpte:
+	mov edx,es:[edi]
 	stosd
+	test dh,_XMSFLAG_
+	jz @F
+	call savePTEinpagepool
+@@:
 	add eax,1000h
-	loopd @B
+	loopd nextpte
 done:
 	popad
 	ret
 	align 4
 
 pm_mapphysregion endp
+
+;--- move PTE to a "safe" location in the page pool.
+;--- currently, just the region "below" EDI is scanned.
+;--- in:
+;--- EDX=PTR
+;--- EDI=ptr PTE
+;--- ECX=pages still to map
+
+savePTEinpagepool proc
+	pushad
+	mov esi,ss:pPageTables
+nextitem:
+	sub edi,4
+	cmp edi,esi
+	jc error
+	mov eax,es:[edi]
+	test al,PTF_PRESENT
+	jnz nextitem
+	test ah,_XMSFLAG_	;is another PTE in pool
+	jnz nextitem
+	mov es:[edi],edx
+	jmp done
+error:
+	dec ss:dwPagePool
+	@dprintf "pm_mapphysregion, ERROR: PTE %lX lost for page pool, dwPagePool=%lX", edx, ss:dwPagePool
+done:
+	popad
+	ret
+savePTEinpagepool endp
 
 ;--- physical memory
 
@@ -824,19 +852,19 @@ setphyshandle endp
 getxmspage proc near
 
 	test fHost,FH_XMS		;XMS host present?
-	jz getxmspage_err
+	jz getxmspage_err1
 
 	@dprintf "getxmspage: try to alloc XMS mem (real mode), ecx=%lX",ecx
 	call getavailxmspages
 	cmp eax, 1
-	jc getxmspage_err		;XMS is out of memory
+	jc getxmspage_err2		;XMS is out of memory
 	call getbestxmssize		;return best size
 	push ecx
 	mov ecx,eax
 	pushd offset allocxms
 	call callrmprocintern
 	pop ecx
-	jc getxmspage_err		;XMS is out of memory
+	jc getxmspage_err3		;XMS is out of memory
 	call setphyshandle
 	mov PhysBlk.wHandle, bx
 	mov PhysBlk.bFlags, PBF_XMS
@@ -844,14 +872,27 @@ if ?XMSBLOCKCNT
 	inc [bXMSBlocks]
 endif
 	jmp getblockpage
-getxmspage_err:
-	@dprintf "getxmspage: memory alloc failed, ax=%X",ax
+getxmspage_err1:
+ifdef _DEBUG
+	@dprintf "getxmspage: error, no XMM"
+	stc
+	ret
+endif
+getxmspage_err2:
+ifdef _DEBUG
+	@dprintf "getxmspage: error, getavailxmspages returned 0"
+	stc
+	ret
+endif
+getxmspage_err3:
+	@dprintf "getxmspage: error, XMM alloc call failed, ax=%X",ax
 	stc
 	ret
 	align 4
 getxmspage endp
 
 ;*** allocate DOS memory to satisfy requests, ecx=pages
+;--- out: C if error
 ;--- modifies ebx, edx, eax
 
 	@ResetTrace
@@ -959,7 +1000,7 @@ if _LTRACE_
 	and esi, esi
 	jnz @F
 ;--- pages in page pool, but pPoolMax is zero. This shouldn't happen!
-	@dprintf "scanpagepool: pPoolMax is NULL!, pages in pool=%lX", dwPagePool
+	@dprintf "scanpagepool: ERROR, pPoolMax is NULL!, pages in pool=%lX", dwPagePool
 @@:
 endif
 
@@ -973,12 +1014,13 @@ nextitem:
 	test ah, _XMSFLAG_
 	jz nextitem
 	mov dword ptr es:[esi],PTF_NORMAL  ;clear PTE here
-	mov pPoolMax, esi
 exit:
+	mov pPoolMax, esi
 	ret
 notfound:
 ;--- no page in page pool. This shouldn't happen!
-	@dprintf "scanpagepool error: no page in page pool found"
+	@dprintf "scanpagepool: ERROR, no page in page pool found"
+	add esi,4
 	stc
 	jmp exit
 	align 4
@@ -1027,6 +1069,7 @@ getphyspagex endp
 	@ResetTrace
 
 ;--- get one free physical page
+;--- out: C if error
 ;--- ecx = hint for xms how much pages will be requested
 
 getphyspage proc
@@ -1050,10 +1093,10 @@ getphyspage proc
 if ?VCPIALLOC
 	test [fHost],FH_VCPI
 	jz novcpimem
-if ?NOVCPIANDXMS
+ if ?NOVCPIANDXMS
 	test [fHost],FH_XMS	;using VCPI when XMS exists but fails
 	jnz novcpimem		;seems to be unstable for many VCPI hosts
-endif
+ endif
 	@dprintf "getphyspage: try VCPI alloc"
 
 	@ResetTrace
@@ -1092,7 +1135,7 @@ getphyspage endp
 freephyspage proc
 
 	test al,PTF_PRESENT		;committed?
-	jz exit				;if not, do nothing	   
+	jz exit					;if not, do nothing
 	test ah,_XMSFLAG_		;is it from XMS/I15/DOS?
 	jz noxmspage	        ;no (VCPI or mapped)
 	inc [dwPagePool]		;XMS/I15/DOS will be put in page pool
@@ -1121,7 +1164,11 @@ if ?VCPIALLOC
 	popad
 novcpipage:
 endif
+if 0
 	xor eax, eax			   ;return 0 (value of new page entry 
+else
+	mov eax, PTF_NORMAL
+endif
 	ret
 	align 4
 freephyspage endp
@@ -1164,7 +1211,11 @@ endif
 	push edi
 	push eax
 	mov ecx,1000h/4			 ;clear the new page table
+if 0
 	xor eax,eax
+else
+	mov eax,PTF_NORMAL
+endif
 	rep stosd
 
 	pop eax
@@ -1350,7 +1401,7 @@ exit:
 FreeUserAddrSpace endp
 
 ;*** create user address space
-;*** in: ECX=pages, EBX=linear address or 0
+;*** in: ECX=pages, EBX=linear address
 ;---     DS=GROUP16, ES=FLAT
 ;*** out: NC if successful, EAX=linear address, ECX preserved.
 ;*** C on error
@@ -1360,6 +1411,10 @@ FreeUserAddrSpace endp
 ;--- example (dwMaxOfsPT = 2440):
 ;--- 400000h - 2440 = 3FDBC0, SHR 2 = FF6F0 pages, FF6F0000h bytes
 
+;--- to be done: simplify this proc,
+;--- there should be no need to scan the page tables,
+;--- just set PDEs in PD if needed.
+
 	@ResetTrace
 
 CreateUserAddrSpace proc near
@@ -1367,17 +1422,23 @@ CreateUserAddrSpace proc near
 	assume ds:GROUP16
 
 	@dprintf "CreateUserAddrSpace: request %lX pages at %lX", ecx, ebx
-	mov edi,[dwMaxOfsPT]	;top used address space (may be 0!)
+
+if 0
+	mov edi,[dwMaxOfsPT]	;max offset so far used in SYSAREA1
+;--- if ebx==0, use dwMaxOfsPT
+;--- currently not used!
 	and ebx, ebx
 	jz @F
+endif
+
 	mov eax, ebx
 	shr eax, 10
 	and al,0Fch
 	add eax, ?SYSPGDIRAREA * 400h
 	mov edi, eax
-	sub eax, [dwMaxOfsPT]
+	sub eax, [dwMaxOfsPT]	;is the address below dwMaxOfsPT?
 	jbe @F
-	shr eax, 2
+	shr eax, 2				;if no, create more space to avoid "holes"    
 	add ecx, eax
 	mov edi, [dwMaxOfsPT]
 @@:
@@ -1397,6 +1458,7 @@ nextpage:
 	test di,0FFFh			;start of a new page table?
 	jz newpagetab
 donenewpagetab:
+if 0	;v3.19: don't read the page tables, just update EDI
 	mov eax,es:[edi]
 	test al,PTF_PRESENT
 	jnz @F
@@ -1404,6 +1466,9 @@ donenewpagetab:
 ;	@dprintf "CreateUserAddrSpace: mem page at %lX",edi
 @@:
 	stosd					;save PTE in page table
+else
+	add edi,sizeof dword
+endif
 	dec ecx
 	jnz nextpage
 	sub edi, [pPageTables]
@@ -1750,7 +1815,7 @@ endif
 ;*** get user address space
 ;*** RC: C on errors
 ;*** Inp: ECX = #pages
-;---      ebx = linear address or 0
+;---      ebx = linear address
 ;*** out: EAX=linear address
 ;--- DS=GROUP16
 
@@ -1860,7 +1925,7 @@ pm_UncommitRegion proc public
 	push es
 	push byte ptr _FLATSEL_
 	pop es
-	@dprintf "UncommitRegion: free %lX pages at %lX, pPoolMax=%lX",ecx,eax,ss:pPoolMax
+	@dprintf "UncommitRegion enter: freeing %lX pages at %lX, pPoolMax=%lX, dwPagePool=%lX",ecx,eax,ss:pPoolMax,ss:dwPagePool
 	call Linear2PT
 	push ebx
 	push ecx
@@ -1878,7 +1943,7 @@ nextpage:
 	jc @F
 	mov ss:pPoolMax,ebx
 @@:
-	@dprintf "UncommitRegion: pPoolMax=%lX",ss:pPoolMax
+	@dprintf "UncommitRegion exit: pPoolMax=%lX, dwPagePool=%lX",ss:pPoolMax,ss:dwPagePool
 	pop ecx
 	mov ebx, edx
 	call updatetlb
@@ -2052,28 +2117,6 @@ pm_FreeSysPagesDn proc public
 	ret
 	align 4
 pm_FreeSysPagesDn endp
-endif
-
-if 0
-;--- alloc committed memory in user address space
-;--- in:ECX=pages
-;--- out: eax=linear address
-;--- v3.19: was used to allocate page for IDT if ENVF2_LDTLOW == 1,
-;--- now obsolete.
-
-pm_AllocUserPages proc public
-	pushad
-	call CreateUserAddrSpace
-	jc exit
-	call pm_CommitRegion
-	jc exit		;the address space cannot be freed currently
-	mov [esp].PUSHADS.rEAX, eax
-exit:
-	popad
-	ret
-	align 4
-pm_AllocUserPages endp
-
 endif
 
 ;*** destructor routines Page Manager PM
@@ -2491,7 +2534,7 @@ compresspool:
 	mov pPoolMax, edi
 	@dprintf "compresspagepool: pPoolMax before/after compress %lX/%lX", ecx, edi
 
-;--- the top of the pool has been adjusted		  
+;--- the top of the pool has been adjusted
 ;--- now free all PTEs in the mapping page (FFC00000)
 ;--- which are beyond the new pool top
 
