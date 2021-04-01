@@ -17,7 +17,7 @@
  
  þ memory management
  
-   - PAGEMGR.ASM   physical memory, address space, committed memory
+   - PAGEMGR.ASM   physical memory, system address space, committed memory
  
  þ DPMI API (int 31h)
  
@@ -26,7 +26,7 @@
    - I31DOS.ASM    ax=01xx
    - I31INT.ASM    ax=02xx
    - I31SWT.ASM    ax=03xx
-   - I31MEM.ASM    ax=05xx, ax=08xx
+   - I31MEM.ASM    ax=05xx, ax=08xx - manages client address space
    - I31DEB.ASM    ax=0Bxx
    - I31FPU.ASM    ax=0Exx
  
@@ -53,14 +53,13 @@
 
  þ external include files ( from ..\..\Include )
 
-   - DPMI.INC      dpmi structures
    - KEYBOARD.INC  keyboard scan codes
    
  The source is not always easy to understand. It is old and was originally
  written with MASM 5.1. It's about 25.000 lines of code.
  
  
- 2. Memory Layout
+ 2. Image Layout
  
  The HDPMI binary will have the following segments (in this order)
 
@@ -82,10 +81,14 @@
  
  16-bit segments are grouped in GROUP16.
  32-bit segments are grouped in GROUP32.
+
+ Since v3.18, the standard HDPMI binary is in PE format. The 16-bit part
+ is extracted and then added again as a "stub", using tool EditPE. The
+ PE format doesn't support groups, so group GROUP32 doesn't exist here.
  
- On initialization, after the paging tables are initialized, GROUP32 will
- be copied to extended memory. GROUP32, GDTSEG and _ITEXT16 can then be 
- freed when the host stays resident.
+ On initialization, after the paging tables are initialized, the 32-bit part
+ will be copied to extended memory. All segments behind CONST16 can then be
+ released when the host stays resident.
   When running, segment registers are setup like this:
   
   - CS: contains GROUP16 in real mode, GROUP32 in protected mode
@@ -109,7 +112,7 @@
    0000   disable log writing
    0001   enable log writing
    0002   set flags (in bx) for extended log writing
-   0003   display linear memory objects
+   0003   display client's memory objects
 
 
  4. Todo List

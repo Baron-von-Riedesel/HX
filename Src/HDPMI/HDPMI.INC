@@ -93,7 +93,6 @@ endif
 ?DPMI10EX		equ 1	;std=1, support more DPMI 1.0 functions (0508-050B)
 ?DPMI10EXX		equ 1	;std=1, support even more DPMI 1.0 functions (0210-0213)
 ?LDTROSEL		equ 0	;std=0, 1=LDT alias selector is r/o
-?SAFEPAGETABS	equ 0	;std=0, 1=page tables cannot be accessed from ring 3
 ?USESYSSPACE2	equ 1	;std=1, 1=use a second sys space ptr (downwards)
 ?CANTEXIT		equ 0	;std=0, 1=support FM_CANTEXIT flag
 ?LPMSINGDT		equ 0	;std=0, 1=LPMS selector in GDT
