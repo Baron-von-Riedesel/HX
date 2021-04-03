@@ -1434,16 +1434,16 @@ ifdef ?PE
 ;--- now read 3 sections
 
 	mov ds, cs:wHostSeg32
-	movzx esp,sp
 nextsection:
-	mov dx, word ptr [esp].IMAGE_SECTION_HEADER.PointerToRawData+0
-	mov cx, word ptr [esp].IMAGE_SECTION_HEADER.PointerToRawData+2
+	mov di,sp
+	mov dx, word ptr ss:[di].IMAGE_SECTION_HEADER.PointerToRawData+0
+	mov cx, word ptr ss:[di].IMAGE_SECTION_HEADER.PointerToRawData+2
 	mov ax,4200h
 	int 21h
 	jc error_2
-	mov edx, [esp].IMAGE_SECTION_HEADER.VirtualAddress
+	mov edx, ss:[di].IMAGE_SECTION_HEADER.VirtualAddress
 	sub edx,?VSTART
-	mov cx, word ptr [esp].IMAGE_SECTION_HEADER.Misc.VirtualSize
+	mov cx, word ptr ss:[di].IMAGE_SECTION_HEADER.Misc.VirtualSize
 	@drprintf "load32bit: loading section at rva=%X size=%X", dx, cx
 	mov ah,3fh
 	int 21h

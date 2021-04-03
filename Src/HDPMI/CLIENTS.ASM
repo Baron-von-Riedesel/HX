@@ -358,7 +358,7 @@ endif
 	mov edi,offset startcldata32
 	mov ecx,offset endcldata32
 	sub ecx, edi
-	@dprintf "restoreclientstaten: load exc vectors, dst=%lX, src=%lX, size=%lX",edi, esi, ecx
+	@dprintf "restoreclientstate: load exc vectors, dst=%lX, src=%lX, size=%lX",edi, esi, ecx
 	shr ecx, 2
 	rep movsd
 

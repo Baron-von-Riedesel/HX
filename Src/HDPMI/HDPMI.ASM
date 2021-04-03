@@ -4119,7 +4119,7 @@ ldtallocated:
 	@dprintf "LDT is initialized, allocating LPMS"
 							;alloc memory for LPMS
 	mov ecx,1
-	call pm_AllocSysPages	;LPMS
+	call pm_AllocSysPagesU	;LPMS
 	jc exit
 	@dprintf "LPMS allocated"
 
@@ -4365,7 +4365,7 @@ endif
 
 else
 	mov ecx,?STACKPAGES
-	call pm_AllocSysPagesX
+	call pm_AllocSysPagesS
 	jc error
 	lea ebx, [eax+?STACKPAGES*1000h]
 	sub ebx, dwSSBase

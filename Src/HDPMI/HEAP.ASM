@@ -68,7 +68,7 @@ heapalloc_1:
 	@dprintf "heapalloc: try to alloc a new page for heap"
 	pushad
 	mov ecx,1				;1 page
-	call pm_AllocSysPagesX	;alloc host heap space
+	call pm_AllocSysPagesS	;alloc host heap space
 	jc @F
 	@dprintf "heapalloc: new page for heap allocated: %lX",eax
 	sub eax,[dwSSBase]  ;since no FLAT model, normalize address

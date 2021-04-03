@@ -10,8 +10,8 @@ pm_Linear2PT		proto near		;get page table addr of linear addr
 pm_getpageattributes proto near		;get page flags for a region
 pm_setpageattributes proto near		;set page flags for a region
 pm_MovePTEs			proto near		;move PTEs between address spaces
-pm_AllocSysPages	proto near		;alloc memory in sysreg 0 (user,r/w)
-pm_AllocSysPagesX	proto near		;alloc memory in sysreg 0 (system,r/w)
+pm_AllocSysPagesU	proto near		;alloc memory in sysreg 0 (user,r/w)
+pm_AllocSysPagesS	proto near		;alloc memory in sysreg 0 (system,r/w)
 pm_AllocSysPagesDn	proto near		;alloc memory in sysreg 0 down (system,r/w)
 pm_FreeSysPagesDn	proto near		;free memory in sysreg 0 down
 pm_GetNumPhysPages	proto near		;get free/total physical pages

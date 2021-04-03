@@ -50,7 +50,7 @@ _movehigh proc public
 if ?DYNBREAKTAB
 ;--- alloc PM BREAK table
 	mov ecx,1
-	call pm_AllocSysPages
+	call pm_AllocSysPagesU	;PM break table
 	jc error
 	mov edi,eax
 	@dprintf "movehigh_pm: setting pm breakpoint descriptor to base %lX",eax
@@ -101,10 +101,10 @@ endif
 endif ;?DYNBREAKTAB
 
 	xor edi, edi
-	mov ebp,offset pm_AllocSysPages
+	mov ebp,offset pm_AllocSysPagesU
 	test bEnvFlags2, ENVF2_SYSPROT
 	jz @F
-	mov ebp,offset pm_AllocSysPagesX
+	mov ebp,offset pm_AllocSysPagesS
 @@:
 if ?MOVEGDT
 	test bEnvFlags2, ENVF2_LDTLOW
