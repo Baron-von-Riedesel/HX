@@ -22,7 +22,7 @@ _TEXT32 segment
 	assume DS:NOTHING
 
 alloc1sel proc
-        mov     cx,1
+	mov cx,1
 alloc1sel endp		;fall throu
         
 ;--- int 31h, ax=0000 - alloc CX selectors
@@ -154,7 +154,7 @@ allocselx_err1:
 allocselx endp
 
 ;*** free ECX selectors beginning with EBX
-;--- called by selector_free and selector_resize
+;--- called by desc_free() and desc_resize()
 
 freeselx proc public
 
@@ -703,6 +703,43 @@ done:
 	ret
 	align 4
 getmultdesc endp
+
+	@ResetTrace
+
+;--- get a LDT descriptor for a real-mode segment
+;--- in: BX=segment address, CX=Attr (code/data, big)
+;--- out: selector in ax
+;--- used in client init to translate CS,DS,SS,ES to protected-mode selectors.
+
+getrmdesc proc public
+	pushad
+	xor eax,eax				;alloc selector
+	xor ecx,ecx
+	inc ecx
+	@int_31
+	jc error
+	mov [esp].PUSHADS.rAX, ax
+	movzx ebx, bx
+	shl ebx, 4
+	push ebx
+	pop dx
+	pop cx
+	mov ebx, eax
+	mov ax,7
+	@int_31
+	xor ecx,ecx
+	or edx,-1
+	inc eax
+	@int_31
+	mov cx,[esp].PUSHADS.rCX
+	or cl,92h or (?RING shl 5)
+	inc eax
+	@int_31
+error:
+	popad
+	ret
+	align 4
+getrmdesc endp
 
 _TEXT32 ends
 

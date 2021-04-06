@@ -192,7 +192,7 @@ endif
 	pushad
 	xor ecx, ecx
 	push ds
-	push _CSALIAS_
+	push byte ptr _CSALIAS_
 	pop ds
 	assume ds:GROUP32
 	xchg ecx, [mouse15_rmcb]
@@ -241,7 +241,7 @@ endif
 	pop es
 	assume es:nothing
 	jc @F
-	push _CSALIAS_
+	push byte ptr _CSALIAS_
 	pop ds
 	assume ds:GROUP32
 	mov word ptr [mouse15_rmcb+0],dx

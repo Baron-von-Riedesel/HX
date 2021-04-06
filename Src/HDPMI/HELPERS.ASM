@@ -646,8 +646,13 @@ getlinaddr proc public uses ds ebx
 	jz error
 	mov ds,ss:[selLDT]
 	and bl,0F8h
-	cmp byte ptr [ebx].DESCRPTR.attrib,0	;selector allocated?
-	jz error
+
+;--- v3.19: check descriptor more carefully
+;	cmp byte ptr [ebx].DESCRPTR.attrib,0	;selector allocated?
+;	jz error
+	cmp [ebx].DESCRPTR.attrib,80h or 10h or ?PLVL	;present, memory segment AND ring3?
+	jb error
+
 	mov ah,[ebx].DESCRPTR.A2431
 	mov al,[ebx].DESCRPTR.A1623
 	shl eax,16
@@ -697,70 +702,6 @@ copyscratchsel_er:
 copyscratchsel endp
 
 endif
-
-	@ResetTrace
-
-if ?32BIT
-
-;--- alloc BIG DATA descriptor for real-mode memory
-;--- called by initclient
-;--- BX=segment
-
-getmyseldatabig proc public
-	mov dx,4000h
-	jmp getmyselx
-	align 4
-getmyseldatabig endp
-endif
-
-;--- alloc a DATA descriptor for real-mode memory
-;--- called by initclient
-;--- BX=segment 
-
-getmyseldata proc public
-	mov dx,0000
-getmyseldata endp	;fall through
-
-;--- BX=segment, DX=type (code/data big/normal)
-;--- called by initclient (to translate rm CS of new client)
-
-getmyselx proc public
-	mov cx,0FFFFh
-getmyselx endp		;fall through
-
-;--- get a LDT descriptor for a real-mode segment
-;--- in: BX=segment address, CX=limit, DX=Attr
-;--- out: selector in ebx
-;--- eax modified
-
-getrmdesc proc near
-	push ds
-	push ecx
-	mov cx,0001h
-	xor eax,eax				 ;alloc selector
-	@int_31
-	pop ecx
-	jc getrmdesc_err
-	push eax
-	and al,0F8h
-	movzx eax,ax
-	mov ds,ss:[selLDT]
-	movzx ebx, bx
-	shl ebx,4
-	mov [eax].DESCRPTR.A0015,bx
-	shr ebx,16
-	mov [eax].DESCRPTR.A1623,bl
-	mov [eax].DESCRPTR.limit,cx
-	or word ptr [eax.DESCRPTR.attrib],dx  ;Code/Data
-	pop ebx
-	pop ds
-	ret
-getrmdesc_err:
-	@dprintf "getrmdesc: error, out of LDT descriptors"
-	pop ds
-	ret
-	align 4
-getrmdesc endp
 
 ;*** In: BX=PSP segment / Out: BX=PSP selector
 
@@ -889,19 +830,19 @@ selectortile2 proc
 	pop cx
 	mov ebx,eax
 	mov ax,0007
-	@int_31 				 ;set base
+	@int_31				;set base
 	jc error
 	and esi,esi
 	jz noerr
 	dec esi
-	test esi,0FFF00000h	 ;block size > 1MB
+	test esi,0FFF00000h	;block size > 1MB
 	jz @F
 	or si,0FFFh
 @@:
 	push esi
 	pop dx
 	pop cx
-	mov ax,0008h		 ;set limit (of 1. selector)
+	mov ax,0008h		;set limit (of 1. selector)
 	@int_31
 	jc error
 ife ?32BIT
@@ -915,7 +856,7 @@ nextsel:
 	push edi
 	pop dx
 	pop cx
-	mov ax,0007h  			;set base
+	mov ax,0007h			;set base
 	@int_31
 if 0
 	lar ecx,ebx
@@ -950,11 +891,11 @@ STILEFRAME ends
 
 	@ResetTrace
 
-;--- selector_alloc proc near stdcall address:dword,size:dword
-;*** handle selectors for alloc dos memory block
+;--- desc_alloc proc near stdcall address:dword,size:dword
+;*** handle descriptors for alloc dos memory block
 ;--- out: start selector in AX
 
-selector_alloc proc public
+desc_alloc proc public
 
 	pushad
 	mov esi,[esp].STILEFRAME.dwSize
@@ -980,27 +921,27 @@ exit:
 	popad
 	ret 8
 	align 4
-selector_alloc endp
+desc_alloc endp
 
 ife ?32BIT
 
-;--- check if there are enough free selectors for a block
+;--- check if there are enough free LDT descriptors for a block
 ;--- for 16-bit only
 ;--- EDX=descriptor of block
 ;--- EBX=new size in bytes
 ;--- out: C on error
 
-selector_avail proc public
+desc_avail proc public
 	pushad
 	mov eax,ebx
 	xor ebp,ebp		;flag: test for sufficient free selectors
-	jmp selector_resize_1
+	jmp desc_resize_1
 	align 4
-selector_avail endp
+desc_avail endp
 
 endif
 
-;*** handle selectors for resize memory block
+;*** handle descriptors for resize memory block
 ;*** called by int 31h, ax=0102h and int 21h, ah=4Ah
 ;*** input: dx=selector
 ;***       eax=new size
@@ -1011,22 +952,22 @@ endif
 
 	@ResetTrace
 
-selector_resize proc public
+desc_resize proc public
 
-	@dprintf "selector_resize: entry, sel=%X, new size=%lX",dx,eax
+	@dprintf "desc_resize: entry, sel=%X, new size=%lX",dx,eax
 	pushad
 ife ?32BIT
 	xor ebp,ebp
 	inc ebp				;alloc selectors
 endif
-selector_resize_1::
+desc_resize_1::
 	mov esi,eax			;esi holds new size
 	movzx edi,dx		;di holds base selector
 ife ?32BIT
 	mov ebx,edi
 	lsl eax,edx
 	inc eax
-	@dprintf "selector_resize: old size=%lX, new size=%lX", eax, esi
+	@dprintf "desc_resize: old size=%lX, new size=%lX", eax, esi
 	add eax,10000h-1		;align old size to 64 kB
 	xor ax,ax
 	lea edx,[esi+10000h-1]	;align new size to 64 kB
@@ -1038,13 +979,13 @@ ife ?32BIT
 	shr edx,16
 	shr eax,16-3
 	add ebx,eax
-	@dprintf "selector_resize: need %X new selectors at %X",dx,bx
+	@dprintf "desc_resize: need %X new selectors at %X",dx,bx
 	push ds
 	mov ds,ss:[selLDT]
 	call allocselx			  ;alloc additional selectors
 	pop ds
 	jc error
-	@dprintf "selector_resize: alloc of selectors was ok"
+	@dprintf "desc_resize: alloc of selectors was ok"
 	jmp selectortilex_1
 smallerblock:
 	and ebp,ebp
@@ -1054,10 +995,10 @@ smallerblock:
 	mov ecx,eax
 	shr edx,16-3
 	add ebx,edx
-	@dprintf "selector_resize: try to free %X selectors at %X",cx,bx
+	@dprintf "desc_resize: try to free %X selectors at %X",cx,bx
 	call freeselx
 	jc error
-	@dprintf "selector_resize: freeing of selectors was ok"
+	@dprintf "desc_resize: freeing of selectors was ok"
 selectortilex_1:
 	and ebp,ebp
 	jz done
@@ -1077,12 +1018,12 @@ done:
 	ret
 ife ?32BIT
 error:
-	@dprintf "selector_resize: error, not enough free selectors"
+	@dprintf "desc_resize: error, not enough free selectors"
 	popad
 	ret
 endif
 	align 4
-selector_resize endp
+desc_resize endp
 
 ;--- handle selectors for free memory block
 ;--- called by int 31h, ax=0101h and int 21h, ah=49h
@@ -1091,7 +1032,7 @@ selector_resize endp
 
 	@ResetTrace
 
-selector_free proc public
+desc_free proc public
 	mov ebx, edx
 if ?32BIT
 	mov ax,1
@@ -1108,7 +1049,7 @@ exit:
 endif
 	ret
 	align 4
-selector_free endp
+desc_free endp
 
 _TEXT32 ends
 

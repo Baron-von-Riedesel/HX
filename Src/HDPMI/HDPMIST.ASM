@@ -11,6 +11,8 @@
 
 OPT_PTES equ 1	;display PTEs
 OPT_GDT  equ 2	;display GDT
+OPT_IDT  equ 4	;display IDT
+OPT_LDT  equ 8	;display LDT
 
 	@seg _ITEXT16
 
@@ -215,7 +217,7 @@ getphysaddr endp
 
 ;--- print Global Descriptor Table (physical address of PD in ESI)
 
-printgdt proc stdcall dwAddr:dword, wLimit:word
+printgdt proc stdcall uses esi edi dwAddr:dword, wLimit:word
 
 local gdt[2048]:byte
 
@@ -247,6 +249,86 @@ local gdt[2048]:byte
 	.endw
 	ret
 printgdt endp
+
+;--- print Interrupt Descriptor Table (physical address of PD in ESI)
+
+printidt proc stdcall uses esi edi dwAddr:dword, wLimit:word
+
+local idt[2048]:byte
+
+	invoke getphysaddr, dwAddr
+	mov esi, eax
+	@rprintf <"   IDT: [physical address %lX]",lf>, eax
+	mov di, ss
+	movzx edi,di
+	shl edi,4
+	lea bx,idt
+	movzx ebx,bx
+	add edi,ebx
+	mov cx,wLimit
+	inc cx
+	call copymem
+	lea bx,idt
+	mov si,wLimit
+	add si,bx
+	xor di,di
+	.while bx < si
+		@rprintf <"   %X: ">, di
+		mov ax,ss:[bx+6]
+		shl eax,16
+		mov ax,ss:[bx+0]
+		mov dx,ss:[bx+2]
+		mov cx,ss:[bx+4]
+		@rprintf <"%X:%lX %X,  ">, dx, eax, cx
+		add bx,8
+		mov ax,ss:[bx+6]
+		shl eax,16
+		mov ax,ss:[bx+0]
+		mov dx,ss:[bx+2]
+		mov cx,ss:[bx+4]
+		@rprintf <"%X:%lX %X",lf>, dx, eax, cx
+		add bx,8
+		add di,2
+	.endw
+	ret
+printidt endp
+
+;--- print Local Descriptor Table (physical address of PD in ESI)
+
+printldt proc stdcall uses esi edi dwAddr:dword, wLimit:word
+
+local ldt[4096]:byte
+
+	invoke getphysaddr, dwAddr
+	mov esi, eax
+	@rprintf <"   LDT: [physical address %lX]",lf>, eax
+	mov di, ss
+	movzx edi,di
+	shl edi,4
+	lea bx,ldt
+	movzx ebx,bx
+	add edi,ebx
+	mov cx,wLimit
+	inc cx
+	call copymem
+	xor bx,bx
+	lea si,ldt
+	.while bx < wLimit
+		mov cx,ss:[bx+si+0]
+		mov dx,ss:[bx+si+5]
+		mov ah,ss:[bx+si+7]
+		mov al,ss:[bx+si+4]
+		shl eax,16
+		mov ax,ss:[bx+si+2]
+		.if dx
+			or bl,4
+			@rprintf <"   %X: %lX %X %X",lf>, bx, eax, cx, dx
+			and bl,not 4
+		.endif
+		add bx,8
+	.endw
+	ret
+printldt endp
 
 ;--- print mode flags
 
@@ -348,6 +430,16 @@ local buffer[8]:byte
 	.if fOptions & OPT_GDT
 		invoke printgdt, pdGDT.dwBase, pdGDT.wLimit
 	.endif
+	.if fOptions & OPT_IDT
+		invoke printidt, pdIDT.dwBase, pdIDT.wLimit
+	.endif
+	.if fOptions & OPT_LDT
+		.if dwLDTAddr
+			invoke printldt, dwLDTAddr, 1000h-1
+		.else
+			@rprintf <"   no LDT found",lf>
+		.endif
+	.endif
 	assume es:nothing
 	mov ax,1
 	ret
@@ -382,12 +474,18 @@ local fOptions:word
 				or fOptions, OPT_PTES
 			.elseif al == 'g'
 				or fOptions, OPT_GDT
+			.elseif al == 'i'
+				or fOptions, OPT_IDT
+			.elseif al == 'l'
+				or fOptions, OPT_LDT
 			.elseif al == '?'
 				@rprintf <"HDPMIST displays states of currently loaded HDPMI instances",lf>
 				@rprintf <"usage: HDPMIST [options]",lf>
 				@rprintf <"options are:",lf>
 				@rprintf <"  -? display this help",lf>
 				@rprintf <"  -g display GDT",lf>
+				@rprintf <"  -i display IDT",lf>
+				@rprintf <"  -l display LDT",lf>
 				@rprintf <"  -p display PTEs",lf>
 				jmp exit
 			.else

@@ -103,10 +103,10 @@ copyz_tlb_2_dsdx proto near   ;copy asciiz form TLB:0 to DS:E/DX
 _AllocDosMemory proto near
 _FreeDosMemory  proto near
 
-selector_alloc  proto near
-selector_resize proto near
-selector_free   proto near
-selector_avail  proto near
+desc_alloc  proto near
+desc_free   proto near
+desc_resize proto near
+desc_avail  proto near
 
 bx_sel2segm proto near        
 sel2segm    proto near        
@@ -121,13 +121,7 @@ getpspsel proto near
 setpspsel proto near          
 
 getlinaddr proto near         
-
-getmysel     proto near           
-getmyseldata proto near       
-getmyselx    proto near          
-if ?32BIT
-getmyseldatabig proto near
-endif
+getrmdesc  proto near          
 
 ;--- int2xapi
 

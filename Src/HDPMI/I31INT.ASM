@@ -59,7 +59,7 @@ int080f:
 cirqxx:
 	shl ebx,3		   ;* 8 (assume size INTRMCB == 8)
 	add ebx,offset intrmcbs
-	push _CSALIAS_
+	push byte ptr _CSALIAS_
 	pop ds
 	ret
 exit:
@@ -70,7 +70,7 @@ checkirqrm endp
 
 endif
 
-;*** funktion 0x200 (get rm vector) ***
+;*** ax=0x200 (get rm vector) ***
 
 _LTRACE_ = 0
 
@@ -88,7 +88,7 @@ endif
 	align 4
 getrmivec endp
 
-;*** funktion 0x201 (set rm vector) ***
+;*** ax=0x201 (set rm vector) ***
 
 _LTRACE_ = 0
 
@@ -106,7 +106,7 @@ endif
 	align 4
 setrmivec endp
 
-;*** funktion 0x0202 (get exception vector) ***
+;*** ax=0x0202 (get exception vector) ***
 
 _LTRACE_ = 0
 
@@ -294,7 +294,7 @@ endif
 	align 4
 getpmivec endp
 
-;*** DPMI funktion 0x0205 (set PM vector)
+;*** ax=0x0205 (set PM vector)
 ;--- interrupt in BL, vector in CX:E/DX
 ;--- DS=flat
 

@@ -31,7 +31,7 @@ allocdos proc public
 	shl ebx,4			;ebx == size in bytes
 	push ebx
 	push eax
-	call selector_alloc
+	call desc_alloc
 	jc allocdos_err2
 	mov [esp].PUSHADS.rDX,ax
 	mov [esp].PUSHADS.rAX,si
@@ -42,8 +42,7 @@ allocdos_err2:
 	mov ah,49h
 	call rmdos
 	popad
-;	xor bx,bx		;no DOS memory available
-	mov ax,8011h
+	mov ax,8011h	;no descriptors available
 	stc
 	ret
 allocdos_err1:
@@ -65,16 +64,16 @@ freedos proc public
 	pushad
 	@dprintf "freedos: enter dos free memory, DS=%X", word ptr clientDS
 	lar eax,edx
-	jnz freedos_err			;invalid selector
+	jnz freedos_err1		;invalid selector (i.e. beyond LDT limit)
 	mov ebx,edx
 	call bx_sel2segm
-	jc freedos_err			;it's not a DOS selector
+	jc freedos_err1			;it's not a DOS selector
 	mov ss:v86iret.rES, bx
 	mov ah,49h
 	call rmdos				;es=segment
 	@dprintf "freedos: rc from DOS: %X",ax
 	jc freedos_err2
-	call selector_free
+	call desc_free
 	lar eax, clientDS
 	jz @F
 	xor eax,eax
@@ -88,7 +87,7 @@ freedos_err2:
 	popad
 	stc
 	ret
-freedos_err:
+freedos_err1:
 	popad
 	mov ax,8022h
 	stc
@@ -109,7 +108,7 @@ freedos endp
 resizedos proc public
 	pushad
 	lar eax,edx
-	jnz resizedos_err		;selector is invalid
+	jnz resizedos_err1		;invalid selector (i.e. beyond LDT limit)
 	@dprintf "resizedos: selector %X seems ok", dx
 	mov ebx,edx
 	call bx_sel2segm
@@ -119,7 +118,7 @@ resizedos proc public
 ife ?32BIT
 	movzx ebx,[esp].PUSHADS.rBX
 	shl ebx,4
-	call selector_avail		;test if there are enough free descriptors
+	call desc_avail			;enough free LDT descriptors available?
 	jc resizedos_err4
 endif
 	mov bx,[esp].PUSHADS.rBX
@@ -129,10 +128,11 @@ endif
 	@dprintf "resizedos: DOS has resized memory"
 	movzx eax,word ptr [esp].PUSHADS.rBX
 	shl eax,4
-	call selector_resize		;resize selector DX, new size EAX
+	call desc_resize		;resize selector DX, new size EAX
 	jc resizedos_err4		;might fail for 16-bit clients
 	@dprintf "resizedos: selectors adjusted"
 ife ?32BIT
+;--- if the block has shrinked, the selector in DS may have become invalid!
 	lar eax, clientDS
 	jz @F
 	xor eax,eax
@@ -144,7 +144,7 @@ endif
 	ret
 resizedos_err4:
 	popad
-	mov ax,8011h			;"descriptor unavailable"	
+	mov ax,8011h			;"descriptor unavailable"
 	@dprintf "resizedos: error 8011"
 	ret
 resizedos_err3:
@@ -157,8 +157,8 @@ resizedos_err3:
 	popad
 	ret
 resizedos_err2:
-resizedos_err:
-	@dprintf "resizedos: error 8022"
+resizedos_err1:
+	@dprintf "resizedos: dx=%X, error 8022", dx
 	popad
 	mov ax,8022h
 	stc

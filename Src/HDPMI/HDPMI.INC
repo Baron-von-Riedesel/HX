@@ -100,7 +100,7 @@ endif
 						;       this psp will be used as owner for the 
                         ;       dyn. TLB (avoids memory leaks when in 
                         ;       int 21h, ah=3Fh Ctrl-C is pressed)
-?CR0COPY		equ 1   ;std 1: 1=copy cr0 to/from real-mode                        
+?CR0COPY		equ 1	;std 1: 1=copy cr0 to/from real-mode                        
 ?FASTINT31		equ 1	;std 1: 1=direct int 31h, 0=call by int 30h dispatcher
 ifndef ?MOVEHIGH
 ?MOVEHIGH		equ 1	;std 1: 1=move GROUP32 into extended memory

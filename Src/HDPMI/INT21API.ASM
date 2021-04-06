@@ -441,10 +441,10 @@ endif
 	@int_31
 	jc error1
 	@dprintf "I21: memory alloc successfull, Addr=%lX",bx,cx
-	push ebp		;2. argument for selector_alloc: size
+	push ebp		;2. argument for desc_alloc: size
 	push bx
-	push cx			;1. argument for selector_alloc: address
-	call selector_alloc
+	push cx			;1. argument for desc_alloc: address
+	call desc_alloc
 	jc error2
 	@dprintf "I21: selector tiling successfull, sel=%X",ax
 	mov [esp].PUSHADS.rAX, ax
@@ -487,7 +487,7 @@ isextmem:
 	@int_31
 	jc error9
 	mov edx,es
-	call selector_free
+	call desc_free
 	popad
 	ret
 error9:
@@ -566,7 +566,7 @@ endif
 	shl ebx,4			;paras -> bytes
 ife ?32BIT
 	mov edx,es
-	call selector_avail	;check if enough free selectors are available
+	call desc_avail		;check if enough free LDT descriptors are available
 	jc error8			;to map the new size of the block
 endif
 	push ebx
@@ -589,8 +589,8 @@ else
 endif
 	shl eax, 4
 	mov edx, es
-	call selector_resize	;adjust selector array (should not fail)
-	jc error8      	;out of selectors! (16bit only)
+	call desc_resize	;adjust selector array (should not fail)
+	jc error8			;out of selectors! (16bit only)
 	popad
 	ret
 error9:
@@ -1151,6 +1151,8 @@ intr2129 endp
 
 	@ResetTrace
 
+if ?OPTIMIZETLBCOPY
+
 checkfileparams proc
 	push eax
 if ?32BIT
@@ -1175,6 +1177,7 @@ endif
 	align 4
 checkfileparams endp
 
+endif
 
 ;*** 3F -> read file BX, (E)CX bytes into DS:(E)DX ***
 

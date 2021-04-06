@@ -13,21 +13,22 @@
 	include hdpmi.inc
 	include external.inc
 
-?XMSALLOCRM 	= 1	;std 1, alloc 1. EMB in real mode (XMS-Mode only)
-?CLEARACCBIT	= 0	;std 0, on entry clear ACC-Bit for all PTEs in 1. MB
-?FREEPDIRPM 	= 0	;std 0, on exit reset CR3 in protected mode (?)
-?VCPIALLOC		= 1	;std 1, alloc VCPI mem if no XMS host found
-?RESPAGES		= 4	;std 4, small reserve, do not alloc these pages
-?ZEROFILL		= 0	;std 0, 1=do zero fill all committed pages
-?USEE820		= 0	;std 0, use int 15h, ax=e820 to get extmem in raw mode
-?USEE801		= 1	;std 1, use int 15h, ax=e801 to get extmem in raw mode
-?FREEVCPIPAGES	= 1	;std 1, free all VCPI pages in pm_exit_rm
-?FREEXMSINRM	= 1	;std 1, free XMS blocks in pm_exit_rm
-?NOVCPIANDXMS	= 1	;std 1, 1=avoid using VCPI if XMS host exists
-?FREEXMSDYN 	= 1	;std 1, 1=free XMS blocks dynamically
-?XMSBLOCKCNT	= 1	;std 1, 1=count XMS blocks to improve alloc strategy
-?DOSPGLOBAL		= 0	;std 0, 1=set global flag for pages in region 0-10FFFFh
-?SETPTE equ 0
+?XMSALLOCRM 	equ 1	;std 1, alloc 1. EMB in real mode (XMS-Mode only)
+?CLEARACCBIT	equ 0	;std 0, on entry clear ACC-Bit for all PTEs in 1. MB
+?FREEPDIRPM 	equ 0	;std 0, on exit reset CR3 in protected mode (?)
+?VCPIALLOC		equ 1	;std 1, alloc VCPI mem if no XMS host found
+?RESPAGES		equ 4	;std 4, small reserve, do not alloc these pages
+?ZEROFILL		equ 0	;std 0, 1=do zero fill all committed pages
+?USEE820		equ 0	;std 0, use int 15h, ax=e820 to get extmem in raw mode
+?USEE801		equ 1	;std 1, use int 15h, ax=e801 to get extmem in raw mode
+?FREEVCPIPAGES	equ 1	;std 1, free all VCPI pages in pm_exit_rm
+?FREEXMSINRM	equ 1	;std 1, free XMS blocks in pm_exit_rm
+?NOVCPIANDXMS	equ 1	;std 1, 1=avoid using VCPI if XMS host exists
+?FREEXMSDYN 	equ 1	;std 1, 1=free XMS blocks dynamically
+?XMSBLOCKCNT	equ 1	;std 1, 1=count XMS blocks to improve alloc strategy
+?DOSPGLOBAL		equ 0	;std 0, 1=set global flag for pages in region 0-10FFFFh
+?SETPTE			equ 0	;std 0, 1=enable pm_SetPage
+?NOCR3CACHE		equ 0	;std 0, 1=set PWT & PCD bits in cr3
 
 PTF_NORMAL	equ PTF_WRITEABLE + PTF_USER
 
@@ -1265,9 +1266,7 @@ freepagetab proc
 ;--- if yes, it cannot be released in page map region
 	mov eax, dwMaxPool
 	add eax, esi
-	jnc @F					;max offset reached?
-	dec eax
-@@:
+	sbb eax, 0				;convert 00000000 to ffffffff
 	cmp edx, eax			;is page used by pool?
 	setnc al
 	and bl,al
@@ -1398,8 +1397,7 @@ noclear:
 	xor edx,edx
 	xor ebx,ebx
 @@:
-	dec ecx
-	jnz nextpage
+	loop nextpage
 
 	and ebp, ebp			;was it at the end?
 	jz @F
@@ -3269,6 +3267,9 @@ isfirst:
 	mov eax, ebx
 
 	and ax,0F000h
+if ?NOCR3CACHE
+	or al,18h	;set PWT & PCD
+endif
 	mov v86topm._cr3, eax
 if ?FREEPDIRPM
 ;	push eax
@@ -3683,15 +3684,26 @@ _ITEXT16 segment
 
 	@ResetTrace
 
+E820MAP struct
+baselow  dd ?
+basehigh dd ?
+lenlow   dd ?
+lenhigh  dd ?
+type_    dd ?
+E820MAP ends
+
 ;*** no XMS/VCPI host detected, try Int15 alloc
 ;*** Out: EAX=number of free pages
 ;*** Out: EDX=phys. addr of block
+;--- all std regs may be modified
 
 alloci15rm proc near
 	mov cl, 0
 if ?USEE820
+	push bp
 	@drprintf "alloci15rm: int 15h, ax=E820"
 	xor ebx, ebx
+	xor esi, esi
 	sub sp, 20
 	mov di, sp
 	push ss
@@ -3701,27 +3713,33 @@ nextitem:
 	mov edx,"SMAP"
 	mov eax,00E820h
 	int 15h
-;	jc done
+;	jc done_e820
 	cmp eax,"SMAP"
-	jnz done
-	cmp dword ptr es:[di+16], 1	;type "available"?
-	jnz @F
-	cmp word ptr es:[di+4], 0	;beyond 4 GB?
-	jnz @F
-	mov edx, es:[di+0]
-	cmp edx, 100000h			;base above 1 MB?
-	jb @F
-	mov eax, es:[di+8]
+	jnz done_e820
+	cmp es:[di].E820MAP.type_, 1;type "available"?
+	jnz skipitem
+	cmp word ptr es:[di].E820MAP.basehigh, 0	;beyond 4 GB?
+	jnz skipitem
+	cmp es:[di].E820MAP.baselow, 100000h		;base above 1 MB?
+	jb skipitem
+	mov eax, es:[di].E820MAP.lenlow
 	shr eax, 12 		;bytes -> pages
-	@drprintf "alloci15rm, ax=e820: found available mem at %lX, pages %lX",\ 
-		dword ptr es:[di+0], eax
-	add sp, 20
-	jmp exit
+	@drprintf "alloci15rm, ax=e820: found available mem at %lX, pages %lX", es:[di].E820MAP.baselow, eax
+	cmp eax,esi
+	jc @F
+	mov esi,eax
+	mov ebp,es:[di].E820MAP.baselow
 @@:
+skipitem:
 	and ebx, ebx
 	jnz nextitem
-done:
+done_e820:
+	mov eax, esi
+	mov edx, ebp
 	add sp, 20
+	pop bp
+	and eax, eax
+	jnz exit
 endif
 if ?USEE801
 	@drprintf "alloci15rm: int 15h, ax=E801"

@@ -3563,7 +3563,7 @@ emuspecregmove:
 	shl eax, 16
 	mov ax,[esi+0]		;the opcode is 3 bytes long (0F 2x xx)
 	push ds
-	push _CSALIAS_
+	push byte ptr _CSALIAS_
 	pop ds
 	mov ds:[tmpCode], eax
 	pop ds
@@ -4123,6 +4123,10 @@ ldtallocated:
 	jc exit
 	@dprintf "LPMS allocated"
 
+ifdef _DEBUG
+	mov dword ptr es:[eax],"SMPL"
+endif
+
 if ?LPMSINGDT
 	mov ecx, pdGDT.dwBase
 	mov es:[ecx+(_LPMSSEL_ and 0F8h].DESCRPTR.A0015,ax
@@ -4137,11 +4141,11 @@ else
 	mov es:[esi].DESCRPTR.A1623,al
 	mov es:[esi].DESCRPTR.A2431,ah
 	mov es:[esi].DESCRPTR.limit,0FFFh
-if ?32BIT
+ if ?32BIT
 	mov word ptr es:[esi].DESCRPTR.attrib,92h or ?PLVL + 4000h
-else
+ else
 	mov es:[esi].DESCRPTR.attrib,92h or ?PLVL
-endif
+ endif
 endif
 if ?INT1D1E1F
 	mov esi,[pdIDT.dwBase]
@@ -4807,17 +4811,19 @@ endif
 
 	mov bx,v86iret.rDS
 
-							;get selector for DS
-	@dprintf "initclient: call getmyseldata(big)"
+;--- get selector for DS
+	@dprintf "initclient: call getrmdesc for DS"
 if ?32BIT
-	call getmyseldatabig	;get descriptor for BX segment
+	mov cx,4000h
 else
-	call getmyseldata
+	xor ecx,ecx
 endif
+	call getrmdesc
 	jc initclerr21
-	@dprintf "initclient: DS=%X, real mode DS=%X",bx,v86iret.rDS
-	mov [ebp].INITCLPM.rDS,ebx
-	mov [ebp].INITCLPM.rSS,bx
+	@dprintf "initclient: DS=%X, real mode DS=%X", ax, v86iret.rDS
+	mov [ebp].INITCLPM.rDS,eax
+	mov [ebp].INITCLPM.rSS,ax
+
 	movzx eax, wInitSP
 	add ax, sizeof INITCLRM
 	mov [ebp].INITCLPM.rSP, eax
@@ -4834,25 +4840,28 @@ endif
 	or ah, ?PMIOPL			;set protected-mode IOPL
 	mov [ebp].INITCLPM.rFL, eax
 
+;--- get selector for CS
 	mov bx,es:[edi].INITCLRM.wCS
-	mov dx,0008 			;attrib CODE
-	call getmyselx
+	mov cx,0008 			;attrib CODE
+	call getrmdesc
 	jc initclerr23
-	@dprintf "initclient: CS=%X, real mode CS=%X",bx, es:[edi].INITCLRM.wCS
-	mov [ebp].INITCLPM.rCS,bx
-								;get selector for SS
+	@dprintf "initclient: CS=%X, real mode CS=%X", ax, es:[edi].INITCLRM.wCS
+	mov [ebp].INITCLPM.rCS, ax
+
+;--- get selector for SS
 	mov bx,[wInitSS]
 ;	cmp bx,es:[edi].INITCLRM.wDS
 	cmp bx,v86iret.rDS
 	jz @F
 if ?32BIT
-	call getmyseldatabig
+	mov cx,4000h
 else
-	call getmyseldata
+	xor ecx,ecx
 endif
+	call getrmdesc
 	jc initclerr22
-	@dprintf "initclient: SS=%X, real mode SS=%X",bx,[wInitSS]
-	mov [ebp].INITCLPM.rSS,bx
+	@dprintf "initclient: SS=%X, real mode SS=%X", ax, [wInitSS]
+	mov [ebp].INITCLPM.rSS, ax
 @@:
 if 0
 	@dprintf "first dos call, disp '#'"
@@ -4860,6 +4869,15 @@ if 0
 	mov dl,'#'
 	call rmdosintern
 endif
+
+if ?GUARDPAGE0
+	test [bEnvFlags],ENVF_GUARDPAGE0 	;should page0 be guarded?
+	jz @F
+;	mov v86topm._Eip, offset vcpi_pmentry2
+	and byte ptr es:[?PG0PTE],not ?GPBIT;set page 0 to "system"
+@@:
+endif
+
 if ?SAVEPSP
 	mov eax,[dwSDA]
 	mov bx,es:[eax].DOSSDA.wPSP
@@ -4878,25 +4896,13 @@ endif
 	mov bx,es:[002ch]		;environment segment
 	and bx,bx
 	jz @F
-	call getmyseldata
+	xor ecx,ecx
+	call getrmdesc
 	jc initclerr24
-	mov es:[002ch],bx		;set environment selector
+	mov es:[002ch],ax		;set environment selector
+	@dprintf "initclient: ENV=%X", ax
 @@:
-	@dprintf "initclient: ENV=%X",bx
 
-if ?GUARDPAGE0
-	test [bEnvFlags],ENVF_GUARDPAGE0 	;should page0 be guarded?
-	jz @F
-;	mov v86topm._Eip, offset vcpi_pmentry2
-	push ds
-	push _FLATSEL_
-	pop ds
-	assume ds:nothing
-	and byte ptr ds:[?PG0PTE],not ?GPBIT		;set page 0 to "system"
-	pop ds
-	assume ds:GROUP16
-@@:
-endif
 if ?INT21API
 	mov ah,2Fh
 	call rmdosintern	;get DTA in ES:BX
