@@ -150,6 +150,7 @@
  GetTitleBarInfo            Y
  GetTopWindow               Y
  GetUpdateRgn
+ GetUserObjectInformationA  Y
  GetUserObjectInformationW  Y
  GetWindow                  Y
  GetWindowDC
@@ -283,6 +284,10 @@
 
 
  3. History
+
+ 08.04.2021:  Version 2.15
+
+ þ GetUserObjectInformationA added (dummy).
 
  08/22/2011:  Version 2.14
 

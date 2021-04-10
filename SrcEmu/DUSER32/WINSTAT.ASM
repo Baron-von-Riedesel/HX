@@ -32,6 +32,15 @@ GetProcessWindowStation proc public
 
 GetProcessWindowStation endp
 
+GetUserObjectInformationA proc public handle:dword, nIndex:dword, pvInfo:ptr, nLength:dword, lpnLengthNeeded:ptr DWORD
+
+	xor eax, eax
+	@strace <"GetUserObjectInformationA(", handle, ", ", nIndex, ", ", pvInfo, ", ", nLength, ", ", lpnLengthNeeded, ")=", eax>
+	ret
+	align 4
+
+GetUserObjectInformationA endp
+
 GetUserObjectInformationW proc public handle:dword, nIndex:dword, pvInfo:ptr, nLength:dword, lpnLengthNeeded:ptr DWORD
 
 	xor eax, eax

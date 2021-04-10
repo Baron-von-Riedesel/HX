@@ -161,6 +161,7 @@ EXPORT {
  GetTopWindow
  GetUpdateRect
  GetUpdateRgn
+ GetUserObjectInformationA
  GetUserObjectInformationW
  GetWindow
  GetWindowDC

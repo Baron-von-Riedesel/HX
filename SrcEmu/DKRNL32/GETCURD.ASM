@@ -59,6 +59,7 @@ success:
 	lea esi,tmpbuf
 	mov edi,buffer
 	rep movsb
+	@strace <"GetCurrentDirectoryA: [buffer]=", &buffer>
 	dec eax 			;do not count last '00'
 	jmp exit
 error:

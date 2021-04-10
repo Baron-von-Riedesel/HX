@@ -59,6 +59,7 @@ ok:
 	and eax,eax
 	jz @F
 	mov [eax],ecx
+	@strace <"GetFullPathNameA: lpFilePart=", &ecx>
 @@:
 	mov eax, edi
 	dec eax

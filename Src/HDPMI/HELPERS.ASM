@@ -927,7 +927,7 @@ ife ?32BIT
 
 ;--- check if there are enough free LDT descriptors for a block
 ;--- for 16-bit only
-;--- EDX=descriptor of block
+;--- EDX=start selector of block
 ;--- EBX=new size in bytes
 ;--- out: C on error
 
