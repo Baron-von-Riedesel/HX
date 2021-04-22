@@ -12,7 +12,7 @@ externdef startcldata32:near
 ifndef ?PE
 externdef endcldata32:near
 else
-endcldata32 equ <startcldata32 + 400h>
+?SIZECLDATA32 equ 400h	;also defined in hdpmi.asm
 endif
 
 ?SAVEHOSTSP equ 1	;std=1, 1=save ring 0 ESP from TSS for client
@@ -52,10 +52,14 @@ _TEXT32 segment
 
 _getsavelength proc
 	mov ecx, offset GROUP16:_EndOfClientData
-	mov eax, offset endcldata32
 	sub ecx, offset GROUP16:_StartOfClientData
+ifndef ?PE
+	mov eax, offset endcldata32
 	sub eax, offset startcldata32
 	add ecx, eax
+else
+	add ecx, ?SIZECLDATA32
+endif
 	movzx eax, wLDTLimit
 	inc eax
 	shr eax, 6	;1000h -> 40h
@@ -76,9 +80,13 @@ if ?VM
 
 _getidtofs proc public
 	call _getcldata32
+ifndef ?PE
 	mov ecx, offset endcldata32
 	sub ecx, offset startcldata32
 	add eax, ecx
+else
+	add eax, ?SIZECLDATA32
+endif
 	ret
 	align 4
 _getidtofs endp
@@ -170,8 +178,12 @@ endif
 	pop ds
 
 	mov esi,offset startcldata32
+ifndef ?PE
 	mov ecx,offset endcldata32
 	sub ecx, esi
+else
+	mov ecx, ?SIZECLDATA32
+endif
 	@dprintf "saveclientstate: save 32bit data, dst=%lX, src=%lX, size=%lX",edi, esi, ecx
 	shr ecx, 2
 	rep movsd
@@ -356,8 +368,12 @@ endif
 	push byte ptr _CSALIAS_
 	pop es
 	mov edi,offset startcldata32
+ifndef ?PE
 	mov ecx,offset endcldata32
 	sub ecx, edi
+else
+	mov ecx, ?SIZECLDATA32
+endif
 	@dprintf "restoreclientstate: load exc vectors, dst=%lX, src=%lX, size=%lX",edi, esi, ecx
 	shr ecx, 2
 	rep movsd

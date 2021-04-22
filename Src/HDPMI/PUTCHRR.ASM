@@ -313,6 +313,8 @@ $getwordfromstack proc
 	ret
 $getwordfromstack endp
 
+;--- the worker behind @rprintf/@drprintf 
+;--- no registers modified, no flags changed!
 
 _$stroutx proc near public
 

@@ -839,13 +839,22 @@ getxmspage proc near
 	call getavailxmspages
 	cmp eax, 1
 	jc getxmspage_err2		;XMS is out of memory
-	call getbestxmssize		;return best size
-	push ecx
-	mov ecx,eax
-	pushd offset allocxms
+	call getbestxmssize		;return best size in EAX
+	mov edx,eax
+	push eax
+	mov ah,fXMSAlloc
+	shl edx,2
+	pushd offset allocxms_rm
 	call callrmprocintern
-	pop ecx
+	pop eax
 	jc getxmspage_err3		;XMS is out of memory
+	test dx,0FFFh			;block's base on page boundary?
+	jz @F
+	add edx,1000h-1
+	and dx,0F000h			;if no, do a page align
+	dec eax
+@@:
+	@dprintf "getxmspage: allocated %lX pages", eax
 	call setphyshandle
 	mov PhysBlk.wHandle, bx
 	mov PhysBlk.bFlags, PBF_XMS
@@ -866,7 +875,7 @@ ifdef _DEBUG
 	ret
 endif
 getxmspage_err3:
-	@dprintf "getxmspage: error, XMM alloc call failed, ax=%X",ax
+	@dprintf "getxmspage: error, XMM alloc call failed, bx=%X",bx
 	stc
 	ret
 	align 4
@@ -3521,68 +3530,39 @@ pm_seti15pages endp
 endif
 
 ;*** get memory block from XMS
-;*** inp: ECX=size of block in pages
-;*** DS=GROUP16
-;*** Out: Carry on errors, else
-;*** EAX=pages allocated
+;*** in: EDX=size of block to request in kB
+;---      AH=XMS alloc function (09h or 89h)
+;*** Out: if error, Carry + error code in BL, else
 ;*** EDX=physical address
 ;*** BX=XMS handle
 
 	@ResetTrace
 
-allocxms proc near uses ds
+allocxms_rm proc near
 
-	push cs
-	pop ds
-	push ecx
-	mov edx,ecx
-	shl edx,2
-	mov ah,fXMSAlloc
 	@drprintf "allocxms: try to alloc %lX kb XMS mem,ax=%X",edx,ax 
-	call [xmsaddr]
+	call cs:[xmsaddr]
 	and ax,ax
-	jz allocxmserr1			;---> error
+	jz allocxmserr1
 	@drprintf "allocxms: EMB allocated, handle=%X",dx
 	push dx
-	mov ah,0Ch					;lock EMB
-	call [xmsaddr]
-	pop cx
+	mov ah,0Ch		;lock EMB
+	call cs:[xmsaddr]
 	and ax,ax
-	jz allocxmserr1			;---> error
+	jnz exit
+;--- lock error. to be absolutely safe, the EMB should be released here,
+;--- but it's very unlikely that this case ever happens.
+	@drprintf "allocxms: lock EMB failed, handle=%X", dx
+allocxmserr1:		;alloc error
+	@drprintf "allocxms: unable to alloc XMS memory, error=%X, sp=%X", bx, sp
+	stc
+exit:
 	push dx
 	push bx
-	pop edx 					;physical address -> edx
-	mov bx,cx
-	@drprintf "allocxms: EMB locked, addr=%lX", edx
-	pop eax						;get no of kbytes
-;;	shr eax,2					;convert to pages
-	test dx,0FFFh				;starts block on page boundary?
-	jz @F
-	and dx,0F000h				;if no, do a page align
-	add edx,1000h
-	dec eax
-@@: 							;RC: num pages in EAX
-if 0;_LTRACE_
-	push ax
-	push bx
-	push cx
-_GetA20State proto near 
-	call _GetA20State
-	@drprintf "allocxms: A20 state is %X",ax
-	pop cx
+	pop edx 		;physical address -> edx
 	pop bx
-	pop ax
-endif
-	@drprintf "allocxms: allocated %lX pages",eax
-	clc
 	ret
-allocxmserr1:
-	pop ecx 		;adjust stack
-	mov ax,bx		;al contains error code
-	@drprintf "allocxms: unable to alloc XMS memory, error=%X, sp=%X",ax,sp
-	stc
-	ret
-allocxms endp
+allocxms_rm endp
 
 ;*** free XMS memory handle
 ;--- DX = xms memory handle
@@ -3698,20 +3678,20 @@ E820MAP ends
 ;--- all std regs may be modified
 
 alloci15rm proc near
-	mov cl, 0
+;	mov cl, 0	;???
 if ?USEE820
 	push bp
 	@drprintf "alloci15rm: int 15h, ax=E820"
 	xor ebx, ebx
 	xor esi, esi
-	sub sp, 20
+	sub sp, sizeof E820MAP
 	mov di, sp
 	push ss
 	pop es
 nextitem:
-	mov ecx, 20
+	mov ecx, sizeof E820MAP
 	mov edx,"SMAP"
-	mov eax,00E820h
+	mov eax,0E820h
 	int 15h
 ;	jc done_e820
 	cmp eax,"SMAP"
@@ -3724,11 +3704,11 @@ nextitem:
 	jb skipitem
 	mov eax, es:[di].E820MAP.lenlow
 	shr eax, 12 		;bytes -> pages
-	@drprintf "alloci15rm, ax=e820: found available mem at %lX, pages %lX", es:[di].E820MAP.baselow, eax
 	cmp eax,esi
 	jc @F
 	mov esi,eax
 	mov ebp,es:[di].E820MAP.baselow
+	@drprintf "alloci15rm, ax=e820: available memory, base=%lX, size=%lX pg", ebp, esi
 @@:
 skipitem:
 	and ebx, ebx
@@ -3736,7 +3716,7 @@ skipitem:
 done_e820:
 	mov eax, esi
 	mov edx, ebp
-	add sp, 20
+	add sp, sizeof E820MAP
 	pop bp
 	and eax, eax
 	jnz exit
@@ -4023,11 +4003,21 @@ nexttry:
 @@:
 	cmp eax, ?PAGEMIN
 	jb noxms
-	mov ecx, eax
-	call allocxms			;alloc XMS memory
+	mov edx, eax
+	push eax
+	shl edx,2
+	mov ah,fXMSAlloc
+	call allocxms_rm		;alloc XMS memory
+	pop eax
 	jc noxms
 	mov PhysBlk.wHandle,bx
 	mov PhysBlk.bFlags, PBF_XMS
+	test dx,0FFFh			;block's base on page boundary?
+	jz @F
+	add edx,1000h-1
+	and dx,0F000h			;if no, do a page align
+	dec eax
+@@:
 	jmp initpagemgr_rm_1
 noxms:
 	@drprintf "pm_init_rm: no XMS memory"

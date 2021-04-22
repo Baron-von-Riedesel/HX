@@ -115,7 +115,29 @@
    0003   display client's memory objects
 
 
- 4. Todo List
+ 4. Makefiles
+
+  þ HDPMIxx.MAK: creates standard version of HDPMIxx in STDxx directory. This
+    is the only version currently that's in PE file format.
+
+  þ HDPMIxxA.MAK: creates 2 versions: the first, in directory HSCMxx, has
+    the host stack in conventional memory (which was "standard" before v3.18);
+    the second version, in directory NOLFNxx, lacks LFN support, otherwise
+    it's similar to the first.
+
+  þ HDPMIxxE.MAK: creates an "enhanced" version, that will respond to some
+    Win3x VxD calls, in directory ENHxx. The 16-bit version may be useful,
+    since it allows to run Win9x in enhanced mode.
+
+  þ HDPMIxxI.MAK: creates a version where clients will run with IOPL=0, in
+    directory IOPL0xx.
+
+  þ HDPMIxxS.MAK: creates a "stub" version, in directory STUBxx. These stubs
+    may be added, either by the linker or as assembly include files, to other
+    binaries.
+
+
+ 5. Todo List
 
   þ implement the missing functions to make HDPMI a full V1.0 host:
     - DPMI TSRs (int 31h, ah=0Ch)

@@ -309,54 +309,6 @@ PTF_GLOBAL		equ 100h;1=global
 
 ?GPBIT			equ PTF_USER	;if ?GUARDPAGE0 = 1
 
-;------------------------------- GDT selectors
-
-externdef _VCPICS_:abs
-externdef _CSSEL_:abs
-externdef _SSSEL_:abs
-externdef _TSSSEL_:abs
-;externdef _STDSEL_:abs		;not used outside hdpmi.asm
-externdef _FLATSEL_:abs
-externdef _TLBSEL_:abs
-externdef _INTSEL_:abs
-externdef _CSR3SEL_:abs
-externdef _DSR3SEL_:abs
-externdef _SELLDT_:abs
-externdef _LDTSEL_:abs
-if ?SCRATCHSEL
-externdef _SCRSEL_:abs
-endif
-if ?KDSUPP
-externdef _GDTSEL_:abs
-endif
-externdef _STDSEL_:abs
-
-if 1;?MOVEHIGH
-externdef _CSALIAS_:abs
-endif
-
-if ?MOVEHIGHHLP
-;externdef _CSGROUP16_:abs	;not used outside hdpmi.asm
-endif
-
-if ?LPMSINGDT
-externdef _LPMSSEL_:abs
-else
-_LPMSSEL_ equ 0084h or ?RING
-endif
-
-if ?INT1D1E1F eq 0
-externdef _I1ESEL_:abs
-endif
-
-if ?SCRATCHSEL
-externdef _SCRSEL_:abs
-endif
-
-if ?LDTROSEL
-externdef _SELLDTSAFE_:abs
-endif
-
 ;--- fatal __exitclient errorcodes
 
 ;_EAERR2_  equ 0002H 		; server termination requested

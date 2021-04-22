@@ -1,8 +1,7 @@
 
 ;--- HDPMI's main source
 
-;--- Warning: this source is old and possibly hard to understand.
-;--- some comments in german language.
+;--- Warning: this source is old and sometimes incomprehensible.
 
 ;--- what's implemented here:
 ;--- real-mode initialization/termination
@@ -92,7 +91,7 @@ endcldata32 label near
 startof32bitr3 label near
 _DATA32C$Z ends
 else
-endcldata32 equ <offset startcldata32 + 400h>
+?SIZECLDATA32 equ 400h	;also defined in clients.asm
 endif
 
 ifdef ?PE
@@ -125,7 +124,7 @@ else
 	@definegroup32 use32
 endif
 
-GROUP16  group BEGGRP16, _TEXT16, _TEXT16X, CONST16, _DATA16, _DATA16V, _DATA16C, GDTSEG, IDTSEG, _ITEXT16, ENDGRP16
+GROUP16  group BEGGRP16, _DATA16, _DATA16V, _DATA16C, _TEXT16, _TEXT16X, CONST16, GDTSEG, IDTSEG, _ITEXT16, ENDGRP16
 ;ife ?STACKLAST
 ;GROUP16 group STACK
 ;endif
@@ -639,27 +638,23 @@ pmbrdesc label DESCRPTR
 
 	@defdesc <0FFFh,0,0,92h or ?PLVL,0,0>,_SELLDT_, ?RING
 
-;--- _CSALIAS_, _CSR3SEL_ and _DSR3SEL_ must be consecutive!
-
 ;--- 68 ring 0 data alias for GROUP32
+;--- _CSALIAS_, _CSR3SEL_ and _DSR3SEL_ must be consecutive!
 
 	@defdesc <-1,0,0,92h,40h,0>,_CSALIAS_
 
-;--- 70+3 ring 3 _TEXT32R3 code selector, if ?PE then ring3 cs
-
 ifdef ?PE
+;--- 70+3 ring3 cs
+;--- 78+3 ring3 csalias
 	@defdesc <-1,0,0,9Ah or ?PLVL,40h,0>,_CSR3SEL_, ?RING
-else
-	@defdesc <3ffh,0,0,9Ah or ?PLVL,40h,0>,_CSR3SEL_, ?RING
-endif
-
-;--- 78+3 ring 3 _TEXT32R3 data selector, if ?PE then ring3 csalias
-
-ifdef ?PE
 	@defdesc <-1,0,0,92h or ?PLVL,00h,0>,_DSR3SEL_, ?RING
 else
+;--- 70+3 ring 3 _TEXT32R3 code selector
+;--- 78+3 ring 3 _TEXT32R3 data selector
+	@defdesc <3ffh,0,0,9Ah or ?PLVL,40h,0>,_CSR3SEL_, ?RING
 	@defdesc <3ffh,0,0,92h or ?PLVL,00h,0>,_DSR3SEL_, ?RING
 endif
+
 ;--- alias for GROUP16 (code)
 ;--- needed to disable paging in xms and raw mode (which
 ;--- can't be done when CS=GROUP32).
@@ -4681,8 +4676,12 @@ endif
 	pop es				;ES = GROUP32
 	add esi, eax
 	mov edi, offset startcldata32
+ifdef ?PE
+	mov ecx, ?SIZECLDATA32
+else
 	mov ecx, offset endcldata32
 	sub ecx, edi
+endif
 	@dprintf "CreateVM: cldata32 src=%lX, dst=%lX siz=%lX [%lX %lX]",\
 		esi, edi, ecx, dword ptr [esi], dword ptr [esi+4]
 	shr ecx, 2
@@ -5391,7 +5390,7 @@ nextvec:
 									;will be restored immediately
 									;if there is another client
 	movzx ebx,cs:[esi].INTRMCB.bIntNo
-	@dprintf "restoreivtvecs: ivt-vector %X=%lX", bx, dword ptr es:[ebx*4]
+	@dprintf "restoreivtvecs: ivt-vector %X=%lX orgvec=%lX", bx, dword ptr es:[ebx*4], edx
 	test ah,01h						;test mode?
 	jnz @F
 	cmp es:[ebx*4+2], di			;there might be the case

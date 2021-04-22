@@ -15,6 +15,43 @@ endif
 SEG16 segment byte use16 public 'CODE'
 SEG16 ends
 
+;--- GDT selectors
+
+externdef _VCPICS_:abs
+externdef _CSSEL_:abs
+externdef _SSSEL_:abs
+externdef _TSSSEL_:abs
+externdef _LDTSEL_:abs
+externdef _FLATSEL_:abs
+externdef _TLBSEL_:abs
+externdef _INTSEL_:abs
+externdef _SELLDT_:abs
+externdef _CSALIAS_:abs
+externdef _CSR3SEL_:abs
+externdef _DSR3SEL_:abs
+if 1;?MOVEHIGHHLP
+externdef _CSGROUP16_:abs
+endif
+externdef _STDSEL_:abs
+if ?LPMSINGDT
+externdef _LPMSSEL_:abs
+else
+_LPMSSEL_ equ 0084h or ?RING
+endif
+if ?INT1D1E1F eq 0
+externdef _I1ESEL_:abs
+endif
+if ?SCRATCHSEL
+externdef _SCRSEL_:abs
+endif
+if ?LDTROSEL
+externdef _SELLDTSAFE_:abs
+endif
+if ?KDSUPP
+externdef _GDTSEL_:abs
+externdef _KDSEL_:abs
+endif
+
 	include pagemgr.inc
 	include int31api.inc
 
@@ -222,10 +259,6 @@ externdef _I2F1684_0442_:abs
 ;externdef RMCBMOUSE:abs
 
 externdef RAWJMP_PM_PATCHVALUE:abs
-externdef _CSGROUP16_:abs
-if ?KDSUPP
-externdef _KDSEL_:abs
-endif
 
 BEGGRP16 segment
 externdef logo:byte
