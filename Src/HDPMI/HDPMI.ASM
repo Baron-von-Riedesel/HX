@@ -996,7 +996,9 @@ lint30	  dw 0
 endif
 wEMShandle dw 0
 ifdef _DEBUG
-traceflgs  dw -1
+;traceflgs  dw ?LOG_PMGREXT or ?LOG_INT30 or ?LOG_INTRMCB or ?LOG_INT31GEN or ?LOG_RMCALL
+traceflgs  dw ?LOG_INT30 or ?LOG_INTRMCB or ?LOG_INT31GEN
+bStdout db 80h
 endif
 ;--- table of real-mode IVT vectors to intercept
 

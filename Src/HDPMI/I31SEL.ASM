@@ -194,15 +194,12 @@ freesel1::
 	mov dword ptr [ebx+0],0
 	mov dword ptr [ebx+4],0
 	or bl,4+?RING
-	call resetrmsel
-
 	push eax
 	mov eax, es
 	sub ax, bx
 	jnz @F
 	mov es, eax
 @@:
-	@dprintf "freesel: selector %X released, DS=%X",bx, [esp+4].I31FR1.wDS
 	mov eax, fs
 	sub ax, bx
 	jnz @F
@@ -214,6 +211,9 @@ freesel1::
 	mov gs, eax
 @@:
 	pop eax
+	call resetrmsel
+;--- v3.19: debug log after segment register have been cleared - in case DOS is used for output.
+	@dprintf "freesel: selector %X released, DS=%X", bx, [esp].I31FR1.wDS
 	clc
 	ret
 	align 4

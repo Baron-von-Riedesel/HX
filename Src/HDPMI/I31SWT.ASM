@@ -440,7 +440,7 @@ if _LTRACE_
 	jmp error1x
 @@:
 endif
-	@dprintf "call rm RMS=%X:%X rmcs: a-d=%X %X %X %X, d-e=%X %X, stk=%X:%X", ss:v86iret.rSS, ss:v86iret.rSP,\
+	@dprintfx ?LOG_RMCALL,"call rm RMS=%X:%X rmcs: a-d=%X %X %X %X, d-e=%X %X, stk=%X:%X", ss:v86iret.rSS, ss:v86iret.rSP,\
 		es:[edi].RMCS.rAX, es:[edi].RMCS.rBX, es:[edi].RMCS.rCX, es:[edi].RMCS.rDX,\
 		es:[edi].RMCS.rDS, es:[edi].RMCS.rES, es:[edi].RMCS.rSS, es:[edi].RMCS.rSP
 	mov ebp,esp
@@ -596,7 +596,7 @@ endif
 	mov es, eax
 	pop ds
 	popad
-	@dprintf "callrmproc_pm: exit, NC, RMS=%X:%X", ss:v86iret.rSS, ss:v86iret.rSP
+	@dprintfx ?LOG_RMCALL,"callrmproc_pm: exit, NC, RMS=%X:%X", ss:v86iret.rSS, ss:v86iret.rSP
 	clc
 	ret
 	align 4

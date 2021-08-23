@@ -1442,7 +1442,7 @@ FreeUserAddrSpace endp
 ;---     DS=GROUP16, ES=FLAT
 ;*** out: NC if successful, EAX=linear address, ECX preserved.
 ;*** C on error
-;*** modifies EDI, ESI, EBX, EDX
+;*** modifies EDI, ESI, EDX
 ;*** updates: dwMaxOfsPT
 ;--- 4 GB are 1.0000.0000/1000 == 100000 pages
 ;--- example (dwMaxOfsPT = 2440):
@@ -1466,7 +1466,7 @@ endif
 
 	mov eax, ebx
 	shr eax, 10
-	and al,0Fch
+	and al, 0FCh
 	add eax, ?SYSPGDIRAREA * 400h
 	mov edi, eax
 	sub eax, dwMaxOfsPT		;is the address below dwMaxOfsPT?
@@ -1484,6 +1484,7 @@ endif
 	ja error
 	add edi, pPageTables
 
+	push ebx
 	push ecx
 	push edi
 	cld
@@ -1511,22 +1512,8 @@ endif
 @@:
 	pop edx
 	pop ecx
-if _LTRACE_
-	mov eax, edx
-	sub eax, pPageTab0
-	shl eax,10
+	pop eax
 	@dprintf "CreateUserAddrSpace: new addrspace generated: addr=%lX, size=%lX, edi=%lX", eax, ecx, edi
-endif
-	mov eax, ebx
-	and eax, eax
-	jnz @F
-;--- page tables are stored so that it is very simple to get linear address
-;--- from pointer to PTE: (pPTE - pPageTab0) * 1024 = linear address
-;	@dprintf "CreateUserAddrSpace: eax=%lX, pPageTab0=%lX", eax, pPageTab0
-	sub edx, pPageTab0
-	shl edx,10
-	mov eax, edx
-@@:
 	clc
 	ret
 
@@ -1577,6 +1564,7 @@ error2:
 	shl eax,10
 	call FreeUserAddrSpace
 	pop ecx
+	pop ebx
 error:
 	stc
 	ret

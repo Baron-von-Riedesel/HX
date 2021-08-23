@@ -964,6 +964,8 @@ local	bError:DWORD
 				mov mzhdr.e_ip, ax
 			.endif
 			mov eax, [edi].IMAGE_SECTION_HEADER.Misc.VirtualSize
+;--- v1.6: bugfix - add size of mzhdr
+			add eax,sizeof mzhdr
 			mov edx, eax
 			shr eax,9
 			.if dx & 1ffh
@@ -1028,7 +1030,7 @@ main_ex:
 	mov eax, bError
 	ret
 displayusage:
-	invoke printf, CStr("editpe v1.5: modify/extract contents of/from a PE binary",lf)
+	invoke printf, CStr("editpe v1.6: modify/extract contents of/from a PE binary",lf)
 	invoke printf, CStr("usage: editpe [options] cmd src_file dst_file",lf)
 	invoke printf, CStr("  cmd:",lf)
 	invoke printf, CStr("    a n=v: change virtual address of section <n> to <v>",lf)
@@ -1047,4 +1049,3 @@ displayusage:
 main endp
 
 	END
-

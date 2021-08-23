@@ -249,8 +249,12 @@ _putchrx proc public
 	pushad
 ifdef _DEBUG
 	mov edx,ss
-	cmp dx,_SSSEL_		;ring 0 with SS==GROUP16?
+	cmp dx,byte ptr _SSSEL_		;ring 0 with SS==GROUP16?
+ ife ?VIODIROUT
+	jnz exit2
+ else
 	jnz @F
+ endif
 	test ss:fMode2,FM2_LOG
 	jz exit2
 @@:
@@ -258,7 +262,7 @@ endif
 	push es
 if ?USEDEBUGOUTPUT	;is active only if ?WDEB386 is on 
 	mov edx,ss
-	cmp dx,_SSSEL_		;ring 0 with SS==GROUP16?
+	cmp dx,byte ptr _SSSEL_		;ring 0 with SS==GROUP16?
 	jnz @F
 	test ss:[fDebug],FDEBUG_OUTPFORKD
 	jz @F
@@ -356,6 +360,10 @@ if ?DOSOUTPUT
 	mov dl,al
 	mov ah,2
 	@simrmint 21h
+ifdef _DEBUG
+	test ss:[bStdout],80h	;no slowdown if stdout is a file
+	jz putchrex
+endif
 	@slowdown
 	jmp putchrex
 endif
@@ -419,7 +427,7 @@ putchr_1:
 	cmp al,4			;Ctrl-D?
 	jnz @F
 	mov edx,ss
-	cmp dx,_SSSEL_
+	cmp dx,byte ptr _SSSEL_
 	jnz @F
 	or byte ptr ss:[bTrap],1
 @@:

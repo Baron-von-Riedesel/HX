@@ -750,7 +750,7 @@ endif
 	jc resizemem2
 	push ebx
 	mov ebx,[eax].MEMITEM.dwBase
-	call pm_AllocUserSpace		;get ECX pages new address space at EBX
+	call pm_AllocUserSpace		;get ECX pages new address space at EBX, returned in EAX
 	pop ebx
 
 ;--- if the call failed, it must be due to "out of physical memory"

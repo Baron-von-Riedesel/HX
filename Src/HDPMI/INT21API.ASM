@@ -2319,7 +2319,8 @@ endif
 	mov di,[ebp+4]
 	@printf <"I21: fatal error (ax=%X bx=%X cx=%X dx=%X cs:ip=%X:%X)",lf>,ax,bx,cx,dx,si,di
 	pop eax			;errorcode
-	jmp __exitappx
+;	jmp __exitappx
+	jmp _exitclient_pm
 endif
 
 endif

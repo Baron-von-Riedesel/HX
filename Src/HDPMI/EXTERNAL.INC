@@ -438,6 +438,7 @@ externdef v86iretesp:dword
 endif
 ifdef _DEBUG
 externdef traceflgs:word
+externdef bStdout:byte
 endif
 ifdef ?PE
 externdef dwVSize:dword

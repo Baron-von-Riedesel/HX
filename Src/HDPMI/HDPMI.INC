@@ -1159,6 +1159,7 @@ ifdef _DEBUG
 ?LOG_INT30		equ 2	;int 30h dispatcher log
 ?LOG_INTRMCB	equ 4	;internal rmcbs log
 ?LOG_INT31GEN	equ 8	;int 31h generic logs
+?LOG_RMCALL		equ 16	;dpmi rm calls (ax=030x)
 endif
 
 ;--- formatted output in real-mode

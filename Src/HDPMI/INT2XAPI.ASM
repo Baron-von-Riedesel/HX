@@ -52,7 +52,8 @@ if ?EXITONCTRLC
 	externdef _fatappexit2:near
 	jmp _fatappexit2
   else
-	jmp __exitapp 
+;	jmp __exitapp 
+	jmp __exitclient_pm
   endif
 else
 	@printf "^C"

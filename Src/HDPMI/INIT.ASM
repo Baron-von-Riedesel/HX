@@ -791,7 +791,6 @@ if ?DTAINHOSTPSP
 	shl eax, 4
 	mov dwHostDTA, eax
 endif
-
 	call _enablea20		;this hooks xms!
 	and ax,ax
 	jz a20err
@@ -2004,6 +2003,15 @@ else
 	mov es, wHostSeg32
 	mov ah,49h
 	int 21h
+  endif
+
+  ifdef _DEBUG
+   if ?DOSOUTPUT and ?USEHOSTPSP
+	mov bx,1
+	mov ax,4400h
+	int 21h
+	mov bStdout,dl
+   endif
   endif
 
 ;--- release environment
