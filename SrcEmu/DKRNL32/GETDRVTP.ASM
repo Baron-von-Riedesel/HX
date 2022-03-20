@@ -43,16 +43,17 @@ sm1:
 	mov ax,4409h	;check if drive remote
 	int 21h
 	jc isinvalid
-
 	cmp bl,2		;A:,B: special handling
 	ja @F
+	push dx
 	mov ax,440Eh	;get logical drive map
 	int 21h
+	pop dx
 	cmp al,00
 	jz isremovable
 	cmp al,bl
 	jz isremovable
-	jmp isinvalid
+;	jmp isinvalid
 
 @@:
 	and dh,not 40h
