@@ -1030,6 +1030,8 @@ error:
 nesttest endp
 
 ;--- option -e
+;--- cause host stack exhaustion by using INT to switch to real-mode
+;--- and a raw mode switch to switch back to protected-mode
 
 hsfatal proc
 local loops:word
@@ -1060,8 +1062,8 @@ hsfatalx:
 	jmp newloop
 hsfatalrm:
 	add sp,4			;no need to return from "far proc"
-	@printf <"in rm, ss:sp=%x:%x",lf>,ss,sp
 	movzx ebx,dx		;pm E/SP
+	@printf <"in rm, ss:sp=%x:%x",lf>,ss,sp
 	mov dx,wSSSel		;pm SS
 	mov si,wCSSel		;pm CS
 	mov edi,offset hsfatalx;pm E/IP
