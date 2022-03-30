@@ -1,7 +1,7 @@
  
  History HDPMI 
 
-  06.04.2021, version 3.19
+  30.03.2022, version 3.19
 
   þ fixed regression in v3.18: HDPMI32 & HDPMI16 couldn't be installed 
     simultaneously.
@@ -20,6 +20,9 @@
     that weren't fully copied.
   þ fixed int 31h, ax=800h: under certain conditions, physical pages in
     page pool may have "get lost", if HDPMI was installed residently.
+  þ fixed exception handling: in case a client used v1.0 functions to set
+    an exception handler, the LPMS remained in status "used" after first
+    exception.
   þ DPMI function 0Eh (get coprocessor state): a 80487 is returned
     instead of an 80387 if cpu is 80486+.
   þ CR0.NE flag is no longer modified; that makes cmdline option -t 

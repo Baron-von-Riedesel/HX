@@ -833,8 +833,7 @@ else
 endif
 	@defx intr30,   _INT30_		;intr30 indirect
 	@defx rpmstacke,_RTEXC_		;switch from LPMS to PMS after EXC
-	@defx rpmstacke_nosw,_RTEXC2_	;switch after EXC, LPMS still in use
-;	@defx _meventp, _MEVENT_	;mouse event proc (ring 0)
+;	@defx _meventp, _MEVENT_		;mouse event proc (ring 0)
 ;--- here start PMBREAKs with retf frame
 _RETF_ equ ($ - offset spectab) / 2 + 200h
 	@defx _srtask, _SRTSK_		;save/restore task state (call)
@@ -1787,16 +1786,13 @@ lpms_call_exc proc
 	and ah,60h			;exception in ring 0?
 	jz lpms_call_host_exc
 
-	push ecx
 	push edx
 	push esi
 	push edi
 	push ds
 
-    mov ecx,_RTEXC2_
 	cmp ss:bLPMSused,0	;LPMS free?
 	jnz @F
-	mov cx,_RTEXC_
 	mov ss:bLPMSused,1
 	mov ax,_LPMSSEL_
 	mov edi,?LPMSSIZE - sizeof DPMIEXC
@@ -1831,11 +1827,10 @@ if ?DPMI10EXX
 	jnc nodpmi10handler
 	sub edi,sizeof DPMI10EXC - sizeof DPMIEXC
 if ?32BIT
-	mov [edi].DPMI10EXC.rDPMIIPx, ecx
+	mov [edi].DPMI10EXC.rDPMIIPx, _RTEXC_
 	mov [edi].DPMI10EXC.rDPMICSx, _INTSEL_
 else
-	mov word ptr [edi].DPMI10EXC.rDPMIIPx+0, cx
-	mov word ptr [edi].DPMI10EXC.rDPMIIPx+2, _INTSEL_
+	mov [edi].DPMI10EXC.rDPMIIPx, _RTEXC_ + 10000h * _INTSEL_
 	mov [edi].DPMI10EXC.rDPMICSx, 0
 endif
 	cmp esi,14
@@ -1889,11 +1884,7 @@ nodpmi10handler:
 endif
 	mov [ebp+4].LCEFR.r.rSP, edi
 
-if ?32BIT
-	mov [edi].DPMIEXC.rDPMIIP, ecx
-else
-	mov [edi].DPMIEXC.rDPMIIP, cx
-endif
+	mov [edi].DPMIEXC.rDPMIIP, _RTEXC_
 	mov [edi].DPMIEXC.rDPMICS, _INTSEL_
 	mov eax, [ebp+4].LCEFR.f.rErr
 	mov edx, [ebp+4].LCEFR.f.rIP
@@ -1938,7 +1929,6 @@ endif
 	pop edi
 	pop esi
 	pop edx
-	pop ecx
 	pop eax
 	pop ebp
 	retf
@@ -2189,9 +2179,9 @@ RPMEFR ends
 
 	@ResetTrace
 
+_LTRACE_ = 1
+
 rpmstacke proc
-	mov ss:bLPMSused,0
-rpmstacke_nosw::
 	push ds
 	push esi
 	push eax
@@ -2204,7 +2194,6 @@ if _LTRACE_
 	pop ebp
 endif
 	lds esi,[esp].RPMEFR.rSSSP
-if 0 ;v3.19: stack compare now obsolete
 	mov eax, ds
 	cmp ax,_LPMSSEL_
 	jnz @F
@@ -2212,7 +2201,7 @@ if 0 ;v3.19: stack compare now obsolete
 	jnz @F
 	mov ss:bLPMSused,0
 @@:
-endif
+
 	@checkssattr ds,si
 if ?32BIT
 	mov eax,[esi+ 0 * ?RSIZE]
@@ -2374,15 +2363,12 @@ if ?CHECKSSIS32
 	@checkssattr ds,bx
 	pop eax
 endif
-	cmp ax,_RTEXC2_			;return from exceptionhandler without switch?
-	jz @F
 	cmp ax,_RTEXC_			;return from exceptionhandler?
-	jnz noexcret
-@@:
+	jnz @F
 	@dprintf "int30 special: return from exception, remove error code %lX",dword ptr [ebx]
 	add ebx, ?RSIZE			;remove error code from client stack
 	add [esp+4].I30FR.rSP, ?RSIZE
-noexcret:
+@@:
 	cmp ax,_RETF_			   ;retf oder iret frame?
 if ?32BIT
 	mov eax, [ebx].IRET32.rIP

@@ -45,6 +45,9 @@ sm1:
 	jc isinvalid
 	cmp bl,2		;A:,B: special handling
 	ja @F
+
+;--- perhaps better to call int 21h, ax=4408h ( is drive removable? )
+
 	push dx
 	mov ax,440Eh	;get logical drive map
 	int 21h
