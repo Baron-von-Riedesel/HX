@@ -471,6 +471,11 @@
 
 14.  History
 
+ 30.03.2022: version 3.10
+ 
+ þ bugfix: in nested execution, PSP may have become invalid, if DPMILDR=8
+   wasn't set.
+ 
  13.10.2018: version 3.9
 
  þ bugfix: if option DPMILDR=8 was set, nested execution failed.

@@ -348,7 +348,7 @@ ife ?STUB
 versionstring textequ @CatStr(!",%?VERMAJOR,.,%?VERMINOR,.,%?VERMINOR2,!")
 szHello    db lf
 		   db 'DPMI loader version ',versionstring,lf
-		   db 'Copyright (C) 1993-2020 Japheth',lf,lf,00
+		   db 'Copyright (C) 1993-2022 Japheth',lf,lf,00
 endif           
 szInitErr  db 'Error in initialization, loading aborted',lf,00
 szShrkErr  db 'memory shrink Error',lf,00
