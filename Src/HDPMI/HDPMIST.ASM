@@ -13,6 +13,7 @@ OPT_PTES equ 1	;display PTEs
 OPT_GDT  equ 2	;display GDT
 OPT_IDT  equ 4	;display IDT
 OPT_LDT  equ 8	;display LDT
+OPT_RMIV equ 16	;display internal real-mode interrupt vectors
 
 	@seg _ITEXT16
 
@@ -389,10 +390,39 @@ printlocation proc
 	push dword ptr es:[12]
 	push dword ptr es:[8]
 	mov es,cx
-	@rprintf <" instance found at %X [%s]",lf>, es,ss,sp
+	@rprintf <" instance found at %X [%s]",lf>, es, ss, sp
 	add sp,4+4+2
 	ret
 printlocation endp
+
+intr db 8,9,10,11,12,13,14,15,70h,71h,72h,73h,74h,75h,76h,77h,1ch,23h,24h
+
+printirvt proc uses fs
+	@rprintf <"   internal real-mode callback table:",lf>
+	push 0
+	pop fs
+	mov si, offset intrmcbrs
+	mov bx, offset intr
+	mov cx, 16+3
+nextitem:
+	push cx
+	lodsw es:[si]
+	mov dx,ax
+	lodsw es:[si]
+	mov cx,ax
+	push si
+	movzx di,byte ptr cs:[bx]
+	shl di,2
+	mov ax,fs:[di+0]
+	mov si,fs:[di+2]
+	shr di,2
+	@rprintf <"   %X: %X:%X %X:%X",lf>, di, cx, dx, si, ax
+	inc bx
+	pop si
+	pop cx
+	loop nextitem
+	ret
+printirvt endp
 
 ;--- display global variables in conv memory of an instance
 ;--- inp: AX=hdpmi instance
@@ -440,6 +470,9 @@ local buffer[8]:byte
 			@rprintf <"   no LDT found",lf>
 		.endif
 	.endif
+	.if fOptions & OPT_RMIV
+		invoke printirvt 
+	.endif
 	assume es:nothing
 	mov ax,1
 	ret
@@ -478,6 +511,8 @@ local fOptions:word
 				or fOptions, OPT_IDT
 			.elseif al == 'l'
 				or fOptions, OPT_LDT
+			.elseif al == 'r'
+				or fOptions, OPT_RMIV
 			.elseif al == '?'
 				@rprintf <"HDPMIST displays states of currently loaded HDPMI instances",lf>
 				@rprintf <"usage: HDPMIST [options]",lf>
@@ -487,6 +522,7 @@ local fOptions:word
 				@rprintf <"  -i display IDT",lf>
 				@rprintf <"  -l display LDT",lf>
 				@rprintf <"  -p display PTEs",lf>
+				@rprintf <"  -r display internal real-mode callbacks",lf>
 				jmp exit
 			.else
 				dec si

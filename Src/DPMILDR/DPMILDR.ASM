@@ -7335,7 +7335,7 @@ if _RESIZEPSP_
 if _SUPRESDOSERR_
 	or fMode, FMODE_NOERRDISP
 endif
-	int 31h
+	int 31h						;this call most likely fails in NTVDM with error ax=9
 ;	jc exit
 	@trace_s <"extload: low DOS memory resized",lf>
 endif

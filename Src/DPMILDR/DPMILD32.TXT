@@ -90,7 +90,7 @@
 
      - bit 1 (DPMILDR=2): prevents the loader from moving itself into extended
        memory. It remains in conventional DOS memory after switching to
-       protected mode. 
+       protected mode. Might be needed when running in NTVDM.
 
      - bit 2 (DPMILDR=4): disables support for loading 32-Bit NE applications.
 
