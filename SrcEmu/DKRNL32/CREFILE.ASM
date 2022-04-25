@@ -181,9 +181,12 @@ translate_sharemode proc
 	inc al			;al=2 (r/w)
 @@:
 	movzx	ebx,al
+	cmp g_bHost, HF_WINNT    ; 25.4.2022: just selectively disabled now
+	jz @F
 ;--- the following line gives error 57 (invalid parameter) under XP
 ;--- since it is not a must to be set, it is deactivated
-;      or      bh, 30h     ;allow 4 GB, dont use int 24h (9.7.2005)
+      or      bh, 30h     ;allow 4 GB, dont use int 24h (9.7.2005)
+@@:
 	ret
 	align 4
 
