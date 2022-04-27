@@ -276,6 +276,8 @@ endif
 						;this may be required if HDPMI=32 is set
 
 ?PREDEFIDTGATES equ 78h	;number of predefined IDT gates
+?DIO2RMS		equ 1	;std 1: 1=copy diskio packet onto rm-stack (int 25h/26h/21h,ax=7305h)
+
 
 ;----------------------------------------------------------------
 

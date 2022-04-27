@@ -2261,15 +2261,39 @@ i217301:
 ;--- DS:E/BX->io packet (same as for Int 25/26)
 ;--- SI=flags (bit 0: 0=read, 1=write)
 
+;--- extended disk io structure in real mode
+
+DISKIORM struct
+startsec dd ?
+sectors  dw ?
+buffofs  dw ?
+buffseg  dw ?
+DISKIORM ends
+
 i217305:
+if ?DIO2RMS
+	push ss:v86iret.rSS
+	pop ss:v86iret.rDS
+else
 	call setdsreg2tlb
+endif
 	test si,1
 	jnz iswrite
 	call PrepareDiskIoRead
 	jc @F
 	push ebx
-	mov ebx, 0
+if ?DIO2RMS
+	mov ebx, ss:v86iret.rESP
+	push ebx
+	sub ebx, sizeof DISKIORM
+	mov ss:v86iret.rESP, ebx
+else
+	mov bx, 0     ; v3.20: just set BX for real-mode
+endif
 	call rmdos
+if ?DIO2RMS
+	pop ss:v86iret.rESP
+endif
 	pop ebx
 	jc @F
 	call AfterDiskIoRead
@@ -2280,8 +2304,18 @@ iswrite:
 	call PrepareDiskIoWrite
 	jc @F
 	push ebx
-	mov ebx, 0
+if ?DIO2RMS
+	mov ebx, ss:v86iret.rESP
+	push ebx
+	sub ebx, sizeof DISKIORM
+	mov ss:v86iret.rESP, ebx
+else
+	mov bx, 0     ; v3.20: just set BX for real-mode
+endif
 	call rmdos
+if ?DIO2RMS
+	pop ss:v86iret.rESP
+endif
 	pop ebx
 @@:
 	ret

@@ -776,7 +776,7 @@
     are supported. The gate is enabled once on server initialization.
   ş Int 25h/26h (and Int 21h, ax=7305h for FAT32) translation services:
     the amount of bytes to read/write per call is limited to the size of
-    the static translation buffer, which is 8 kB.
+    the static translation buffer, which is 8 kB. 
   ş Exceptions >= 12h aren't supported/detected.
 
 

@@ -142,15 +142,16 @@ copyDiskIo2Tlb proc public
 	push ecx
 	push edx
 
+ife ?DIO2RMS
 	push byte ptr _TLBSEL_
 	pop es
-if ?32BIT
+ if ?32BIT
 	mov edx,[ebx].DISKIO.startsec
 	mov cx,[ebx].DISKIO.sectors
-else
+ else
 	mov edx,[bx].DISKIO.startsec
 	mov cx,[bx].DISKIO.sectors
-endif
+ endif
 	mov es:[DISKIORM.startsec],edx
 	mov es:[DISKIORM.sectors],cx
 	mov es:[DISKIORM.buffofs],offset 200h
@@ -158,11 +159,45 @@ endif
 	mov es:[DISKIORM.buffseg],ax
 	mov ax,cx
 	@dprintf "copyDiskIo2Tlb: startsec=%lX, sectors=%X, buf=%X:%X",\
-		dword ptr es:[DISKIORM.startsec], ax,\
-		word ptr es:[DISKIORM.buffseg], word ptr es:[DISKIORM.buffofs]
+		es:[DISKIORM.startsec], ax, es:[DISKIORM.buffseg], es:[DISKIORM.buffofs]
 	pop edx
 	pop ecx
 	pop es
+	cmp ax,?TLBSECS
+	jnc error	;must be one less than ?TLBSECS!
+else
+	push byte ptr _FLATSEL_
+	pop es
+	movzx eax, ss:v86iret.rSP
+	sub ax, sizeof DISKIORM
+	movzx edx, ss:v86iret.rSS
+	shl edx, 4
+	add edx, eax
+ if ?32BIT
+	mov eax, [ebx].DISKIO.startsec
+	mov cx, [ebx].DISKIO.sectors
+ else
+	mov eax, [bx].DISKIO.startsec
+	mov cx, [bx].DISKIO.sectors
+ endif
+	mov es:[edx].DISKIORM.startsec, eax
+	mov es:[edx].DISKIORM.sectors, cx
+	mov es:[edx].DISKIORM.buffofs, 0
+	mov ax, ss:[wSegTLB]
+	mov es:[edx].DISKIORM.buffseg, ax
+	mov ax, cx
+	@dprintf "copyDiskIo2Tlb: startsec=%lX, sectors=%X, buf=%X:%X",\
+		es:[edx.DISKIORM.startsec], ax, es:[edx.DISKIORM.buffseg], es:[edx.DISKIORM.buffofs]
+	pop edx
+	pop ecx
+	pop es
+	cmp ax,?TLBSECS
+	ja error
+endif
+	clc
+	ret
+error:
+	stc
 	ret
 	align 4
 copyDiskIo2Tlb endp
@@ -184,12 +219,11 @@ isext:
 	@dprintf "PrepareDiskIoRead: extended disk io format"
 	push eax
 	call copyDiskIo2Tlb
-	cmp ax,?TLBSECS
 	pop eax
-	jnc error	;must be one less than ?TLBSECS!
-	clc
+	jc error
 	ret
 error:
+	mov ax, 0211h  ; v3.20: set ax=error status
 	stc
 	ret
 	align 4
@@ -223,8 +257,7 @@ isext:
 	@dprintf "PrepareDiskIoWrite: extended disk io format"
 	push eax
 	call copyDiskIo2Tlb
-	cmp ax,?TLBSECS
-	jnc checkcxwrite_err
+	jc checkcxwrite_err
 	push ds
 	push edx
 	push ecx
@@ -234,11 +267,13 @@ else
 	lds dx,dword ptr [bx].DISKIO.buffofs
 	movzx edx,dx
 endif
-	push ds				;1. parameter QWORD
-	push edx				;	parameter fuer copy_xx_2_flat
+	push ds					;1. parameter QWORD
+	push edx				; parameter for copy_xx_2_flat
 	mov cx,ss:[wSegTLB]
+ife ?DIO2RMS
 	add cx,0020h
-	push ecx				;2. parameter fuer copy_xx_2_flat DWORD
+endif
+	push ecx				;2. parameter for copy_xx_2_flat DWORD
 	mov ecx,eax
 	shl ecx,9			;sectors -> bytes (only CX counts)
 	@dprintf "PrepareDiskIoWrite: copy %X bytes from %lX:%lX to TLB:200",cx,ds,edx
@@ -252,6 +287,7 @@ endif
 checkcxwrite_err:
 	pop eax
 error:
+	mov ax, 0211h  ; v3.20: set ax=error status
 	stc
 	ret
 	align 4
@@ -275,12 +311,14 @@ else
 	lds bx, dword ptr ds:[ebx].DISKIO.buffofs
 	@dprintf "AfterDiskIoRead: copy from tlb to ds:bx=%lX:%X, sectors=%X",ds,bx,cx
 endif
+ife ?DIO2RMS
 	add si,0020h			;first 200h bytes used otherwise
+endif
 @@:
 	shl cx,9
 	push ds
 	push ebx
-	push esi					;src segment
+	push esi				;src segment
 	call copy_flat_2_far32	;copy CX bytes from SEGM to far32
 	ret
 	align 4
@@ -290,9 +328,9 @@ AfterDiskIoRead endp
 ;*** al=drive
 ;*** cx=sectors (or -1)
 ;*** if cx == -1
-;***   DS:EBX= DISKIO structure
+;***   DS:E/BX= DISKIO structure
 ;*** else
-;***   DS:EBX=data buffer
+;***   DS:E/BX=data buffer
 ;***   dx=start sector
 
 	@ResetTrace
@@ -301,23 +339,33 @@ intr25 proc near public
 
 if ?32BIT
 	@dprintf "int 25, before call: ax=%X,ds:ebx=%lX:%lX,cx=%X,dx=%X,cs:eip=%X:%lX",\
-		ax,ds,ebx,cx,dx,[esp+4].IRETS.rCS,[esp].IRETS.rIP
+		ax,ds,ebx,cx,dx,[esp+4].IRET32.rCS,[esp].IRET32.rIP
 else
-	@dprintf "int 25, before call: ax=%X,ds:bx=%lX:%X,cx=%X,dx=%X,cs:ip=%X:%X",\
-		ax,ds,bx,cx,dx,[esp+2].IRETS.rCS,[esp].IRETS.rIP
+	@dprintf "int 25, before call: ax=%X,ds:bx=%lX:%X,cx=%X,dx=%X,cs:ip=%X:%lX",\
+		ax,ds,bx,cx,dx,[esp+4].IRET32.rCS,[esp].IRET32.rIP
 endif
 	call PrepareDiskIoRead
 	jc intr25_1
 	push ebx
+ife ?DIO2RMS
 	mov bx, 0
 	call setdsreg2tlb
+else
+	mov ebx, ss:v86iret.rESP
+	push ebx
+	sub ebx, sizeof DISKIORM
+	push ss:v86iret.rSS
+	pop ss:v86iret.rDS
+endif
 	@simrmint 25h
-if _LTRACE_
-	pushfd
-	pop esi
-	@dprintf "int 25,after call: ax=%X, fl=%X",ax,si
+if ?DIO2RMS
+	pop ss:v86iret.rESP
 endif
 	pop ebx
+if _LTRACE_
+	pushf
+	@dprintf "int 25,after call: ax=%X, fl=%X",ax
+endif
 	jc @F
 	call AfterDiskIoRead
 @@:
@@ -346,22 +394,44 @@ endif
 intr25 endp
 
 ;*** absolute disk write ***
+;*** al=drive
+;*** cx=sectors (or -1)
+;*** if cx == -1
+;***   DS:E/BX= DISKIO structure
+;*** else
+;***   DS:E/BX=data buffer
+;***   dx=start sector
 
 intr26 proc near public
 
+if ?32BIT
 	@dprintf "int 26, before call: ax=%X, ds:ebx=%lX:%lX, cx=%X, dx=%X",ax,ds,ebx,cx,dx
+else
+	@dprintf "int 26, before call: ax=%X, ds:bx=%lX:%X, cx=%X, dx=%X, cs:ip=%X:%lX",\
+		ax,ds,bx,cx,dx,[esp+2].IRET32.rCS,[esp].IRET32.rIP
+endif
 	call PrepareDiskIoWrite
 	jc intr26_1
 
 	push ebx
+ife ?DIO2RMS
 	mov bx, 0
 	call setdsreg2tlb
+else
+	mov ebx, ss:v86iret.rESP
+	push ebx
+	sub ebx, sizeof DISKIORM
+	push ss:v86iret.rSS
+	pop ss:v86iret.rDS
+endif
 	@simrmint 26h
+if ?DIO2RMS
+	pop ss:v86iret.rESP
+endif
 	pop ebx
 if _LTRACE_
-	pushfd
-	pop esi
-	@dprintf "int 26, after call: ax=%X, fl=%X",ax,si
+	pushf
+	@dprintf "int 26, after call: ax=%X, fl=%X",ax
 endif
 intr26_1:
 	jmp seti2526stack

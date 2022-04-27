@@ -1,6 +1,15 @@
  
  History HDPMI 
 
+  __.__.2022, version 3.20
+
+  þ int 25h/26h, displays in debug version: register esi was modified!
+  þ set error status ax=0211h if int 25h/26h TLB overflow occurs.
+  þ int 25h/26h and int 21h, ax=7305h transfer limit was actually
+    7.5 kB, since a part of the TLB was used for the diskio packet.
+    This is now copied to the RMS, so the full TLB is used for sector
+    transfers.
+
   30.03.2022, version 3.19
 
   þ fixed regression in v3.18: HDPMI32 & HDPMI16 couldn't be installed 
