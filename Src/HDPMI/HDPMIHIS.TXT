@@ -9,6 +9,10 @@
     7.5 kB, since a part of the TLB was used for the diskio packet.
     This is now copied to the RMS, so the full TLB is used for sector
     transfers.
+  þ if exception occurs inside the host's default exception handling
+    ( that tries to execute an int 21h, ax=4Cffh ), the client will
+    be killed ( and the host, if installed residently, will terminate,
+    if possible ).
 
   30.03.2022, version 3.19
 

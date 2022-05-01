@@ -610,8 +610,15 @@ if 0
 endif
 
 if ?DOSOUTPUT
-	test fMode, FM_RESIDENT
+
+;--- v3.20: to avoid a loop, force client termination if fatappexit caused another exc
 	mov dl,'s'
+	cmp [ebp].de.rSS, _LPMSSEL_
+	jnz noloop
+	cmp [ebp].de.rSP, 200h
+	jb @F
+noloop:
+	test fMode, FM_RESIDENT
 	jz @F
 	mov dl,'c'
 @@:
