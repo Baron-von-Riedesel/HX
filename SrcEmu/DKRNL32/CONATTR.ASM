@@ -26,7 +26,7 @@ ReadConsoleOutputAttribute proc public uses esi edi hConOut:dword,\
 	invoke getscreenptr, hConOut
 	mov esi,eax
 	movzx eax,word ptr dwReadCoord+2
-	movzx ecx,word ptr [VIOCOLS] ;spalten
+	movzx ecx,word ptr [VIOCOLS] ;cols
 	mul ecx
 	movzx ecx,word ptr dwReadCoord+0
 	add eax,ecx
@@ -76,7 +76,7 @@ endif
 	invoke getscreenptr, hConOut
 	mov edi,eax
 	movzx eax,word ptr dwWriteCoord+2
-	movzx ecx,word ptr [VIOCOLS] ;spalten
+	movzx ecx,word ptr [VIOCOLS] ;cols
 	mul ecx
 	movzx ecx,word ptr dwWriteCoord+0
 	add eax,ecx

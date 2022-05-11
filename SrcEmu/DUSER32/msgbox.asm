@@ -1,19 +1,24 @@
 
-		.386
-if ?FLAT
-		.MODEL FLAT, stdcall
-else
-		.MODEL SMALL, stdcall
-endif
-		option casemap:none
-		option proc:private
+;--- MessageBox()
+;--- since in windows a console app can always
+;--- display a message box, it should work
+;--- for HX even in text mode.
 
-		include winbase.inc
-		include winuser.inc
-		include wingdi.inc
-		include wincon.inc
-		include macros.inc
-		include duser32.inc
+	.386
+if ?FLAT
+	.MODEL FLAT, stdcall
+else
+	.MODEL SMALL, stdcall
+endif
+	option casemap:none
+	option proc:private
+
+	include winbase.inc
+	include winuser.inc
+	include wingdi.inc
+	include wincon.inc
+	include macros.inc
+	include duser32.inc
 
 ?GUI	equ 1
 
@@ -175,13 +180,12 @@ keydone:
 MsgBoxWndProc endp
 endif
 
-MessageBoxA proc public uses ebx esi hWnd:dword, pszStr:dword, pStr2:dword, flags:dword
+TextMessage proc pszStr:dword, pStr2:dword, flags:dword
 
-ife ?GUI
 local	dwWritten:dword
 local	buffer[2]:BYTE
 
-		invoke GetStdHandle,STD_OUTPUT_HANDLE
+		invoke GetStdHandle, STD_OUTPUT_HANDLE
 		mov ebx, eax
 		.if (pStr2)
 			invoke lstrlen, pStr2
@@ -192,7 +196,7 @@ local	buffer[2]:BYTE
 		.if (pszStr)
 			invoke lstrlen, pszStr
 			lea ecx, dwWritten
-			invoke WriteConsole, ebx, pStr, eax, ecx, 0
+			invoke WriteConsole, ebx, pszStr, eax, ecx, 0
 			invoke WriteConsole, ebx, CStr(<13,10>), 2, addr dwWritten, 0
 		.endif
 		invoke GetStdHandle, STD_INPUT_HANDLE
@@ -231,6 +235,14 @@ nexttry:
 				.endif
 			.endif
 		.endif
+		ret
+		align 4
+TextMessage endp
+
+MessageBoxA proc public uses ebx esi hWnd:dword, pszStr:dword, pStr2:dword, flags:dword
+
+ife ?GUI
+		invoke TextMessage, pszStr, pStr2, flags
 else
 local	hInstance:DWORD
 local	msg:MSG
@@ -248,6 +260,12 @@ endif
 		mov hInstance, eax
 		.if (!g_bInit)
 			mov g_bInit, TRUE
+			;--- if hxguihlp isn't loaded, we assume we are in text mode
+			invoke GetModuleHandle, CStr("HXGUIHLP")
+			.if !eax
+				invoke TextMessage, pszStr, pStr2, flags
+				ret
+			.endif
 			invoke RtlZeroMemory, addr wc, sizeof WNDCLASS
 			mov eax, hInstance
 			mov wc.hInstance, eax

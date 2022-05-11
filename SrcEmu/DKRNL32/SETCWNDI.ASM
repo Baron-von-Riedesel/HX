@@ -191,7 +191,6 @@ setscanlines proc private uses esi pParms:ptr
 setscanlines endp
 
 checkvmode proc private
-	push edx
 	mov dx,3ceh					;graphics controller port
 	mov al,6
 	out dx,al
@@ -202,20 +201,13 @@ checkvmode proc private
 	mov ax,0003h
 	int 10h
 @@:
-	pop edx
-	push edx
-	cmp dl,byte ptr [VIOCOLS]	;columns
-	jnz @F
-	shr edx,16
-	dec dl
-	cmp dl,byte ptr [VIOROWS]	;rows
-@@:
-	pop edx
 	ret
 	align 4
 checkvmode endp
 
-SetConsoleWindowInfo proc public hConOut:dword,flag:dword,pRect:dword
+;--- describe this function
+
+SetConsoleWindowInfo proc public hConOut:dword, flag:dword, pRect:dword
 
 local	dwSize:COORD
 
@@ -241,21 +233,39 @@ SetConsoleScreenBufferSize proc public uses ebx hConOut:dword, newSize:COORD
 	call _GetScreenBuffer
 	mov dx, newSize.X
 	mov cx, newSize.Y
+
+;--- must be within ?MAXCOLS/?MAXROWS, or meet the current screen coord
 	cmp dx, ?MAXCOLS
+	jbe @F
+	cmp dx, word ptr VIOCOLS
 	ja error
+@@:
 	cmp cx, ?MAXROWS
+	jbe @F
+	movzx ax, byte ptr VIOROWS
+	inc ax
+	cmp cx, ax
 	ja error
+@@:
 	test [eax].SCREENBUF.dwFlags, SBF_ISACTIVE
 	jnz isactivebuffer
 	mov [eax].SCREENBUF.dwSize.X, dx
 	mov [eax].SCREENBUF.dwSize.Y, cx
 	jmp exit2
 isactivebuffer:
+	call checkvmode    ; switch to text mode if in graphics mode
 	mov edx,newSize
-	call checkvmode
-	jz exit2					;mode doesnt change, exit
+	cmp dl,byte ptr [VIOCOLS]	;columns
+	ja @F
+	shr edx,16
+	dec dl
+	cmp dl,byte ptr [VIOROWS]	;rows
+	jbe exit2
+@@:
+	mov edx,newSize
 	cmp dx,80
 	jnz vesamodes
+
 	shr edx,16
 	mov ebx, offset modes
 	mov ecx, MODESSIZ
@@ -352,7 +362,18 @@ exit:
 SetConsoleScreenBufferSize endp
 
 GetLargestConsoleWindowSize proc public hConsole:dword
-	mov eax,?MAXROWS * 10000h + ?MAXCOLS
+
+	movzx eax, word ptr VIOCOLS
+	cmp eax, ?MAXCOLS    ; current columns exceed MAXCOLS?
+	jb @F
+	shl eax, 16          ; then use them, and current rows as well
+	movzx ax, byte ptr VIOROWS
+	inc ax
+	rol eax, 16
+	jmp done
+@@:
+	mov eax, ?MAXROWS shl 16 or ?MAXCOLS
+done:
 	@strace <"GetLargestConsoleWindowSize(", hConsole, ")=", eax>
 	ret
 	align 4

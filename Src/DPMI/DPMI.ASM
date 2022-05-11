@@ -38,6 +38,7 @@ dwLinAddr	dd 400000h;addr of memory to alloc with ax=504h
 dwI15		dd 0	;free memory in kB returned by Int 15h ax=e801
 dwPort		dd 21h	;default port used for IN benchmark
 wXMSVer		dw 0
+_0000H      dw 0	;descriptor for access to page 0
 bXMS		db 0	;XMS host found
 b16Bit		db 0	;1=start as 16bit client
 
@@ -83,7 +84,7 @@ szCOMSP	db "COMSPEC="
 fcb		db 0, "           ", 0, 0, 0, 0
 cmdl	db 0,13
 szHelp label byte
-	db "DPMI v2.0, Public Domain, written by Japheth",lf
+	db "DPMI v2.1, Public Domain, written by Japheth",lf
 	db "displays infos about installed DPMI host",lf
 	db "usage: DPMI [ -options ]",lf
 	db "  -16: use entry for 16-bit client in any case",lf
@@ -532,9 +533,8 @@ mycb16 endp
 if 0
 gettimer proc
 	push ds
-	mov ax,0040h
-	mov ds,ax
-	mov eax,ds:[6Ch]
+	mov ds,[_0000H]
+	mov eax,ds:[46Ch]
 	pop ds
 	ret
 gettimer endp
@@ -542,15 +542,12 @@ endif
 
 ;--- this returns timer value in ms
 
-_GetTimerValue proc uses es bx
+_GetTimerValue proc uses ds
 
-	push 0040h
-	pop es
-	mov ax,0900h	;disable interrupts
-	int 31h
-	mov bx, ax
+	mov ds, [_0000H]
+
 tryagain:
-	mov edx,es:[06ch] 
+	mov edx,ds:[46ch] 
 	mov al,0C2h		;read timer 0 status + value low/high
 	out 43h, al
 	xchg edx, edx
@@ -564,13 +561,8 @@ tryagain:
 
 	test cl,40h		;was latch valid?
 	jnz tryagain
-	cmp edx,es:[06ch]	;did an interrupt occur in the meantime?
+	cmp edx,ds:[46ch]	;did an interrupt occur in the meantime?
 	jnz tryagain		;then do it again!
-
-	push ax
-	mov ax, bx
-	int 31h		;restore interrupts
-	pop ax
 
 	xchg al,ah
 ;--- usually (counter mode 3) the timer is set to count down *twice*! 
@@ -1343,6 +1335,17 @@ print_caps endp
 
 do_protmode proc
 
+;--- alloc a descriptor for access to BIOS variables
+	xor ax, ax
+	mov cx, 1
+	int 31h
+	mov [_0000H], ax
+	mov bx, ax
+	mov dx, -1
+	xor cx, cx
+	mov ax, 8
+	int 31h
+
 	cmp wOpt, 0
 	jnz @F
 
@@ -1539,6 +1542,9 @@ status_displayed:
 	int 16h
 	@printf <lf>
 @@:
+	mov bx, [_0000H]
+	mov ax, 1
+	int 31h
 	ret
 do_protmode endp
 
@@ -1710,17 +1716,6 @@ displ:
 	mov [wParent],ax
 	push ds
 	pop es
-
-if 0	;notify real-mode debugger
-	mov edi,offset rmcs
-	pushf
-	pop es:[edi].RMCS.rFlags
-	mov es:[edi].RMCS.rSSSP,0
-	mov cx,0
-	mov bl,1
-	mov ax,0300h
-	int 31h
-endif
 	call do_protmode
 pmexit:
 	mov ax,4c00h

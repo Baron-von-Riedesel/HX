@@ -2,6 +2,9 @@
   xx.xx.2022: version 3.8
 
   þ allow file size > 2 GB if not running on NT platforms
+  þ GetLargestConsoleWindowSize: if current cols exceed "max", use current
+    BIOS values for rows & cols.
+  þ SetConsoleScreenBufferSize will accept current video params.
 
   30.03.2022: version 3.7
 
