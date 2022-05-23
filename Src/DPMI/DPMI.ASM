@@ -41,6 +41,7 @@ wXMSVer		dw 0
 _0000H      dw 0	;descriptor for access to page 0
 bXMS		db 0	;XMS host found
 b16Bit		db 0	;1=start as 16bit client
+bIsNT		db 0	; avoid NT/XP's DOSX bug
 
 ;--- exec parameter block used for shell option
 
@@ -1268,6 +1269,12 @@ chk2f168a proc
 	@printf <"vendor 'MS-DOS' API entry: %x:%lx",lf>,es,edi
 	cmp b16Bit,0
 	jnz @F
+
+;--- XP's DOSX will return with a 16-bit RETF even for 32-bit clients,
+;--- so avoid this call in that case.
+	cmp bIsNT, 1
+	jz done
+
 	push es
 	push edi
 	mov ax,100h		;get LDT selector
@@ -1627,6 +1634,13 @@ main proc c
 		mov ah,al
 		dec cl
 	.endw
+
+	mov ax,3306h
+	int 21h
+	cmp bx,3205h
+	jnz @F
+	mov bIsNT, 1
+@@:
 
 	cmp wOpt, 0
 	jnz main0

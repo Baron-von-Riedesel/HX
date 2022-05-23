@@ -7,6 +7,7 @@
   
   __.__.2022, V2.1:  fixed: no need to cli/sti when reading timer
                      fixed: don't assume 0040h can be used as selector in pm.
+                     avoid calling MS-DOS API in NT/XP as 32-bit client.
   30.03.2022, V2.0:  -l option got optional parameter.
                      -x option added.
                      bugfix -e option.

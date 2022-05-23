@@ -2626,7 +2626,7 @@ endif
 endif
 	mov bx,[aliassel]
 	@printf <"freeing alias selector %X",lf>,bx
-	mov ax,0001				;free selector
+	mov ax, 1				; free selector
 	call dpmicall
 if ?PESUPP
 	call DeinitPELoader
@@ -4390,6 +4390,13 @@ ife ?STUB
 	mov ax,0007		;set base to CX:DX
 	call dpmicall
 	jc @F			;shouldn't happen
+;--- to be safe: set limit (might not have been set if loader hasn't moved into extended memory)
+;--- ... and the WInXP NTVDM initializes limit to 0000!
+	mov dx, -1
+	xor cx, cx
+	mov ax, 8
+	int 31h
+
 	mov ax, [wPSPSegm]	;loader's PSP segment
 	push ds
 	mov ds,bx
@@ -7851,20 +7858,20 @@ if _SETDSLIM_
 	mov ax,0008h			;set limit
 	int 31h
 endif
-	mov cx,0001 			;get a selector for ALIAS segments
+	mov cx, 1 				;get a selector for ALIAS segments
 	mov ax,0000
 	int 31h
 	jc initprex
 	mov [aliassel],ax
 ;--- for 32bit clients: clear bits FF00h (dosemu + cwsdpmi)
 if ?DOSEMUSUPP
-if ?32BIT
+ if ?32BIT
 	mov bx,ax
 	lar cx,ax
 	shr cx,8
 	mov ax,0009				;set acc rights
 	int 31h
-endif
+ endif
 endif
 
 if ?EXTLOAD
