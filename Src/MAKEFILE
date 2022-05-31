@@ -141,6 +141,9 @@ install:
 	@copy DOSX\Release\DOSX.EXE       $(HXINST)\UnSupp
 	@copy DOSX\DOSX.TXT               $(HXINST)\UnSupp
 
+	@copy ..\Include\INITPM.INC       $(HXINST)\Include
+	@copy ..\Include\INITPM16.INC     $(HXINST)\Include
+
 clean: 
     cd    HDPMI
     @$(MAKE) DEBUG=$(DEBUG) clean

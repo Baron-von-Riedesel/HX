@@ -1,7 +1,7 @@
         
 ;--- initialization for simple DPMI apps in MZ format.
 ;--- loads hdpmi if no host found.
-;--- switches to protected-mode, then calls _start32.
+;--- switches to protected-mode, then jumps to label start32.
 
 ?LOADSERVER	equ 1	;try to find HDPMI if no DPMI host has been found
 ?TEST386	equ 1		;1=test for 386 cpu (needed?)
