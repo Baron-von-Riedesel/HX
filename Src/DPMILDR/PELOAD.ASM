@@ -1400,9 +1400,15 @@ endif
 	push edx
 
 if 1
-	mov ax,0901h		;enable interrupts
+	mov ax,0901h		; enable interrupts
 	int 31h
-;	sti
+else
+	pushf
+	pop ax
+	test ah, 2
+	jnz @F
+	sti
+@@:
 endif
 if ?ALLOWGUIAPPS
 ;	test cs:bEnvFlgs2, ENVFL2_EARLYGUIHLP

@@ -3721,6 +3721,7 @@ ReadHdrs endp
 ;*** inp AX = dest selector
 ;--- out AX = dest selector
 ;*** called by PrestoChangoSelector()
+;--- no registers modified
 
 CreateAlias proc public
 
@@ -3728,25 +3729,25 @@ CreateAlias proc public
 	push bx
 if ?32BIT
 	push edi
-	sub esp,8
+	sub esp, 8
 	mov edi, esp
 else
 	push di
 	push bp
-	mov bp,sp
-	sub sp,8
-	mov di,sp
+	mov bp, sp
+	sub sp, 8
+	mov di, sp
 endif
 if _TRACE_
-if ?32BIT
+ if ?32BIT
 	pushad
-	lar ecx,ebx
-	shr ecx,8
-	lar edx,eax
-	shr edx,8
+	lar ecx, ebx
+	shr ecx, 8
+	lar edx, eax
+	shr edx, 8
 	@printf <"CreateAlias, src=%X/acc=%X, dest=%X/acc=%X",lf>, bx, cx, ax, dx
 	popad
-endif
+ endif
 endif
 	push ax
 	push ss
@@ -3760,10 +3761,9 @@ if ?32BIT
 else
 	xor byte ptr es:[di+5],8
 endif
-	pop bx					  ;AX -> BX
+	pop bx					  ; get destination selector into BX
 	push bx
-
-	mov ax,000Ch			  ;set BX desc <- ES:(E)DI
+	mov ax,000Ch			  ; set BX desc <- ES:(E)DI
 	int 31h
 if _TRACE_
 	jc exit
@@ -6761,12 +6761,13 @@ if ?RMSEGMENTS
 	include rmsegm.inc
 endif
 
-;--- there is no longer a copy to the PSP, since the loader
-;--- PSP is larger than 100h bytes and the termination code
-;--- always remains in conv. memory
-
 if ?EXTLOAD
 if _COPY2PSP_
+
+;--- there is no longer a copy to the PSP, since the loader
+;--- PSP is larger than 100h bytes and the termination code
+;--- always remains in conv. memory.
+;--- in: AL=exit code
 
 copy_to_psp_and_exit proc
 	test byte ptr fHighLoad,1
@@ -6774,28 +6775,49 @@ copy_to_psp_and_exit proc
 	ret
 @@:
 	@trace_s <"critical section: create code alias for PSP and jump",lf>
-	mov bx,[wLdrPSP]
-if ?32BIT		;v3.9: set big bit since the psp is used by esp
-	lar cx,bx
-	shr cx,8
-	or  ch,40h	;set BIG bit
+	mov bx, [wLdrPSP]
+if ?32BIT		;v3.9: set def32 bit since the psp is used by esp
+	lar cx, bx
+	shr cx, 8
+	or  ch, 40h	;set BIG bit
 	push ax
-	mov ax,9
+	mov ax, 9
 	int 31h
 	pop ax
 endif
-	mov ss,bx
+	mov ss, bx
 if ?32BIT
-	mov esp,100h
+	mov esp, 100h
 else
-	mov sp,100h
+	mov sp, 100h
 endif
 	push ax
-	mov si,word ptr [dwMemHdl+2]
-	mov di,word ptr [dwMemHdl+0]
-	mov ax,ds
-	call CreateAlias			;BX -> codesel -> AX
-	push ax						;new CS -> [SP]
+
+;--- before v3.11, CreateAlias was used to create a code alias for the PSP descriptor
+;--- this caused problems for dpmild32, since the default bit was set, resulting in a
+;--- 32-bit code alias.
+
+	sub sp, 8
+if ?32BIT
+	mov edi, esp
+else
+	mov di, sp
+endif
+	push ss
+	pop es
+	mov ax, 000Bh	; get the descriptor
+	int 31h
+	mov si, word ptr [dwMemHdl+2]
+	mov cx, word ptr [dwMemHdl+0]
+	or  byte ptr es:[di+5], 8   ; set code
+	mov byte ptr es:[di+6], 0	; reset 32bit
+	mov bx, ds
+	mov ax, 000Ch
+	int 31h
+;--- from here no access to global variables possible
+	mov di, cx
+	add sp, 8
+	push bx						; CS for termination
 if ?HDPMI
 	mov ax, offset psp_rou + 100h
 	add ax, offset endhdpmi
@@ -6803,8 +6825,8 @@ if ?HDPMI
 else
 	push offset psp_rou + 100h	;IP
 endif
-	mov ax,0502h
-	mov bx,cs
+	mov ax, 502h
+	mov bx, cs
 	retf
 copy_to_psp_and_exit endp
 
