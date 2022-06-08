@@ -6772,11 +6772,16 @@ if _COPY2PSP_
 copy_to_psp_and_exit proc
 	test byte ptr fHighLoad,1
 	jnz @F
+exit:
 	ret
 @@:
 	@trace_s <"critical section: create code alias for PSP and jump",lf>
 	mov bx, [wLdrPSP]
-if ?32BIT		;v3.9: set def32 bit since the psp is used by esp
+	lsl cx, bx  ; v3.11: check if increasing size to 10F was successful; may
+	cmp cx, 10fh; have failed in NTVDM.
+	jc exit
+
+if ?32BIT		; v3.9: set def32 bit since the psp is used by esp
 	lar cx, bx
 	shr cx, 8
 	or  ch, 40h	;set BIG bit
