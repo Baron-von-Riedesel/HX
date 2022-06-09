@@ -3915,6 +3915,7 @@ strlen endp
 
 AllocMD proc uses bx
 	mov di,offset szModName
+	@printf <"AllocMD=%s",lf>, di
 	push ds
 	pop es
 	mov cx,0FFFFh
@@ -3932,11 +3933,15 @@ AllocMD proc uses bx
 	add cx,ax					;+ length file name
 	push ax
 	mov ax,[bx.NEHDR.ne_cseg]	;number of segments
-	inc ax						;add 1 segment !?
-	mov bl,SGTSIZE				;for erweiterte segment table
+
+;--- v3.11: wMDSize is adjusted dynamically if another segment entry is needed.
+
+;	inc ax						;add 1 segment (for case "no dgroup, but stack/heap defined")
+	mov bl,SGTSIZE				;for extended segment table
 	mul bl
-	add cx,ax					;+ length segment table
-	mov [wMDSize],cx			;gives size of module database
+	add cx, ax					;+ length segment table
+	mov [wMDSize], cx			;gives size of module database
+	add cx, SGTSIZE				;v3.11: add the size to the block that is now allocated
 	push cx
 	mov bx,0001 		;set selector to DATA
 	call AllocSel		;alloc selector (in AX)
@@ -3946,7 +3951,7 @@ AllocMD proc uses bx
 	.if ((bEnvFlgs & ENVFL_DONTLOADHIGH) && (!wMDSta))
 		or dl, SF_PRELOD
 	.endif
-	call AllocMem		;alloc memory (+ Base,Limit der Descipt)
+	call AllocMem		;alloc memory, CX bytes (+ Base,Limit der Descipt)
 	jc error1			;AX is 0000 or error text
 
 	call Set_AX_Present
@@ -4025,6 +4030,7 @@ LoadSegmTable endp
 ;*** ES:DI -> end of segment table
 
 segspecial proc
+	@printf <"segspecial(%X): enter, DI=%X",lf>, es, di
 	push di
 	mov cx,SGTSIZE/2
 	xor ax,ax
@@ -4039,12 +4045,12 @@ segspecial proc
 	mov ax,es:[NEHDR.ne_heap]
 	or ax,es:[NEHDR.ne_stack]
 	jz segspecial1				;no heap or stack?
-	inc word ptr es:[NEHDR.ne_cseg]
-	mov si,offset defdgrp
+	@printf <"segspecial(%X): adding auto segment, stack=%X, heap=%X",lf>, es, es:[NEHDR.ne_stack], es:[NEHDR.ne_heap]
+	mov si, offset defdgrp
 	call PrepSegDesc			;selector alloc ES:DI
 	jc segspecialex
-	mov bx,di
-	jmp segspecial1
+	mov bx, di
+	jmp segspecial2
 @@: 							;dgroup exists and not empty
 	mov bl,SGTSIZE
 	dec ax
@@ -4073,12 +4079,18 @@ endif
 	mov word ptr es:[bx].SEGITEM.dwHdl+0,ax
 	mov es:[bx.SEGITEM.filesiz],cx
 	mov es:[bx.SEGITEM.memsiz],cx
-	inc word ptr es:[NEHDR.ne_autodata]
+	inc es:[NEHDR.ne_autodata]
+	@printf <"segspecial(%X): increaseing segment count for code alias, autodata=%X",lf>, es, es:[NEHDR.ne_autodata]
+segspecial2:
+	inc word ptr es:[NEHDR.ne_cseg]	; v3.11: always increase segment count in segspecial()
+	add [wMDSize], SGTSIZE
+	add di, SGTSIZE
 @@:
 segspecial1:
-	mov es:[NEHDR.DGROFS],bx	;^ Dgroup Segment
+	mov es:[NEHDR.DGROFS], bx	;^ Dgroup Segment
 	clc
 segspecialex:
+	@printf <"segspecial(%X): exit, DI=%X",lf>, es, di
 	ret
 segspecial endp
 
@@ -4087,8 +4099,8 @@ segspecial endp
 ;*** DS:SI -> segment descriptor in NE file to copy from (8 byte size)
 
 PrepSegDesc proc
-	xor ax,ax
-	mov es:[di].SEGITEM.wDosSel,ax
+	xor ax, ax
+	mov es:[di].SEGITEM.wDosSel, ax
 	dec ax
 	mov word ptr es:[di].SEGITEM.dwHdl+0,ax	;handle memory block
 	mov word ptr es:[di].SEGITEM.dwHdl+2,ax
@@ -4125,8 +4137,11 @@ next:						;<----
 	loop next				;---->
 done:
 	call segspecial
-	add di,SGTSIZE		 ; in any case 1 segment extra
+if 0                     ; v3.11 ( segment count is now always adjusted in segspecial )
+	add di, SGTSIZE		 ; in any case extra space for 1 segment.
 	inc word ptr es:[NEHDR.ne_cseg]
+	@printf <"PrepSegmTable(%X): segment table cnt increased to %X",lf>, es, es:[NEHDR.ne_cseg]
+endif
 error:
 	ret
 PrepSegmTable endp
@@ -4135,56 +4150,56 @@ PrepSegmTable endp
 ;*** on errors: C und AX -> error text
 
 LoadNETables proc
-	@trace_s <"load segment table",lf>
-	mov di,es:[NEHDR.NXTFREE]
-	mov es:[NEHDR.ne_segtab],di
-	call PrepSegmTable		;prepare segment table
+	mov di, es:[NEHDR.NXTFREE]
+	@printf <"Mod=%X: calling PrepSegmTable, di=%X",lf>, es, di
+	mov es:[NEHDR.ne_segtab], di
+	call PrepSegmTable			;prepare segment table
 	jc error1
 
-	@trace_s <"load resource table",lf>
+	@printf <"Mod=%X: calling LoadResTable, di=%X",lf>, es, di
 	push di
-	call LoadResTable		;read resource tabl
+	call LoadResTable			;read resource tabl
 	pop es:[NEHDR.ne_rsrctab]	;address resource table
 	jc error1
 
-	@trace_s <"load resident names table",lf>
+	@printf <"Mod=%X: calling LoadResNames, di=%X",lf>, es, di
 	push di
-	call LoadResNames		;read resident names
+	call LoadResNames			;read resident names
 	pop es:[NEHDR.ne_restab]	;address resident names
 	jc error1
 
-	@trace_s <"load module reference table",lf>
+	@printf <"Mod=%X: calling LoadModRefs, di=%X",lf>, es, di
 	push di
 	call LoadModRefs			;read referenced modules
 	pop es:[NEHDR.ne_modtab]	;address module references
 	jc error1
 
-	@trace_s <"load imported names table",lf>
+	@printf <"Mod=%X: calling LoadImpTable, di=%X",lf>, es, di
 	push di
-	call LoadImpTable		;read imported names
+	call LoadImpTable			;read imported names
 	pop es:[NEHDR.ne_imptab]	;address imported names
 	jc error1
 
-	@trace_s <"load entry table",lf>
+	@printf <"Mod=%X: calling LoadEntryTable, di=%X",lf>, es, di
 	push di
-	call LoadEntryTable		;read entries
+	call LoadEntryTable			;read entries
 	pop es:[NEHDR.ne_enttab]	;address entries
 	jc error1
 
-	@trace_s <"load nres table",lf>
+	@printf <"Mod=%X: calling LoadNResNames, di=%X",lf>, es, di
 	push di
-	call LoadNResNames		;read nonresident names
-	pop es:[NEHDR.NRESNAM]	;address nonresident names
+	call LoadNResNames			;read nonresident names
+	pop es:[NEHDR.NRESNAM]		;address nonresident names
 	jc error1
 
-	cmp di,[wMDSize]		;is length correct?
+	cmp di,[wMDSize]			;is length correct?
 	jnz error2
-	@trace_s <"tables ok",lf>
+	@printf <"Mod=%X: tables ok, di=%X",lf>, es, di
 	ret
 error2:
 	mov ax,offset errstr5
 error1:
-	@trace_s <"error exit from modul table load",lf>
+	@printf <"Mod=%X: LoadNETables failed, di=%X != MDSize=%X",lf>, es, di, [wMDSize]
 	stc
 	ret
 LoadNETables endp
@@ -4775,7 +4790,7 @@ if ?RMSEGMENTS	;obsolete
 	test byte ptr es:[si.SEGITEM.flags],SF_RES1
 	jnz ls_1
 endif
-	@printf <"Load_Segm: calling Alloc_Mem_for_Segm, segm desc=%X:%X, sel=%X",lf>, es,si, es:[si].SEGITEM.wSel
+	@printf <"Load_Segm(%X): calling Alloc_Mem_for_Segm, segm desc=%X, sel=%X",lf>, es, si, es:[si].SEGITEM.wSel
 	call Alloc_Mem_for_Segm		;alloc memory (rc in AX=size) +
 	jc error4					;set descriptor to present
 	push ax
@@ -5167,28 +5182,28 @@ ClearSegmentTail endp
 ;--- current psp is still the loader's (important for DOS memory alloc)
 
 DoPreloads proc
-	@trace_s <"DoPreloads: enter; loading preload & huge segments",lf>
 	mov cx,es:[NEHDR.ne_cseg]		;no segments
+	@printf <"DoPreloads: mod=%X; loading preload & huge segments, segs=%X",lf>, es, cx
 	jcxz done
 	mov si,es:[NEHDR.ne_segtab]
 nextitem:							;<----
 	push cx
-	cmp word ptr es:[si].SEGITEM.wSel,0  ;dummy entry?
+	cmp word ptr es:[si].SEGITEM.wSel, 0	;dummy entry?
 	jz doneitem
 if ?RMSEGMENTS
 	test byte ptr es:[si.SEGITEM.flags],SF_RES1
 	jz @F
 	test byte ptr es:[si.SEGITEM.flags],SF_DATA
-	jnz loadit					   ;DATA always Preload
-	mov bx,es:[si+DOSSEL]
+	jnz loadit					; DATA always Preload
+	mov bx, es:[si+DOSSEL]
 	jmp dontloadit2
 @@:
 endif
-	cmp word ptr es:[si.SEGITEM.memsiz],0  ;64k Segment?
+	cmp word ptr es:[si.SEGITEM.memsiz], 0	; 64k Segment?
 	jnz @F
 	or byte ptr es:[si.SEGITEM.flags],SF_PRELOD
 	and byte ptr es:[si.SEGITEM.flags+1],-10h;change NONDISCARDABLE 
-	cmp cx,2						  ;and a possibly succ segment
+	cmp cx,2						; and a possibly succ segment
 	jb @F
 	or byte ptr es:[si.SEGITEM.flags+SGTSIZE],SF_PRELOD ;as well
 	and byte ptr es:[si.SEGITEM.flags+SGTSIZE+1],-10h
@@ -5854,6 +5869,16 @@ LoadNResNames proc
 	jc error
 ;	mov bx,es:[NEHDR.ne_hFile]
 	mov dx,di
+if ?DEBUG
+	mov ax, es
+	lsl ax, ax
+	inc ax
+	sub ax, cx
+	jc errorX
+	sub ax, dx
+	jc errorX
+endif
+	@printf <"LoadNResNames(%X): loading names at di=%X, size=%X",lf>, es, di, cx
 	push ds
 	push es
 	pop ds
@@ -5865,6 +5890,8 @@ LoadNResNames proc
 exit:
 	clc
 	ret
+errorX:
+	@printf <"LoadNResNames(%X): MD size too small for nres names (ofs=%X, size=%X)",lf>, es, dx, cx
 error:
 	mov ax,offset errstr6
 	stc

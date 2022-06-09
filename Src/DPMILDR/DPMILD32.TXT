@@ -478,6 +478,8 @@
    code was returned.
  þ ensure the alias descriptor has a limit of -1 when accessing an MCB.
  þ bugfix: terminating in NTVDM caused fault if DPMILDR=2 wasn't set.
+ þ cleaned debug displays.
+   
 
  30.03.2022: version 3.10
  
