@@ -80,8 +80,8 @@ ENVFL2_EARLYGUIHLP  equ 40h	;16384 load hxguihlp before dll initialisation
 
 ;--- fMode flags
 
-FMODE_OVERLAY	equ 01h	;bit 0: 1=loader loaded as overlay
-FMODE_DISABLED	equ 02h	;bit 1: 1=loader is disabled
+FMODE_DISABLED	equ 01h	;bit 0: 1=loader is disabled
+FMODE_OVERLAY	equ 02h	;bit 1: 1=loader loaded as overlay
 FMODE_DOSEMU	equ 04h	;bit 2: 1=running on DOSEMU
 FMODE_ISNT		equ 08h	;bit 3: 1=running on NT/2K/XP
 FMODE_ISWIN9X	equ 10h	;bit 4: 1=running on WIN9X

@@ -598,6 +598,7 @@ endif
 	mov edx, eax
 	mov ebx, pMemItems
 ;-------------------------- scan free handles if a larger block is available
+	@dprintf "getmeminfo: scanning free handles, first item=%lX", ebx
 nextitem:
 	and ebx, ebx
 	jz done

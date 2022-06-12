@@ -1228,19 +1228,19 @@ endif
 	call GetModuleHandle16
 	jmp retf2ex
 @@:
-	cmp al,93h			;set error mode?
+	cmp al, 93h			;set error mode?
 	jnz @F
 	call _SetErrorMode
 	jmp retf2ex
 @@:
-	cmp al,94h			;set wEnvFlgs?
+	cmp al, 94h			;set wEnvFlgs?
 	jnz @F
 	push ds
 	mov ds,cs:[wLdrDS]
 	mov ax,[wEnvFlgs]
-	and dx,cx
+	and dx, cx
 	not cx
-	and ax,cx
+	and ax, cx
 	or ax,dx
 	xchg ax,[wEnvFlgs]
 	pop ds
@@ -1325,7 +1325,7 @@ endif
 	call strlen		; get string length of DS:E/SI into CX
 	call SearchModule16	; will work with DS:ESI in ?32BIT!
 exit:
-	pop dx			; return first module in DX	
+	pop dx			; return first module in DX
 	ret
 GetModuleHandle16 endp
 
@@ -1358,13 +1358,13 @@ else
 	@printf <"dpmildr: task-modul=%X",lf>, [si.TASK.wModul]
 endif
 if ?MULTPSP
-if ?32BIT
+ if ?32BIT
 	@printf <"dpmildr: psp=%X, parent ss:esp=%X:%lX", lf>,\
 		[si.TASK.wPSP], [si.TASK.wSS], [si.TASK.dwESP]
-else
+ else
 	@printf <"dpmildr: psp=%X, parent ss:sp=%X:%X", lf>,\
 		[si.TASK.wPSP], [si.TASK.wSS], [si.TASK.wSP]
-endif
+ endif
 endif
 
 if _SUPTSR_
@@ -1434,10 +1434,10 @@ endif
 	jmp i214c_1	;exit int 21h
 int214c_4:
 endif
-	mov bx,[si.TASK.wPSP]			;get PSP of terminating task
+	mov bx,[si.TASK.wPSP]	; get PSP of terminating task
 	@printf <"dpmildr: last task's PSP selector=%X", lf>, bx
-	and bx,bx				;(hopefully it is it!)
-	jz i214c_1				;exit int 21h
+	and bx,bx				; might actually be 0 ( DPMILDR=8? )
+	jz i214c_1				; exit int 21h
 
 	mov es,bx
 if 0						;win31, 9x, NT, XP work with selector
@@ -2238,7 +2238,7 @@ CopyPgmInEnv proc
  endif
 ;### end
 	add ax,15		;paragraph align
-	and al,0F0h
+;	and al,0F0h		;v3.11: useless
 	shr ax,4
 	mov bx,ax
   if ?LOWENV
@@ -4382,20 +4382,19 @@ error1:
 	mov ax,offset szErr31	;error: no memory
 	stc
 	ret
-AllocDosMem:	;here ax is still pushed!
-	shr bx,1
-	rcr cx,1
-	mov bx,cx			;now in CX number of words
-	shr bx,03			;-> paragraphs
+AllocDosMem:			; here ax is still pushed!
+	shr bx, 1
+	rcr cx, 1
+	mov bx, cx			; now in CX number of words
+	shr bx, 3			; -> paragraphs
 	inc bx
 	@printf <"AllocMem: alloc %X paras conv memory",lf>,bx
-	mov ax,0100h		;alloc DOS memory
-	call dpmicall		;returns segment in AX, selector in DX
+	mov ax, 100h		; alloc DOS memory
+	call dpmicall		; returns segment in AX, selector in DX
 	jc error3
 	mov bx,0010h
 ife ?USELOADERPSP
 ife ?STUB
-	@trace_s <"AllocMem: adjust owner of DOS memblock", lf>
 	pusha
 	dec ax			;get paragraph address of block's MCB
 	mul bx			;convert paragraph in AX to linaddr in DX:AX
@@ -4416,6 +4415,7 @@ ife ?STUB
 	push ds
 	mov ds,bx
 	mov ds:[1],ax		;set MCB's PSP to that of the loader
+	@printf <"AllocMem: adjusted owner of DOS memblock to %X, size=%X", lf>, ax, word ptr ds:[3]
 	pop ds
 @@:
 	popa
@@ -5006,14 +5006,19 @@ else
 endif
 	and ax,ax						;is DOS memory used?
 	jz isdpmimem
-	mov dx,ax
+	mov dx, ax
 	test bx,0FFF0h					;is limited to 1 MB
 	jnz ReallocMem_err
+
+	add cx, 16-1			; v3.11: take care not to loose 1-15 bytes of "size"
+	adc bx, 0				; in the shift operation below
+
 	shr cx,4
 	shl bx,12
-	or bx,cx
-	mov ax,0102h		   ;the address cannot change
-	int 31h 			   ;server will do the selector tiling
+	or bx, cx
+
+	mov ax,0102h			;the address cannot change
+	int 31h 				;server will do the selector tiling
 	jc ReallocMem_err
 	mov ax,dx
 	jmp reallocmem_exx
@@ -7243,7 +7248,6 @@ if ?MULTPSP
 	lodsb
 	xchg al,[di] 			;else exchange si and di
 	inc di
-
 	loop @B
 endif
 allok:

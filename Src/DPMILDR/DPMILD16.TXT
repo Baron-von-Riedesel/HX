@@ -345,6 +345,8 @@
    a stack/heap or if the auto data segment is marked as 'CODE' ( true
    if the memory model is "tiny" ).
  þ cleaned debug displays.
+ þ fixed: alias segments (occur if model is tiny) - when located in DOS
+   memory - may have caused the DOS block to shrink by 1 paragraph.
  
  01.03.2008: version 3.5
 
