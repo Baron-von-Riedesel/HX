@@ -13,6 +13,8 @@
     ( that tries to execute an int 21h, ax=4Cffh ), the client will
     be killed ( and the host, if installed residently, will terminate,
     if possible ).
+  þ fixed: in int 21h, ax=4Bh translation, try to translate only if al=0,
+    as it is and was documented.
 
   30.03.2022, version 3.19
 

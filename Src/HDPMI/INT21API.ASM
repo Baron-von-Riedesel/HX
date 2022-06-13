@@ -625,6 +625,8 @@ resetdta endp
 ;--- preserves all registers except AX
 
 intr214B proc
+	cmp al,0	; v3.20: try to translate ax=4B00h only
+	jnz rmdos
 	pushad
 	push ds
 	push es
