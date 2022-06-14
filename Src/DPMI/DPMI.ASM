@@ -70,6 +70,7 @@ OP2_NESTED	equ 1	;nested execution test
 OP2_HSFATAL	equ 2	;host stack exhaustion
 OP2_DESC	equ 4	;alloc descriptors
 OP2_EXTMEM	equ 8	;use int 31h, ax=50bh
+OP2_HOOK	equ 10h	;hook int 21h, then launch another DPMI instance
 
 wOpt		label word
 bOpt1		db 0
@@ -103,6 +104,8 @@ szHelp label byte
 	db "  -t[n]: test nested execution of mode switches; n: nesting level (def 2)",lf
 	db "  -w: wait in protected-mode for a keypress before terminating",lf
 	db "  -x: try to get extended memory infos thru function 50Bh",lf
+	db "  -z: intercept int 21h, then launch another instance of DPMI.",lf
+	db "      intercept code will suppress AH=2 (print char) DOS calls.",lf
 	db 0
 
 	.data?
@@ -138,6 +141,7 @@ wFSSel		dw ?
 wGSSel		dw ?
 
 wEnv		dw ?	;environment selector
+wEnvSeg		dw ?	;environment segment
 wParent		dw ?	;PSP's parent segment
 wDPMIFlgs	dw ?	;flags returned by DPMI function 0x400
 wPICs		dw ?	;master/slave PICs
@@ -178,6 +182,105 @@ done:
 	cmp ch,1
 	ret
 getnum endp
+
+
+hookandrun proc
+
+	.data
+
+oldint21 df 0
+wCnt     dw 0
+
+	.code
+
+	mov wCnt, 0
+
+	mov es, wEnv
+	xor di, di
+	xor ax, ax
+@@:
+	cmp ax, es:[di]
+	jz @F
+	inc di
+	jmp @B
+@@:
+	add di, 4
+
+	mov rmcs.rSSSP, 0
+	mov rmcs.rDX, di
+	mov ax, [wEnvSeg]
+	mov rmcs.rDS, ax
+	mov rmcs.rAX, 4B00h
+	mov rmcs.rBX, offset execparm
+
+	mov bx,ds
+	mov ax,6
+	int 31h
+	push cx
+	push dx
+	pop eax
+	shr eax, 4
+	mov rmcs.rES, ax
+	mov wSegCmd, ax
+	mov wSegfcb1, ax
+	mov wSegfcb2, ax
+
+	@printf <"launching another instance of DPMI with int 21h hooked",lf>
+
+	mov bl, 21h
+	mov ax, 204h
+	int 31h
+	cmp b16Bit, 0
+	jz @F
+	movzx edx, dx
+@@:
+	mov dword ptr oldint21+0, edx
+	mov word ptr oldint21+4, cx
+	mov cx, cs
+	mov dx, offset myint21
+	movzx edx, dx
+	mov ax, 205h
+	int 31h
+
+	push ds
+	pop es
+	mov edi, offset rmcs
+	mov bx,0021h
+	mov cx,0
+	mov ax,0300h
+	int 31h
+
+	mov edx, dword ptr oldint21+0
+	mov cx, word ptr oldint21+4
+	mov bl, 21h
+	mov ax, 205h
+	int 31h
+
+	test rmcs.rFlags, 1
+	jz @F
+	@printf <"DPMI: launch failed",lf>
+	jmp exit
+@@:
+	@printf <"DPMI: launch succeeded, int 21h calls: %u",lf>, wCnt
+exit:
+	ret
+
+myint21:
+	push ds
+	mov ds, cs:[wDSSel]
+	inc [wCnt]
+	pop ds
+	cmp ah,2
+	jz @F
+	jmp cs:[oldint21]
+@@:
+	cmp cs:[b16Bit],1
+	jz @F
+	db 66h
+@@:
+	iret
+	
+hookandrun endp        
 
 startshell proc
 	mov eax, dwAlloc
@@ -1538,6 +1641,10 @@ status_displayed:
 	jz @F
 	call dispextmem
 @@:
+	test bOpt2, OP2_HOOK
+	jz @F
+	call hookandrun
+@@:
 	test bOpt1, OP_SHELL
 	jz @F
 	call startshell
@@ -1560,6 +1667,8 @@ do_protmode endp
 main proc c
 
 	mov wDgrp, ds
+	mov ax, es:[2Ch]
+	mov wEnvSeg, ax
 
 	mov si,80h
 	mov cl,es:[si]
@@ -1583,6 +1692,8 @@ main proc c
 				or bOpt2, OP2_EXTMEM
 			.elseif (al == 'e')
 				or bOpt2, OP2_HSFATAL
+			.elseif (al == 'z')
+				or bOpt2, OP2_HOOK
 			.elseif (al == 'f')
 				mov bFill, 1
 			.elseif (al == 'l')
