@@ -25,10 +25,8 @@ IsDebuggerPresent proc public
 	mov ax, 004Fh
 	int 41h
 	cmp ax,0F386h
-	@mov eax,0
-	jnz @F
-	inc eax
-@@:
+	setz al
+	movzx eax, al
 ;	@strace <"IsDebuggerPresent()=", eax>	;don't log this call!
 	ret
 	align 4

@@ -155,7 +155,8 @@ bIrq0DMasked db 0
 g_bFPUPresent  db 0
 endif
 g_cntStack	db 0
-g_bDebug	db 0
+;g_bDebug	db 0
+externdef g_bDebugger:byte
 
 	align 4
 
@@ -482,7 +483,7 @@ endif
 
 ;--- if a debugger has been detected, notify it of the exception
 
-	.if (g_bDebug)
+	.if (g_bDebugger)
 		invoke GetExcNo, pExceptInfo
 		mov bx, ax
 		.if (ax == 1Fh)
@@ -553,16 +554,17 @@ InitException proc
 	pushad
 
 	invoke IsDebuggerPresent
-	test eax,eax
-	setnz al
-	mov g_bDebug,al
+	mov g_bDebugger,al
 if ?CHECKKD
 	.if (al)
 		jmp done
 	.endif
 endif
-	test byte ptr g_dwFlags,DKF_NODBGHOOK
+	cmp al, 1
+	jz skip0103
+	test byte ptr g_dwFlags, DKF_NODBGHOOK
 	jz @F
+skip0103:
 	mov exc01.bException,-2
 	mov exc03.bException,-2
 @@:
@@ -1082,7 +1084,7 @@ endif
 ;--- debugger first chance exception
 
 if 1
-	.if (cs:g_bDebug)
+	.if (cs:g_bDebugger)
 		mov ebx, ?EXCPARM
 		movzx bx, cs:[ebx].EXCDESC.bException
 		mov cx, DEBUG_FAULT_TYPE_FIRST

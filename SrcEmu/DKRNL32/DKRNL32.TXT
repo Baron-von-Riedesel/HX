@@ -203,7 +203,8 @@
         new process (kind of a "Win32 TSR") or must stay active for other
         reasons.
   0002: 1=DKRNL32 does not hook exceptions 1 and 3. This might be useful
-        if the application is to run under a debugger.
+        if the application is to run under a debugger. Note that this switch
+        isn't needed if the debugger makes itself visible thru int 41h.
   0004: 1=threads will get full default stack size. 0=threads get a
         default stack size of 96 kB.
   0008: not used.

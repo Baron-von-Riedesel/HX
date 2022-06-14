@@ -252,7 +252,8 @@ is0159:
 	mov eax,fs:[THREAD_INFORMATION_BLOCK.pProcess]
 	and [eax].PROCESS.wFlags, not PF_LOCKED
 	pop eax
-	@iret
+;	@iret
+	jmp exit	; route int 41h to previous handler
 is0002:
 	cmp cs:[g_bDebugger],0
 	jnz exit
