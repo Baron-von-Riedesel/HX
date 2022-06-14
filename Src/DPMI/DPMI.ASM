@@ -43,18 +43,20 @@ bXMS		db 0	;XMS host found
 b16Bit		db 0	;1=start as 16bit client
 bIsNT		db 0	; avoid NT/XP's DOSX bug
 
+EXECRM struct
+wEnv     dw ?
+wCmdOfs  dw ?
+wCmdSeg  dw ?
+wFcb1Ofs dw ?
+wFcb1Seg dw ?
+wFcb2Ofs dw ?
+wFcb2Seg dw ?
+EXECRM ends
+
 ;--- exec parameter block used for shell option
 
-execparm label word
-wSegEnv dw 0
-		dw offset cmdl
-wSegCmd dw 0
-		dw offset fcb
-wSegfcb1 dw 0
-		dw offset fcb
-wSegfcb2 dw 0
-		dd 0
-		dd 0
+execparm EXECRM <0,offset cmdl, 0, offset fcb, 0, offset fcb, 0>
+	dd 0,0
 
 ;--- option flags
 
@@ -105,7 +107,7 @@ szHelp label byte
 	db "  -w: wait in protected-mode for a keypress before terminating",lf
 	db "  -x: try to get extended memory infos thru function 50Bh",lf
 	db "  -z: intercept int 21h, then launch another instance of DPMI.",lf
-	db "      intercept code will suppress AH=2 (print char) DOS calls.",lf
+	db "      intercept code will modify AH=2 (print char) DOS calls.",lf
 	db 0
 
 	.data?
@@ -136,11 +138,11 @@ wDgrp		dw ?
 wCSSel		dw ?
 wSSSel		dw ?
 wDSSel		dw ?
-wESSel		dw ?
+wPSPSel		dw ?   
 wFSSel		dw ?
 wGSSel		dw ?
 
-wEnv		dw ?	;environment selector
+wEnvSel		dw ?	;environment selector
 wEnvSeg		dw ?	;environment segment
 wParent		dw ?	;PSP's parent segment
 wDPMIFlgs	dw ?	;flags returned by DPMI function 0x400
@@ -183,6 +185,7 @@ done:
 	ret
 getnum endp
 
+;--- hook int 21h, then launch another instance of DPMI
 
 hookandrun proc
 
@@ -195,7 +198,7 @@ wCnt     dw 0
 
 	mov wCnt, 0
 
-	mov es, wEnv
+	mov es, wEnvSel
 	xor di, di
 	xor ax, ax
 @@:
@@ -208,24 +211,22 @@ wCnt     dw 0
 
 	mov rmcs.rSSSP, 0
 	mov rmcs.rDX, di
-	mov ax, [wEnvSeg]
-	mov rmcs.rDS, ax
 	mov rmcs.rAX, 4B00h
 	mov rmcs.rBX, offset execparm
 
-	mov bx,ds
-	mov ax,6
-	int 31h
-	push cx
-	push dx
-	pop eax
-	shr eax, 4
+	mov ax, [wEnvSeg]
+	mov rmcs.rDS, ax
+	mov execparm.wEnv, ax
+
+	mov ax, wDgrp
 	mov rmcs.rES, ax
-	mov wSegCmd, ax
-	mov wSegfcb1, ax
-	mov wSegfcb2, ax
+	mov execparm.wCmdSeg, ax
+	mov execparm.wFcb1Seg, ax
+	mov execparm.wFcb2Seg, ax
 
 	@printf <"launching another instance of DPMI with int 21h hooked",lf>
+
+;--- intercept int 21h
 
 	mov bl, 21h
 	mov ax, 204h
@@ -234,6 +235,7 @@ wCnt     dw 0
 	jz @F
 	movzx edx, dx
 @@:
+;--- set int 21h
 	mov dword ptr oldint21+0, edx
 	mov word ptr oldint21+4, cx
 	mov cx, cs
@@ -245,11 +247,12 @@ wCnt     dw 0
 	push ds
 	pop es
 	mov edi, offset rmcs
+	xor cx, cx
 	mov bx,0021h
-	mov cx,0
 	mov ax,0300h
 	int 31h
 
+;--- restore int 21h
 	mov edx, dword ptr oldint21+0
 	mov cx, word ptr oldint21+4
 	mov bl, 21h
@@ -257,12 +260,11 @@ wCnt     dw 0
 	int 31h
 
 	test rmcs.rFlags, 1
-	jz @F
-	@printf <"DPMI: launch failed",lf>
-	jmp exit
-@@:
+	jnz err1
 	@printf <"DPMI: launch succeeded, int 21h calls: %u",lf>, wCnt
-exit:
+	ret
+err1:
+	@printf <"DPMI: launch failed",lf>
 	ret
 
 myint21:
@@ -271,15 +273,15 @@ myint21:
 	inc [wCnt]
 	pop ds
 	cmp ah,2
-	jz @F
+	jnz @F
+	cmp dl,'a'
+	jb @F
+	cmp dl,'z'
+	ja @F
+	sub dl, 20h
+@@:
 	jmp cs:[oldint21]
-@@:
-	cmp cs:[b16Bit],1
-	jz @F
-	db 66h
-@@:
-	iret
-	
+
 hookandrun endp        
 
 startshell proc
@@ -302,7 +304,7 @@ startshell proc
 	shl edx,10
 	call fillblock 
 @@:
-	mov es, wEnv
+	mov es, wEnvSel
 	xor di,di
 	.while (byte ptr es:[di])
 		mov dx, di
@@ -322,31 +324,17 @@ found:
 	mov rmcs.rAX, 4B00h
 	mov rmcs.rBX, offset execparm
 
+	mov ax, [wEnvSeg]
+	mov rmcs.rDS, ax
+	mov execparm.wEnv, ax
+
 	@printf <"type 'exit' to return to DPMI">
 
-	mov bx, es
-	mov ax, 6
-	int 31h
-	push cx
-	push dx
-	pop eax
-	shr eax, 4
-	mov rmcs.rDS, ax
-
-	mov es, wESSel
-	mov es:[002Ch], ax
-
-	mov bx,ds
-	mov ax,6
-	int 31h
-	push cx
-	push dx
-	pop eax
-	shr eax, 4
+	mov ax, wDgrp
 	mov rmcs.rES, ax
-	mov wSegCmd, ax
-	mov wSegfcb1, ax
-	mov wSegfcb2, ax
+	mov execparm.wCmdSeg, ax
+	mov execparm.wFcb1Seg, ax
+	mov execparm.wFcb2Seg, ax
 	push ds
 	pop es
 	mov edi, offset rmcs
@@ -354,12 +342,12 @@ found:
 	mov cx,0
 	mov ax,0300h
 	int 31h
-
-	mov es, wESSel
-	mov ax, wEnv
-	mov es:[002Ch], ax
-
+	test rmcs.rFlags, 1
+	jnz err1
 	@printf <"DPMI: back from shell",lf>
+	ret
+err1:
+	@printf <"DPMI: launch failed",lf>
 	ret
 exit1:
 	@printf <"unable to alloc memory",lf>
@@ -1464,7 +1452,7 @@ do_protmode proc
 	pushfd
 	pop eax
 	@printf <"Eflags=%lx, ES (=PSP): %x (environment: %x, parent PSP segm: %x)",lf>,\
-		eax, wESSel, wEnv, wParent
+		eax, wPSPSel, wEnvSel, wParent
 	sub sp,6
 	mov bp,sp
 	sgdt [bp]
@@ -1662,6 +1650,96 @@ status_displayed:
 	ret
 do_protmode endp
 
+;--- start a DPMI client
+
+startclient proc
+	mov ax,1687h				;DPMI server installed?
+	int 2fh
+	and ax,ax
+	jnz error1
+	mov [wVersion],dx			;version
+	mov [wCPU],cx				;CL=prozessor
+	mov [wTaskMem],si			;task memory block size in paragraphs
+	mov [wFlags],bx				;flags (bit 0=32bit apps)
+	mov word ptr [dwPMEntry+0],di	 ;entry protected mode
+	mov word ptr [dwPMEntry+2],es
+
+	cmp wOpt, 0
+	jnz @F
+	movzx ax,byte ptr wVersion+1
+	movzx bx,byte ptr wVersion+0
+	movzx cx,byte ptr wCPU
+	@printf <"DPMI v%u.%u host found, cpu: %b, support of 32-bit clients: %x",lf>,ax,bx,cx,wFlags
+	@printf <"entry initial switch to protected-mode: %x:%x",lf>, word ptr dwPMEntry+2, word ptr dwPMEntry+0
+	@printf <"size task-specific memory: %u paragraphs",lf>, wTaskMem
+@@:
+	mov bx,[wTaskMem]
+	and bx,bx
+	jz main_1
+	mov ax,4800h
+	int 21h
+	jc error2
+	mov es,ax
+if 0
+	cmp wOpt, 0
+	jnz main_1
+	@printf <"segment task-specific memory: %x",lf>,ax
+endif
+main_1:
+	movzx eax,ax	;clear register hiwords, just to be safe
+	movzx edx,dx
+	movzx ecx,cx
+	movzx ebx,bx
+	movzx esi,si
+	movzx edi,di
+	movzx ebp,bp	;hiword EBP must be cleared for LEAVE in 32-bit client!
+	movzx esp,sp
+
+	cmp b16Bit, 1
+	jz _use16
+	test byte ptr [wFlags],1    ;32-Bit apps supported?
+	jnz @F
+	mov b16Bit, 1
+_use16:
+	mov ax,0000
+	call dword ptr [dwPMEntry]  ;Entry 16 Bit Client
+	jc error3
+	jmp displ
+@@:
+	mov b16Bit, 0
+	mov ax,0001
+	call dword ptr [dwPMEntry]  ;Entry 32 Bit Client
+	jc error3
+
+;--- now in protected mode
+
+displ:
+	mov [wDSSel],ds
+	mov [wCSSel],cs
+	mov [wPSPSel],es
+	mov [wSSSel],ss
+	mov [wFSSel],fs
+	mov [wGSSel],gs
+	mov ax,es:[002Ch]
+	mov [wEnvSel],ax
+	mov ax,es:[0016h]
+	mov [wParent],ax
+	push ds
+	pop es
+	call do_protmode
+	ret
+error1:
+	@printf <"No DPMI host found",lf>
+	jmp exit
+error2:
+	@printf <"No more DOS memory for DPMI initial switch",lf>
+	jmp exit
+error3:
+	@printf <"Initial switch to protected mode failed",lf>
+exit:
+	ret
+startclient endp
+
 ;--- main: cs,ds,ss = dgroup, es = psp
 
 main proc c
@@ -1726,7 +1804,7 @@ main proc c
 				jc @F
 				.if edx == 0 || edx > ?MAXNEST
 					@printf <"error: nesting level must be > 0 and <= %u",lf>, ?MAXNEST
-					jmp pmexit
+					jmp exit
 				.endif
 				mov bNestLvl, dl
 @@:
@@ -1739,7 +1817,7 @@ main proc c
 			.else
 				mov ax, offset szHelp
 				call _strout
-				jmp pmexit
+				jmp exit
 			.endif
 		.endif
 		mov ah,al
@@ -1768,93 +1846,10 @@ main proc c
 	call xms
 	call vcpi
 main0:
-	mov ax,1687h				;DPMI server installed?
-	int 2fh
-	and ax,ax
-	jnz error1
-	mov [wVersion],dx			;version
-	mov [wCPU],cx				;CL=prozessor
-	mov [wTaskMem],si			;task memory block size in paragraphs
-	mov [wFlags],bx				;flags (bit 0=32bit apps)
-	mov word ptr [dwPMEntry+0],di	 ;entry protected mode
-	mov word ptr [dwPMEntry+2],es
-
-	cmp wOpt, 0
-	jnz @F
-	movzx ax,byte ptr wVersion+1
-	movzx bx,byte ptr wVersion+0
-	movzx cx,byte ptr wCPU
-	@printf <"DPMI v%u.%u host found, cpu: %b, support of 32-bit clients: %x",lf>,ax,bx,cx,wFlags
-	@printf <"entry initial switch to protected-mode: %x:%x",lf>, word ptr dwPMEntry+2, word ptr dwPMEntry+0
-	@printf <"size task-specific memory: %u paragraphs",lf>, wTaskMem
-@@:
-	mov bx,[wTaskMem]
-	and bx,bx
-	jz main_1
-	mov ax,4800h
-	int 21h
-	jc error2
-	mov es,ax
-if 0
-	cmp wOpt, 0
-	jnz main_1
-	@printf <"segment task-specific memory: %x",lf>,ax
-endif
-main_1:
-	movzx eax,ax	;clear register hiwords, just to be safe
-	movzx edx,dx
-	movzx ecx,cx
-	movzx ebx,bx
-	movzx esi,si
-	movzx edi,di
-	movzx ebp,bp	;hiword EBP must be cleared for LEAVE in 32-bit client!
-	movzx esp,sp
-
-	cmp b16Bit, 1
-	jz _use16
-	test byte ptr [wFlags],1    ;32-Bit apps supported?
-	jnz @F
-	mov b16Bit, 1
-_use16:
-	mov ax,0000
-	call dword ptr [dwPMEntry]  ;Entry 16 Bit Client
-	jc error3
-	jmp displ
-@@:
-	mov b16Bit, 0
-	mov ax,0001
-	call dword ptr [dwPMEntry]  ;Entry 32 Bit Client
-	jc error3
-
-;--- now in protected mode
-
-displ:
-	mov [wDSSel],ds
-	mov [wCSSel],cs
-	mov [wESSel],es
-	mov [wSSSel],ss
-	mov [wFSSel],fs
-	mov [wGSSel],gs
-	mov ax,es:[002Ch]
-	mov [wEnv],ax
-	mov ax,es:[0016h]
-	mov [wParent],ax
-	push ds
-	pop es
-	call do_protmode
-pmexit:
-	mov ax,4c00h
-	int 21h
-error1:
-	@printf <"No DPMI host found",lf>
-	jmp exit
-error2:
-	@printf <"No more DOS memory for DPMI initial switch",lf>
-	jmp exit
-error3:
-	@printf <"Initial switch to protected mode failed",lf>
+	call startclient
 exit:
 	ret
+
 main endp
 
 	.8086
