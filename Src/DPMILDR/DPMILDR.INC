@@ -89,7 +89,7 @@ FMODE_NOERRDISP	equ 20h	;bit 5: 1=temporarily suppress dpmi error messages
 if ?LFN
 FMODE_LFN       equ 40h ;bit 6: 1=LFN supported
 endif
-;FMODE_DEBUGGER equ 80h	;bit 7: 1=debugger is present
+FMODE_DEBUGGER	equ 80h	;bit 7: 1=debugger is present
 
 ;--- fCmdLOpt flags
 
@@ -439,7 +439,6 @@ what equ 0
 endif
 endm
 
-	@condbrk _INT01PGMENTRY_	;1=int 01 on program entry (obsolete)
 	@condbrk _INT03PGMEXIT_		;0 1=int 03 on program termination
 	@condbrk _INT03RETEXEC_		;0 1=int 03 after int 21h, ax=4B00h
 	@condbrk _INT03NAMEIMP_		;0 1=int 03 on a "reference by name"

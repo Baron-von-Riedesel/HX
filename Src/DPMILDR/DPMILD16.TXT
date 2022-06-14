@@ -328,7 +328,9 @@
 
      DPMILD16 supports Int 41h in protected mode. That is, events such as
      loading a dll, starting a task, loading a segment a.s.o are all
-     reported through calls to Int 41h with AX set appropriately.
+     reported through calls to Int 41h with AX set appropriately. If
+     DPMILD16 detects that a debugger is present, it will execute an
+     Int 3 just before program's entry.
 
 
  8.  History
@@ -347,6 +349,8 @@
  þ cleaned debug displays.
  þ fixed: alias segments (occur if model is tiny) - when located in DOS
    memory - may have caused the DOS block to shrink by 1 paragraph.
+ þ switch DPMILDR=1 removed. Instead, the loader detects if a debugger
+   is present via Int 41h and execs a breakpoint instruction at program entry.
  
  01.03.2008: version 3.5
 

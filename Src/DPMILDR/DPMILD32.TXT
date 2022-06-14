@@ -85,8 +85,9 @@
      of the loader's behaviour. The variable is a number whose individual bits
      are interpreted as follows:
 
-     - bit 0 (DPMILDR=1): forces a breakpoint at program entry point. If no
-       debugger is present, this switch has no effect.
+     - bit 0 (DPMILDR=1): removed since v3.11 (was support for debugging, but
+       problematic since the CPU's trace flag was set; it's obsolete now, 
+       since the loader will detect a debugger and execute an Int 3 instead ).
 
      - bit 1 (DPMILDR=2): prevents the loader from moving itself into extended
        memory. It remains in conventional DOS memory after switching to
@@ -110,7 +111,8 @@
        This will only succeed if the DPMI host supports DPMI function 0507h.
        There exist some apps written with WDOSX dos extender which write
        to sections marked as readonly, thus causing a GPF with DPMILD32
-       if running on a DPMI 1.0 host. To avoid this use this switch.
+       if running on a DPMI 1.0 host. To avoid this use this switch. It's
+       also useful to debug with debuggers that cannot use HW breakpoints.
 
      - bit 5 (DPMILDR=32): don't use any DPMI 1.0 function. This option
        is automatically set for Windows NT/2k/XP because of the very
@@ -404,8 +406,9 @@
 
      DPMILD32 supports Int 41h in protected mode. That is, events such as
      loading a dll, starting a task, loading a segment a.s.o are all
-     reported through calls to Int 41h with AX set appropriately. To force
-     a breakpoint at app start set environment variable "DPMILDR=1".
+     reported through calls to Int 41h with AX set appropriately.
+     If DPMILD32 detects that a debugger is present it will execute an Int 3
+     just before the program entry.
 
 
 11.  Returncodes
@@ -479,7 +482,8 @@
  þ ensure the alias descriptor has a limit of -1 when accessing an MCB.
  þ bugfix: terminating in NTVDM caused fault if DPMILDR=2 wasn't set.
  þ cleaned debug displays.
-   
+ þ switch DPMILDR=1 removed. Instead, the loader detects if a debugger
+   is present via Int 41h and runs an Int 3 before program entry.
 
  30.03.2022: version 3.10
  

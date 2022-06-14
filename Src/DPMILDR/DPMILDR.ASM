@@ -705,7 +705,7 @@ if ?32BIT
 	or bEnvFlgs2, ENVFL2_ALLOWGUI
 @@:
 endif
-if 0	;not needed currently
+if 1	; v3.11: activated
 	mov ax,004Fh
 	int 41h
 	cmp ax,0F386h
@@ -1837,6 +1837,7 @@ endif
 if ?INT41SUPPORT
 	mov ax,DS_StartTask		;CX:BX=CS:IP
 	int 41h
+ if 0	;v3.11 removed DPMILDR=1
 	test cs:bEnvFlgs,ENVFL_BREAKATENTRY
 	jz @F
 	push es
@@ -1845,6 +1846,7 @@ if ?INT41SUPPORT
 	mov ax,DS_ForcedGO16	;force break at cx:bx
 	int 41h
 @@:
+ endif
 endif
 if ?32BIT
 	pushfd
@@ -1860,12 +1862,12 @@ endif
 if ?32BIT
 	movzx ebx,bx
 	movzx ecx,cx
-	shl ebx,12				;new: pages instead of bytes for 32bit
+	shl ebx,12				; pages instead of bytes for 32bit
 	shl ecx,12
 endif
-	mov di,ss				;DI=hInstance
+	mov di,ss				; DI=hInstance
 ife ?32BIT
-	xor si,si				;for 16 bit init SI here 
+	xor si,si				; for 16 bit init SI here 
 	test es:[NEHDR.APPFLGS],10h	;RTM compatible?
 	jz @F
 	mov ds,[wCurPSP]
@@ -1881,12 +1883,12 @@ ife ?32BIT
 	jnz notos2
 endif
 ife ?32BIT
-	mov si,cx			;si=heap size
-	mov dx,bx			;dx=stack size
+	mov si, cx			;si=heap size
+	mov dx, bx			;dx=stack size
 	call InitDlls		;simple InitTask for OS/2
 	jc StartApp_ErrExit
-	add cx,3*2			;cx=size of DGROUP (account for IRET stack frame)
-	add cx,si
+	add cx, 3*2			;cx=size of DGROUP (account for IRET stack frame)
+	add cx, si
 else
 	push ebx
 	push ecx
@@ -1908,16 +1910,11 @@ ife ?32BIT
 	inc bx
 	cmp al,es:[bx]
 	jnz @B
-	inc bx
+	inc bx			; bx=points to program name
 	mov ax,es
-	push 0
+	push 0			; OS wants ES cleared???
 	pop es
 notos2:
-endif
-if _INT01PGMENTRY_
-	pushf
-	mov bp,sp
-	or word ptr [bp+0],100h	;set TF 
 endif
 if ?32BIT
 	xor ebp,ebp
@@ -1929,8 +1926,11 @@ if ?32BIT
 else
 	xor bp,bp
 endif
-if _INT01PGMENTRY_
-	popf
+if ?INT41SUPPORT	;v3.11: support debugger directly instead of DPMILDR=1
+	test cs:fMode, FMODE_DEBUGGER
+	jz @F
+	int 3
+@@:
 endif
 	@iret
 StartApp16 endp
