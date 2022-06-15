@@ -242,7 +242,7 @@ PF_MULTIPLE	equ 02h		;bits 0+1: 10 multiple DGROUPs
 ;AF_WINAPI	equ 02h
 
 ;AF_FAMILY	equ 08h		;bit 3: OS2: family app; Win16: self-loading
-;AF_      	equ 10h		;bit 4: ???
+AF_BIT4		equ 10h		;bit 4: for code segments, alloc another descriptor if this bit is set
 ;AF_ERROR	equ 20h		;bit 5: error in image
 AF_INIT		equ 40h		;bit 6: dlls: LibEntry done
 AF_DLL		equ 80h		;bit 7: module is dll

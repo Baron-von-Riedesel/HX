@@ -374,7 +374,11 @@ _ITEXT ends
 
 CCONST segment
 
-defdgrp  dw 0,0,SF_DATA or SF_MOVABL,0	;default segment flags for dgroup
+;defdgrp  dw 0,0,SF_DATA or SF_MOVABL,0
+defdgrp label word
+	dw 0,0
+	dw SF_DATA or SF_MOVABL
+	dw 0
 
 fpOSFixups label byte			 ;Floating Point OS-fixups
 	  dw FIARQQ,FJARQQ
@@ -1868,7 +1872,7 @@ endif
 	mov di,ss				; DI=hInstance
 ife ?32BIT
 	xor si,si				; for 16 bit init SI here 
-	test es:[NEHDR.APPFLGS],10h	;RTM compatible?
+	test es:[NEHDR.APPFLGS], AF_BIT4	;RTM compatible?
 	jz @F
 	mov ds,[wCurPSP]
 	push ds
@@ -3837,6 +3841,7 @@ setrwsel proc near
 	push ax
 	push bx
 	mov bx,es:[si].SEGITEM.wSel
+
 if ?32BIT
 	push edi
 	sub esp,8
@@ -3943,7 +3948,7 @@ AllocMD proc uses bx
 	mov [wMDSize], cx			;gives size of module database
 	add cx, SGTSIZE				;v3.11: add the size to the block that is now allocated
 	push cx
-	mov bx,0001 		;set selector to DATA
+	mov bx, SF_DATA
 	call AllocSel		;alloc selector (in AX)
 	pop cx
 	jc errorx
@@ -4046,8 +4051,7 @@ segspecial proc
 	or ax,es:[NEHDR.ne_stack]
 	jz segspecial1				;no heap or stack?
 	@printf <"segspecial(%X): adding auto segment, stack=%X, heap=%X",lf>, es, es:[NEHDR.ne_stack], es:[NEHDR.ne_heap]
-	mov si, offset defdgrp
-	call PrepSegDesc			;selector alloc ES:DI
+	call PrepSegDescDgrp		;selector alloc ES:DI
 	jc segspecialex
 	mov bx, di
 	jmp segspecial2
@@ -4057,15 +4061,18 @@ segspecial proc
 	mul bl
 	add ax,es:[NEHDR.ne_segtab]
 	xchg bx,ax
-	mov ax,es:[bx].SEGITEM.wSel
-	lar cx,ax
-	test ch,8					;is dgroup a code segment?
-	jz @F						;no, then done
+;--- v3.11: just test the bit in SEGITEM
+;	mov ax,es:[bx].SEGITEM.wSel
+;	lar cx,ax
+;	test ch,8
+;	jz @F
+	test es:[bx].SEGITEM.flags, SF_DATA		;is dgroup a code segment? if no, then done
+	jnz @F
+	@printf <"segspecial(%X): dgroup is of type CODE, adding data alias, stack=%X, heap=%X",lf>, es, es:[NEHDR.ne_stack], es:[NEHDR.ne_heap]
 	and word ptr es:[bx.SEGITEM.flags],NOT SF_DISCRD
-	mov si,offset defdgrp
 	push bx
 	push es:[bx.SEGITEM.memsiz]
-	call PrepSegDesc				;selector alloc ES:DI
+	call PrepSegDescDgrp		;selector alloc ES:DI
 	pop cx
 	pop ax
 	jc segspecialex
@@ -4076,11 +4083,11 @@ if ?32BIT
 else
 	or word ptr es:[bx.SEGITEM.flags],SF_ALIAS
 endif
-	mov word ptr es:[bx].SEGITEM.dwHdl+0,ax
-	mov es:[bx.SEGITEM.filesiz],cx
-	mov es:[bx.SEGITEM.memsiz],cx
+	mov word ptr es:[bx].SEGITEM.dwHdl+0,ax	; store offset to alias segment in lowword dpmihdl
+	mov es:[bx.SEGITEM.filesiz], cx
+	mov es:[bx.SEGITEM.memsiz], cx
 	inc es:[NEHDR.ne_autodata]
-	@printf <"segspecial(%X): increaseing segment count for code alias, autodata=%X",lf>, es, es:[NEHDR.ne_autodata]
+	@printf <"segspecial(%X): increasing segment count for code alias, autodata=%X",lf>, es, es:[NEHDR.ne_autodata]
 segspecial2:
 	inc word ptr es:[NEHDR.ne_cseg]	; v3.11: always increase segment count in segspecial()
 	add [wMDSize], SGTSIZE
@@ -4098,6 +4105,8 @@ segspecial endp
 ;*** ES:DI -> segment descriptor in MD
 ;*** DS:SI -> segment descriptor in NE file to copy from (8 byte size)
 
+PrepSegDescDgrp:
+	mov si, offset defdgrp
 PrepSegDesc proc
 	xor ax, ax
 	mov es:[di].SEGITEM.wDosSel, ax
@@ -4106,14 +4115,15 @@ PrepSegDesc proc
 	mov word ptr es:[di].SEGITEM.dwHdl+2,ax
 	mov bx,[si].SEGITEM.flags
 	call AllocSel		;alloc selector in AX
-	jc exit			;error?
+	jc exit				;error?
+	@printf <"PrepSegDesc(%X): segm=%X, sel=%X, si=%X",lf>, es, di, ax, si
 	push di				;copy first 4 words 1:1
 	movsw				;segment file position
 	movsw				;segment file size
 	movsw				;segment flags
 	movsw				;segment memory size
 	pop di
-	mov es:[di].SEGITEM.wSel,ax	;R/E for code,R/W for data
+	mov es:[di].SEGITEM.wSel, ax	;R/E for code,R/W for data
 	and byte ptr es:[di.SEGITEM.flags],not SF_LOADED
 exit:
 	ret
@@ -4247,7 +4257,7 @@ AllocSel proc
 if ?AUTOCSALIAS        
 	test bl,SF_DATA
 	jnz @F
-	test es:[NEHDR.APPFLGS],10h
+	test es:[NEHDR.APPFLGS], AF_BIT4	; todo: describe this bit in dpmildr.inc
 	jz @F
 	inc cx	;alloc 2 descriptors
 @@:
@@ -4560,21 +4570,21 @@ endif
 
 SetBaseLimit proc uses bx
 
-	mov cx,word ptr [blkaddr+2]
 	mov dx,word ptr [blkaddr+0]
+	mov cx,word ptr [blkaddr+2]
 	mov bx,ax
-	mov ax,0007h			;set segment base address
+	mov ax, 7				;set segment base address
 	call dpmicall
 	mov ax,offset szErr34	;error 'set segment base'
 	jc error1
-	mov cx,word ptr [blksize+2]
 	mov dx,word ptr [blksize+0]
+	mov cx,word ptr [blksize+2]
 	or dl,0Fh				;round up to paragraphs
 	test cx,0FFF0h			;> 1MB?
 	jz @F
-	or dx,0FFFh			;then round up to page
+	or dx,0FFFh				;then round up to page
 @@:
-	mov ax,0008h			;set segment limit
+	mov ax, 8				;set segment limit
 	call dpmicall
 	mov ax,offset szErr35	;error 'set segment limit'
 	jc error2
@@ -4582,10 +4592,10 @@ if ?AUTOCSALIAS
 	lar ax,bx
 	test ah,8
 	jz @F
-	test es:[NEHDR.APPFLGS],10h	;is it RTM app?
+	test es:[NEHDR.APPFLGS], AF_BIT4	;is it RTM app?
 	jz @F
 	mov ax,bx
-	add ax,8
+	add ax, 8
 	call SetBaseLimit
 	jc error1
 @@:
@@ -4928,6 +4938,7 @@ ife ?32BIT
 ;--- out: DX=next free byte in segment
 
 Read_Iterated_Segm proc uses es di si bp 
+	@printf <"Read_Iterated: segment=%X size=%X",lf>, ds, cx
 	push ds
 	pop es
 	mov di,cx
@@ -4974,23 +4985,28 @@ Read_Iterated_Segm endp
 
 endif
 
-;*** do SF_ALIAS segments
-;*** input: dx=flags, (e)cx=req size
-;*** out: NC + selector in ax
-;---      C + AX= error text or NULL
-;--- currently most likely doesnt work for dos memory segments (PRELOAD+FIXED)
+;*** handle SF_ALIAS segments
+;*** input: es:si=SEGITEM
+;---        (e)cx=segment size
+;--- out:   NC: if success
+;---         C: error, AX = error text or NULL
+;--- currently might have a problem if DOS memory is used (fixed+preload)
+;--- todo: make this obsolete ( by allocating the correct size from start ) so no realloc is necessary.
 
-ReallocMem proc
-	@int3 _INT03REALLOC_
+;--- note: if a segment is an alias, loword of dwHdl member contains the real segment
+
+AliasReallocMem proc
+
 	mov bx,word ptr es:[si].SEGITEM.dwHdl+0  ;here ^segmentdescriptor of alias
+	@printf <"AliasReallocMem: segment=%X, aliasseg=%X, sel=%X/%X",lf>, si, bx, es:[si].SEGITEM.wSel, es:[bx].SEGITEM.wSel
 	push si
-	push ax
+
 	push es
-	mov es,es:[bx].SEGITEM.wSel  ;load alias segment
+	mov es, es:[bx].SEGITEM.wSel  ;load alias segment
 	pop es
-	mov di,word ptr es:[bx].SEGITEM.dwHdl+0
-	mov si,word ptr es:[bx].SEGITEM.dwHdl+2
-	mov ax,word ptr es:[bx].SEGITEM.wDosSel
+	mov di, word ptr es:[bx].SEGITEM.dwHdl+0
+	mov si, word ptr es:[bx].SEGITEM.dwHdl+2
+	mov dx, word ptr es:[bx].SEGITEM.wDosSel
 if ?32BIT
 	push ecx
 	dec ecx
@@ -5004,57 +5020,55 @@ else
 	mov word ptr [blksize+2],bx
 	inc cx
 endif
-	and ax,ax						;is DOS memory used?
+	and dx, dx				; is DOS memory used?
 	jz isdpmimem
-	mov dx, ax
-	test bx,0FFF0h					;is limited to 1 MB
+	@printf <"AliasReallocMem: DOS memory, sel=%X, size=%X%X",lf>, ax, bx, cx
+	test bx,0FFF0h			; DOS mem is limited to 1 MB
 	jnz ReallocMem_err
 
+;--- convert size in bytes in BX:CX to size in paras in BX
 	add cx, 16-1			; v3.11: take care not to loose 1-15 bytes of "size"
 	adc bx, 0				; in the shift operation below
-
-	shr cx,4
-	shl bx,12
+	shr cx, 4
+	shl bx, 12
 	or bx, cx
 
-	mov ax,0102h			;the address cannot change
-	int 31h 				;server will do the selector tiling
+	mov ax, 102h			; realloc DOS memory (the address won't change)
+	int 31h
 	jc ReallocMem_err
-	mov ax,dx
-	jmp reallocmem_exx
+;--- v3.11: call SetBaseLimit(); this makes "model tiny" finally work
+	mov bx, dx
+	mov ax, 6
+	call dpmicall
+	mov word ptr [blkaddr+0], dx
+	mov word ptr [blkaddr+2], cx
+	jmp reallocmem1
 isdpmimem:
-	@printf <"realloc alias, handle=%X%X, size=%X%X",lf>,si,di,bx,cx
-	mov ax,0503h		;realloc memory
+	@printf <"AliasReallocMem: DPMI handle=%X%X, size=%X%X",lf>, si, di, bx, cx
+	mov ax, 503h			; realloc memory
 	call dpmicall
 	jc ReallocMem_err
-reallocmem_1:
-	mov dx,si
-	pop ax
-	pop si
-	push si
-	push ax
-	mov word ptr [blkaddr+2],bx
-	mov word ptr [blkaddr+0],cx
-	mov si,word ptr es:[si].SEGITEM.dwHdl+0
-	mov word ptr es:[si].SEGITEM.dwHdl+0,di
-	mov word ptr es:[si].SEGITEM.dwHdl+2,dx
+	mov word ptr [blkaddr+0], cx
+	mov word ptr [blkaddr+2], bx
+	pop bx
+	push bx
+	mov bx,word ptr es:[bx].SEGITEM.dwHdl+0
+	mov word ptr es:[bx].SEGITEM.dwHdl+0, di
+	mov word ptr es:[bx].SEGITEM.dwHdl+2, si
+	mov ax, es:[bx].SEGITEM.wSel
 	call SetBaseLimit
 	jc ReallocMem_err1
+reallocmem1:
+	pop si
 	mov ax,es:[si].SEGITEM.wSel
-	call SetBaseLimit
-	jc ReallocMem_err1
-reallocmem_exx:
-	pop ax
-	pop si
-ReallocMem_ex:
+	call SetBaseLimit	; may return with C, handled by caller then
 	ret
 ReallocMem_err:
 	mov ax,offset szErr311
 ReallocMem_err1:
-	pop cx
 	pop si
 	ret
-ReallocMem endp
+AliasReallocMem endp
 
 ;*** ES:SI -> ext. segment table
 ;*** alloc memory for segment and set descriptor values
@@ -5069,6 +5083,7 @@ Alloc_Mem_for_Segm proc
 	mov ax,es:[si].SEGITEM.wSel
 	cmp si,es:[NEHDR.DGROFS]		;Dgroup-Segment?
 	jnz @F
+	@printf <"Alloc_Mem_for_Segm: dgroup segment, sel=%X",lf>, ax
 if ?32BIT
 	movzx ecx,cx
 	movzx ebx,word ptr es:[NEHDR.ne_stack]
@@ -5091,8 +5106,8 @@ endif
 	push di
 	test dx,SF_ALIAS
 	jz amfs_1
-	@trace_s <"Alloc_Mem_for_Segm: segment alias",lf>
-	call ReallocMem
+	@printf <"Alloc_Mem_for_Segm: segment alias, calling AliasReallocMem, si=%X",lf>, si
+	call AliasReallocMem
 	jc error1			;is AX set?
 	call Set_AX_Present
 	pop di				;dont set "loaded"-flag here
@@ -5152,23 +5167,28 @@ endif
 ;*** clear rest of a segment
 ;*** if memsize > filesize
 ;*** Input: ES:SI-> segment, AX = size of memory block (0=64 kB)
+;--- AX = size
+;--- DX = size ??
 ;*** BX,ES,SI must be kept
 
 ClearSegmentTail proc
 	push es
 	push di
 	mov di,es:[si.SEGITEM.filesiz]
+	@printf <"ClearSegmentTail: segment %X, size=%X, sel=%X, fsize=%X",lf>, si, ax, es:[si.SEGITEM.wSel], di
 	test byte ptr es:[si.SEGITEM.flags],SF_ITERED
 	jz @F
+	@printf <"ClearSegmentTail: iterated segment, dx=%X",lf>, dx
 	mov di,dx
 @@:
-	mov cx,ax
+	mov cx, ax
 	jcxz @F
-	cmp cx,di
+	cmp cx, di
 	jbe exit
 @@:
 	sub cx,di
-	call setrwsel	;get ALIAS in DX
+	call setrwsel	;returns ALIAS in DX
+	@printf <"ClearSegmentTail: sel returned by setrwsel=%X",lf>, dx
 	mov es,dx
 	sub ax,ax
 	shr cx,1
@@ -5278,7 +5298,7 @@ endif
 	call dpmicall
 	jc nextseg
 if ?AUTOCSALIAS
-	test es:[NEHDR.APPFLGS],10h
+	test es:[NEHDR.APPFLGS], AF_BIT4
 	jz @F
 	test byte ptr es:[si].SEGITEM.flags, SF_DATA
 	jnz @F
@@ -5940,7 +5960,7 @@ endif
 ife ?32BIT
 	cmp es:[NEHDR.ne_exetyp],ET_DPMI16
 	jnz @F
-	test es:[NEHDR.APPFLGS],10h
+	test es:[NEHDR.APPFLGS], AF_BIT4
 	jz nodichange
 @@:
 	mov di,es	;set DI to hModule for OS/2 and RTM DPMI16
