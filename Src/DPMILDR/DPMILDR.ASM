@@ -5064,7 +5064,7 @@ reallocmem1:
 	call SetBaseLimit	; may return with C, handled by caller then
 	ret
 ReallocMem_err:
-	mov ax,offset szErr311
+	mov ax, offset szErr311	; "memory realloc failed"
 ReallocMem_err1:
 	pop si
 	ret

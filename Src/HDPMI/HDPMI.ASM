@@ -904,8 +904,11 @@ ifdef ?QEMMSUPPORT
 endif
 		dq 0			;space for VCPI, since it is called with CALL FAR
 v86iret		V86IRET <<offset rawjmp_rm_all>>
-;--- pmstate must follow v86iret (see i31swt.asm, srtask)!
-pmstate		PMSTATE <>	; protected mode segment register values
+
+;--- v3.20: pmstate moved to client-specific region
+;--- if pmstate doesn't follow v86iret, ?NOPMSTATECONSEC=1 in i31swt.asm.srtask must be set
+;pmstate	PMSTATE <>	; protected mode segment register values
+
 ;dwHostStack	dd 0
 
 pdGDT	PDESCR <?GDTLIMIT,0>	;pseudo descriptor GDT
@@ -1152,6 +1155,13 @@ _DATA16 ends
 
 _DATA16C segment
 
+;--- v3.20: pmstate move to client-specific data region
+;--- it was in _DATA16, but there the values become invalid when
+;--- a client has terminated. This is a problem if another client
+;--- is still active and has hooked into IRQ interrupts ( so
+;--- lpms_call_int may be called with invalid PMS in pmstate )
+pmstate		PMSTATE <>	; protected mode segment register values
+
 if 1
 dwrmSSSPsave	dd 0
 endif
@@ -1167,9 +1177,9 @@ ife ?CR0COPY
 dwCR0		dd 0		;?CR0COPY=0: current value of CR0 in protected mode
 endif                        
 spPMS		dq 0		;ring 3 PMS (SS:ESP) saved when a switch to LPMS occurs
-cIntRMCB 	dw 0		;number of open internal rmcbs
+cIntRMCB	dw 0		;number of open internal rmcbs
 cRMCB		dw 0		;number of open rmcbs (not finished with IRET yet)
-wLDTLimit 	dw 0		;limit of LDT
+wLDTLimit	dw 0		;limit of LDT
 bLPMSused	db 0		;is LPMS in use? (just a flag now)
             db 0
 if ?CR0COPY
@@ -1480,7 +1490,7 @@ pms_call_int endp
 ;*** another frame (IRETS) is created onto the LPMS:
 ;*** format:
 ;***  (E)IP=_RTINT_
-;***	 CS=_INTSEL_
+;***     CS=_INTSEL_
 ;***  (E)FL=Client Flags
 ;---  client EIP, CS
 ;--- _RTINT_ will switch the stack back to PMS. PMS is saved
@@ -1579,9 +1589,13 @@ lpms_ci_21:
 	mov edx, [esp].IRQFRAME.iret32.rSSd
 	mov dword ptr ss:spPMS+0,eax
 	mov dword ptr ss:spPMS+4,edx
-
 	mov ss:bLPMSused,1
-
+ifdef _DEBUG
+	verw dx
+	jz @F
+	@dprintf "lpms_call_int, sw: invalid PMS=%X:%lX", dx, eax
+@@:
+endif
 	mov edi,?LPMSSIZE- (2*4 + sizeof IRETSPM)	;initial value LPMS
 	mov eax,_LPMSSEL_
 	mov ds,eax
@@ -1727,7 +1741,7 @@ ife ?CSIPFROMTOP
 rEbx	dd ?
 endif
 rDs		dd ?
- 	IRET32 <>
+	IRET32 <>
 RPMIFR ends
 
 	@ResetTrace
@@ -3181,6 +3195,13 @@ irqrm2pm_1:
 	mov ds, ss:pmstate.rDS
 	mov fs, ss:pmstate.rFS
 	mov gs, ss:pmstate.rGS
+
+ifdef _DEBUG
+	verw word ptr ss:pmstate.rSSd
+	jz @F
+	@dprintf "intrmcb: invalid value in pmstate ss:esp=%X:%lX", word ptr ss:pmstate.rSSd, dword ptr ss:pmstate.rESP
+@@:
+endif
 
 	@checkhoststack
 

@@ -755,6 +755,8 @@ getsraddr endp
 ;--- al=1 : restore task state
 ;--- es:e/di: buffer
 
+?NOPMSTATECONSEC equ 1
+
 ;--- buffer consists of pmstate and the real-mode segreg values in v86iret
 
 _srtask proc public
@@ -793,9 +795,12 @@ srtask proc
 @@:
 	movsw
 	add esi,2  
-	cmp esi, offset pmstate	; v86iret.rSP+6*4
+;	cmp esi, offset pmstate	; v86iret.rSP+6*4
+	cmp esi, offset v86iret+sizeof V86IRET
 	jnz @B
-;	mov esi,offset pmstate	;pmstate follows v86iret in memory
+if ?NOPMSTATECONSEC	;if pmstate doesn't follow v86iret in memory
+	mov esi,offset pmstate
+endif
 	jmp exit
 srtask_restore:
 ;--- restore task state
@@ -808,9 +813,12 @@ srtask_restore:
 @@:
 	movsw
 	add edi,2
-	cmp edi, offset pmstate	; v86iret.rSP+6*4
+;	cmp edi, offset pmstate	; v86iret.rSP+6*4
+	cmp edi, offset v86iret+sizeof V86IRET
 	jnz @B
-;	mov edi, offset pmstate	;pmstate follows v86iret in memory
+if ?NOPMSTATECONSEC	;if pmstate doesn't follow v86iret in memory
+	mov edi, offset pmstate	;pmstate follows v86iret in memory
+endif
 exit:
 	movsd	; pmstate is 8 bytes!
 	movsd
@@ -899,9 +907,12 @@ else
 	movsw
 	inc si
 	inc si
-	cmp si, offset pmstate	;v86iret.rSP+6*4
+;	cmp si, offset pmstate	;v86iret.rSP+6*4
+	cmp si, offset v86iret + sizeof V86IRET
 	jnz @B
-;	mov si, offset pmstate
+if ?NOPMSTATECONSEC	;if pmstate doesn't follow v86iret in memory
+	mov si, offset pmstate
+endif
 	jmp exit
 srtask_restore:
 	@drprintf "srtask_rm: task state restore, es:di=%X:%X",es,di
@@ -913,9 +924,12 @@ srtask_restore:
 	movsw
 	inc di
 	inc di
-	cmp di, offset pmstate	;v86iret.rSP+6*4
+;	cmp di, offset pmstate	;v86iret.rSP+6*4
+	cmp di, offset v86iret + sizeof V86IRET
 	jnz @B
-;	mov di, offset pmstate
+if ?NOPMSTATECONSEC	;if pmstate doesn't follow v86iret in memory
+	mov di, offset pmstate
+endif
 exit:
 	movsd
 	movsd

@@ -359,6 +359,12 @@ if ?SAVEHOSTSP
 	lodsd
 	mov ss:taskseg._Esp0,eax		;dwHSExcR3 is in client area!
 endif
+
+if _LTRACE_
+	push ss;[wIntRmCb]  ; wIntRmCb has just been restored, but prevent any reentrance
+	mov ss:[wIntRmCb], 0; until all data has been copied back
+endif
+
 	@dprintf "restoreclientstate: restored taskseg._Esp0=%lX", ss:taskseg._Esp0
 if ?SAVEDR7
 	lodsd
@@ -405,6 +411,11 @@ endif
 	assume ds:GROUP16
 
 	call ResizeLDT
+
+if _LTRACE_
+	pop [wIntRmCb]
+endif
+
 ife ?USESYSSPACE2
 	pop di 					;get task handle
 	pop si
@@ -420,7 +431,7 @@ endif
 
 if _LTRACE_
 	jnc @F
-	@dprintf "restireclientstate: free client state memory failed"
+	@dprintf "restoreclientstate: free client state memory failed"
 @@:
 endif
 if ?CR0COPY
