@@ -695,7 +695,9 @@ ife ?LFNNT
 	and fMode, not FMODE_LFN
 endif
 endif
+if ?32BIT
 	or bEnvFlgs, ENVFL_DONTUSEDPMI1
+endif
 @@:
 	mov ax,1600h
 	int 2Fh

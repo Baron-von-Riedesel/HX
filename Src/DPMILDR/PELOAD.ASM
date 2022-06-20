@@ -1469,7 +1469,7 @@ if ?INT41SUPPORT
 ;--- v3.11: DS_ForcedGO removed, since DKRNL32 no longer swallows
 ;---        DS_StartTask message.
 ;--- v3.11: switch DPMILDR=1 deactivated
-;---        instead an exc 01 is generated if a debugger is detected.
+;---        instead an exc 03 is generated if a debugger is detected.
 ;	test byte ptr rEAX, 1	; was it int 21h, ax=4B01h?
 ;	jnz @F
 ;	test cs:bEnvFlgs,ENVFL_BREAKATENTRY

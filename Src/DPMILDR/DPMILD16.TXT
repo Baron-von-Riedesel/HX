@@ -41,9 +41,10 @@
      of the loader's behaviour. The variable is a number whose individual bits
      are interpreted as follows:
 
-     - bit 0 (DPMILDR=1): tell the debugger to stop at program entry point.
-       The debugger is notified by an int 41h with AX=0040h and CX:BX=CS:IP.
-       If no debugger is present, this switch has no effect.
+     - bit 0 (DPMILDR=1): removed since v3.11 [emitted an int 41h,
+       ax=40h (ForcedGO)]. The loader will now detect the presence of a 
+       debugger thru Int 41h and execute a breakpoint just before the entry
+       code is called.
 
      - bit 1 (DPMILDR=2): prevents the loader from moving itself into extended
        memory. It remains in conventional DOS memory after switching to

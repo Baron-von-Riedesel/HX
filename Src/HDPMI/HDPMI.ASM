@@ -3121,6 +3121,8 @@ intrmcb_pm proc
 
 if 0
 ;--- pre v3.19 code
+;--- assumed a certain structure of the host stack, that
+;--- didn't work in all cases ( IIRC, raw mode switches were a problem )
 	lea esp,[esp-sizeof IRET32]
 	mov [esp].IRET32.rIP, _FRTIN_
 	mov [esp].IRET32.rCS, _INTSEL_
@@ -3137,6 +3139,9 @@ if 0
 	pop ebp
 else
 ;--- since v3.19: use new fields rESP, rSSd in pmstate
+;--- v3.20: may have caused a crash if a client terminated and another one
+;--- became active due to intercepting IRQs. Cause: pmstate wasn't located in
+;--- client data area and hence still contained selectors of the terminated client
 	push ss:pmstate.rSSd
 	push ss:pmstate.rESP
 	push ss:tmpFLRegD

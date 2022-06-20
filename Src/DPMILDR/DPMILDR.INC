@@ -61,22 +61,32 @@ endif
 HBSEM_NOOPENFILEBOX	equ 80h	;high byte of wErrMode (=SEM_NOOPENFILEBOX)
 
 ;*** flags from environment variable DPMILDR
+;--- 16-bit loader knows 2,8,64,256 only
 
-ENVFL_BREAKATENTRY  equ 01h	;debug break at program entry
+;--- v3.11 break flag removed - debugger is detected via int 41h now. 
+;ENVFL_BREAKATENTRY  equ 01h	;debug break at program entry
 ENVFL_DONTLOADHIGH  equ 02h	;dont move in extended memory
+if ?32BIT
 ENVFL_DISABLENE32   equ 04h	;disable support for loading NE32 apps
+endif
 ENVFL_LOAD1APPONLY  equ 08h	;disable loader after first pm app has started
-ENVFL_DONTPROTECT   equ 10h	;16   dont protect r/o sections
+if ?32BIT
+ENVFL_DONTPROTECT   equ 10h	;16   dont protect r/o sections (PE only)
 ENVFL_DONTUSEDPMI1  equ 20h	;32   dont use any DPMI 1.0 functions
+endif
 ENVFL_IGNNOOPENERR	equ 40h	;64   ignore SEM_NOOPENFILEERRORBOX flag
+if ?32BIT
 ENVFL_IGNUNRESIMP	equ 80h	;128  ignore unresolved imports (PE only)
+endif
 ENVFL2_LOADDBGOUT	equ 01h	;256  try to load debugout.dll /debugo32.dll
 ;ENVFL2_IGN214B92	equ 02h	;512  ignore int 21h, ax=4b92h requests (module list)
+if ?32BIT
 ENVFL2_USEPREFADDR  equ 04h	;1024 load PE dlls at their prefered load address
 ENVFL2_EXPANDDOWN   equ 08h	;2048 alloc flat DS as expand down
 ENVFL2_128KBSTACK	equ 10h	;4096 restrict stack of PE add to 128 kB
 ENVFL2_ALLOWGUI  	equ 20h	;8192 allow GUI apps to be loaded in win dos boxes
 ENVFL2_EARLYGUIHLP  equ 40h	;16384 load hxguihlp before dll initialisation
+endif
 
 ;--- fMode flags
 

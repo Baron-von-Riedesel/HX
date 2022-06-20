@@ -1,8 +1,13 @@
  
  History HDPMI 
 
-  __.__.2022, version 3.20
+  __.06.2022, version 3.20
 
+  þ fixed: pmstate variable moved to client-specific data region. This
+    bug was virtually irrelevant up to v3.19, but there it may have caused
+    a crash followed by DOS memory corruption.
+  þ fixed: in int 21h, ax=4Bh translation, try to translate only if al=0,
+    as it is and was documented.
   þ int 25h/26h, displays in debug version: register esi was modified!
   þ set error status ax=0211h if int 25h/26h TLB overflow occurs.
   þ int 25h/26h and int 21h, ax=7305h transfer limit was actually
@@ -13,9 +18,6 @@
     ( that tries to execute an int 21h, ax=4Cffh ), the client will
     be killed ( and the host, if installed residently, will terminate,
     if possible ).
-  þ fixed: in int 21h, ax=4Bh translation, try to translate only if al=0,
-    as it is and was documented.
-  þ fixed: pmstate variable moved to client-specific data region.
 
   30.03.2022, version 3.19
 
@@ -72,6 +74,7 @@
   þ bugfix: if a client allocated large amounts of descriptors and then
     launched another client, the descriptors that this new client allocated
     weren't automatically released.
+  þ bugfix: HDPMI didn't expect the CR0.WP bit to be set and crashed.
   þ HDPMI will now use DOS for its output if an exception occurs.
     There is no longer any query if the client or the server is to
     be terminated; also, video mode is never altered by the host, making
