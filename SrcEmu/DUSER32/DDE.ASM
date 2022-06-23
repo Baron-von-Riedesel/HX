@@ -1,24 +1,24 @@
 
-        .386
+		.386
 if ?FLAT
-        .MODEL FLAT, stdcall
+		.MODEL FLAT, stdcall
 else
-        .MODEL SMALL, stdcall
+		.MODEL SMALL, stdcall
 endif
 
 		option proc:private
-        option casemap:none
+		option casemap:none
 
-        include winbase.inc
-        include macros.inc
+		include winbase.inc
+		include macros.inc
 
-        .CODE
+		.CODE
 
 FreeDDElParam proc public msg:DWORD, lParam:DWORD
 
 		xor eax, eax
 		@strace <"FreeDDElParam(", msg, ", ", lParam, ")=", eax, " *** unsupp ***">
-        ret
+		ret
 
 FreeDDElParam endp
 
@@ -26,7 +26,7 @@ PackDDElParam proc public msg:DWORD, uiLow:DWORD, uiHigh:DWORD
 
 		xor eax, eax
 		@strace <"PackDDElParam(", msg, ", ", uiLow, ", ", uiHigh, ")=", eax, " *** unsupp ***">
-        ret
+		ret
 
 PackDDElParam endp
 
@@ -34,10 +34,10 @@ UnpackDDElParam proc public msg:DWORD, lParam:DWORD, puiLow:ptr DWORD, puiHigh:p
 
 		xor eax, eax
 		@strace <"UnpackDDElParam(", msg, ", ", lParam, ", ", puiLow, ", ", puiHigh, ")=", eax, " *** unsupp ***">
-        ret
+		ret
 
 UnpackDDElParam endp
 
 
-        end
+		end
 

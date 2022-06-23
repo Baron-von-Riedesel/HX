@@ -1,27 +1,27 @@
 
-		.386
+	.386
 if ?FLAT
-		.MODEL FLAT, stdcall
+	.MODEL FLAT, stdcall
 else
-		.MODEL SMALL, stdcall
+	.MODEL SMALL, stdcall
 endif
-		option casemap:none
-        option proc:private
+	option casemap:none
+	option proc:private
 
-		include winbase.inc
-		include winuser.inc
-		include wingdi.inc
-        include macros.inc
-        include duser32.inc
-        include vesa32.inc
+	include winbase.inc
+	include winuser.inc
+	include wingdi.inc
+	include macros.inc
+	include duser32.inc
+	include vesa32.inc
 
-		.data
-        
+	.data
+
 if ?FLAT
 
-		public g_hVesa32	;is checked in CURSOR.ASM
-        
-g_hVesa32	DD 0        
+	public g_hVesa32	;is checked in CURSOR.ASM
+
+g_hVesa32	DD 0
 
 proctable label dword
 
@@ -52,7 +52,7 @@ g_lpfnVesaMouseInit LPFNVESAMOUSEINIT 0
 g_lpfnVesaMouseExit LPFNVESAMOUSEEXIT 0
 	dd CStr("VesaMouseExit")
 SIZEPROCTABLE equ ($ - proctable) / (2*4)
-    
+	
 else
 g_lpfnEnumVesaModes				LPFNENUMVESAMODES			offset EnumVesaModes
 g_lpfnGetVesaMemoryBufferSize	LPFNGETVESAMEMORYBUFFERSIZE	offset GetVesaMemoryBufferSize
@@ -63,45 +63,45 @@ g_lpfnRestoreVesaVideoMemory	LPFNRESTOREVESAVIDEOMEMORY	offset RestoreVesaVideoM
 g_lpfnRestoreVesaVideoState		LPFNRESTOREVESAVIDEOSTATE	offset RestoreVesaVideoState
 g_lpfnSaveVesaVideoMemory		LPFNSAVEVESAVIDEOMEMORY		offset SaveVesaVideoMemory
 g_lpfnSaveVesaVideoState		LPFNSAVEVESAVIDEOSTATE		offset SaveVesaVideoState
-g_lpfnSearchVesaMode			LPFNSEARCHVESAMODE 			offset SearchVesaMode
+g_lpfnSearchVesaMode			LPFNSEARCHVESAMODE			offset SearchVesaMode
 g_lpfnSetVesaMode				LPFNSETVESAMODE				offset SetVesaMode
 g_lpfnVesaMouseInit				LPFNVESAMOUSEINIT			offset VesaMouseInit
 g_lpfnVesaMouseExit				LPFNVESAMOUSEEXIT			offset VesaMouseExit
 endif
 
-		.code
+	.code
 
 unloadvesa proc
 if ?FLAT
-		invoke FreeLibrary, g_hVesa32
-endif        
-		ret
+	invoke FreeLibrary, g_hVesa32
+endif
+	ret
 unloadvesa endp
 
 _GetVesaProcs proc public uses esi
 if ?FLAT
-		mov eax, g_hVesa32
-		.if (!eax)
-       		invoke LoadLibrary, CStr("vesa32")
-            mov g_hVesa32, eax
-	        .if (eax)
-            	invoke atexit, offset unloadvesa
-    	    	mov esi, offset proctable
-                mov ecx, SIZEPROCTABLE
-                .while (ecx)
-                	push ecx
-	        	   	invoke GetProcAddress, g_hVesa32, [esi+4]
-                    pop ecx
-                    mov [esi+0], eax
-                    add esi, 2*4
-                    dec ecx
-                .endw
-	        .endif
-        .endif
+	mov eax, g_hVesa32
+	.if (!eax)
+		invoke LoadLibrary, CStr("vesa32")
+		mov g_hVesa32, eax
+		.if (eax)
+			invoke atexit, offset unloadvesa
+			mov esi, offset proctable
+			mov ecx, SIZEPROCTABLE
+			.while (ecx)
+				push ecx
+				invoke GetProcAddress, g_hVesa32, [esi+4]
+				pop ecx
+				mov [esi+0], eax
+				add esi, 2*4
+				dec ecx
+			.endw
+		.endif
+	.endif
 else
-		mov eax, 1
+	mov eax, 1
 endif
-		ret
+	ret
 _GetVesaProcs endp
 
-		end
+	end

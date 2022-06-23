@@ -1,27 +1,26 @@
 
-        .386
+	.386
 if ?FLAT
-        .MODEL FLAT, stdcall
+	.MODEL FLAT, stdcall
 else
-        .MODEL SMALL, stdcall
+	.MODEL SMALL, stdcall
 endif
 
-		option proc:private
-        option casemap:none
+	option proc:private
+	option casemap:none
 
-        include winbase.inc
-        include macros.inc
+	include winbase.inc
+	include macros.inc
 
-        .CODE
+	.CODE
 
 ExitWindowsEx proc public uFlags:DWORD, dwReserved:DWORD
 
-		xor eax, eax
-		@strace <"ExitWindowsEx(", uFlags, ", ", dwReserved, ")=", eax, " *** unsupp ***">
-        ret
+	xor eax, eax
+	@strace <"ExitWindowsEx(", uFlags, ", ", dwReserved, ")=", eax, " *** unsupp ***">
+	ret
 
 ExitWindowsEx endp
 
-
-        end
+	end
 
