@@ -45,12 +45,14 @@
    application (including HDPMI) is using XMS v3 functions:
    þ on machines with 64 MB memory or less HDPMI is not compatible with
      WSWAP.EXE - unless you set environment variable HDPMI=64, which 
-     instructs HDPMI not to use XMS v3 functions at all.
-   þ on machines with more than 64 MB memory environment variable HDPMI=64
-     should *not* be set. HDPMI will then use XMS v3 functions to allocate
-     memory and not interfere with WSWAP.EXE. However, the first 64 MB of
-     XMS memory will be grabbed by WSWAP.EXE and not be accessible by HDPMI.
-   
+     instructs HDPMI not to use XMS v3 functions at all. It may also be
+     necessary to preload HDPMI before Windows is started.
+
+   þ on machines with more than 64 MB memory HDPMI may use XMS v3 functions
+     to allocate memory and not interfere with WSWAP.EXE. However, the first
+     64 MB of XMS memory will be allocated by WSWAP, unaccessible until
+     Windows has terminated.
+
 
  5. How does DOSX work?
  
