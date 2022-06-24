@@ -39,6 +39,9 @@ GROUP16 group GDTSEG
 _ITEXT16 segment
 
 wHostSeg32 dw 0		;GROUP32 segment on startup
+if ?EARLYIVTSAVE
+bTmpFlgs db 0
+endif
 
 	@ResetTrace
 
@@ -937,6 +940,15 @@ ifdef ?PE
 endif
 endif
 
+if ?EARLYIVTSAVE
+	push ss
+	pop ds
+	test bTmpFlgs, 1
+	jz @F
+	call saveivtvecs	;ES must be FLAT, ds=GROUP16
+@@:
+endif
+
 ;--- this log msg will cause a GPF, since limit CS is now too low
 ;	@dprintf "initsvr_pm: exit, esp=%lX", esp
 	jmp initsvr_pm_done
@@ -1714,6 +1726,10 @@ else
 	cmp al,'w'
 	jz disableem
  endif
+ if ?EARLYIVTSAVE
+	cmp al,'q'
+	jz earlyivtsave
+ endif
  if ?RESTRICTMEM
 	cmp al,'x'
 	jz restrictmem
@@ -1832,6 +1848,11 @@ endif
 if ?RESTRICTMEM
 restrictmem:
 	or fMode2, FM2_RESTRMEM
+	retn
+endif
+if ?EARLYIVTSAVE
+earlyivtsave:
+	or bTmpFlgs, 1
 	retn
 endif
 if ?INT15XMS

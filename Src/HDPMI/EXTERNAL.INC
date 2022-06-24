@@ -209,19 +209,22 @@ intr4B  proto near
 
 ;--- hdpmi
 
-EnlargeLDT proto near
-simint09 proto near
+EnlargeLDT       proto near
+simint09         proto near
 installirqhandler proto near
-pms_call_int proto near 	 ;call ring3 protected mode INT
-lpms_call_int proto near	 ;switch stack to LPMS, call ring3 pm INT
-_callrmsint proto near 		 ;call real-mode INT from client
-callrmintintern proto near	 ;call real-mode INT from inside host
-callrmprocintern proto near	 ;call real-mode near proc from inside host
-_myinit proto near			 
-retf2exit proto near		 ;adjust all std flags, then perform IRETD
-iret_with_CF_mod proto near  ;adjust CF, then perform IRETD
+pms_call_int     proto near	;call ring3 protected mode INT
+lpms_call_int    proto near	;switch stack to LPMS, call ring3 pm INT
+_callrmsint      proto near	;call real-mode INT from client
+callrmintintern  proto near	;call real-mode INT from inside host
+callrmprocintern proto near	;call real-mode near proc from inside host
+_myinit          proto near
+retf2exit        proto near	;adjust all std flags, then perform IRETD
+iret_with_CF_mod proto near	;adjust CF, then perform IRETD
 if ?HSINEXTMEM
-setuphoststack proto near
+setuphoststack   proto near
+endif
+if ?EARLYIVTSAVE
+saveivtvecs      proto near
 endif
 
 _exitclient_pm proto near	 ;terminate client

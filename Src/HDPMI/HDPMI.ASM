@@ -5352,7 +5352,11 @@ endif
 ;--- DS=GROUP16, ES=FLAT!
 ;--- preserve EDI, EBP!
 
+if ?EARLYIVTSAVE
+saveivtvecs proc public
+else
 saveivtvecs proc
+endif
 
 	test fMode, FM_IVTVECS
 	jnz exit

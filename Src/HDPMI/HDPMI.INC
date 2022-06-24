@@ -128,6 +128,7 @@ endif
 ?CHECKHOSTSTACK	equ 1	;std 1: 1=detect host stack exhaustion (in host reentries)
 ?CHECKLPMS		equ 1	;std 1: 1=detect LPMS exhaustion; v3.19
 ?RESTRICTMEM	equ 1	;std 1: 1=support -x option to restrict reported free mem
+?EARLYIVTSAVE	equ 0	;std 0: 1=save IVT vecs in host init phase
 
 if ?DPMI10EXX
 ?EXCRESTART		equ 1	;std 1: 1=support exception restartability
