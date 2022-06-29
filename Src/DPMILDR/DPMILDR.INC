@@ -3,6 +3,8 @@
 
 ?MULTPSP		= 1	;1, create a PSP for every task
 
+?NEWDBG equ 1	; new for v3.11, set to 0 for old behavior 
+
 ?LFNNT			= 0
 ifndef ?LFN
 ?LFN            = 1     ;1, 1=support LFN

@@ -711,7 +711,7 @@ if ?32BIT
 	or bEnvFlgs2, ENVFL2_ALLOWGUI
 @@:
 endif
-if 1	; v3.11: activated
+if 0	; v3.11: activated, but at another place
 	mov ax,004Fh
 	int 41h
 	cmp ax,0F386h
@@ -1168,7 +1168,7 @@ if _SUPTSR_
 	jz int2131
 endif
 	cmp ah,4bh
-	jz is4b
+	jz is4BXX
 if ?DOS4G
 	cmp ax,0FF00h
 	jz is4g
@@ -1199,13 +1199,13 @@ oldint41 dd 0
   endif
 endif
 	align 4
-is4b:
+is4BXX:
 if _ONLY4B00_
 	cmp al,01h
-	jbe int214b
+	jbe int214b0x
 else
 	cmp al,3
-	jbe int214b
+	jbe int214b0x
 endif
 	cmp al, 80h
 	jnz @F
@@ -1558,7 +1558,7 @@ l214c_3:
 	invoke string_out_prefix, offset szErr21
 	jmp fatalerror
 
-;*** int 21, AH=4Bh (execute programm, DS:(E)DX=Pfad)
+;*** int 21, AH=4B0xh (execute programm, DS:(E)DX=Pfad), x=0 | 1
 ;*** ES:(E)BX -> exec parameter block
 ;*** parameter block (16bit) looks like:
 ;*** WORD  environment ; environment segment or 0
@@ -1570,7 +1570,7 @@ l214c_3:
 ;*** QWORD fcb1        ; FCB 1         (-> PSP:5C)
 ;*** QWORD fcb2        ; FCB 2         (-> PSP:6C)
 
-int214b proc
+int214b0x proc
 if ?CHECKCALLER
 	call checkcaller	;called by loader?
 	jnz @F
@@ -1731,7 +1731,7 @@ else
 endif
 	pop ax
 	@iret
-int214b endp
+int214b0x endp
 
 if ?NEAPPS
 
@@ -1843,8 +1843,10 @@ endif
 if ?INT41SUPPORT
 	mov ax,DS_StartTask		;CX:BX=CS:IP
 	int 41h
- if 0	;v3.11 removed DPMILDR=1
-	test cs:bEnvFlgs,ENVFL_BREAKATENTRY
+ ife ?NEWDBG				; v3.11: new handling: set INT3, old handling: call DS_ForcedGO
+;	test cs:bEnvFlgs,ENVFL_BREAKATENTRY	;v3.11 removed DPMILDR=1
+;	jz @F
+	test cs:fMode, FMODE_DEBUGGER
 	jz @F
 	push es
 	mov es,cx				;force segment to be loaded
@@ -1933,10 +1935,12 @@ else
 	xor bp,bp
 endif
 if ?INT41SUPPORT	;v3.11: support debugger directly instead of DPMILDR=1
+ if ?NEWDBG
 	test cs:fMode, FMODE_DEBUGGER
 	jz @F
 	int 3
 @@:
+ endif
 endif
 	@iret
 StartApp16 endp
@@ -6239,8 +6243,9 @@ SearchModule16 endp
 ;*** CL: max. length of module name
 ;*** Out: AX= module handle
 ;***      module name in szModName
-;*** Entries: LoadLibIntern2: in DS:(E)DX=path
-;***          LoadLibIntern:  in ES:(E)SI=module name, length in CX
+;*** Entries:
+;--- LoadLibIntern2: DS:(E)DX=path, called by int 21h, ax=4B00h/4B01h
+;*** LoadLibIntern:  ES:(E)SI=module name, length in CX
 
 LoadLibIntEx:
 	ret
@@ -6305,8 +6310,16 @@ else
 	mov word ptr [blksize+0],di   ;is used as temp variable here
 	mov word ptr [blksize+2],es
 endif
+if 1	; v3.11: activated here, so a NE-format debugger has a chance to be detected (hxhelp.exe)
+	mov ax,004Fh
+	int 41h
+	cmp ax,0F386h
+	jnz @F
+	or fMode, FMODE_DEBUGGER
+@@:
+endif
 	jmp @F
-LoadLibIntern::							;<--- entry
+LoadLibIntern::					;<--- entry
 	mov di,offset szModName
 if ?32BIT
 	movzx edi,di
@@ -6316,7 +6329,7 @@ else
 	mov word ptr [blksize+0],di
 	mov word ptr [blksize+2],ds
 endif
-@@:										;used by LoadLibIntern+LoadLibIntern2
+@@:								;used by LoadLibIntern+LoadLibIntern2
 	mov ah,00					;copy name
 	mov di,offset szModName
 nextitem:

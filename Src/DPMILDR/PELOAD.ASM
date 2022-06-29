@@ -1460,9 +1460,6 @@ if ?INT41SUPPORT
 	mov ax,DS_StartTask+100h;CX:EBX=CS:IP
 	int 41h
 endif
-	pushfd
-	push ecx
-	push ebx
 if ?INT41SUPPORT
 ;--- v3.11: that ax=4B01h will cause a forced stop at program entry 
 ;---        is undocumented and has been removed.
@@ -1471,18 +1468,37 @@ if ?INT41SUPPORT
 ;--- v3.11: switch DPMILDR=1 deactivated
 ;---        instead an exc 03 is generated if a debugger is detected.
 ;	test byte ptr rEAX, 1	; was it int 21h, ax=4B01h?
-;	jnz @F
+;	jnz xxx
 ;	test cs:bEnvFlgs,ENVFL_BREAKATENTRY
-;	jz nobreak
-;@@:
-;	mov ax,DS_ForcedGO		; "set breakpoint at cx:ebx"
-;	int 41h 				; cx:ebx=cs:eip
+;	jz @F
+;xxx:
+ if ?NEWDBG
+	push ebx
+	push ecx
+	sub edi, retapp32 - jmppgmentry
 	test cs:fMode, FMODE_DEBUGGER
 	jz @F
-	int 3
+	dec edi
 @@:
-endif
+	push edi
+	retd
+	int 3
+jmppgmentry:
+	ret
+ else
+	mov ax,DS_ForcedGO		; "set breakpoint at cx:ebx"
+	int 41h 				; cx:ebx=cs:eip
+	pushfd
+	push ecx
+	push ebx
 	@iret
+ endif
+else
+	pushfd
+	push ecx
+	push ebx
+	@iret
+endif
 retapp32:
 	mov ah, 4Ch
 	int 21h
