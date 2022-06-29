@@ -151,57 +151,57 @@ _Cs		dw ?
 _Efl	dw ?
 IRETS ends
 
-EXECPM	struct
+EXECPM struct
 environ	dw ?
 cmdline dd ?
 fcb1    dd ?
 fcb2    dd ?
-EXECPM	ends        
+EXECPM ends        
 
-@iret	macro
-		iret
-        endm
+@iret macro
+	iret
+endm
 
-@retf	macro
-		db 66h
-        retf
-        endm
+@retf macro
+	db 66h
+	retf
+endm
 
 @switchcs macro
 if ?WINSUPP
-		db 66h,0eah
-        dd $+6
-        dw DGROUP
+	db 66h,0eah
+	dd $+6
+	dw DGROUP
 endif        
-		endm
+endm
 
 @loadcs macro reg        
 if ?WINSUPP
-        mov	reg,g_cs16alias
+	mov reg, g_cs16alias
 else        
-        mov	reg,cs
+	mov reg, cs
 endif        
-        endm
+endm
 
 @callint21 macro
-		pushf
-        call [oldint21]
-        endm
+	pushf
+	call [oldint21]
+endm
 
 @callint31 macro
-		pushf
-        call [oldint31]
-        endm
+	pushf
+	call [oldint31]
+endm
 
 @lodsdflat macro
-		db 65h		;GS prefix
-		lodsd
-		endm
+	db 65h		;GS prefix
+	lodsd
+endm
 
 @lodswflat macro
-		db 65h		;GS prefix
-		lodsw
-		endm
+	db 65h		;GS prefix
+	lodsw
+endm
 
 @prologue macro procname,flag,parmbyte,localbyte,reglist,userparms
 
@@ -235,43 +235,43 @@ _Cs		dd ?
 _Efl	dd ?
 IRETS ends
 
-EXECPM	struct
+EXECPM struct
 cmdline dq ?
 fcb1    dq ?
 fcb2    dq ?
-EXECPM	ends        
+EXECPM ends        
 
-@iret	macro
-		iretd
-        endm
+@iret macro
+	iretd
+endm
 
-@retf	macro
-        retf
-        endm
+@retf macro
+	retf
+endm
 
 @switchcs macro
-		endm
+endm
 
 @loadcs macro reg        
-        mov	reg,cs
-        endm
+	mov reg,cs
+endm
 
 @callint21 macro
-		pushfd
-        call [oldint21]
-        endm
+	pushfd
+	call [oldint21]
+endm
 
 @callint31 macro
-		pushfd
-        call [oldint31]
-        endm
+	pushfd
+	call [oldint31]
+endm
 
 @lodsdflat macro
-		lodsd
-		endm
+	lodsd
+endm
 
 @lodswflat macro
-		lodsw
-		endm
+	lodsw
+endm
 
 endif

@@ -26,7 +26,12 @@
  
  History
 
- 07/15/2018, V1.4  
+ 29.06.2022, V1.5
+
+ - last byte of a segment wasn't read because the segment limit was interpreted
+   incorrectly.
+
+ 07/15/2018, V1.4
 
  - added a few error checks.
  - bugfix: HXHELP does modify the DPMILDxx flags to ensure the loader won't
@@ -36,7 +41,7 @@
  - bugfix: the 16-bit trap file HXHP16.EXE assumed hiword of ESP to be
    zeroed when loading XMM register values, causing a crash.
 
- 12/16/2012, V1.3  
+ 12/16/2012, V1.3
 
  - will allow the debugger to get and set XMM registers.
  - bugfix: section mapping didn't work reliably.

@@ -1,0 +1,7 @@
+
+OP MODNAME=HXHP16
+OP STUB=..\DPMILDR\STUB16\DPMILD16.BIN
+OP stack=0x800
+OP protmode
+SEGMENT type code fixed
+SEGMENT type data fixed

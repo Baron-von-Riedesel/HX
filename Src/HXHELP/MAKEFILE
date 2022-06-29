@@ -37,7 +37,7 @@ ALL: $(OUTDIR)\$(NAME).EXE
 $(OUTDIR):
 	@mkdir $(OUTDIR)
 
-$(OUTDIR)\$(NAME).EXE: $(OUTDIR)\hxhelp.obj Makefile $(OUTDIR)\privprof.obj
+$(OUTDIR)\$(NAME).EXE: $(OUTDIR)\hxhelp.obj Makefile $(OUTDIR)\privprof.obj ..\DPMILDR\STUB32\dpmild32.bin
 !if $(MSLINK)
 	$(LINKBIN) @<<
 $*.obj $(OUTDIR)\privprof.obj
@@ -53,7 +53,7 @@ $*.obj $(OUTDIR)\privprof.obj
 !else
 	@$(LINKBIN) format win pe hx ru console name $*.EXE @<<
 file $*.obj, $(OUTDIR)\privprof.obj
-op q, offset=0x3E0000, stack=0x2000, heap=0x1000, map=$*.MAP, stub=$(HXINST)\bin\dpmild32.bin
+op q, offset=0x3E0000, stack=0x2000, heap=0x1000, map=$*.MAP, stub=..\DPMILDR\STUB32\dpmild32.bin
 <<
 !endif
 

@@ -8,6 +8,8 @@ ifndef ?DLL
 ?DLL	equ 0
 endif
 
+?MDUSEINP	equ 1	;use input if REQ_MACHINE_DATA
+
 		.486
 if ?FLAT
 		.model flat, stdcall
@@ -277,8 +279,8 @@ ReqTable		label dword
 		dd Request_Map_Addr 	;7
 		dd REQ_ADDR_INFO		;8 obsolete?
 		dd REQ_CHECKSUM_MEM 	;9
-		dd REQ_READ_MEM 		;10
-		dd REQ_WRITE_MEM		;11
+		dd Request_Read_Mem		;10
+		dd Request_Write_Mem	;11
 		dd REQ_READ_IO			;12
 		dd REQ_WRITE_IO 		;13
 		dd REQ_READ_CPU 		;14
@@ -2127,7 +2129,7 @@ testrmcs endp
 ; machine_data_req.addr.segment
 REQ_MACHINE_DATA struct
 bReq		db ?
-bInfo		db ?	;is always 0
+bInfo		db ?	;info type (is always 0?)
 dwOfs		dd ?
 wSeg		dw ?
 REQ_MACHINE_DATA ends
@@ -2171,25 +2173,41 @@ no32bit:
 	mov al,0
 gmdata:
 	mov [edi].REPLY_MACHINE_DATA.bFlags,al
-if 0
+if ?MDUSEINP
 	mov ax,6
 	push ecx
 	@callint31
 	push cx
 	push dx
 	pop eax
+	push [esi].REQ_MACHINE_DATA.dwOfs
+	pop [edi].REPLY_MACHINE_DATA.cache_start
+	add [edi].REPLY_MACHINE_DATA.cache_start,eax
+
 	pop ecx
 else
 	xor eax,eax
-endif
 	mov [edi].REPLY_MACHINE_DATA.cache_start,eax
-if 0
-	lsl edx,ebx
+endif
+if ?MDUSEINP
+	push ecx
+	lar ecx, ebx
+	jnz ulset
+	lsl edx, ebx
+	test ch, 08	;DATA?
+	jnz @F
+	test ch, 04	;expand down?
+	jz @F
+	or eax, -1
+	jmp ulset
+@@:
 	add eax,edx
+ulset:
+	pop ecx
 else
 	dec eax
 endif
-	mov [edi].REPLY_MACHINE_DATA.cache_end,eax
+	mov [edi].REPLY_MACHINE_DATA.cache_end, eax
 done:
 	add edi,sizeof REPLY_MACHINE_DATA
 	add esi,sizeof REQ_MACHINE_DATA
@@ -2366,18 +2384,27 @@ WriteFlatMemory endp
 ;ECX,ESI & EDI updated.
 ;
 ;*******************************************************************************
-REQ_READ_MEM proc
-	movzx ebx,word ptr [esi+1+4]
+
+REQ_READ_MEM struct
+bReq	db ?
+dwOfs	dd ?
+wSeg	dw ?
+wSize	dw ?
+REQ_READ_MEM ends
+
+
+Request_Read_Mem proc
+	movzx ebx, [esi].REQ_READ_MEM.wSeg
 if ?RMDBGHLP
 	cmp g_fRealMode,0
 	jz isprotmode
 isrealmode:
 	shl ebx, 4
-	movzx edx, word ptr [esi+1]
+	movzx edx, word ptr [esi].REQ_READ_MEM.dwOfs
 	add ebx, edx
 	push ecx
 	push esi
-	movzx ecx,word ptr [esi+1+6]
+	movzx ecx, [esi].REQ_READ_MEM.wSize
 	mov esi, ebx
 	call ReadFlatMemory
 	pop esi
@@ -2386,6 +2413,14 @@ isrealmode:
 isprotmode:
 	lar eax,ebx
 	jnz isrealmode
+ if ?DPMI16         ; v1.5: handle "not present" segments
+	test ah, 80h	; segment present?
+	jnz @F
+	push fs
+	mov fs, ebx
+	pop fs
+ @@:
+ endif
 	verr bx
 	jnz done
 endif
@@ -2407,33 +2442,34 @@ isvalid:
 	and ah,0Ch
 	cmp ah,04h					;expand down?
 	jnz noed
-	mov eax,dword ptr [esi+1]	;get the offset
+	mov eax, [esi].REQ_READ_MEM.dwOfs
 	cmp eax,ebp
 	ja limitok
 	jmp done
 noed:
-	movzx eax,word ptr [esi+1+6]	;get length.
-	add eax,dword ptr [esi+1]	;include the offset.
-	cmp eax,ebp
-	jc limitok
-	sub eax,ebp
-	test eax,0FFFF0000h
+	movzx eax, [esi].REQ_READ_MEM.wSize
+	add eax, [esi].REQ_READ_MEM.dwOfs
+	cmp eax, ebp
+;	jc limitok		;v1.5 ( include the last byte of the segment )
+	jbe limitok
+	sub eax, ebp
+	test eax, 0FFFF0000h
 	jnz @@0rmem
-	sub word ptr [esi+1+6],ax
+	sub [esi].REQ_READ_MEM.wSize, ax
 	jc @@0rmem
 	jz @@0rmem
 limitok:
 	cmp bIsGDT,-1
 	jnz @F
 	push fs
-	mov fs,ebx
-	mov edx,[esi+1]
+	mov fs, ebx
+	mov edx,[esi].REQ_READ_MEM.dwOfs
 	jmp isgdt
 @@:
-	add edx,[esi+1]
+	add edx,[esi].REQ_READ_MEM.dwOfs
 isgdt:
 	pushs ecx,esi
-	movzx ecx,word ptr [esi+1+6]
+	movzx ecx, [esi].REQ_READ_MEM.wSize
 	mov esi,edx
 	or ecx,ecx
 @@2rmem:
@@ -2458,10 +2494,10 @@ isgdt:
 @@:
 @@0rmem:
 done:
-	add esi,1+6+2
-	sub ecx,1+6+2
+	add esi, sizeof REQ_READ_MEM
+	sub ecx, sizeof REQ_READ_MEM
 	ret
-REQ_READ_MEM endp
+Request_Read_Mem endp
 
 
 ;*******************************************************************************
@@ -2479,19 +2515,25 @@ REQ_READ_MEM endp
 ;ECX,ESI & EDI updated.
 ;
 ;*******************************************************************************
-REQ_WRITE_MEM proc
+REQ_WRITE_MEM struct
+bReq	db ?
+dwOfs	dd ?
+wSeg	dw ?
+REQ_WRITE_MEM ends
 
-	movzx ebx,word ptr [esi+1+4]
+Request_Write_Mem proc
+
+	movzx ebx, [esi].REQ_WRITE_MEM.wSeg
 if ?RMDBGHLP
-	cmp word ptr [esi+1+2],0	;HIWORD of addr != 0?
+	cmp word ptr [esi].REQ_WRITE_MEM.dwOfs+2,0	;HIWORD of addr != 0?
 	jnz isprotmode2
 	cmp g_fRealMode,0
 	jz isprotmode
 isrealmode:
 	shl ebx, 4
-	mov edx, [esi+1]
-	add esi,1+6
-	sub ecx,1+6
+	mov edx, [esi].REQ_WRITE_MEM.dwOfs
+	add esi, sizeof REQ_WRITE_MEM
+	sub ecx, sizeof REQ_WRITE_MEM
 	mov eax,ebx
 	or eax,edx		;is is 0000:0000? (comes from invalid mapping)
 	jz write_err
@@ -2521,26 +2563,27 @@ endif
 	and ah,0Ch
 	cmp ah,04h					;expand down?
 	jnz noed
-	mov eax,dword ptr [esi+1]	;get the offset
+	mov eax, [esi].REQ_WRITE_MEM.dwOfs
 	cmp eax,ebp
 	ja limitok
 	jmp write_err
 noed:
 	mov eax,ecx 		;get length.
-	sub eax,1+6
-	add eax,[esi+1] 	;include the offset.
+	sub eax, sizeof REQ_WRITE_MEM
+	add eax,[esi].REQ_WRITE_MEM.dwOfs
 	cmp eax,ebp
-	jc limitok
+;	jc limitok		;v1.5 include the last byte
+	jbe limitok
 	sub eax,ebp
 	sub ecx,eax
 	js write_err
 	jz write_err
 limitok:
-	add edx,[esi+1]
+	add edx,[esi].REQ_WRITE_MEM.dwOfs
 	push edi
 	mov edi,edx
-	add esi,1+6			;let esi point to the data to write
-	sub ecx,1+6
+	add esi, sizeof REQ_WRITE_MEM	;let esi point to the data to write
+	sub ecx, sizeof REQ_WRITE_MEM
 	xor eax,eax
 	xchg esi,edi
 nextitem:
@@ -2564,7 +2607,7 @@ done:
 	add edi,2
 	xor ecx,ecx
 	ret
-REQ_WRITE_MEM endp
+Request_Write_Mem endp
 
 ;*******************************************************************************
 ;
@@ -3175,11 +3218,13 @@ REQ_PROG_LOAD proc
 
 if ?FLAT or ?NE
 ;--- this call changes DPMILDR variable in DPMILD32
-;--- bit 01h=1 is to make DPMILD32 call the debugger with CS:EIP in CX:EBX
-;--- bit 08h=0 is to prevent DPMILD32 to start a new instance
-;--- bit 10h=1 is to prevent DPMILD32 from protecting r/o sections
-	mov cx,0019h	;mask for bits to change
-	mov dx,0011h	;values for these bits
+;--- obsolete [bit 0=1 is to make DPMILD16/32 call the debugger with CS:EIP in CX:EBX]
+;--- bit 3=0 is to make current DPMILD16/32 handle int 21h, ax=4B00h
+;--- bit 4=1 is to prevent DPMILD32 from protecting r/o sections
+;   mov cx,0019h	;mask for bits to change
+;   mov dx,0011h	;values for these bits
+	mov cx,0018h	;mask for bits to change
+	mov dx,0010h	;values for these bits
 	mov ax,4b94h	;set DPMILDR variable
 	@callint21
 	mov dwOldLdrBits, eax
@@ -3334,7 +3379,7 @@ isnoPE:
 	jc no_module 
 	movzx eax,ax
 else
-	mov eax,DebugModule	
+	mov eax,DebugModule
 endif
 setmodule:
 	mov [DebugModule],eax
@@ -3343,14 +3388,14 @@ no_module:
 ;
 ;Setup results.
 ;
-	mov edi,@@outaddr
-	mov [edi].REPLY_PROG_LOAD.dwError,0
+	mov edi, @@outaddr
+	mov [edi].REPLY_PROG_LOAD.dwError, 0
 	mov [edi].REPLY_PROG_LOAD.bFlags, LD_FLAG_DISPLAY_DAMAGED
-	mov eax,DebugPSP
-	mov edx,DebugModule
-	mov [edi].REPLY_PROG_LOAD.dwTask,eax
-	mov [edi].REPLY_PROG_LOAD.dwModule,edx
-	cmp eax,g_psp
+	mov eax, DebugPSP
+	mov edx, DebugModule
+	mov [edi].REPLY_PROG_LOAD.dwTask, eax
+	mov [edi].REPLY_PROG_LOAD.dwModule, edx
+	cmp eax, g_psp
 	jnz @F
 	invoke String2File, CStr("*** error: psp is still trap helper psp!",13,10)
 @@:
@@ -3380,7 +3425,7 @@ load_error1:
 	invoke Word2Ascii, eax, offset LoadErrCode
 	mov eax,MSG_8
 load_error:
-	lss esp,fword ptr [DebuggerESP]
+	lss esp, fword ptr [DebuggerESP]
 	pop ebp				;throw away the return address
 	pop ebp
 	mov edi,@@outaddr
@@ -3394,10 +3439,10 @@ load_error:
 ;Return results to caller.
 ;
 load_done:
-	mov edi,@@outaddr
-	add edi,sizeof REPLY_PROG_LOAD
-	mov ecx,@@incount
-	mov esi,@@inaddr
+	mov edi, @@outaddr
+	add edi, sizeof REPLY_PROG_LOAD
+	mov ecx, @@incount
+	mov esi, @@inaddr
 	ret
 REQ_PROG_LOAD endp
 
@@ -5018,21 +5063,6 @@ Int03Handler proc near
 Int03Handler endp
 
 ;--- general exception handling
-;--- [ebp+0*4]: QWORD dpmi return
-;--- [ebp+2*4]: errorcode
-;--- [ebp+3*4]: eip
-;--- [ebp+4*4]: cs
-;--- [ebp+5*4]: eflags
-;--- [ebp+6*4]: esp
-;--- [ebp+7*4]: ss
-
-;--- [ebp+0*2]: DWORD dpmi return
-;--- [ebp+2*2]: errorcode
-;--- [ebp+3*2]: eip
-;--- [ebp+4*2]: cs
-;--- [ebp+5*2]: eflags
-;--- [ebp+6*2]: esp
-;--- [ebp+7*2]: ss
 
 SaveRegsExc proc
 
@@ -5057,16 +5087,22 @@ stopexec:
 	mov Debuggee.cpu._Es,es
 	mov Debuggee.cpu._Fs,fs
 	mov Debuggee.cpu._Gs,gs
-	pop eax				;throw away return address
-	pop eax
+	pop eax				; throw away return address
+	pop eax				; get exc#
 
 	mov ebp,ss
 	lar ebp,ebp
 	test ebp,400000h
-	mov ebp,esp 		;make stack addresable.
+	mov ebp, esp 		;make stack addresable.
 	jnz @F
-	movzx ebp,bp
+	movzx ebp, bp
 @@:
+
+;--- status here:
+;--- ax=exc#
+;--- 32bit: ebp-> EXCFRAME
+;--- 16bit: ebp-> EXCFRAME16
+
 	cmp al,1
 	jnz isnot1
 	or TraceFlag,-1
