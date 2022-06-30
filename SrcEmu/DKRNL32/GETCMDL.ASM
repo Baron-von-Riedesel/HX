@@ -98,18 +98,25 @@ local	cmdline[1024]:byte
 	invoke GetDosCmdTail, addr cmdline, sizeof cmdline
 	@strace <"Length of dos command tail: ", edx>
 	.if (edx > 7Eh)
-		invoke GetEnvironmentVariableA, CStr("CMDLINE"), addr cmdline, sizeof cmdline
+		call getcmdlinevar
 	.endif
 	inc eax
 	mov dwSize, eax
 	invoke LocalAlloc, LMEM_FIXED, eax
-	and eax,eax
-	jz exit
+
+;--- v3.8: if no heap defined, return value of CMDLINE variable in environment
+	.if !eax
+		call getcmdlinevar
+		or eax, eax
+		jz exit
+		mov eax, edx
+		jmp exit
+	.endif
 
 	mov [esi].PROCESS.pCmdLine, eax
 
-	mov edi,eax
-	lea esi,cmdline
+	mov edi, eax
+	lea esi, cmdline
 
 	@trace <"commandLine: !">
 	@trace esi
@@ -123,6 +130,9 @@ local	cmdline[1024]:byte
 exit:
 	@strace <"GetCommandLineA()=", eax>
 	ret
+getcmdlinevar:
+	invoke GetEnvironmentVariableA, CStr("CMDLINE"), addr cmdline, sizeof cmdline
+	retn
 	align 4
 
 GetCommandLineA endp

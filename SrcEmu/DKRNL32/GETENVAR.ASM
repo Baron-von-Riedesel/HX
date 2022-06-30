@@ -82,7 +82,7 @@ endif
 			mov al,0
 			repnz scasb
 			sub edi, esi
-			mov eax, edi
+			mov eax, edi       ; size of value+00 in eax
 			cmp eax, maxsize
 			ja done
 			push eax
@@ -103,6 +103,7 @@ endif
 error:
 	xor eax, eax
 done:
+	mov edx, esi	; v3.8: return address of value in source in edx ( for GetCommandLineA )
 ife ?FLAT
 	pop es
 endif

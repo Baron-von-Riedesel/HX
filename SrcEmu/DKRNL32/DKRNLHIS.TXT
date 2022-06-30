@@ -7,6 +7,7 @@
   þ SetConsoleScreenBufferSize will accept current video params.
   þ int 41h, ax=159h: don't just return, but route this call to next handler.
   þ if debugger has been detected, don't handle Int 01 or Int 03.
+  þ fixed: if application had no heap, GetCommandLine() failed.
 
   30.03.2022: version 3.7
 

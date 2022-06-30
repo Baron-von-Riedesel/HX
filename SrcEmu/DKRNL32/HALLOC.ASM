@@ -321,6 +321,8 @@ endif
 	and ebx,ebx
 	jz exit
 	mov esi,heap
+	or esi, esi		;v3.8: check added
+	jz exit
 	cmp [esi].HEAPDESC.start, ebx
 	jnc exit							;error invalid handle
 	mov ecx,[ebx-4].FLITEM.dwSize
