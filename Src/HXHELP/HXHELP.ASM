@@ -2146,10 +2146,19 @@ if ?RMDBGHLP
 	cmp g_fRealMode,0
 	jz isprotmode
 isrealmode:
+if ?MDUSEINP
+	shl ebx, 4
+	mov eax, [esi].REQ_MACHINE_DATA.dwOfs
+	add eax, ebx
+	mov [edi].REPLY_MACHINE_DATA.cache_start,eax
+	add eax, 65535
+	mov [edi].REPLY_MACHINE_DATA.cache_end,eax
+else
 	xor eax, eax
 	mov [edi].REPLY_MACHINE_DATA.cache_start,eax
 	or eax,-1
 	mov [edi].REPLY_MACHINE_DATA.cache_end,eax
+endif
 	mov dl,0
 if 1
 	call testrmcs
