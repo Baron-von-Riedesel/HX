@@ -1857,11 +1857,11 @@ if ?INT41SUPPORT
  endif
 endif
 if ?32BIT
-	pushfd
+;	pushfd
 	push ecx
 	push ebx
 else
-	pushf
+;	pushf
 	push cx
 	push bx
 endif
@@ -1942,7 +1942,11 @@ if ?INT41SUPPORT	;v3.11: support debugger directly instead of DPMILDR=1
 @@:
  endif
 endif
-	@iret
+;	@iret		; Open Watcom's WD isn't happy with IRET(D)s
+if ?32BIT
+	db 66h
+endif
+	retf
 StartApp16 endp
 
 endif ;?NEAPPS
