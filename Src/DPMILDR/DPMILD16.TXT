@@ -354,6 +354,8 @@
    is present via Int 41h and execs a breakpoint instruction at program entry.
  þ dgroup alias segments now have the "preload" flag set to support tiny
    model.
+ þ bugfix: changing value of DPMILDR=8 by API int 21h, ax=4b94h may have
+   caused the loader not to release the PSP and environment of a task.
  
  01.03.2008: version 3.5
 

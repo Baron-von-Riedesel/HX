@@ -1,0 +1,23 @@
+
+# NMAKE makefile
+# uses jwasm
+
+!include <..\dirs>
+
+name = InitApp
+
+AOPT = -c -nologo -Fl$* -Fo$*
+
+OUTDIR=Release
+
+ALL: $(OUTDIR) $(OUTDIR)\$(name).obj
+
+$(OUTDIR):
+	@mkdir $(OUTDIR)
+
+$(OUTDIR)\$(name).obj: $(name).asm MAKEFILE
+	@$(ASM) $(AOPT) $(name).asm
+
+clean:
+	@del $(OUTDIR)\*.obj
+	@del $(OUTDIR)\*.lst

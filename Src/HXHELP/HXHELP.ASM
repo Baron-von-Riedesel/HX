@@ -221,8 +221,8 @@ OldInt75		INTVEC 0	;should get both prot-mode and real-mode ints
 
 
 OldExc00		df 0
-OldExc01		df 0
-OldExc03		df 0
+OldExc01		df 0,0
+OldExc03		df 0,0
 OldExc04		df 0
 OldExc05		df 0
 OldExc06		df 0
@@ -233,12 +233,12 @@ OldExc0D		df 0
 OldExc0E		df 0
 OldExc10		df 0
 
-excstr	struct
+excstr struct
 bExc	db ?
-bFirst	db ?
+bFirst	db ?	; 1=debugger must be first in chain
 pOldVec	dd ?
 pProc	dd ?
-excstr	ends
+excstr ends
 
 InterruptTab label byte
 		excstr <00h, 0, offset OldInt00, offset Int00Handler>
@@ -803,7 +803,7 @@ endif
 
 	invoke String2File, CStr("Init RM Dbg Helper starts",13,10)
 	push es
-	mov es,g_psp
+	mov es, g_psp
 	mov es,es:[002Ch]
 	xor edi,edi
 	mov al,0
@@ -1057,13 +1057,13 @@ DeinitRMDbgHelper proc
 		mov bl, [esi+0]
 		mov dx, [esi+1]
 		mov cx, [esi+3]
-		mov ax,0201h
+		mov ax, 201h
 		@callint31
-		add esi,5
+		add esi, 5
 	.endw
 done:
 	mov ebx,g_dwRMData
-	mov ax,0101h
+	mov ax, 101h
 	@callint31
 	ret
 DeinitRMDbgHelper endp
@@ -1322,7 +1322,7 @@ main proc near c uses esi edi ebp
 	mov esi, offset ExceptionTab
 	.while ([esi].excstr.bExc != -1)
 		lodsw
-		mov bl,al
+		mov ebx,eax
 		mov ax,0202h
 		int 31h
 		lodsd
@@ -1331,6 +1331,12 @@ if ?DPMI16
 endif
 		mov [eax+0],edx
 		mov [eax+4],cx
+		test bh,1
+		jz @F
+		add eax, sizeof fword
+		mov [eax+0],edx
+		mov [eax+4],cx
+@@:
 		lodsd
 		mov edx, eax
 		@loadcs ecx
@@ -1409,6 +1415,17 @@ dontload:
 ;
 ;--- display last message here, before int 21h is restored!
 ;
+if 0
+	invoke String2File, CStr("current psp linear addr=")
+	mov ah, 51h
+	int 21h
+	mov ax, 6
+	int 31h
+	push cx
+	push dx
+	pop ebx
+	invoke Dword2File, ebx
+endif
 	invoke String2File, CStr("HX Trap helper terminates",13,10)
 	invoke CloseLogFile
 ;
@@ -1422,7 +1439,7 @@ dontload:
 		lodsd
 		mov edx,[eax+0]
 		mov cx,[eax+?SEGOFS]
-		test bh,2
+		test bh, 2
 		jz @F
 		mov edx,[eax+sizeof INTVEC+0]
 		mov cx,[eax+sizeof INTVEC+?SEGOFS]
@@ -3264,7 +3281,7 @@ if ?DPMI16
 	mov eax, offset ProgCommand
 	mov word ptr [ebx].EXECPM.cmdline+0, ax
 	mov word ptr [ebx].EXECPM.cmdline+2, ds
-	mov eax,g_psp
+	mov eax, g_psp
 	mov word ptr [ebx].EXECPM.fcb1+0,5Ch
 	mov word ptr [ebx].EXECPM.fcb1+2,ax
 	mov word ptr [ebx].EXECPM.fcb2+0,6Ch
@@ -3274,7 +3291,7 @@ if ?DPMI16
 else
 	mov dword ptr [ebx].EXECPM.cmdline+0, offset ProgCommand
 	mov dword ptr [ebx].EXECPM.cmdline+4, ds
-	mov eax,g_psp
+	mov eax, g_psp
 	mov dword ptr [ebx].EXECPM.fcb1+0,5Ch
 	mov dword ptr [ebx].EXECPM.fcb1+4,eax
 	mov dword ptr [ebx].EXECPM.fcb2+0,6Ch
@@ -3356,7 +3373,12 @@ backload:
 	test ecx,400000h
 	setnz cl
 	mov g_fPrevDef,cl
+
+
+;--- v1.5: there was a problem with handling of int 21h, ax=4b94h in dpmildr < v3.11:
+;--- PSP/ENV of debuggee weren't released if the DPMILDR=8 flag was modified.
 ife ?DPMI16
+
 	mov ax,6
 	@callint31
 	push cx
@@ -3365,8 +3387,7 @@ ife ?DPMI16
 	and eax,eax
 	jnz isnoPE
 
-;--- v1.5 restore bit 3 in dpmildr
-	mov cx,8	;mask for bits to change
+	mov cx,8			;mask for bits to change
 	mov edx,dwOldLdrBits;values for these bits
 	mov ax,4b94h
 	int 21h
@@ -4818,7 +4839,7 @@ endif
 ;
 ;Switch back to helpers PSP.
 ;
-	mov ebx,g_psp
+	mov ebx, g_psp
 	mov ah,50h
 	@callint21
 ;
@@ -5668,6 +5689,7 @@ endif
 	.while ([esi].excstr.bExc != -1)
 		.if ((bl == [esi].excstr.bExc) && ([esi].excstr.bFirst))
 			mov esi, [esi].excstr.pOldVec
+			add esi, sizeof fword
 			mov cx, [esi+4]
 if ?DPMI16
 			mov dx, [esi+0]
@@ -5689,6 +5711,7 @@ endif
 	.while ([esi].excstr.bExc != -1)
 		.if ((bl == [esi].excstr.bExc) && ([esi].excstr.bFirst))
 			mov esi, [esi].excstr.pOldVec
+			add esi, sizeof fword
 			mov [esi+4],cx
 if ?DPMI16
 			mov [esi+0],dx
@@ -5798,18 +5821,25 @@ int41break endp
 
 ;--- int 41h handler proc
 
+I41_FORCEDGO equ 0
+I41_HIDEUNTILBREAK equ 1
+
 Int41Handler proc
 	@switchcs
 	cmp cs:[bExecuting],0
 	jz default
 	cmp ax,004Fh		;debugger present?
 	jz int41_4F
+if I41_FORCEDGO
 	cmp ax,0040h		;breakpoint CX:BX?
 	jz int41_40
-	cmp ax,0059h		;start NE task?
-	jz int41_59
 	cmp ax,0F003h		;breakpoint CX:EBX?
 	jz int41_F003
+endif
+	cmp ax,0059h		;start NE task? CX:BX=entry
+	jz int41_59
+	cmp ax,0159h		;start PE task? CX:EBX=entry
+	jz int41_159
 	cmp ax,007Fh		;DS_CheckFault
 	jz int41_7F
 	cmp ax,0083h		;exception?
@@ -5821,6 +5851,10 @@ Int41Handler proc
 default:
 	jmp cs:[OldInt41]
 int41_4F:
+if I41_HIDEUNTILBREAK
+	cmp cs:[bExecuting],1
+	jnz default
+endif
 	mov ax,0F386h
 	@iret
 int41_7F:
@@ -5855,16 +5889,27 @@ endif
 	mov edx,offset int41exc
 	pop ds
 	@iret
+
+
 int41_59:
 	push ds
 	mov ds,cs:[g_dsreg]
-	mov DebugModule,es
-	pop ds
-	@iret
-int41_F003:
-int41_40:
+	mov DebugModule, es
+;	pop ds
+;	@iret
+	movzx ebx, bx
+	jmp @F
+int41_159:
 	push ds
 	mov ds,cs:[g_dsreg]
+	mov DebugModule, esi
+;	pop ds
+;	@iret
+
+;int41_F003:
+;int41_40:
+;	push ds
+;	mov ds,cs:[g_dsreg]
 if ?DEBUGLEVEL
 	invoke String2File, CStr("int 41, ax=40h/F003h occured, CS:EIP=")
 	invoke DWord2File, ecx
@@ -5872,8 +5917,9 @@ if ?DEBUGLEVEL
 	invoke DWord2File, ebx
 	invoke String2File, CStr(13,10)
 endif
+@@:
 	mov [Debuggee.cpu._Cs],cx
-if ?DPMI16
+if 0;?DPMI16
 	movzx ebx,bx
 endif
 	mov [Debuggee.cpu._Eip],ebx
@@ -5881,6 +5927,7 @@ endif
 	mov ecx,cs
 	mov ebx,offset int41break
 	@iret
+
 int41_12:
 int41_2:
 	pushad
@@ -5951,7 +5998,7 @@ local	szVar[16]:byte
 ;
 @@0rc:
 ;	invoke DisplayMsg, DosStr(<"searching config in execution path",13,10>)
-	mov ebx,g_psp
+	mov ebx, g_psp
 	mov ax,6
 	int 31h
 	push cx

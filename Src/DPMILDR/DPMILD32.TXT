@@ -344,7 +344,7 @@
        Input:
          EDX - new flags.
 
-     þ Int 21h, AX=4B94h: Set new value of variable DPMILDR.
+     þ Int 21h, AX=4B94h: Set new (internal) value of variable DPMILDR.
        Input:
          CX - mask for the bits to change
          DX - new values for these bits
@@ -484,6 +484,8 @@
  þ cleaned debug displays.
  þ switch DPMILDR=1 removed. Instead, the loader detects if a debugger
    is present via Int 41h and runs an Int 3 before program entry.
+ þ bugfix: changing value of DPMILDR=8 by API int 21h, ax=4b94h may have
+   caused the loader not to release the PSP and environment of a task.
 
  30.03.2022: version 3.10
  

@@ -168,10 +168,13 @@ endm
 endm
 
 @switchcs macro
+local lbl
 if ?WINSUPP
 	db 66h,0eah
-	dd $+6
+;	dd $+6            ; jwasm version 2.15 might have problems with $+6
+	dd lbl
 	dw DGROUP
+lbl:
 endif        
 endm
 

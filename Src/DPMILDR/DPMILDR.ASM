@@ -1240,7 +1240,7 @@ endif
 	jmp retf2ex
 @@:
 	cmp al, 94h			;set wEnvFlgs?
-	jnz @F
+	jnz @F              ;v3.11: to be fixed; resetting/setting bit 3 might be a problem ( PSP/ENV not released )
 	push ds
 	mov ds,cs:[wLdrDS]
 	mov ax,[wEnvFlgs]
@@ -1422,13 +1422,21 @@ if ?INT24RES or ?INT23RES
 endif
 	mov [wTDStk],si
 if ?MULTPSP
-if ?USE1PSP
-;--- is DPMILDR=8 set?
+ if ?USE1PSP
+;--- is DPMILDR=8 set? if yes, we must not "kill" one now,
+;--- since we didn't create a PSP then.
+;--- v3.11: fixed: the DPMILDR variable might have been changed by int 21h, ax=4B94h
+;--- so this variable should no determine if the PSP is to be killed or not!
+;--- now it's just checked if the PSP field is NULL.
+  if 0
 	test bEnvFlgs, ENVFL_LOAD1APPONLY
 	jz int214c_4
-;--- yes. since we didn't create a PSP then,
-;--- we must not "kill" one now.
-if ?DEBUG
+  else
+	cmp [si.TASK.wPSP], 0
+	jnz int214c_4
+  endif
+
+  if ?DEBUG
 	mov ah,51h
 	call doscall
 	mov ax,bx
@@ -1436,31 +1444,31 @@ if ?DEBUG
 	jc @F
 	@printf <"dpmildr: DPMILDR=8, current PSP segm is=%X", lf>, ax
 @@:
-endif
+  endif
 	jmp i214c_1	;exit int 21h
 int214c_4:
-endif
+ endif
 	mov bx,[si.TASK.wPSP]	; get PSP of terminating task
 	@printf <"dpmildr: last task's PSP selector=%X", lf>, bx
 	and bx,bx				; might actually be 0 ( DPMILDR=8? )
 	jz i214c_1				; exit int 21h
 
 	mov es,bx
-if 0						;win31, 9x, NT, XP work with selector
+ if 0						;win31, 9x, NT, XP work with selector
 	mov ax,[wPSPSegm]		;use loader psp segment
 	test fMode, FMODE_ISNT
 	jz @F
-endif
+ endif
 	mov ax,[wLdrPSP]			;use loader psp selector for NT!!!
 @@:
 	mov es:[PARPSP],ax
 
-if _CLEARENV_
+ if _CLEARENV_
 	mov word ptr es:[ENVIRON],0000
-endif
-if ?32RTMBUG					;32RTM.EXE doesn't know int 21, ah=00 (is 0)
+ endif
+ if ?32RTMBUG					;32RTM.EXE doesn't know int 21, ah=00 (is 0)
 	call KillManually
-else
+ else
 	@printf <"dpmildr: task ptr(si) before dos kill=%X", lf>, si
 
 ;--- even if dos kill works it doesn't free selectors for PSP and ENV
@@ -1470,7 +1478,7 @@ else
 	pop es
 	push bx
 
-if _LOADERPARENT_
+  if _LOADERPARENT_
 	mov ax,[wLdrPSP]
 	mov bx,[wTDStk]
 	cmp bx,offset starttaskstk
@@ -1478,7 +1486,7 @@ if _LOADERPARENT_
 	mov ax,[bx.TASK.wPSP - sizeof TASK]
 @@:
 	push ax
-endif
+  endif
 	@printf <"dpmildr: calling dos kill", lf>
 	mov ah,00h				;dos "kill" function
 	call doscall
@@ -1517,7 +1525,7 @@ pspfreed:
 	int 31h
 childselsdone:
 
-endif							;endif ?32RTMBUG
+ endif							;endif ?32RTMBUG
 endif							;endif ?MULTPSP
 
 i214c_1:
