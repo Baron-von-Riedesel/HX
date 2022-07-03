@@ -416,8 +416,7 @@ FDEBUG_OUTPFORKD	equ 2	;outputs to kernel debugger if present?
 FH_XMS		equ 1
 FH_VCPI		equ 2
 FH_RAW		equ 4
-FH_DPMI		equ 8
-FH_HDPMI    equ 40h		;there is another HDPMI host installed already
+FH_HDPMI    equ 40h		; there is another HDPMI host installed already
 FH_XMS30	equ 80h
 
 ;------------------------ HDPMI exit codes

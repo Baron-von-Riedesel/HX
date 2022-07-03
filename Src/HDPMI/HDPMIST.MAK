@@ -54,6 +54,8 @@ $(OUTD)\$(NAME).lib: $(OBJMODS) $(OUTD)\HDPMIST.obj
 	@jwlib -q -b $(NAME).lib -$(SRC).OBJ -INIT.OBJ +HDPMIST.obj
 	@cd ..
 
+$(OUTD)\$(NAME).obj: $(DEPS0)
+
 clean:
 	@del $(OUTD)\*.obj
 	@del $(OUTD)\*.lib

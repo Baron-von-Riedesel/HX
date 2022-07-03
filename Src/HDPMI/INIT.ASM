@@ -632,28 +632,24 @@ endif
 	int 2fh
 	and ax,ax
 	jnz nodpmi
-	or fHost,FH_DPMI
+
 if ?CALLPREVHOST
 	mov word ptr [dwHost16+0],di
 	mov word ptr [dwHost16+2],es
 endif
-	mov di,offset logo	;test if HDPMI is already loaded
-	mov si,di
-	mov cx,llogo	;cmp logo + version
+	mov al, EXIT_DPMIHOST_RUNNING
+	mov di, offset logo	;test if the host found is HDPMI
+	mov si, di
+	mov cx, llogo		;cmp logo + version
 	repz cmpsb
-	jnz nohdpmi
-	or fHost,FH_HDPMI
+	jnz initsvr_ex		;not identical, exit without installing
 	assume es:GROUP16
 	@drprintf "initsvr_rm: instance of HDPMI found, inst=%X, flags=%X",es, es:[wEnvFlags]
 	cmpsb				;is it the same mode (16/32)?
-	jnz @F
-	mov al, EXIT_DPMIHOST_RUNNING
-	jmp initsvr_ex		;then it can be used
+	jz initsvr_ex		;then it can be used
 	assume es:nothing
-@@:
+	or fHost, FH_HDPMI
 	@drprintf "but mode is different"
-	and fHost,not FH_DPMI
-nohdpmi:
 nodpmi:
 	mov ax,4300h		;check for XMS host
 	int 2fh
@@ -720,12 +716,6 @@ endif
 ;--- no VCPI host found
 
 vcpidone:
-
-	test fHost,FH_DPMI	;if DPMI server found
-	jz @F
-	mov al,EXIT_DPMIHOST_RUNNING	;exit (nothing to do)
-	jmp initsvr_ex
-@@: 						;neither VCPI nor DPMI found
 
 	test byte ptr dwFeatures,40h	;PAE supported?
 	jz @F
