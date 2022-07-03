@@ -356,6 +356,8 @@
    model.
  þ bugfix: changing value of DPMILDR=8 by API int 21h, ax=4b94h may have
    caused the loader not to release the PSP and environment of a task.
+ þ DPMILD16 will now load HDPMI16 if the initial switch to protected-mode
+   failed and the current host was HDPMI32.
  
  01.03.2008: version 3.5
 

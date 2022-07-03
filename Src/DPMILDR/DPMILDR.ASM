@@ -328,11 +328,11 @@ _BSS ends
 _ITEXT segment
 
 if ?SERVER
-if ?32BIT
+ if ?32BIT
 HostName db "HDPMI32.EXE",00
-else
+ else
 HostName db "HDPMI16.EXE",00
-endif
+ endif
 SIZE_HOSTNAME equ $-HostName
 endif
 
@@ -623,10 +623,10 @@ if ?HDPMI
 else
 	add bx,10h		;+ PSP
 endif
-	mov ah,4Ah		;now shrink memory (Real Mode)
+	mov ah,4Ah		; now shrink memory (Real Mode)
 	int 21h
 	mov bx,offset szShrkErr
-	jc main_err1	;shrink error (can this happen?)
+	jc main_err1	; shrink error (can this happen?)
 if ?DOSEMUSUPP
 	push 0F000h
 	pop es
@@ -640,7 +640,7 @@ if ?DOSEMUSUPP
 endif
 
 if ?LFN
-						;detect if lfn is installed
+					; detect if lfn is installed
 	mov ax,7147h
 	mov si,offset szPath
 	mov dl,0
@@ -650,19 +650,19 @@ if ?LFN
 	or fMode, FMODE_LFN
 @@:
 endif
-	int 11h 			;get equipment flags (MPC)
+	int 11h 		; get equipment flags (MPC)
 	mov [wEquip],ax
 if ?DEBUG
 	mov bx,3
-	mov ah,3Eh		;close AUX
+	mov ah,3Eh		; close AUX
 	int 21h
-	mov ah,45h		;duplicate file handle
+	mov ah,45h		; duplicate file handle
 	mov bx,1
 	int 21h
 endif
-	call JumpToPM		;initial switch to protected mode
+	call JumpToPM	; initial switch to protected mode
 	jnc @F
-main_err1:
+main_err1:			; <- "shrink" error
 	call stroutBX_prefix
 	mov ax,4C00h + RC_INITRM
 	int 21h
@@ -7466,6 +7466,7 @@ if ?HDPMI
 
 ;--- this is for the standalone DPMILD32.BIN stub
 ;--- runs in real-mode!
+;--- out: C if hdpmi returned with code > 3
 
 inithdpmi proc
 	pusha
@@ -7808,52 +7809,44 @@ restorememstrat endp
 
 JumpToPM proc
 	call changememstrat
-if ?SERVER
-	mov cx,1
-endif
-JumpToPM_1:
-	push cx
 	mov ax,1687h			;get address of PM entry in ES:DI
 	int 2Fh
-	pop cx
 	mov bp,offset szNoDPMI  ;message "no dpmi server"
 if ?32BIT
 	and ax,ax				;ax=0 -> DPMI server installed
-	jnz JumpToPM_2
+	jnz @F
 	mov bp,offset szNo32Bit ;message "no 32 bit apps supported"
 	test bl,1
 	jnz JumpToPM_3			;jmp if ok
+@@:
 else
 	and ax,ax
 	jz JumpToPM_3			;ok, DPMI host found
 endif
-JumpToPM_2:
+;--- no DPMI installed, optionally install HDPMI
 if ?SERVER
-	mov ax,bp
-  if ?DEBUG
-	and cx,cx
-	jz ERROR0
-  else
-	jcxz ERROR0				;just try 2 times, else error
-  endif
 	call loadserver			;try to load HDPMIxx
-	xor cx,cx
-	jmp JumpToPM_1			;try a second time
+	mov ax, 1687h
+	int 2Fh
+	and ax, ax
+	mov ax, bp
+	jnz error0
 else
   if ?HDPMI
 	call inithdpmi
-	jnc JumpToPM_1
-  endif
 	mov ax,bp
-	jmp ERROR0
+	jc error0
+  else
+	jmp error0
+  endif
 endif
-JumpToPM_3:
+JumpToPM_3:					; host exists and supports 16/32 bit
 	push es
 	push di
 	test si,si
 	jz @F
 	mov bx,si
-	mov ah,48h				  ;alloc real-mode mem block
+	mov ah,48h				;alloc real-mode mem block
 	int 21h
 	jc error1
 	mov es,ax
@@ -7868,7 +7861,6 @@ else
 endif
 	mov bp,sp
 	call dword ptr [bp]
-	mov ax,offset errstr3		;cannot switch to prot-mode
 	jc error3
 	@int3 _INT03JMPPM_
 	mov [wLdrDS],ds
@@ -7894,11 +7886,35 @@ else
 endif
 	add sp,4
 	ret
+error3:		;no switch possible
+	mov ax,offset errstr3		; cannot switch to prot-mode
+ife ?32BIT
+ if ?SERVER
+;--- v3.11: in case it's DPMILD16 and HDPMI32 is installed,
+;--- try to load HDPMI16 now
+	mov cx, es
+	pop dx
+	pop es
+	cmp word ptr es:[0],"DH"
+	jnz error0
+	cmp word ptr es:[2],"MP"
+	jnz error0
+	cmp byte ptr es:[7], 1
+	jnz error0
+	mov es, cx
+	mov ah, 49h		; free the memory that has been allocated for the host
+	int 21
+	call loadserver	; try to load HDPMI16
+	jmp JumpToPM	; and try again ( hopefully not entering an infinite loop ... )
+ endif
+endif
+	jmp @F
 error1:		;insufficient DOS memory
 	mov ax, offset errstr2
-error3:		;no switch possible
-	add sp,4
-ERROR0:		;no dpmi host
+@@:
+	pop bx	; clear stack
+	pop bx
+error0:		;no dpmi host
 	@printf <"initial switch failed, AX=%s",lf>, ax
 	push ax
 	call restorememstrat
