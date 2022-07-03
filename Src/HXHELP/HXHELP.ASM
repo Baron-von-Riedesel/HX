@@ -3415,6 +3415,10 @@ setmodule:
 	mov [DebugModule],eax
 no_module:
 	invoke String2File, CStr("debuggee loaded",13,10)
+	cmp g_fRealMode, 0
+	jz @F
+	invoke String2File, CStr("debuggee in real-mode",13,10)
+@@:
 ;
 ;Setup results.
 ;
