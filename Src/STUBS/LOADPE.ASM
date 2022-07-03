@@ -10,6 +10,7 @@
 	include dpmi.inc
 	.list
 
+?INT41		equ 1	;1=support int 41h debug interface
 ?MZMINSIZ	equ 40h	;size of MZ header to expect/read
 
 ifdef __JWASM__
@@ -339,11 +340,27 @@ endif
 	int 31h
 	add esp,34h
 
+if ?INT41
+	mov ecx, cs
+	mov ebx, edx
+	mov ax, 59h+100h
+	int 41h
+	mov edx, ebx
+endif
+
 ;--- call app/dll entry point
 
 	mov ebx,rmSeg
 	shl ebx, 4
 	xor ebp,ebp
+if ?INT41
+	mov ax, 4Fh
+	int 41h
+	cmp ax, 0f386h
+	jnz @F
+	int 3
+@@:
+endif
 	call edx
 	mov ah,4Ch
 	int 21h
