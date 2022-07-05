@@ -101,8 +101,8 @@ _enablea20 proto near16
 
 checkvxd proto near
 _I2f168A_Msdos proto near
-ifdef _DEBUG
-_I2f168A_HDPMI proto near
+if ?I2FHDPMI
+_I2f168A_Hdpmi proto near
 endif
 _vxd_0001 proto near
 _vxd_0009 proto near
@@ -249,7 +249,7 @@ externdef _RETCB_:abs
 externdef _RMSWT_:abs
 externdef _SRTSK_:abs
 externdef _I2F168A_MSDOS:abs
-ifdef _DEBUG
+if ?I2FHDPMI
 externdef _I2F168A_HDPMI:abs
 endif
 externdef _I2F1684_0001_:abs

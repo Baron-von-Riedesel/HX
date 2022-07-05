@@ -279,6 +279,11 @@ endif
 ?PREDEFIDTGATES equ 78h	;number of predefined IDT gates
 ?DIO2RMS		equ 1	;std 1: 1=copy diskio packet onto rm-stack (int 25h/26h/21h,ax=7305h)
 
+;ifdef _DEBUG			; since v3.20, the API is generally available ( to disable host from within client )
+?I2FHDPMI		equ 1	;std 1: 1=support vendor API int 2Fh, ax=168Ah
+;else
+;?I2FHDPMI		equ 0
+;endif
 
 ;----------------------------------------------------------------
 
@@ -416,22 +421,22 @@ FDEBUG_OUTPFORKD	equ 2	;outputs to kernel debugger if present?
 FH_XMS		equ 1
 FH_VCPI		equ 2
 FH_RAW		equ 4
-FH_HDPMI    equ 40h		; there is another HDPMI host installed already
+FH_HDPMI	equ 40h		; there is another HDPMI host installed already
 FH_XMS30	equ 80h
 
 ;------------------------ HDPMI exit codes
 
-;	 00 - hdpmi installed in Int15/raw mode
-;	 01 - hdpmi installed in XMS mode
-;	 02 - hdpmi installed in VCPI mode
-;	 03 - DPMI host found, no VCPI host found, hdpmi not installed
-;	 04 - error: DOS memory low, cannot initialize
-;	 05 - error: cannot enable A20 in raw mode 
-;	 06 - error: VCPI host has remapped PICs
-;	 07 - error: cpu in V86-mode, but no VCPI or DPMI host found
-;	 08 - error: DOS Version not 4+
-;	 09 - error: CPU not 80386+
-;	 0A - error: invalid cmdline
+;	00 - hdpmi installed in Int15/raw mode
+;	01 - hdpmi installed in XMS mode
+;	02 - hdpmi installed in VCPI mode
+;	03 - DPMI host found, no VCPI host found, hdpmi not installed
+;	04 - error: DOS memory low, cannot initialize
+;	05 - error: cannot enable A20 in raw mode 
+;	06 - error: VCPI host has remapped PICs
+;	07 - error: cpu in V86-mode, but no VCPI or DPMI host found
+;	08 - error: DOS Version not 4+
+;	09 - error: CPU not 80386+
+;	0A - error: invalid cmdline
 
 EXIT_HDPMI_IN_RAWMODE	equ 0
 EXIT_HDPMI_IN_XMSMODE	equ 1

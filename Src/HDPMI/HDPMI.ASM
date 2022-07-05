@@ -841,8 +841,8 @@ _RETF_ equ ($ - offset spectab) / 2 + 200h
 if ?INT21API
 	@defx _I2f168A_Msdos, _I2F168A_MSDOS	;"MS-DOS" DPMI extensions entry (retf)
 endif
-ifdef _DEBUG
-	@defx _I2f168A_HDPMI, _I2F168A_HDPMI	;"HDPMI" DPMI extensions entry (retf)
+if ?I2FHDPMI
+	@defx _I2f168A_Hdpmi, _I2F168A_HDPMI	;"HDPMI" DPMI extensions entry (retf)
 endif
 if ?SUPI2F16840001
 	@defx _vxd_0001, _I2F1684_0001_

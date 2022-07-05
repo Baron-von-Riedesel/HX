@@ -7,6 +7,7 @@
 	include external.inc
 
 	option proc:private
+	option casemap:none
 
 ?IDLEFILTER    = 0	;std=0, 1=dont route all int 2Fh, ax=1689 to real-mode 
 ?INT2F15       = 0	;std=0, was 1 prior to v3.19
@@ -170,87 +171,49 @@ is168a:
 	movzx esi, si
  endif
 
-	xor ecx,ecx
- if ?INT21API
-	mov edi, offset szMsdos
-	mov cl, 6+1
+	mov edi, offset szVendors
+nextvendor:
+	movzx ecx, byte ptr es:[edi]
+	jecxz done
+	inc edi
+	lea eax, [edi+ecx+sizeof word]
 	push esi
 	repz cmpsb
 	pop esi
-	jz isMsDos
- endif
-
- ifdef _DEBUG
-	mov edi, offset szHDPMI
-	mov cl, 5+1
-	push esi
-	repz cmpsb
-	pop esi
-	jz isHDPMI
- endif
-
- if ?SUPP32RTM	;32-bit host only
-	mov edi, offset szVirtual
-	mov cl, 15+1			;"VIRTUAL SUPPORT" + 00
-	push esi
-	repz cmpsb
-	pop esi
-	jz isVirtual
- endif
-
+	jz found
+	mov edi, eax
+	jmp nextvendor
+done:
 ;--- unknown vendor, just return, unchanged AL will indicate an error
 	@dprintf "I2F: return ax=168a, unsupported vendor"
 	popad
 	pop es
 	iretd  
 
+szVendors label byte
  if ?INT21API
-isMsDos:
-	@dprintf "I2F: return ax=168a, vendor MS-DOS supported"
-	popad
-	pop es
-  if ?32BIT
-	mov edi,_I2F168A_MSDOS
-  else
-	mov di,_I2F168A_MSDOS
-  endif
-	push _INTSEL_
-	pop es
-	mov al,00
-	iretd
-szMsdos db "MS-DOS",0
+	db 7,"MS-DOS",0
+	dw _I2F168A_MSDOS
  endif
+ if ?I2FHDPMI
+	db 6,"HDPMI",0
+	dw _I2F168A_HDPMI
+ endif
+	db 0
 
- ifdef _DEBUG
-isHDPMI:
+found:
+if ?32BIT
+	movzx eax, word ptr es:[edi]
+	mov [esp].PUSHADS.rEDI, eax
+else
+	mov ax, word ptr es:[edi]
+	mov word ptr [esp].PUSHADS.rEDI, ax
+endif
+	mov word ptr [esp+sizeof PUSHADS], _INTSEL_
 	popad
 	pop es
-  if ?32BIT
-	mov edi,_I2F168A_HDPMI
-  else
-	mov di,_I2F168A_HDPMI
-  endif
-	push _INTSEL_
-	pop es
-	mov al,0
+	mov al, 0
 	iretd
-szHDPMI db "HDPMI",0
- endif
-
- if ?SUPP32RTM
-;--- the call is routed to real-mode???
-;--- almost certainly this is nonsense,
-;--- hence disabled in v3.19.
-isVirtual:
-	@dprintf "I2F, ax=168a vendor VIRTUAL_SUPPORT"
-	popad
-	pop es
-	push esi
-	call copyz_dssi_2_tlb	;copy ds:esi to tlb, ds=tlb, si=0
-	@simrmint 2Fh
-	pop esi
-	iretd
- endif
 
 endif ;?SUPI2F168A
 
@@ -263,6 +226,7 @@ intr2F endp
 _LTRACE_ = 0
 
 if ?INT21API
+
 _I2f168A_Msdos proc near public
 	push offset iret_with_CF_mod
  if ?MSDOS_LDTSEL
@@ -288,12 +252,17 @@ error:
 _I2f168A_Msdos endp
 endif
 
-ifdef _DEBUG
+if ?I2FHDPMI
 
+ ifdef _DEBUG
 displayhdltab proto near
+ endif
 
-_I2f168A_HDPMI proc near public
+;*** callback for HDPMI extensions
+
+_I2f168A_Hdpmi proc near public
 	push offset iret_with_CF_mod
+ ifdef _DEBUG
 	cmp ax,0
 	jz is0000
 	cmp ax,1
@@ -302,8 +271,12 @@ _I2f168A_HDPMI proc near public
 	jz is0002
 	cmp ax,3
 	jz is0003
+ endif
+	cmp ax,4	; disable host?
+	jz is0004
 	stc
 	ret
+ ifdef _DEBUG
 is0000:
 	and ss:fMode2,not FM2_LOG
 	ret
@@ -320,7 +293,12 @@ is0003:
 	call displayhdltab
 	pop ds
 	ret
-_I2f168A_HDPMI endp
+ endif
+is0004:
+	or ss:fMode, FM_DISABLED
+	ret
+_I2f168A_Hdpmi endp
+
 endif
 
 ;--- external call (i21srvr.asm)

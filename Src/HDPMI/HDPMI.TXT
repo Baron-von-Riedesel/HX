@@ -542,6 +542,14 @@
    - MOV reg,CRx (0F 20 xx) - using ESP for <reg> will not work!
    - MOV CRx,reg (0F 22 xx) - using ESP for <reg> will not work!
 
+   Finally, there's support for the so-called "vendor" API, Int 2Fh, 
+   ax=168Ah, ds:e/si=vendor:
+   
+   - vendor "MS-DOS": callback supports function 100h (LDT sel)
+   - vendor "HDPMI": differs for release and debug versions. For the
+     release version, the callback supports function:
+     - ax=4: disable host from within client.
+
 
  6.7 VDS API
 
@@ -683,8 +691,6 @@
    15  ax=C207h set pointing device event proc ES:E/BX
    25           absolute disk read buffer in DS:E/BX
    26           absolute disk write buffer in DS:E/BX
-   2F  ax=168Ah supports vendor "MS-DOS" and "VIRTUAL SUPPORT" 
-                callback for "MS-DOS" supports function 100h (LDT sel)
    33  ax=0009h define graphics cursor ES:E/DX
    33  ax=000Ch define interrupt subroutine ES:E/DX
    33  ax=0012h define large graphics cursor ES:E/DX
