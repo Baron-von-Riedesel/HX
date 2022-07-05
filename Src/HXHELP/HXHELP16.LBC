@@ -1,7 +1,9 @@
 
 OP MODNAME=HXHP16
 OP STUB=..\DPMILDR\STUB16\DPMILD16.BIN
-OP stack=0x800
-OP protmode
+OP STACK=2048
+OP PROTMODE
+OP ALIGN=16
+OP DESCRIPTION "HX 16-bit trap helper"
 SEGMENT type code fixed
 SEGMENT type data fixed

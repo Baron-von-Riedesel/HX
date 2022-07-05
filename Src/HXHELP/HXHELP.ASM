@@ -21,23 +21,21 @@ if ?FLAT
 		assume fs:nothing
 
 else
-		.model small, stdcall		;this will be virtually TINY 
+		.model tiny, stdcall		; CS=DS=ES=SS
 @flat	equ <gs>
 @flatrd	equ <gs>
 @flatwr	equ <gs>
-if ?NE
+ if ?NE
 ?DPMI16	equ 1
-else
+ else
 externdef stdcall __baseadd:dword	;MZ binary: set base address
 public __STACKSIZE
 public __HEAPSIZE
 __STACKSIZE equ 4000h
 __HEAPSIZE equ 0
+ endif
 endif
-
-DGROUP	group _TEXT					;makes CS=DS=ES=SS
-
-endif
+		option casemap:none
 ;		option proc:private
 
 ?RMVECTOR	equ 6	;real mode interrupt vector used
@@ -73,42 +71,42 @@ endif
 ;Replacement for PUSH that maintains the stack offset for PARAMS,LOCALS &
 ;MLOCAL and allows multiple parameters.
 ;*******************************************************************************
-pushs	macro r1,r2,r3,r4,r5,r6,r7,r8,r9,r10,r11,r12,r13,r14,r15,r16
-		irp 	x,<r1,r2,r3,r4,r5,r6,r7,r8,r9,r10,r11,r12,r13,r14,r15,r16> ;REPEAT FOR EACH PARM
+pushs macro r1,r2,r3,r4,r5,r6,r7,r8,r9,r10,r11,r12,r13,r14,r15,r16
+	irp 	x,<r1,r2,r3,r4,r5,r6,r7,r8,r9,r10,r11,r12,r13,r14,r15,r16> ;REPEAT FOR EACH PARM
 		ifnb	<x>
 		push	x
 		endif
-		endm
-		endm
+	endm
+endm
 
 ;*******************************************************************************
 ;A replacement for POP that maintains the stack offset for PARAMS,LOCALS &
 ;MLOCAL and allows multiple parameters. POP's in reverse order.
 ;*******************************************************************************
-pops	macro r1,r2,r3,r4,r5,r6,r7,r8,r9,r10,r11,r12,r13,r14,r15,r16
-		irp 	x,<r16,r15,r14,r13,r12,r11,r10,r9,r8,r7,r6,r5,r4,r3,r2,r1> ;REPEAT FOR EACH PARM
+pops macro r1,r2,r3,r4,r5,r6,r7,r8,r9,r10,r11,r12,r13,r14,r15,r16
+	irp x,<r16,r15,r14,r13,r12,r11,r10,r9,r8,r7,r6,r5,r4,r3,r2,r1> ;REPEAT FOR EACH PARM
 		ifnb	<x>
 		pop 	x
 		endif
-		endm
-		endm
+	endm
+endm
 
 ;--- define a "dos terminated" string in .DATA
 
-DosStr	macro x
+DosStr macro x
 local xxx
 	.data
 xxx	db x,"$"
 	.code
 	exitm <offset xxx>
-	endm
+endm
 
 ;--- define an asciiz string in .DATA
 
-CStr	macro x:vararg
+CStr macro x:vararg
 local xxx
 	.data
-xxx	label byte
+xxx label byte
 ifnb <x>
 	db x
 endif
@@ -441,7 +439,7 @@ pErrorMessage	dd 0
 ?MSG	= 0
 
 @DefMsg macro xx,yy
-local xxx, msgid
+local xxx
 ifb <yy>
 		.CONST
 xxx		label byte
@@ -454,8 +452,9 @@ else
 xxx	equ xx
 endif
 		dd offset xxx
-msgid	textequ @CatStr(MSG_,%?MSG)
-%msgid	equ ?MSG
+;msgid	textequ @CatStr(MSG_,%?MSG)
+;%msgid	equ ?MSG
+@CatStr(MSG_,%?MSG) equ ?MSG
 ?MSG = ?MSG + 1
 		endm
 
@@ -473,22 +472,21 @@ bIntExcEIP db '00000000',13,10
 endif
 
 szLoadFail	db "Loading debuggee failed [DOS error "
-LoadErrCode db "FFFF"
-			db "]",0
+LoadErrCode db "____]",0
 
 ErrorList  label dword
-		@DefMsg "Unknown error" 					   ;0
-		@DefMsg "DOS reported a file access error"	   ;not used
-		@DefMsg "Unknown file format"				   ;not used
-		@DefMsg "Not enough memory" 				   ;not used
-		@DefMsg "Invalid task handle"				   ;4
+		@DefMsg "Unknown error" 					;0
+		@DefMsg "DOS reported a file access error"	;not used
+		@DefMsg "File not found"
+		@DefMsg "Not enough memory" 				;not used
+		@DefMsg "Invalid task handle"				;4
 		@DefMsg "Not enough WATCH table space"
 		@DefMsg "Function not implemented"
 		@DefMsg "Could not stop in debuggee"
 		@DefMsg szLoadFail,1
-		@DefMsg "Load request without program name"    ;9
+		@DefMsg "Load request without program name" ;9
 		@DefMsg
-		@DefMsg "Unknown exception" 				   ;11
+		@DefMsg "Unknown exception" 				;11
 		@DefMsg "Hardware break point triggered"
 		@DefMsg
 		@DefMsg
@@ -496,23 +494,23 @@ ErrorList  label dword
 
 ;--- error# 16-32 are exception texts
 
-		@DefMsg "Divide by zero exception (00h)"	   ;16
+		@DefMsg "Divide by zero exception (00h)"	;16
 		@DefMsg
 		@DefMsg
 		@DefMsg
 		@DefMsg "Integer overflow exception (04h)"
 		@DefMsg "Array bounds exception (05h)"
 		@DefMsg "Invalid opcode exception (06h)"
-		@DefMsg "Device not available exception (07h)" ;23
+		@DefMsg "Device not available exception (07h)";23
 		@DefMsg
 		@DefMsg
 		@DefMsg
-		@DefMsg "Segment not present exception (0Bh)"  ;27
+		@DefMsg "Segment not present exception (0Bh)";27
 		@DefMsg "Stack access exception (0Ch)"
 		@DefMsg "General protection exception (0Dh)"
 		@DefMsg "Page access exception (0Eh)"
 		@DefMsg
-		@DefMsg "Floating point exception (10h)"	   ;32
+		@DefMsg "Floating point exception (10h)"	;32
 SIZEERRORLIST	equ ($ - ErrorList) / 4
 
 
@@ -1284,7 +1282,7 @@ main proc near c uses esi edi ebp
 	int 21h
 	invoke OpenLogFile
 	invoke String2File, CStr("HX Trap helper starts, helper psp=")
-	invoke Dword2File, [g_psp]
+	invoke DWord2File, [g_psp]
 	invoke String2File, CStr(13,10)
 @@:
 ;
@@ -1424,7 +1422,7 @@ if 0
 	push cx
 	push dx
 	pop ebx
-	invoke Dword2File, ebx
+	invoke DWord2File, ebx
 endif
 	invoke String2File, CStr("HX Trap helper terminates",13,10)
 	invoke CloseLogFile
@@ -3418,6 +3416,7 @@ no_module:
 	cmp g_fRealMode, 0
 	jz @F
 	invoke String2File, CStr("debuggee in real-mode",13,10)
+	call noclone
 @@:
 ;
 ;Setup results.
@@ -3463,7 +3462,7 @@ load_error:
 	pop ebp				;throw away the return address
 	pop ebp
 	mov edi,@@outaddr
-	mov [edi].REPLY_PROG_LOAD.dwError,eax
+	mov [edi].REPLY_PROG_LOAD.dwError, eax
 	invoke SetErrorText, eax
 
 	invoke String2File, CStr("error occured in int 21h, ax=4b00: ")
@@ -3478,6 +3477,30 @@ load_done:
 	mov ecx, @@incount
 	mov esi, @@inaddr
 	ret
+noclone:
+	push es
+	mov esi, CStr("HDPMI")
+	mov ax, 168ah
+	int 2Fh
+	cmp al,0
+	jnz @F
+	mov ax, 5
+ife ?DPMI16
+	push es
+	push edi
+	call fword ptr [esp]
+	add esp,4+4
+else
+	push es
+	push di
+	mov di, sp 
+	call far16 ptr ss:[di]
+	add esp,2+4
+endif
+@@:
+	pop es
+	retn
+	
 REQ_PROG_LOAD endp
 
 cmppsps proc
@@ -3700,7 +3723,7 @@ cont_1:
 ;Must be a free WATCH entry so find it.
 ;
 @@4watch:
-	mov ebx,offset WATCHTable
+	mov ebx,offset WatchTable
 	mov ebp,MaxWatches
 @@5watch:
 	test [ebx].WATCH.WATCH_Flags,1
@@ -3838,7 +3861,7 @@ cont_1:
 ;
 	cmp NumWatches,0			;no point if no WATCH's in use.
 	jz @@2cwatch
-	mov ebx,offset WATCHTable
+	mov ebx,offset WatchTable
 	mov ebp,MaxWatches
 @@0cwatch:
 	test [ebx].WATCH.WATCH_Flags,1	   ;in use?
@@ -4809,7 +4832,7 @@ acc_err2:
 ;--- special handling for raw jump real-mode to protected mode
 ;--- single-step will most likely loose control
 
-	cmp g_fRealmode,0
+	cmp g_fRealMode,0
 	jz @F
 	call CheckRMAddr
 	jc cont_execute2
@@ -5466,10 +5489,10 @@ Int09Handler proc near
 	and ebx,7Fh 		;isolate scan code.
 	test al,80h
 	jnz @F
-	bts Keytable,ebx
+	bts KeyTable,ebx
 	jmp bitset
 @@:
-	btr Keytable,ebx
+	btr KeyTable,ebx
 bitset:
 ;
 ;Check if anything is running.
@@ -5785,7 +5808,7 @@ endif
 	jnz @F
 	movzx ebp,bp
 @@:
-	and byte ptr [ebp+4].IRETS._efl,not 1 ;clear carry.
+	and byte ptr [ebp+4].IRETS._Efl,not 1 ;clear carry.
 	pop ebp
 	@iret
 
@@ -6115,8 +6138,8 @@ endif
 		CStr(), addr szVar, sizeof szVar, addr ConfigName
 	.if (eax)
 		lea esi, szVar
-		mov ecx, sizeof Breakkeylist / 4
-		mov edi, offset BreakkeyList
+		mov ecx, sizeof BreakKeyList / 4
+		mov edi, offset BreakKeyList
 @@:
 		push ecx
 		invoke Ascii2Bin, esi
@@ -6450,19 +6473,17 @@ Nibble:
 	retn
 Byte2Ascii endp
 
-Word2Ascii proc near stdcall uses edi number:dword, pBuffer:dword
+Word2Ascii proc near stdcall number:dword, pBuffer:dword
 	movzx eax, byte ptr number+1
 	Invoke Byte2Ascii, eax, pBuffer
-	add pBuffer,2
-	Invoke Byte2Ascii, number, pBuffer
+	Invoke Byte2Ascii, number, eax
 	ret
 Word2Ascii endp
 
-DWord2Ascii proc near stdcall uses edi number:dword, pBuffer:dword
+DWord2Ascii proc near stdcall number:dword, pBuffer:dword
 	movzx eax, word ptr number+2
 	Invoke Word2Ascii, eax, pBuffer
-	add pBuffer,4
-	Invoke Word2Ascii, number, pBuffer
+	Invoke Word2Ascii, number, eax
 	ret
 DWord2Ascii endp
 
@@ -6716,7 +6737,7 @@ error:
 else
 error:
 	mov ah,4ch
-	cmp word ptr [oldint21+?SEGOFS],0
+	cmp word ptr [OldInt21+?SEGOFS],0
 	jz @F
 	@callint21
 @@:

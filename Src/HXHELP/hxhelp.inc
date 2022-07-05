@@ -188,12 +188,12 @@ endm
 
 @callint21 macro
 	pushf
-	call [oldint21]
+	call [OldInt21]
 endm
 
 @callint31 macro
 	pushf
-	call [oldint31]
+	call [OldInt31]
 endm
 
 @lodsdflat macro
@@ -261,12 +261,12 @@ endm
 
 @callint21 macro
 	pushfd
-	call [oldint21]
+	call [OldInt21]
 endm
 
 @callint31 macro
 	pushfd
-	call [oldint31]
+	call [OldInt31]
 endm
 
 @lodsdflat macro
