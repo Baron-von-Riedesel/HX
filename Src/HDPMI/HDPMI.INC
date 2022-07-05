@@ -369,7 +369,6 @@ if ?CANTEXIT
 FM_CANTEXIT	equ 10h		;cannot exit (rm vecs not restorable)
 endif
 FM_CLONE    equ 20h		;this instance is a clone
-;FM_CPUID	equ 40h		;cpuid + cr4 is valid
 FM_INIT 	equ 80h		;1=server initialized
 
 ;--- fMode2 flags

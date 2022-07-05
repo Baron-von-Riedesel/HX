@@ -548,7 +548,8 @@
    - vendor "MS-DOS": callback supports function 100h (LDT sel)
    - vendor "HDPMI": differs for release and debug versions. For the
      release version, the callback supports function:
-     - ax=4: disable host from within client.
+     - ax=4: current host won't accept new clients.
+     - ax=5: current host won't create new address contexts for new clients.
 
 
  6.7 VDS API

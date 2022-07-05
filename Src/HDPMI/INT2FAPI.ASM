@@ -19,6 +19,7 @@ else
 ?SUPI2F1684    = 0	;std=0
 endif
 ?SUPI2F168A    = 1	;std=1, support int 2F,ax=168A
+?I2FHDPMI0005  equ 1; 1= support hdpmi API ax=0005 (disable DPMILDR=32)
 
 ;--- vendor "MS-DOS", Get LDT Selector function int 2f,ax=168A,bx=100
 ;--- required by Win3, should probably be supported in 16-bit only.
@@ -262,20 +263,30 @@ displayhdltab proto near
 
 _I2f168A_Hdpmi proc near public
 	push offset iret_with_CF_mod
- ifdef _DEBUG
-	cmp ax,0
-	jz is0000
-	cmp ax,1
-	jz is0001
-	cmp ax,2
-	jz is0002
-	cmp ax,3
-	jz is0003
- endif
-	cmp ax,4	; disable host?
-	jz is0004
+	cmp ax, MAX168A
+	jbe @F
 	stc
 	ret
+@@:
+	push ebx
+	movzx ebx, ax
+	mov bx, cs:[ebx*2+offset tab168a]
+	add ebx, offset start168a
+	xchg ebx,[esp]
+	ret
+	align 2
+tab168a label word
+	dw offset is0000 - offset start168a
+	dw offset is0001 - offset start168a
+	dw offset is0002 - offset start168a
+	dw offset is0003 - offset start168a
+	dw offset is0004 - offset start168a
+if ?I2FHDPMI0005
+	dw offset is0005 - offset start168a
+endif
+MAX168A equ ($ - offset tab168a) / sizeof word
+
+start168a:
  ifdef _DEBUG
 is0000:
 	and ss:fMode2,not FM2_LOG
@@ -293,10 +304,22 @@ is0003:
 	call displayhdltab
 	pop ds
 	ret
+ else
+is0000:
+is0001:
+is0002:
+is0003:
+	stc
+	ret
  endif
 is0004:
 	or ss:fMode, FM_DISABLED
 	ret
+if ?I2FHDPMI0005
+is0005:
+	and ss:bEnvFlags, not ENVF_VM
+	ret
+endif
 _I2f168A_Hdpmi endp
 
 endif

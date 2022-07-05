@@ -112,9 +112,10 @@ endif
 ;*** 4. IDT (800h)
 ;*** 5. LDT (last used page) (?X4)
 ;*** 6. IVT (optionally) (?X2)
-;--- out: C = error
-;--- if a client is started by cloning the host (CreateVM called),
-;--- then saveclientstate isn't called at all.
+;--- out: C = error ( out of phys mem, addr space )
+;--- saveclientstate is called whenever a client starts, even the first one.
+;--- the exception is when a clone is started ( HDPMI=32, option -a )
+;--- then CreateVM is called instead of saveclientstate.
 
 	@ResetTrace
 
@@ -357,8 +358,12 @@ if 0
 endif
 if ?SAVEHOSTSP
 	lodsd
-	mov ss:taskseg._Esp0,eax		;dwHSExcR3 is in client area!
+	mov ss:taskseg._Esp0, eax		;dwHSExcR3 is in client area!
 endif
+
+;--- v3.20: if a client terminates, reenable host
+;--- (so only idle host can be disabled permanently)
+	and ss:[fMode], not FM_DISABLED
 
 if _LTRACE_
 	push ss;[wIntRmCb]  ; wIntRmCb has just been restored, but prevent any reentrance

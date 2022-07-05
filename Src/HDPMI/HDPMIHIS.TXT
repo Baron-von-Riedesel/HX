@@ -20,6 +20,7 @@
     if possible ).
   þ vendor API "HDPMI" now available in release version. Allows to
     disable host from within client.
+  þ a disabled host will be reenabled when a client terminates.
 
   30.03.2022, version 3.19
 
