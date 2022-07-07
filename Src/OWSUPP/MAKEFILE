@@ -1,0 +1,87 @@
+
+# enter: nmake 
+# this assembles the cstrt386 versions for HX (PE and MZ)
+# the object modules should then be copied to \WATCOM\LIB386\DOS
+
+!include <..\dirs>
+
+OWDIR=\watcom
+
+OUTOW13=rel_13
+OUTOW14=rel_14
+OUTOW17=rel_17
+INPOW13=src_13
+INPOW14=src_14
+INPOW17=src_17
+
+#ASMOPT= -c -nologo -Sg -Fl$* -Fo$* -D?FLAT=0
+WASMOPT= -q -bt=DOS -ms -3r -fo=$*.OBJ 
+
+ALL: $(OUTOW17)\CSTRTDHX.OBJ $(OUTOW17)\CSTRTWHX.OBJ $(OUTOW17)\SPAWN386.OBJ \
+	$(OUTOW14)\CSTRT386.OBJ $(OUTOW14)\SPAWN386.OBJ \
+	$(OUTOW13)\CSTRT386.OBJ $(OUTOW13)\CSTRT16X.OBJ $(OUTOW13)\CSTRT16Z.OBJ
+
+$(OUTOW17):
+	@mkdir $(OUTOW17)
+
+$(OUTOW17)\CSTRTDHX.OBJ: $(INPOW17)\cstrtdhx.asm Makefile
+#	@$(OWDIR)\BINNT\wasm $(WASMOPT) $(INPOW17)\cstrtdhx.asm
+	@jwasm -q -Fo$* -Fl$* $(INPOW17)\cstrtdhx.asm
+
+$(OUTOW17)\CSTRTWHX.OBJ: $(INPOW17)\cstrtwhx.asm Makefile
+#	@$(OWDIR)\BINNT\wasm $(WASMOPT) $(INPOW17)\cstrtwhx.asm
+	@jwasm -q -Fo$* -Fl$* $(INPOW17)\cstrtwhx.asm
+
+$(OUTOW17)\SPAWN386.OBJ: $(INPOW17)\spawn386.asm Makefile
+	@$(OWDIR)\BINNT\wasm $(WASMOPT) $(INPOW17)\spawn386.asm
+#	@jwasm -q -Fo$* -Fl$* $(INPOW17)\spawn386.asm
+	@$(OWDIR)\BINNT\wlib -q -b $(OUTOW17)\hxow.lib -+$*.OBJ
+
+#-------------------------------------------------------------------------
+
+$(OUTOW14):
+	@mkdir $(OUTOW14)
+
+$(OUTOW14)\CSTRT386.OBJ: $(INPOW14)\cstrt386.asm Makefile
+	@$(OWDIR)\BINNT\wasm $(WASMOPT) $(INPOW14)\cstrt386.asm
+
+# the spawn command must be modified for HX (no environment pointer)
+
+$(OUTOW14)\SPAWN386.OBJ: $(INPOW14)\spawn386.asm owmzhlp.inc Makefile
+	@$(OWDIR)\BINNT\wasm $(WASMOPT) $(INPOW14)\spawn386.asm
+
+#-------------------------------------------------------------------------
+
+$(OUTOW13):
+	@mkdir $(OUTOW13)
+
+$(OUTOW13)\CSTRT386.OBJ: $(INPOW13)\cstrt386.asm Makefile
+	@$(OWDIR)\BINNT\wasm $(WASMOPT) $(INPOW13)\cstrt386.asm
+
+$(OUTOW13)\CSTRT16X.OBJ: $(INPOW13)\cstrto16.asm Makefile
+	@$(OWDIR)\BINNT\wasm -q -bt=OS2 -ms -fo=$*.OBJ $(INPOW13)\cstrto16.asm
+
+$(OUTOW13)\CSTRT16Z.OBJ: $(INPOW13)\cstrto16.asm Makefile
+	@$(OWDIR)\BINNT\wasm -q -bt=OS2 -ms -d?MZ=1 -fo=$*.OBJ $(INPOW13)\cstrto16.asm
+
+clean:
+	@del $(OUTOW17)\*.obj
+	@del $(OUTOW17)\*.lib
+	@del $(OUTOW14)\*.obj
+	@del $(OUTOW13)\*.obj
+
+install:
+	@copy $(OUTOW17)\CSTRTDHX.OBJ  $(HXINST)\OWSUPP\DOS
+	@copy $(OUTOW17)\CSTRTDHX.OBJ  $(OWDIR)\lib386\dos
+	@copy $(OUTOW17)\CSTRTWHX.OBJ  $(HXINST)\OWSUPP\NT
+	@copy $(OUTOW17)\CSTRTWHX.OBJ  $(OWDIR)\lib386\nt
+	@copy $(OUTOW17)\hxow.lib      $(HXINST)\OWSUPP\DOS
+	@copy $(OUTOW17)\hxow.lib      $(OWDIR)\lib386\dos
+#	@copy $(OUTOW14)\SPAWN386.OBJ  $(HXINST)\OWSUPP\OW14\hxspawn.obj
+#	@copy $(OUTOW14)\SPAWN386.OBJ  $(OWDIR)\lib386\dos\hxspawn.obj
+#	@copy $(OUTOW14)\CSTRT386.OBJ  $(HXINST)\OWSUPP\OW14\cstrthx.obj
+#	@copy $(OUTOW14)\CSTRT386.OBJ  $(OWDIR)\lib386\dos\cstrthx.obj
+	@copy $(OUTOW13)\CSTRT16X.OBJ  $(HXINST)\LIB16
+	@copy $(OUTOW13)\CSTRT16X.OBJ  $(OWDIR)\lib286\os2
+	@copy $(OUTOW13)\CSTRT16Z.OBJ  $(HXINST)\LIB16
+

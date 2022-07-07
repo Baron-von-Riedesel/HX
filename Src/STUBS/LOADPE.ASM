@@ -523,7 +523,7 @@ endif
 	pop ss
 	mov sp,bx
 if ?HDPMI
-	push 0
+	push 0  ; space for hostres variable
 endif
 	mov bp,sp
 
@@ -688,7 +688,7 @@ InitPM endp
 
 if ?HDPMI
 
-;--- this is for the standalone DPMILD32.BIN stub
+;--- call hdpmi for initialization
 ;--- runs in real-mode!
 
 inithdpmi proc
