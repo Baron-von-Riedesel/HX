@@ -4759,11 +4759,11 @@ CreateVM endp
 
 getclonesize proc
 	xor ecx, ecx
-	test bEnvFlags, ENVF_VM
+	test ss:bEnvFlags, ENVF_VM
 	jz @F
  if ?MOVEGDT
 	mov cx, offset curGDT
-	test bEnvFlags2, ENVF2_LDTLOW
+	test ss:bEnvFlags2, ENVF2_LDTLOW
 	jz @F
  endif
 	mov cx, offset endofgdtseg
@@ -4775,7 +4775,7 @@ getclonesize endp
 updateclonesize proc public
 	push ecx
 	call getclonesize
-	mov [wCloneSize], cx
+	mov ss:[wCloneSize], cx
 	pop ecx
 	ret
 updateclonesize endp
