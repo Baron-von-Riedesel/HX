@@ -3485,6 +3485,7 @@ noclone:
 	cmp al,0
 	jnz @F
 	mov ax, 5
+	mov bl, 0
 ife ?DPMI16
 	push es
 	push edi
