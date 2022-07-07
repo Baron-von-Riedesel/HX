@@ -356,7 +356,7 @@ szNoDPMI   db 'No DPMI server available',lf,00
 if ?32BIT
 szNo32Bit  db "DPMI server doesn't support 32-bit apps",lf,00
 endif
-errstr2    db 'Error allocating memory for DPMI server',lf,00
+errstr02   db 'Error allocating memory for DPMI server',lf,00
 errstr3    db 'Error switching to protected mode',lf,00
 ife ?STUB
 errstr8    db 'Filename missing or invalid',lf,00
@@ -7910,7 +7910,8 @@ ife ?32BIT
 endif
 	jmp @F
 error1:		;insufficient DOS memory
-	mov ax, offset errstr2
+	@printf <"DOS mem alloc (BX=%X) failed",lf>, bx
+	mov ax, offset errstr02
 @@:
 	pop bx	; clear stack
 	pop bx
