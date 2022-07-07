@@ -226,6 +226,9 @@ endif
 if ?EARLYIVTSAVE
 saveivtvecs      proto near
 endif
+if ?VM
+updateclonesize  proto near
+endif
 
 _exitclient_pm proto near	 ;terminate client
 _exitclientEx proto near	 ;enter text mode, then terminate client
@@ -299,10 +302,6 @@ _TEXT32 ends
 _TEXT16 segment
 externdef callrmintintern_rm_exit:near16
 externdef meventr:near16			;real-mode mouse event proc
-;externdef PatchRMStkSize:word
-if ?VM
-externdef wCloneSize:word
-endif
 externdef linadvs:dword
 externdef unhookIVTvecs:near
 if ?MOVEHIGHHLP
@@ -355,6 +354,9 @@ externdef _StartOfVMData:near16
 externdef _StartOfClientData:near16
 externdef _EndOfClientData:near16
 externdef _cpu:byte
+if ?MOVEGDT
+externdef endofgdtseg:near16
+endif
 
 externdef dwPmDest:dword
 externdef dwPmDest2:dword

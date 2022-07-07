@@ -316,8 +316,22 @@ is0004:
 	or ss:fMode, FM_DISABLED
 	ret
 if ?I2FHDPMI0005
+ENVF_VMB equ 5
 is0005:
+ if ?VM
+	test ss:[bEnvFlags], ENVF_VM
+	setnz al
+	push eax
+	mov al, bl
+	and al, 1
+	shl al, ENVF_VMB
 	and ss:bEnvFlags, not ENVF_VM
+	or ss:bEnvFlags, al
+	call updateclonesize
+	pop eax
+ else
+	stc
+ endif
 	ret
 endif
 _I2f168A_Hdpmi endp

@@ -27,11 +27,6 @@ endif
 	@seg _ITEXT16
 	@seg _ITEXT32
 
-GDTSEG segment para use16 public 'CODE'
-endofgdtseg label near
-GDTSEG ends
-GROUP16 group GDTSEG
-
 	public mystart
 
 ;*** initialization code, not resident
@@ -111,15 +106,6 @@ if ?CR0_NE
 	test ah, ENVF2_NOCR0NE
 	jz @F
 	call disablene
-@@:
-endif
-if ?VM
-	test al, ENVF_VM
-	jz @F
-	call getendpara
-;	add dx,?RMSTKSIZE/16
-;	mov PatchRMStkSize-2,dx
-	mov wCloneSize,dx
 @@:
 endif
 	test ah,ENVF2_SYSPROT
@@ -1271,13 +1257,13 @@ disablemem10 endp
 
 getendpara proc
 if ?MOVEGDT
-	mov dx, offset curGDT		;start GDTSEG		;is para aligned already
+	mov dx, offset curGDT		;start GDTSEG, is para aligned
 	test bEnvFlags2, ENVF2_LDTLOW
 	jz @F
 endif
-	mov dx, offset endofgdtseg
+	mov dx, offset endofgdtseg	; end GDTSEG ( bits 0-3 won't matter )
 @@:
-	shr dx,4
+	shr dx, 4
 	ret
 getendpara endp        
 

@@ -716,6 +716,8 @@ endif
 ?GDTLIMIT equ ?SIZEGDT - 1
 
 if ?MOVEGDT
+;endofgdtseg label near
+endofgdtseg equ $+15	; offset is used as "segment offset" (shr 4), so ensure its big enough
 GDTSEG ends
 endif
 
@@ -970,9 +972,6 @@ endif
 if ?SAVEMSW
 wMSW	dw 0					;real-mode MSW on entry
 endif
-;if ?VM
-;wCloneSize dw 0				;v3.19: variable moved to _TEXT16 (see below)
-;endif
 
 dwOldVec96 dd 0
 
@@ -4487,7 +4486,7 @@ endif
 ;--- v3.19: The source has to be the true conventional memory, not the "remapped"
 ;--- DOS pages, because these are just 2 pages - for the debug version this might
 ;--- not be enough to contain the full resident part.
-	movzx ecx, ds:wCloneSize
+	call getclonesize
 	mov esi,ds:dwHostSeg
 
 ;--- set ds=flatsel
@@ -4756,6 +4755,31 @@ error:
 	jmp behindcreatevm
 CreateVM endp
 
+;--- get size of clone in paras
+
+getclonesize proc
+	xor ecx, ecx
+	test bEnvFlags, ENVF_VM
+	jz @F
+ if ?MOVEGDT
+	mov cx, offset curGDT
+	test bEnvFlags2, ENVF2_LDTLOW
+	jz @F
+ endif
+	mov cx, offset endofgdtseg
+@@:
+	shr ecx, 4
+	ret
+getclonesize endp
+
+updateclonesize proc public
+	push ecx
+	call getclonesize
+	mov [wCloneSize], cx
+	pop ecx
+	ret
+updateclonesize endp
+
 endif
 
 _initclientstate proc
@@ -4817,14 +4841,16 @@ _initclient_pm proc
 
 if ?VM
 	test bEnvFlags, ENVF_VM
-	jz @F
+	jz novm
 	cmp cApps,0
-	jz @F
+	jz firstvm
 	call CreateVM		;expects EDI->client stack, EBP=client registers (PUSHADS )
 behindcreatevm::        
 	jc initclerr10
 	jmp vmok
-@@:
+firstvm:
+	call updateclonesize
+novm:
 endif
 	@dprintf "initclient: calling saveclientstate, esp=%lX", esp
 	call _saveclientstate	;increments cApps
@@ -5891,13 +5917,11 @@ int2f1687:
 	mov di,offset _initclient_rm
 
 	mov si,?RMSTKSIZE/10h  ;task bytes in paragraphs
-;PatchRMStkSize label word
 if ?VM
 	cmp cs:cApps,0
 	jz @F
-;	add si,cs:wCloneSize
-	add si,128			;'128' to make sure the "word" form of the opcode is used.
-wCloneSize equ word ptr $-2
+	db 81h, 0C6h		; add si, imm16
+wCloneSize dw 0
 @@:
 endif
 

@@ -8,6 +8,8 @@
     a crash followed by DOS memory corruption.
   þ fixed: in int 21h, ax=4Bh translation, try to translate only if al=0,
     as it is and was documented.
+  þ fixed: in v3.19, if HDPMI=32 wasn't set, the required DOS memory was
+    reported too high if at least one client was already active.
   þ int 25h/26h, displays in debug version: register esi was modified!
   þ set error status ax=0211h if int 25h/26h TLB overflow occurs.
   þ int 25h/26h and int 21h, ax=7305h transfer limit was actually

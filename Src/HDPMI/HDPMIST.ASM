@@ -17,11 +17,6 @@ OPT_RMIV equ 16	;display internal real-mode interrupt vectors
 
 	@seg _ITEXT16
 
-GDTSEG segment para use16 public 'CODE'
-endofgdtseg label near
-GDTSEG ends
-GROUP16 group GDTSEG
-
 _ITEXT16 segment
 
 	@ResetTrace

@@ -102,8 +102,11 @@
          option is useful only in conjunction with -r and will result
          in conventional memory usage of just 5 kB when HDPMI is idle. But
          be aware that this constellation may not work with all clients!
-     -d: disable the last installed instance of HDPMI
-     -e: reenable a disabled instance of HDPMI
+     -d: disable the last installed instance of HDPMI. This means it won't
+         allow to start new clients - clients already running in the disabled
+         instance are not affected. Also, a client terminating in a disabled
+         instance will automatically put it back into the enabled state.
+     -e: reenable a disabled instance of HDPMI.
      -h: display help only; HDPMI will not install.
      -i: trap direct access to the IVT to ensure hardware interrupts are
          always routed to protected mode. This is similar to environment
@@ -546,10 +549,10 @@
    ax=168Ah, ds:e/si=vendor:
    
    - vendor "MS-DOS": callback supports function 100h (LDT sel)
-   - vendor "HDPMI": differs for release and debug versions. For the
-     release version, the callback supports function:
-     - ax=4: current host won't accept new clients.
-     - ax=5: current host won't create new address contexts for new clients.
+   - vendor "HDPMI": callback supports functions:
+     - ax=4: current host won't accept new clients ( enters disabled state ).
+     - ax=5: set internal value of stored environment variable flag HDPMI=32.
+             in: BL = new value (0|1), out: AL = old value.
 
 
  6.7 VDS API
