@@ -502,7 +502,7 @@ setbase endp
 
 setlimit proc public
 	call checksel
-	and byte ptr [ebx].DESCRPTR.lim_gr,070h
+	and byte ptr [ebx].DESCRPTR.lim_gr,070h	;reset granularity bit and limit[16-19]
 	test cx,0FFF0h		  ;> 1 MB?
 	jnz setlim2
 	mov [ebx].DESCRPTR.limit,dx
@@ -522,7 +522,7 @@ setlim2:
 	or edx,ecx
 	mov [ebx].DESCRPTR.limit,dx
 	shr ax,12
-	or al,80h
+	or al,80h		;set granularity bit
 	or [ebx].DESCRPTR.lim_gr,al
 @@:
 	popad
@@ -549,7 +549,7 @@ setaccrights proc public
 @@:
 	mov [ebx].DESCRPTR.attrib,cl
 	and ch,070h
-	and byte ptr [ebx].DESCRPTR.lim_gr,08Fh
+	and byte ptr [ebx].DESCRPTR.lim_gr,08Fh	;don't modify granularity bit!
 	or [ebx].DESCRPTR.lim_gr,ch
 	jmp _reloadexit
 	align 4

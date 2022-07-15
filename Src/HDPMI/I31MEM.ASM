@@ -907,7 +907,7 @@ _resizememint endp
 
 ;*** int 31h, ax=0503h, resize memory
 ;*** INP: SI:DI=Handle
-;***      BX:CX=new SIZE
+;***      BX:CX=new SIZE (bytes)
 ;*** OUT: SI:DI=Handle
 ;***      BX:CX=lin. address
 
@@ -993,8 +993,9 @@ error8025:
 allocmemx endp
 
 ;--- int 31h, ax=0505h
+;--- resize memory block
 ;--- esi=handle
-;--- ecx=new size
+;--- ecx=new size (bytes)
 ;--- edx=flags
 ;---  bit 0: commit pages
 ;---  bit 1: descriptor table update required
@@ -1076,6 +1077,7 @@ error:
 resizememx endp
 
 ;--- int 31h, ax=0506h
+;--- get page attributes
 ;--- esi=handle
 ;--- ebx=offset within block
 ;--- ecx=pages
@@ -1087,6 +1089,7 @@ getpageattr proc public
 getpageattr endp		;fall throu
 
 ;--- int 31h, ax=0507h
+;--- set page attributes
 ;--- esi=handle
 ;--- ebx=offset within block
 ;--- ecx=pages

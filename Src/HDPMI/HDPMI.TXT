@@ -838,11 +838,6 @@
     and tells that it doesn't like to run in a Win9x DOS box, try to set 
     HDPMI=16384 before HDPMI is loaded.]
 
-  þ To run a 16-bit client while HDPMI32 is installed requires to install
-    HDPMI16 before HDPMI32. The best thing to do if both types of clients
-    are to be executed is to run first HDPMI16, then HDPMI32, both with
-    option -r.
-
   þ if HDPMI is loaded residently and the Watcom debugger WD is launched
     to debug a protected mode application it may display a message that
     it cannot do that on a DPMI 0.9 host. Then set environment variable
