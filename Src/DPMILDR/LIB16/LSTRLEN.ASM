@@ -1,29 +1,29 @@
 
-		.286
+	.286
 
-_TEXT	segment word public 'CODE'
+_TEXT segment word public 'CODE'
 
-LSTRLEN proc far pascal
+lstrlen proc far pascal
 
-		mov		dx,di
-		pop		ax		;IP
-		pop		cx		;CS
-		pop		di		;offset(string)
-		pop		es		;seg(string)
-		push	cx		;CS
-		push	ax		;IP
-		cld
-		xor 	ax,ax
-		mov 	cx,-1
-		repne	scasb
-		mov		di,dx
-		mov 	ax,cx
-		not 	ax
-		dec 	ax
-		retf
-LSTRLEN	endp
+	mov dx,di
+	pop ax		;IP
+	pop cx		;CS
+	pop di		;offset(string)
+	pop es		;seg(string)
+	push cx		;CS
+	push ax		;IP
+	cld
+	xor ax,ax
+	mov cx,-1
+	repne scasb
+	mov di,dx
+	mov ax,cx
+	not ax
+	dec ax
+	retf
+lstrlen endp
 
-_TEXT	ends
+_TEXT ends
 
-        end
+	end
 
