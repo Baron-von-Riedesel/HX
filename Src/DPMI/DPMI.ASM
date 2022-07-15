@@ -1352,12 +1352,12 @@ chk2f168a proc
 	push 0
 	pop es
 	xor edi, edi
-	mov ax,168Ah
+	mov ax, 168Ah
 	mov esi, offset szMSDOS
 	int 2Fh
-	cmp al,0
+	cmp al, 0
 	jnz failed
-	@printf <"vendor 'MS-DOS' API entry: %x:%lx",lf>,es,edi
+	@printf <"vendor '%s' API entry: %x:%lx",lf>,si,es,edi
 	cmp b16Bit,0
 	jnz @F
 
@@ -1384,14 +1384,14 @@ chk2f168a proc
 	test ah,1
 	jnz failed2
 ok:
-	@printf <"'MS-DOS' API, ax=100h (get LDT selector): %x",lf>, ax
+	@printf <"'%s' API, ax=100h (get LDT selector): %x",lf>, si, ax
 done:
 	ret
 failed:
-	@printf <"no API entry for vendor 'MS-DOS' found",lf>
+	@printf <"no API entry for vendor '%s' found",lf>, si
 	ret
 failed2:
-	@printf <"call 'MS-DOS' API, ax=100h failed",lf>
+	@printf <"call '%s' API, ax=100h failed",lf>, si
 	ret
 chk2f168a endp
 
@@ -1458,11 +1458,11 @@ do_protmode proc
 	sgdt [bp]
 	@printf <"GDTR: %x.%lx">, word ptr [bp],dword ptr [bp+2]
 	sidt [bp]
-	@printf <" IDTR: %x.%lx">, word ptr [bp],dword ptr [bp+2]
+	@printf <", IDTR: %x.%lx">, word ptr [bp],dword ptr [bp+2]
 	sldt ax
-	@printf <" LDTR: %x">,ax
+	@printf <", LDTR: %x">,ax
 	str ax
-	@printf <" TR: %x",lf>, ax
+	@printf <", TR: %x",lf>, ax
 	add sp,6
 
 	mov ax,0400h
@@ -1514,7 +1514,7 @@ do_protmode proc
 	.else
 		@printf <"raw jump to real-mode: %x:%lx">, si, edi
 	.endif
-	@printf <", protected-mode: %x:%x",lf>, word ptr [dwRawSwitch2PM+2], word ptr [dwRawSwitch2PM+0]
+	@printf <", to protected-mode: %x:%x",lf>, word ptr [dwRawSwitch2PM+2], word ptr [dwRawSwitch2PM+0]
 @@:
 ;--- get memory info into es:e/di
 	mov di, offset meminf
@@ -1578,7 +1578,7 @@ do_protmode proc
 	movzx ax, buffer+0
 	movzx cx, buffer+1
 	lea si, buffer+2
-	@printf <"vendor: %s, version: %u.%u",lf>, si, ax, cx
+	@printf <"vendor: '%s', version: %u.%u",lf>, si, ax, cx
 	pop bx
 	call print_caps
 no401:
@@ -1669,7 +1669,7 @@ startclient proc
 	movzx ax,byte ptr wVersion+1
 	movzx bx,byte ptr wVersion+0
 	movzx cx,byte ptr wCPU
-	@printf <"DPMI v%u.%u host found, cpu: %b, support of 32-bit clients: %x",lf>,ax,bx,cx,wFlags
+	@printf <"DPMI host found, version=%u.%u, cpu: %b, support of 32-bit clients: %x",lf>,ax,bx,cx,wFlags
 	@printf <"entry initial switch to protected-mode: %x:%x",lf>, word ptr dwPMEntry+2, word ptr dwPMEntry+0
 	@printf <"size task-specific memory: %u paragraphs",lf>, wTaskMem
 @@:
