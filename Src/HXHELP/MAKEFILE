@@ -30,7 +30,9 @@ OUTDIR=DEBUG
 
 ALL: $(OUTDIR) $(OUTDIR)\$(NAME).EXE
 
-ASMOPT=-c -coff -nologo -D?FLAT=1 -D?DEBUGLEVEL=$(DEBUG) -Sg -Fl$* -Fo$* -I$(INC32DIR)
+# trap files have changed with v2.0
+#ASMOPT=-c -coff -nologo -D?FLAT=1 -D?DEBUGLEVEL=$(DEBUG) -Sg -Fl$* -Fo$* -I$(INC32DIR)
+ASMOPT=-c -coff -nologo -D?FLAT=1 -D?V19=1 -D?DEBUGLEVEL=$(DEBUG) -Sg -Fl$* -Fo$* -I$(INC32DIR)
 
 ALL: $(OUTDIR)\$(NAME).EXE
 

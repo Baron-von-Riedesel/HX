@@ -8,6 +8,10 @@ ifndef ?DLL
 ?DLL	equ 0
 endif
 
+ifndef ?V19
+?V19 equ 1
+endif
+
 ?MDUSEINP	equ 1	;use input if REQ_MACHINE_DATA
 
 		.486
@@ -89,16 +93,6 @@ pops macro r1,r2,r3,r4,r5,r6,r7,r8,r9,r10,r11,r12,r13,r14,r15,r16
 		pop 	x
 		endif
 	endm
-endm
-
-;--- define a "dos terminated" string in .DATA
-
-DosStr macro x
-local xxx
-	.data
-xxx	db x,"$"
-	.code
-	exitm <offset xxx>
 endm
 
 ;--- define an asciiz string in .DATA
@@ -275,16 +269,20 @@ ReqTable		label dword
 		dd 0	;5 Req_Perform_Supplementary_Service
 		dd REQ_GET_SYS_CONFIG	;6
 		dd Request_Map_Addr 	;7
+if ?V19
 		dd REQ_ADDR_INFO		;8 obsolete?
+endif
 		dd REQ_CHECKSUM_MEM 	;9
 		dd Request_Read_Mem		;10
 		dd Request_Write_Mem	;11
 		dd REQ_READ_IO			;12
 		dd REQ_WRITE_IO 		;13
+if ?V19
 		dd REQ_READ_CPU 		;14
 		dd REQ_READ_FPU 		;15
 		dd REQ_WRITE_CPU		;16
 		dd REQ_WRITE_FPU		;17
+endif
 		dd REQ_PROG_GO			;18
 		dd REQ_PROG_STEP		;19
 		dd REQ_PROG_LOAD		;20
@@ -571,11 +569,26 @@ String2File		proto stdcall :ptr byte
 DWord2File		proto stdcall :DWORD
 SetErrorText	proto stdcall :dword
 
-DisplayMsg proc stdcall pText:ptr byte
+DisplayMsg proc stdcall uses esi ebx edx pText:ptr byte
 
-	mov edx, pText
-	mov ah,9
+	mov bh,0
+	mov ax,0e07h
+	int 10h
+	mov esi, pText
+if 1
+@@:
+	lodsb
+	and al, al
+	jz @F
+	mov dl, al
+	mov ah, 2
 	int 21h
+	jmp @B
+@@:
+else
+	mov ax,2
+	int 41h
+endif
 	ret
 DisplayMsg endp
 
@@ -621,7 +634,7 @@ WriteLog proc
 	jc @F
 	ret
 @@:
-	invoke DisplayMsg, DosStr(<"error writing to log file",13,10>)
+	invoke DisplayMsg, CStr("error writing to log file",13,10)
 	ret
 WriteLog endp
 
@@ -799,7 +812,7 @@ endif
 	movzx eax,ax
 	mov	dwSaveRestoreSize, eax
 
-	invoke String2File, CStr("Init RM Dbg Helper starts",13,10)
+	invoke String2File, CStr("InitRMDbgHelper starts",13,10)
 	push es
 	mov es, g_psp
 	mov es,es:[002Ch]
@@ -1022,24 +1035,29 @@ done:
 	clc
 	ret
 error1:
-	mov edx, DosStr(<"file cannot be opened",13,10>)
-	jmp @F
+	push edx
+	invoke String2File, CStr("open error file ")
+	pop edx
+	invoke String2File, edx
+	invoke String2File, CStr(13,10)
+	invoke DisplayMsg, CStr("rmdbghlp.bin not loaded",13,10)
+	jmp error
 error2:
-	mov edx, DosStr(<"no DOS memory available",13,10>)
+	mov edx, CStr("no DOS memory available",13,10)
 	jmp @F
 error3:
-	mov edx, DosStr(<"read error",13,10>)
+	mov edx, CStr("rmdbghlp.bin read error",13,10)
 	jmp @F
 error4:
-	mov edx, DosStr(<"wrong version",13,10>)
+	mov edx, CStr("wrong version",13,10)
 	jmp @F
 error5:
-	mov edx, DosStr(<"no more selectors available",13,10>)
+	mov edx, CStr("no more selectors available",13,10)
 @@:
-	push edx
-	invoke DisplayMsg, DosStr(<"RMDBGHLP.BIN: ">)
-	pop edx
+	invoke DisplayMsg, CStr("InitRMDbgHelper: ")
 	invoke DisplayMsg, edx
+	invoke String2File, edx
+error:
 	mov g_bRC,1
 	stc
 	ret
@@ -1392,7 +1410,7 @@ endif
 ;Say hello.
 ;
 versionstring textequ @CatStr(!",%?VERMAJOR,.,%?VERMINOR,!")
-	invoke DisplayMsg, DosStr(<13,10,"HX Trap helper v",versionstring," initialized",13,10>)
+	invoke DisplayMsg, CStr(13,10,"HX Trap helper v",versionstring," initialized",13,10)
 ;
 ;Pass control to real mode call handler.
 ;
@@ -1467,11 +1485,11 @@ endif
 	mov al,g_bRC
 	ret
 @@errormain1:
-	invoke DisplayMsg, DosStr(<"HX Trap helper can't be executed from the command line",13,10>)
+	invoke DisplayMsg, CStr("HX Trap helper can't be executed from the command line",13,10)
 	mov al,1
 	ret
 @@errormain2:
-	invoke DisplayMsg, DosStr(<"signature not found",13,10>)
+	invoke DisplayMsg, CStr("signature not found",13,10)
 	mov al,1
 	ret
 main endp
@@ -2063,6 +2081,7 @@ moddone:
 	ret
 Request_Map_Addr endp
 
+if ?V19
 ;*******************************************************************************
 ;
 ;Work out if specified address has big bit set.
@@ -2102,6 +2121,7 @@ endif
 	sub ecx,1+6
 	ret
 REQ_ADDR_INFO endp
+endif
 
 ;--- what is this proc for?
 ;--- the debuggee may have switched to 32bit protected mode
@@ -2734,6 +2754,7 @@ REQ_WRITE_IO proc
 REQ_WRITE_IO endp
 
 
+if 1;?V19
 ;*******************************************************************************
 ;
 ;Get main CPU register contents.
@@ -2782,7 +2803,6 @@ endif
 	mov edi,@@outaddr
 	ret
 REQ_READ_CPU endp
-
 ;*******************************************************************************
 ;
 ;Get FPU register contents.
@@ -3010,6 +3030,7 @@ convert:
 endif
 REQ_WRITE_FPU endp
 
+endif
 
 ;*******************************************************************************
 ; REQ_READ_REGS processing, follows REQ_READ_CPU, MED 1/20/2003
@@ -3317,6 +3338,7 @@ if ?DPMI16
 	movzx esi,si
 	movzx edi,di
 endif
+	xor ebp, ebp
 	mov esp,offset loadstack
 	mov ax,4b00h
 	int 21h
@@ -6019,13 +6041,13 @@ local	szVar[16]:byte
 	mov ebx, eax
 	mov ah,3Eh
 	int 21h
-;	invoke DisplayMsg, DosStr(<"config file found in current dir",13,10>)
+;	invoke DisplayMsg, CStr("config file found in current dir",13,10)
 	jmp @@3rc
 ;
 ;Get the execution path and use it to find the configuration file.
 ;
 @@0rc:
-;	invoke DisplayMsg, DosStr(<"searching config in execution path",13,10>)
+;	invoke DisplayMsg, CStr("searching config in execution path",13,10)
 	mov ebx, g_psp
 	mov ax,6
 	int 31h
@@ -6092,7 +6114,7 @@ endif
 	mov ebx, eax
 	mov ah,3Eh
 	int 21h
-;	invoke DisplayMsg, DosStr(<"config file found in execution path",13,10>)
+;	invoke DisplayMsg, CStr("config file found in execution path",13,10)
 ;
 ;config file exists so fetch our variables.
 ;
@@ -6153,7 +6175,7 @@ endif
 	.endif
 ;
 @@9rc:
-;	invoke DisplayMsg, DosStr(<"exit readconfig",13,10>)
+;	invoke DisplayMsg, CStr("exit readconfig",13,10)
 	ret
 ReadConfig endp
 
@@ -6329,16 +6351,20 @@ ReqTab label reqstr
 	?REQ = 6
 	@reqstr <REQ_GET_SYS_CONFIG>
 	@reqstr <REQ_MAP_ADDR>
+if ?V19
 	@reqstr <REQ_ADDR_INFO>
+endif
 	@reqstr <REQ_CHECKSUM_MEM >
 	@reqstr <REQ_READ_MEM>
 	@reqstr <REQ_WRITE_MEM >
 	@reqstr <REQ_READ_IO   >
 	@reqstr <REQ_WRITE_IO  >
+if ?V19
 	@reqstr <REQ_READ_CPU  >
 	@reqstr <REQ_READ_FPU  >
 	@reqstr <REQ_WRITE_CPU >
 	@reqstr <REQ_WRITE_FPU >
+endif
 	@reqstr <REQ_PROG_GO   >
 	@reqstr <REQ_PROG_STEP >
 	@reqstr <REQ_PROG_LOAD >
@@ -6656,7 +6682,7 @@ if ?DPMI16
 	mov cx,2			;allocate 2 descriptors
 	int 31h
 	jnc @F
-	invoke DisplayMsg, DosStr(<"out of LDT descriptors",13,10>)
+	invoke DisplayMsg, CStr("out of LDT descriptors",13,10)
 	mov ax,4cffh
 	int 21h
 @@:
