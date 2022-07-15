@@ -31,7 +31,8 @@ OUTDIR=REL16
 OUTDIR=DEB16
 !endif
 
-ASMOPT= -c -nologo -Sg -Fl$* -Fo$* -I$(INC32DIR) -D?FLAT=0 -D?NE=1 -D?DEBUGLEVEL=$(DEBUG)
+#ASMOPT= -c -nologo -Sg -Fl$* -Fo$* -I$(INC32DIR) -D?FLAT=0 -D?NE=1 -D?DEBUGLEVEL=$(DEBUG)
+ASMOPT= -c -nologo -Sg -Fl$* -Fo$* -I$(INC32DIR) -D?V19=1 -D?FLAT=0 -D?NE=1 -D?DEBUGLEVEL=$(DEBUG)
 
 ALL: $(OUTDIR) $(OUTDIR)\$(NAME).EXE
 

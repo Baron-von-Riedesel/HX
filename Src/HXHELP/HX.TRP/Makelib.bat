@@ -1,1 +1,0 @@
-wlib trap.lib +core.obj +doschk.obj +dosenv.obj +DOSEXC.OBJ +dosfile.obj +dosflip.obj +dosrfx.obj +dossplit.obj +dosstrt.obj +dosxfork.obj +dosxjump.obj +dosxlink.obj +dosxremo.obj +fork.obj +mkstr.obj +mxutil.obj +packet.obj +supp.obj +dbgstr.obj
