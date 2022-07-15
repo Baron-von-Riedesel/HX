@@ -541,29 +541,35 @@ endif
 
 	mov ax,1687h		;is DPMI existing?
 	int 2fh
-	and ax,ax
 if ?LOADSERVER
-	jz @F
+	and ax, ax
+	jnz @F
+	test bl, 1
+	jnz hostok
+ if ?HDPMI
+	mov ah, 51h
+	int 21h
+	mov es, bx			;restore ES
+ endif
+@@:
  if ?HDPMI
 	call inithdpmi
-	mov hostres,dx
+	mov hostres, dx
  else
 	call loadserver
  endif
 	mov ax,1687h
 	int 2fh
-	and ax,ax
-	jnz nodpmihost
-@@:
-else
-	jnz nodpmihost 		;error: no DPMI host
 endif
+	and ax, ax
+	jnz nodpmihost 		;error: no DPMI host
+hostok:
 	push es
 	push di				;lpproc
 
 	and si,si
 	jz nomemneeded
-							;alloc req real mode mem
+						;alloc req real mode mem
 	mov ah,48h
 	mov bx,si
 	int 21h
@@ -573,9 +579,9 @@ endif
 nomemneeded:
 	call restoreumbstatus
 	mov si,ds
-	mov ax,0001 			;32 bit application
+	mov ax,0001 		;32 bit application
 	call dword ptr [lpproc]	;jump to PM
-	jc initfailed			;error: jmp to pm didnt work
+	jc initfailed		;error: jmp to pm didnt work
 	add sp,4+2+2
 
 ;--- here es=PSP, ds=ss=DGROUP, cs=TEXT16
@@ -606,7 +612,7 @@ else
 	sub sp,?BUFSIZE
 endif
 
-;	mov		es,ds:[2Ch]		;avoid the MASM 32bit offset
+;	mov		es,ds:[2Ch]	;avoid the MASM 32bit offset
 	db 8eh,06h,2Ch,00h
 
 	SUB DI,DI
@@ -638,7 +644,7 @@ endif
 	shr di,4
 	add di,si
 	mov ax,000Ah
-	int 31h				;create alias for CS
+	int 31h				;create alias for 32bit flat CS
 	jc nodescriptor
 	push ebx
 	mov cx,si

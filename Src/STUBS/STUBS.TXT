@@ -51,6 +51,7 @@
  5. History
 
  07/2022: added int 41h debug support to loadpe.
+          handle gracefully an installed 16-bit only host.
  05/2018: added another version of LOADPE: LOADPXNR.BIN.
  03/2008: "out of memory" error msg added to LOADPE.
           DPMIST32.ASM can be assembled with WASM now.
