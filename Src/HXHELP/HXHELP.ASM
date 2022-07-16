@@ -571,9 +571,11 @@ SetErrorText	proto stdcall :dword
 
 DisplayMsg proc stdcall uses esi ebx edx pText:ptr byte
 
+if 0
 	mov bh,0
 	mov ax,0e07h
 	int 10h
+endif
 	mov esi, pText
 if 1
 @@:
