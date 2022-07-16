@@ -1799,6 +1799,11 @@ InitKernel endp
 
 _ITEXT ends
 
+ENTHDR struct
+bCnt	db ?
+bValid	db ?
+ENTHDR ends
+
 ENTRY struct
 bSegm	db ?
 wOfs	dw ?
@@ -1814,182 +1819,182 @@ externdef _end:abs
 KernelSeg SEGITEM <0,_end, 0, _end>
 
 KernelEntries label byte
-	db 1,1
+	ENTHDR <1,1>			; 1
 	ENTRY <1,FatalExit>
-	db 1,0
+	ENTHDR <1,0>			; 2 skipped
 ife ?32BIT
-	db 8,1
-	ENTRY <1,GetVersion>		;3
-	ENTRY <1,LocalInit>			;4
+	ENTHDR <8,1>			; 3-10
+	ENTRY <1,GetVersion>	; 3
+	ENTRY <1,LocalInit>		; 4
 	ENTRY <1,LocalAlloc>
 	ENTRY <1,LocalReAlloc>
 	ENTRY <1,LocalFree>
 	ENTRY <1,LocalLock>
 	ENTRY <1,LocalUnlock>
-	ENTRY <1,LocalSize>			;10
-	db 2,0
-	db 1,1
-	ENTRY <1,LocalCompact>		;13
-	db 1,0
+	ENTRY <1,LocalSize>		; 10
+	ENTHDR <2,0>			; 11-12 skipped
+	ENTHDR <1,1>			; 13
+	ENTRY <1,LocalCompact>
+	ENTHDR <1,0>			; 14 skipped
 else
-	db 1,1
-	ENTRY <1,GetVersion>		;3
-	db 11,0
+	ENTHDR <1,1>			; 3
+	ENTRY <1,GetVersion>
+	ENTHDR <11,0>			; 4-14 skipped
 endif
-	db 7,1
-	ENTRY <1,GlobalAlloc>		;15
+	ENTHDR <7,1>			; 15-21
+	ENTRY <1,GlobalAlloc>
 	ENTRY <1,GlobalReAlloc>
 	ENTRY <1,GlobalFree>
 	ENTRY <1,GlobalLock>
 	ENTRY <1,GlobalUnlock>
 	ENTRY <1,GlobalSize>
-	ENTRY <1,GlobalHandle>		;21
-	db 1,0
+	ENTRY <1,GlobalHandle>	; 21
+	ENTHDR <1,0>			; 22 skipped
 ife ?32BIT
-	db 3,1
+	ENTHDR <3,1>			; 23-25
 else
-	db 2,1
+	ENTHDR <2,1>			; 23-24
 endif
-	ENTRY <1,LockSegment>		;23
+	ENTRY <1,LockSegment>	; 23
 	ENTRY <1,UnlockSegment>
 ife ?32BIT
-	ENTRY <1,GlobalCompact>		;25
-	db 4,0						;26-29
+	ENTRY <1,GlobalCompact>	; 25
+	ENTHDR <4,0>			; 26-29 skipped
 else
-	db 5,0						;26-29
+	ENTHDR <5,0>			; 25-29 skipped
 endif
-	db 1,1
-	ENTRY <1,WaitEvent>			;30
-	db 5,0
-	db 2,1
-	ENTRY <1,GetCurrentTask>	;36
-	ENTRY <1,GetCurrentPDB>		;37
-	db 7,0						;38-44
-	db 1,1
-	ENTRY <1,LoadModule>		;45
-	db 1,0						;46
-	db 4,1
-	ENTRY <1,GetModuleHandle>	;47
+	ENTHDR <1,1>			; 30
+	ENTRY <1,WaitEvent>
+	ENTHDR <5,0>			; 31-35 skipped
+	ENTHDR <2,1>			; 36-37
+	ENTRY <1,GetCurrentTask>
+	ENTRY <1,GetCurrentPDB>
+	ENTHDR <7,0>			; 38-44 skipped
+	ENTHDR <1,1>			; 45
+	ENTRY <1,LoadModule>
+	ENTHDR <1,0>			; 46 skipped
+	ENTHDR <4,1>			; 47-50
+	ENTRY <1,GetModuleHandle>
 	ENTRY <1,GetModuleUsage>
 	ENTRY <1,GetModuleFileName>
-	ENTRY <1,GetProcAddress>	;50
-	db 30,0						;51-80
+	ENTRY <1,GetProcAddress>
+	ENTHDR <30,0>			; 51-80 skipped
 ife ?32BIT
-	db 6,1
-	ENTRY <1,_lclose>			;81
+	ENTHDR <6,1>			; 81-86
+	ENTRY <1,_lclose>
 	ENTRY <1,_lread>
 	ENTRY <1,_lcreat>
 	ENTRY <1,_llseek>
 	ENTRY <1,_lopen>
-	ENTRY <1,_lwrite>			;86
-	db 1,0						;87
-	db 4,1
+	ENTRY <1,_lwrite>
+	ENTHDR <1,0>			; 87 skipped
+	ENTHDR <4,1>			; 88-91
 	ENTRY <1,lstrcpy>
 	ENTRY <1,lstrcat>
-	ENTRY <1,lstrlen>			;90
-	ENTRY <1,InitTask>			;91
-	db 3,0						;92-94
+	ENTRY <1,lstrlen>
+	ENTRY <1,InitTask>
+	ENTHDR <3,0>			; 92-94 skipped
 else
-	db 14,0						;81-94
+	ENTHDR <14,0>			; 81-94 skipped
 endif
-	db 2,1
+	ENTHDR <2,1>			; 95-96
 	ENTRY <1,LoadLibrary>
-	ENTRY <1,FreeLibrary>		;96
-	db 5,0						;97-101
-	db 1,1
-	ENTRY <1,Dos3Call>			;102
-	db 4,0						;103-106
-	db 1,1
-	ENTRY <1,SetErrorMode>		;107
-	db 5,0						;108-112
-	db 2,-2
-eSHIFT	ENTRY <1,3>				;113 _AHSHIFT
-eINCR	ENTRY <1,8>				;114 _AHINCR
-	db 1,1
-	ENTRY <1,OutputDebugString>	;115
-	db 4,0						;116-119
-	db 1,1
-	ENTRY <1,UndefDynlink>		;120
-	db 1,0						;121
-	db 1,1
-	ENTRY <1,IsTaskLocked>		;122
+	ENTRY <1,FreeLibrary>
+	ENTHDR <5,0>			; 97-101 skipped
+	ENTHDR <1,1>			; 102
+	ENTRY <1,Dos3Call>
+	ENTHDR <4,0>			; 103-106 skipped
+	ENTHDR <1,1>			; 107
+	ENTRY <1,SetErrorMode>
+	ENTHDR <5,0>			; 108-112 skipped
+	ENTHDR <2,-2>			; 113-114
+eSHIFT	ENTRY <1,3>			; 113 _AHSHIFT
+eINCR	ENTRY <1,8>			; 114 _AHINCR
+	ENTHDR <1,1>			; 115
+	ENTRY <1,OutputDebugString>
+	ENTHDR <4,0>			; 116-119 skipped
+	ENTHDR <1,1>			; 120
+	ENTRY <1,UndefDynlink>
+	ENTHDR <1,0>			; 121 skipped
+	ENTHDR <1,1>			; 122
+	ENTRY <1,IsTaskLocked>
 if _PROFSTRING_
-	db 5,0						;123-127
-	db 2,1
-	ENTRY <1,GetPrivateProfileString>	;128
-	ENTRY <1,WritePrivateProfileString>	;129
-	db 1,0						;130
+	ENTHDR <5,0>			; 123-127 skipped
+	ENTHDR <2,1>			; 128-129
+	ENTRY <1,GetPrivateProfileString>
+	ENTRY <1,WritePrivateProfileString>
+	ENTHDR <1,0>			; 130 skipped
 else
-	db 8,0						;123-130
+	ENTHDR <8,0>			; 123-130 skipped
 endif
-	db 3,1
-	ENTRY <1,GetDOSEnvironment>	;131
-	ENTRY <1,GetWinFlags>		;132
-	ENTRY <1,GetExePtr>			;133
-	db 3,0						;134-136
-	db 1,1
-	ENTRY <1,FatalAppExit>		;137
+	ENTHDR <3,1>			; 131-133
+	ENTRY <1,GetDOSEnvironment>
+	ENTRY <1,GetWinFlags>
+	ENTRY <1,GetExePtr>
+	ENTHDR <3,0>			; 134-136 skipped
+	ENTHDR <1,1>			; 137
+	ENTRY <1,FatalAppExit>
 ife ?32BIT
-	db 31,0						;138-168
-	db 1,1
-	ENTRY <1,GetFreeSpace>		;169
+	ENTHDR <31,0>			; 138-168 skipped
+	ENTHDR <1,1>			; 169
+	ENTRY <1,GetFreeSpace>
 else
-	db 32,0						;138-169
+	ENTHDR <32,0>			; 138-169 skipped
 endif
-	db 2,1
+	ENTHDR <2,1>			; 170-171
 	ENTRY <1,AllocCSToDSAlias>
 	ENTRY <1,AllocDSToCSAlias>
 if ?32BIT eq 0
-	db 2,0						;172-173
-	db 1,-2
-eA000 ENTRY <1,00h>				;_A000H
+	ENTHDR <2,0>			; 172-173 skipped
+	ENTHDR <1,-2>			; 174
+eA000 ENTRY <1,00h>			; 174 _A000H
 else
-	db 3,0						;172-174
+	ENTHDR <3,0>			; 172-174 skipped
 endif
-	db 3,1
-	ENTRY <1,AllocSelector>		;175
+	ENTHDR <3,1>			; 175-177
+	ENTRY <1,AllocSelector>
 	ENTRY <1,FreeSelector>
-	ENTRY <1,PrestoChangoSelector>	;177
-	db 1,-2
-eWinFlags ENTRY <1,0>			;178 __WINFLAGS
+	ENTRY <1,PrestoChangoSelector>
+	ENTHDR <1,-2>			; 178
+eWinFlags ENTRY <1,0>		; 178 __WINFLAGS
 
 if ?32BIT eq 0
-	db 2,0						;179-180
-	db 3,-2
-eB000 ENTRY <1,0>				;181 _B000H
-eB800 ENTRY <1,0>				;182 _B800H
-e0000 ENTRY <1,0>				;183 _0000H
+	ENTHDR <2,0>			; 179-180 skipped
+	ENTHDR <3,-2>			; 181-183
+eB000 ENTRY <1,0>			; 181 _B000H
+eB800 ENTRY <1,0>			; 182 _B800H
+e0000 ENTRY <1,0>			; 183 _0000H
 else
-	db 5,0						;179-193
+	ENTHDR <5,0>			; 179-183 skipped
 endif
-	db 6,1
-	ENTRY <1,GlobalDOSAlloc>	;184
-	ENTRY <1,GlobalDOSFree>		;185
-	ENTRY <1,GetSelectorBase>	;186
-	ENTRY <1,SetSelectorBase>	;187
-	ENTRY <1,GetSelectorLimit>	;188
-	ENTRY <1,SetSelectorLimit>	;189
-	db 3,0						;190-192
+	ENTHDR <6,1>			; 184-189
+	ENTRY <1,GlobalDOSAlloc>
+	ENTRY <1,GlobalDOSFree>
+	ENTRY <1,GetSelectorBase>
+	ENTRY <1,SetSelectorBase>
+	ENTRY <1,GetSelectorLimit>
+	ENTRY <1,SetSelectorLimit>
+	ENTHDR <3,0>			; 190-192 skipped
 ife ?32BIT
-	db 3,-2
-e0040 ENTRY <1,0040h>			;193
-eF000 ENTRY <1,0>				;194 _F000H
-eC000 ENTRY <1,0>				;195 _C000H
+	ENTHDR <3,-2>			; 193-195
+e0040 ENTRY <1,0040h>		; 193 _0040H
+eF000 ENTRY <1,0>			; 194 _F000H
+eC000 ENTRY <1,0>			; 195 _C000H
 else
-	db 1,-2
-e0040 ENTRY <1,0040h>			;193
-	db 2,0
+	ENTHDR <1,-2>			; 193
+e0040 ENTRY <1,0040h>		; 193 _0040h
+	ENTHDR <2,0>			; 194-195 skipped
 endif
-	db 1,0						;196
-	db 2,1
-	ENTRY <1,GlobalFix>			;197
-	ENTRY <1,GlobalUnfix>		;198
-	db 4,0						;199-202
-	db 1,1
-	ENTRY <1,DebugBreak>		;203
-	db 2,0						;204-205
-	db 1,1
-	ENTRY <1,AllocSelectorArray>;206
+	ENTHDR <1,0>			; 196 skipped
+	ENTHDR <2,1>			; 197-198
+	ENTRY <1,GlobalFix>
+	ENTRY <1,GlobalUnfix>
+	ENTHDR <4,0>			; 199-202 skipped
+	ENTHDR <1,1>			; 203
+	ENTRY <1,DebugBreak>
+	ENTHDR <2,0>			; 204-205 skipped
+	ENTHDR <1,1>			; 206
+	ENTRY <1,AllocSelectorArray>
 	db 0
 
 NENAME macro name, export
