@@ -73,7 +73,7 @@ ifndef ?STDOUT
 endif
 
 ifndef ?KERNEL16
-?KERNEL16		= 1		;1
+?KERNEL16		= 1		;1 1=include kernel16.inc and call InitKernel
 endif
 
 ?RESETDEFPATH	= 0		;0 1= reset szPath? No, currently this is done
@@ -7541,7 +7541,10 @@ tryagain:
 	mov ax,4b00h			;load dpmi server
 	int 21h
 	jc loadfailed
+	mov ah, 4Dh
+	int 21h
 doneload:
+	mov [bp+14], ax
 	mov sp,bp
 	popa
 	ret
@@ -7573,6 +7576,7 @@ if ?SLOADERR
 	xor ax,ax
 	call stroutax
 endif
+	mov al, 7
 	jmp doneload
 
 loadserver endp
@@ -7905,7 +7909,10 @@ ife ?32BIT
 	mov ah, 49h		; free the memory that has been allocated for the host
 	int 21
 	call loadserver	; try to load HDPMI16
-	jmp JumpToPM	; and try again ( hopefully not entering an infinite loop ... )
+	cmp al, 4
+	jb JumpToPM		; and try again ( hopefully not entering an infinite loop ... )
+	mov ax, offset errstr3
+	jmp error0
  endif
 endif
 	jmp @F

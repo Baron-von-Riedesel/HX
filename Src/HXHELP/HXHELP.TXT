@@ -26,10 +26,14 @@
  
  History
 
- 29.06.2022, V1.5
+ 15.07.2022, V1.5
 
  - last byte of a segment wasn't read because the segment limit was interpreted
    incorrectly.
+ - adjusted to dpmild16/32 v3.11 - hxhelp is no longer visible to int 41h.
+ - fixed: hx.trp/hx16.trp: removed .obj files; dosxlink.c: a second location to
+   adjust was missing and "EXTENDER_NAMES" was changed from "dpmild32.exe" to
+   "hxhelp.exe".
 
  07/15/2018, V1.4
 

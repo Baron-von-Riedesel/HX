@@ -18,7 +18,7 @@ $(OUTDIR):
 	@mkdir $(OUTDIR)
 
 $(OUTDIR)\dosx.exe: dosx.asm makefile
-	@jwasm $(AOPTS) dosx.asm
+	@$(ASM) $(AOPTS) dosx.asm
 
 clean:
 	@if exist $(OUTDIR)\dosx.exe del $(OUTDIR)\dosx.exe
