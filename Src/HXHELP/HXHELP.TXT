@@ -34,6 +34,7 @@
  - fixed: hx.trp/hx16.trp: removed .obj files; dosxlink.c: a second location to
    adjust was missing and "EXTENDER_NAMES" was changed from "dpmild32.exe" to
    "hxhelp.exe".
+ - request map_addr: if real-mode app, ignore offset.
 
  07/15/2018, V1.4
 

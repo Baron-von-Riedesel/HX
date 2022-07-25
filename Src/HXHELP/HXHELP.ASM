@@ -1875,14 +1875,11 @@ GetSegmentHandle endp
 
 ;*******************************************************************************
 ;
-;Convert selector number/offset into real address.
+;Convert image segment/selector number/offset into real address.
 ;
-;On Entry: esi -> byte REQ_MAP_ADDR, far32 ptr, dword (module)
-;expected  edi -> far32 ptr, dword, dword
-;
-;ECX	- remaining request bytes.
-;ESI	- current request data.
-;EDI	- result buffer position.
+;On Entry: esi -> REQ_MAP_ADDR
+;expected  edi -> REPLY_MAP_ADDR
+;          ecx - remaining request bytes.
 ;
 ;Returns:
 ;
@@ -1909,26 +1906,28 @@ MAP_FLAT_DATA_SELECTOR	equ -2
 
 Request_Map_Addr proc
 
-local	@@incount:DWORD,@@inaddr:DWORD,@@outaddr:DWORD
+local incount:DWORD
+local inaddr:DWORD
+local outaddr:DWORD
+local wSeg:word
 
 	pushad
 ;
 ;Setup new input count/address.
+;Setup output address
 ;
-	mov @@incount,ecx
-	mov @@inaddr,esi
-	sub @@incount,sizeof REQ_MAP_ADDR
-	add @@inaddr,sizeof REQ_MAP_ADDR
-;
-;Setup output address and default contents.
-;
-	mov @@outaddr,edi
-	add @@outaddr,sizeof REPLY_MAP_ADDR
+	mov incount, ecx
+	mov inaddr, esi
+	sub incount, sizeof REQ_MAP_ADDR
+	add inaddr, sizeof REQ_MAP_ADDR
+	mov outaddr, edi
+	add outaddr, sizeof REPLY_MAP_ADDR
+
 	xor eax,eax
-	mov [edi].REPLY_MAP_ADDR.dwOfs,eax
-	mov [edi].REPLY_MAP_ADDR.wSeg,ax
-	mov [edi].REPLY_MAP_ADDR.lobounds,eax
-	mov [edi].REPLY_MAP_ADDR.hibounds,eax
+	mov [edi].REPLY_MAP_ADDR.dwOfs, eax
+	mov [edi].REPLY_MAP_ADDR.wSeg, ax
+	mov [edi].REPLY_MAP_ADDR.lobounds, eax
+	mov [edi].REPLY_MAP_ADDR.hibounds, eax
 ;
 ;Check the module handle.
 ;
@@ -1937,77 +1936,93 @@ ife ?DPMI16
 	test edx,0FFFF0000h			;is it a PE module?
 	jnz ispe
   if ?DJGPP
-	cmp g_bIsDjgpp,-1
+	cmp g_bIsDjgpp, -1
 	jz isdjgpp
   endif
 endif
-	mov dx,[esi].REQ_MAP_ADDR.wSeg
+	mov dx, [esi].REQ_MAP_ADDR.wSeg
+	cmp dx, MAP_FLAT_CODE_SELECTOR
+	jz @F
+	cmp dx, MAP_FLAT_DATA_SELECTOR
+	jnz selok
+@@:
+	mov dx, 0
+selok:
+	mov wSeg, dx
 	cmp g_fRealMode,0
 	jz isprotmode16
-	cmp dx,-1					;flat code segment
-	jz @@9addr					;we cannot handle this
-	cmp dx,-2					;flat data segment
-	jz @@9addr					;we cannot handle this
-if 0
+;--- ignore offset.
+;--- DGROUP might actually start "within" a paragraph, but
+;--- since it is a segment address, there might be an "offset" then.
+;--- it has to be ignored for map_addr - else the contents of globals
+;--- aren't correctly shown in the debugger.
 	mov eax,[esi].REQ_MAP_ADDR.dwOfs
-	test eax,0FFFF0000h
-	jnz @@9addr					;hiword(offset) != 0 -> exit
-else
-	mov eax,[esi].REQ_MAP_ADDR.dwOfs
-;	movzx eax,ax				;hiword(offset) may be != 0
-								;that's valid!?
-endif
-	mov [edi].REPLY_MAP_ADDR.dwOfs,eax
-	mov ebx,[esi].REQ_MAP_ADDR.dwModule	;module handle (=PSP)
-	mov ax,6
+	mov [edi].REPLY_MAP_ADDR.dwOfs, eax
+	mov ebx, [esi].REQ_MAP_ADDR.dwModule	;module handle (=PSP)
+
+	invoke String2File, CStr("ReqMapAddr, rm, Module=")
+	invoke DWord2File, ebx
+	invoke String2File, CStr(13,10)
+
+	mov ax, 6
 	@callint31
-	jc @@9addr
+	jc exit
 	push cx
 	push dx
 	pop edx
-	shr edx,4
-	add dx,10h
-	add dx,[esi].REQ_MAP_ADDR.wSeg
-	mov [edi].REPLY_MAP_ADDR.wSeg,dx
-	mov [edi].REPLY_MAP_ADDR.hibounds,0FFFFh
-	jmp @@9addr   
+	shr edx, 4
+	add dx, 10h
+	add dx, wSeg
+
+	invoke String2File, CStr("ReqMapAddr, out seg=")
+	invoke DWord2File, edx
+	invoke String2File, CStr(13,10)
+
+	mov [edi].REPLY_MAP_ADDR.wSeg, dx
+	mov [edi].REPLY_MAP_ADDR.hibounds, 0FFFFh
+	jmp exit   
+
 isprotmode16:
-	cmp dx,-1					;flat code segment
-	jz @@9addr					;we cannot handle this
-	cmp dx,-2					;flat data segment
-	jz @@9addr					;we cannot handle this
-	movzx ebx,[esi].REQ_MAP_ADDR.wSeg	;segment #
+	movzx ebx, wSeg
 	mov eax,[esi].REQ_MAP_ADDR.dwModule
-	movzx eax,ax
+
+	invoke String2File, CStr("ReqMapAddr, pm16, Module=")
+	invoke DWord2File, eax
+	invoke String2File, CStr(13,10)
+
+	movzx eax, ax
 	invoke GetSegmentHandle, eax, ebx
 	and eax,eax
-	jz @@9addr
-	mov [edi].REPLY_MAP_ADDR.wSeg,ax
+	jz exit
+	mov [edi].REPLY_MAP_ADDR.wSeg, ax
+	lsl ecx,eax
 	mov eax,[esi].REQ_MAP_ADDR.dwOfs
-	mov [edi].REPLY_MAP_ADDR.dwOfs,eax
-	jmp @@9addr
+	mov [edi].REPLY_MAP_ADDR.dwOfs, eax
+	mov [edi].REPLY_MAP_ADDR.hibounds,ecx
+	jmp exit
+
 if ?DJGPP
 isdjgpp:
-if ?DEBUGLEVEL
+
 	invoke String2File, CStr("ReqMapAddr djgpp, Module=")
 	invoke DWord2File, edx
 	invoke String2File, CStr(13,10)
-endif
+
 	mov eax,[esi].REQ_MAP_ADDR.dwOfs
 	mov [edi].REPLY_MAP_ADDR.dwOfs,eax
 	mov [edi].REPLY_MAP_ADDR.wSeg,dx		;addr selector
 	mov [edi].REPLY_MAP_ADDR.lobounds,0
 	lsl eax,edx
 	mov [edi].REPLY_MAP_ADDR.hibounds,eax
-	jmp @@9addr   
+	jmp exit   
 endif
 
 ispe:
-if ?DEBUGLEVEL
-	invoke String2File, CStr("ReqMapAddr, Module=")
+
+	invoke String2File, CStr("ReqMapAddr, pm32, Module=")
 	invoke DWord2File, edx
 	invoke String2File, CStr(13,10)
-endif
+
 	mov ebx,cs
 	mov ax,[esi].REQ_MAP_ADDR.wSeg	;selector (MAP_FLAT_CODE/MAP_FLAT_DATA)
 	cmp ax,MAP_FLAT_CODE_SELECTOR
@@ -2075,11 +2090,11 @@ moddone:
 ;
 ;Return to caller.
 ;
-@@9addr:
+exit:
 	popad
-	mov ecx,@@incount
-	mov esi,@@inaddr
-	mov edi,@@outaddr
+	mov ecx, incount
+	mov esi, inaddr
+	mov edi, outaddr
 	ret
 Request_Map_Addr endp
 
@@ -3059,29 +3074,38 @@ REQ_WRITE_REGS endp
 
 ;--- this is to overcome a WD restriction.
 ;--- it helps WD to determine that a soft break has been hit
-;--- EDI -> return buffer where CS:EIP has been stored
+;--- EDI -> return buffer for REQ_PROG_GO/REQ_PROG_STEP
+
+PROG_GO_RET struct
+dwEsp dd ?
+wSS   dw ?
+dwEip dd ?
+wCS   dw ?
+wCond dw ?
+PROG_GO_RET ends
+
 
 CheckForBreakHits proc uses ecx
 	cmp BreakFlag,0	;was it an int 03?
 	jz done
-	mov bx, [edi+4]
+	mov bx, [edi].PROG_GO_RET.wCS
 	cmp g_fRealMode,0
 	jnz isrealmode
-	mov ax,6
+	mov ax, 6
 	@callint31
 	push cx
 	push dx
 	pop edx
 	jmp cont_1
 isrealmode:
-	movzx edx,bx
-	shl edx,4
+	movzx edx, bx
+	shl edx, 4
 cont_1:
-	add edx,[edi+0]
+	add edx, [edi].PROG_GO_RET.dwEip
 	call FindBreakInTable
 	jc done
-	mov [edi+0],eax
-	mov [edi+4],dx
+	mov [edi].PROG_GO_RET.dwEip, eax
+	mov [edi].PROG_GO_RET.wCS, dx
 done:
 	ret
 CheckForBreakHits endp
@@ -3110,6 +3134,7 @@ REQ_PROG_STEP:
 ;ECX,ESI & EDI updated.
 ;
 ;*******************************************************************************
+
 RunProg proc
 	local @@result:DWORD
 
@@ -3121,20 +3146,18 @@ RunProg proc
 	mov @@result,eax
 ;
 	popad
-	mov eax,Debuggee.cpu._Esp
-	mov [edi],eax
-	mov ax,Debuggee.cpu._Ss
-	mov [edi+4],ax
-	add edi,4+2
-	mov eax,Debuggee.cpu._Eip
-	mov [edi],eax
-	mov ax,Debuggee.cpu._Cs
-	mov [edi+4],ax
-	call CheckForBreakHits	;expects EDI -> CS:EIP
-	add edi,4+2
-	mov eax,@@result
-	mov [edi],ax
-	add edi,2
+	mov eax, Debuggee.cpu._Esp
+	mov [edi].PROG_GO_RET.dwEsp, eax
+	mov ax, Debuggee.cpu._Ss
+	mov [edi].PROG_GO_RET.wSS, ax
+	mov eax, Debuggee.cpu._Eip
+	mov [edi].PROG_GO_RET.dwEip, eax
+	mov ax, Debuggee.cpu._Cs
+	mov [edi].PROG_GO_RET.wCS, ax
+	call CheckForBreakHits
+	mov eax, @@result
+	mov [edi].PROG_GO_RET.wCond, ax
+	add edi, sizeof PROG_GO_RET
 	ret
 RunProg endp
 
@@ -3142,7 +3165,7 @@ if ?DJGPP
 
 CheckDjgpp proc
 
-local	Hdr[40h]:byte
+local Hdr[40h]:byte
 
 	mov g_bIsDjgpp,0
 	mov edx,offset ProgName
@@ -4907,7 +4930,8 @@ no_execution:
 	mov cl,g_fRealMode
 	cmp cl,g_fPrevMode
 	jz @F
-	or eax, COND_ALIASING
+;	or eax, COND_ALIASING
+	or eax, COND_ALIASING or COND_CONFIG	;ok? COND_CONFIG makes WD call GetSysConfig() and CheckMADChange()
 @@: 
 	cmp g_fRealMode,0
 	jnz @F
