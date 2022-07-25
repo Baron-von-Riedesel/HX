@@ -270,11 +270,11 @@ ivx1 db "....:....",13,10,'$'
 	popa
 endif
 
-;--------------------- load HDPMI (is a tsr) if no dpmi server present
 	mov ax,1687h
 	int 2fh
 	and ax,ax
 	jz @F
+;--------------------- load HDPMI (is a tsr) if no dpmi server present
 	call SearchPath
 	mov si,di
 	call SearchSvr
