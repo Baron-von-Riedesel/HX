@@ -15,7 +15,8 @@ else
 endif
 
 ife ?32BIT
-externdef pascal _hmemset:far
+;--- _hmemset(FAR16 dst, WORD value, DWORD cnt), requires __AHINCR
+_hmemset proto pascal :dword, :word, :dword
 externdef pascal lstrcpy:far
 externdef pascal lstrcat:far
 externdef pascal lstrlen:far
@@ -945,38 +946,29 @@ GlobalAlloc proc far pascal
 
 if ?32BIT
 	mov ebx,[parm1]
-	mov al,bl
+	add ebx, 16-1
+	jc error
 	shr ebx,4
-	test al,0fh
-	jz @F
-	inc ebx
-@@:
 else
 	push bp
 	mov bp,sp
 	mov ax,[parm1+0]
 	mov dx,[parm1+2]
-	mov bx,dx
-	mov cx,ax
+	mov cx, ax
+	mov bx, dx
+	add ax, 16-1
+	adc dx, 0
+	jc error
 	test dx,0FFF0h
   if ?LARGEALLOC
-	jnz largealloc	 ;maximum is 1 MB - 16 in 16 bit version
+	jnz largealloc
   else
-	jnz error
+	jnz error				;max of int 21h, ah=48h is 0FFFFh paragraphs ( actually, just 0fffeh )
   endif
 	shr ax,4
 	shl dx,12
-	or ax,dx
-	test cl,0Fh
-	jz @F
-	inc ax
-  if ?LARGEALLOC
-	jz largealloc
-  else
-	jz error
-  endif
-@@:
-	cmp ax,-1				;bx=FFFF might not work
+	or ax, dx
+	cmp ax,-1				;allocating 0FFFFh paras might not work
   if ?LARGEALLOC
 	jz largealloc
   else
@@ -1003,20 +995,8 @@ if ?32BIT
 	pop ax
 else
 	push ax
-
-;--- _hmemset(FAR16 dst, WORD value, DWORD cnt), requires __AHINCR
-public __AHINCR
-__AHINCR equ 8
-
-	push ax		;selector
-	push 0		;offset
-	push 0		;value
-	mov ax,[parm1+0]
-	mov dx,[parm1+2]
-	push dx		;HiWord(cnt)
-	push ax		;LoWord(cnt)
-	push cs
-	call near ptr _hmemset
+	xor dx, dx
+	invoke _hmemset, ax::dx, dx, [parm1]
 	pop ax
 endif
 exit:
@@ -1028,20 +1008,22 @@ error:
 	@trace_s <"GlobalAlloc failed",lf>
 	xor ax,ax
 	jmp exit
+
 if ?LARGEALLOC
 
-;--- size in BX:CX
+;--- dpmild16: if size in bx:cx is >= 0ffff0h
+;--- this cannot be handled by the 16-bit DPMI host.
 
 largealloc:
 	test byte ptr cs:[eWinFlags.wOfs], WF_CPU286
 	jnz error
 	pusha
 	mov bp,sp
+	add cx, 8		; an 8 byte prefix is needed
+	adc bx, 0
 	push 0
 	push bx
 	push cx
-	add cx,8h		;add 8 bytes as prefix
-	adc bx,0
 	mov ax,0501h
 	int 31h
 	jc failed
@@ -1053,19 +1035,20 @@ largealloc:
 	inc cx
 @@:
 	mov [bp-2],cx
-	xor ax,ax
+	xor ax,ax		; alloc selector array
 	int 31h
 	jc failed2
-	mov bx,ax
+	mov bx, ax
 	pop dx
 	pop cx
-	mov ax,7		;set base
+	mov ax, 7		;set base
 	int 31h
 	pop dx
 	pop cx
 	push cx
 	sub dx,1		;calc limit
 	sbb cx,0
+	or dx, 0fffh	;v3.11: ensure page granularity
 	mov ax,8		;set limit
 	int 31h
 	mov es,bx
@@ -1344,6 +1327,8 @@ endif
 resizemodulesegm endp
 
 ;--- GlobalReAlloc(WORD hMem, DWORD dwSize, WORD flags);
+;--- generally, this function is partly a stub. Quite a few things that work
+;--- with the Windows version of GlobalRealloc won't work.
 ;--- todo: if block increases and GMEM_ZEROINIT is set, additional memory
 ;--- should be zeroed.
 
@@ -1354,32 +1339,25 @@ GlobalReAlloc proc far pascal uses si hMem:WORD, dwNewsize:DWORD, uiMode:WORD
 endif
 
 	mov si, hMem
-	mov dx, word ptr dwNewsize+2
-	mov ax, word ptr dwNewsize+0
 
 	push si
-	push ax
-	push dx
 	call Segment2ModuleFirst		;is it a module segment?
-	and ax,ax
-	pop dx
-	pop ax
 	pop cx
-	jz @F
+	mov ax, word ptr dwNewsize+0
+	mov dx, word ptr dwNewsize+2
+	jc @F
 	call resizemodulesegm
 	jmp exit
 @@:
-	mov es,cx
+	mov es, cx
 if ?32BIT
 	mov cl,al
 	push dx
 	push ax
 	pop eax
-	shr eax,4
-	test cl,0Fh
-	jz @F
-	inc eax
-@@:
+	adc eax, 16-1
+	jc globalreallocerr
+	shr eax, 4
 	mov ebx,eax
 else
 	test dx,0FFF0h

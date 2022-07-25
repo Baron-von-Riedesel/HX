@@ -345,10 +345,14 @@ endif
 endif
 
 ife ?STUB        
+ if ?VERMINOR2
 versionstring textequ @CatStr(!",%?VERMAJOR,.,%?VERMINOR,.,%?VERMINOR2,!")
+ else
+versionstring textequ @CatStr(!",%?VERMAJOR,.,%?VERMINOR,!")
+ endif
 szHello    db lf
-		   db 'DPMI loader version ',versionstring,lf
-		   db 'Copyright (C) 1993-2022 Japheth',lf,lf,00
+		   db 'DPMI loader v',versionstring,lf
+		   db 'Copyright 1993-2022 Japheth',lf,lf,00
 endif           
 szInitErr  db 'Error in initialization, loading aborted',lf,00
 szShrkErr  db 'memory shrink Error',lf,00
@@ -7543,8 +7547,9 @@ tryagain:
 	jc loadfailed
 	mov ah, 4Dh
 	int 21h
+	cmp al, 4
+	cmc
 doneload:
-	mov [bp+14], ax
 	mov sp,bp
 	popa
 	ret
@@ -7576,7 +7581,7 @@ if ?SLOADERR
 	xor ax,ax
 	call stroutax
 endif
-	mov al, 7
+	stc
 	jmp doneload
 
 loadserver endp
@@ -7891,31 +7896,23 @@ endif
 	add sp,4
 	ret
 error3:		;no switch possible
-	mov ax,offset errstr3		; cannot switch to prot-mode
-ife ?32BIT
- if ?SERVER
+if ( ?32BIT eq 0 ) and ?SERVER
 ;--- v3.11: in case it's DPMILD16 and HDPMI32 is installed,
 ;--- try to load HDPMI16 now
-	mov cx, es
-	pop dx
-	pop es
-	cmp word ptr es:[0],"DH"
+	pop bx
+	pop bx
+	cmp ax, 8021h			; "bad request"?
+	mov ax,offset errstr3	; cannot switch to prot-mode
 	jnz error0
-	cmp word ptr es:[2],"MP"
-	jnz error0
-	cmp byte ptr es:[7], 1
-	jnz error0
-	mov es, cx
 	mov ah, 49h		; free the memory that has been allocated for the host
 	int 21
 	call loadserver	; try to load HDPMI16
-	cmp al, 4
-	jb JumpToPM		; and try again ( hopefully not entering an infinite loop ... )
-	mov ax, offset errstr3
+	jnc JumpToPM	; and try again ( hopefully not entering an infinite loop ... )
 	jmp error0
- endif
-endif
+else
+	mov ax,offset errstr3		; cannot switch to prot-mode
 	jmp @F
+endif
 error1:		;insufficient DOS memory
 	@printf <"DOS mem alloc (BX=%X) failed",lf>, bx
 	mov ax, offset errstr02

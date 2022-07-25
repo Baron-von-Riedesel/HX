@@ -358,6 +358,8 @@
    caused the loader not to release the PSP and environment of a task.
  þ DPMILD16 will now load HDPMI16 if the initial switch to protected-mode
    failed and the current host was HDPMI32.
+ þ bugfix: GlobalAlloc() emulation caused a crash if size was > 1 MB and
+   couldn't be divided by 4096 without remainder.
  
  01.03.2008: version 3.5
 

@@ -3,12 +3,14 @@
 
 	.286
 
-externdef __AHINCR:far
+;externdef __AHINCR:far
+__AHINCR equ 8
 BLOCKSIZE equ 8000h
 
 _TEXT segment word public 'CODE'
 
-_hmemset proc far pascal uses di dst:dword, wValue:word, dwSize:dword
+;_hmemset proc far pascal uses di dst:dword, wValue:word, dwSize:dword
+_hmemset proc pascal uses di dst:dword, wValue:word, dwSize:dword
 
 	les di, dst
 	mov bx, word ptr dwSize+0
