@@ -291,6 +291,7 @@ ife ?FLAT
 	pop @flat
 endif
 	pop ds
+	sti
 	@iret
 	align 4
 

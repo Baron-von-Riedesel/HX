@@ -1,5 +1,5 @@
 
-  __.06.2022: version 3.8
+  __.07.2022: version 3.8
 
   þ allow file size > 2 GB if not running on NT platforms
   þ GetLargestConsoleWindowSize: if current cols exceed "max", use current
@@ -8,6 +8,8 @@
   þ int 41h, ax=159h: don't just return, but route this call to next handler.
   þ if debugger has been detected, don't handle Int 01 or Int 03.
   þ fixed: if application had no heap, GetCommandLine() failed.
+  þ fixed: IRQ 1 handler didn't always enable interrupts before IRET; if 
+    running with IOPL=0, this may have caused the application to "hang".
 
   30.03.2022: version 3.7
 
