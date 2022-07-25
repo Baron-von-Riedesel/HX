@@ -93,7 +93,7 @@ szHelp label byte
 	db "usage: DPMI [ -options ]",lf
 	db "  -16: use entry for 16-bit client in any case",lf
 	db "  -b: allocate real-mode callbacks until error",lf
-	db "  -c: measure enable/disable interrupt execution time in protected mode",lf
+	db "  -c: measure STI/CLI [enable/disable interrupt] execution time in p-mode",lf
 	db "  -d: allocate descriptors until error",lf
 	db "  -e: provoke host stack exhaustion",lf
 	db "  -f: fill allocated memory block (-m, -s) with value 'DPMI'",lf
@@ -1451,8 +1451,11 @@ do_protmode proc
 		wCSSel, wSSSel, wDSSel, wFSSel, wGSSel
 	pushfd
 	pop eax
-	@printf <"Eflags=%lx, ES (=PSP): %x (environment: %x, parent PSP segm: %x)",lf>,\
-		eax, wPSPSel, wEnvSel, wParent
+	mov cx, ax
+	shr cx, 12
+	and cl, 11b
+	@printf <"Eflags=%lx (IOPL=%u), ES (=PSP): %x (environment: %x, parent PSP segm: %x)",lf>,\
+		eax, cx, wPSPSel, wEnvSel, wParent
 	sub sp,6
 	mov bp,sp
 	sgdt [bp]
