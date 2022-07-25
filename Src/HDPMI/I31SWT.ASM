@@ -208,7 +208,7 @@ if 0
  else
 	and ah,08Fh 				;NT+IOPL reset
  endif
-	or ah,?PMIOPL				;set IOPL
+	or ah, ?PMIOPL shl 4		;set IOPL
 	mov ss:[tmpFLReg],ax
 endif
 ;--- on entry to a real-mode callback, DS:E/SI is
@@ -500,8 +500,12 @@ endif
 
 	mov ds,[ebp].RMCALLS.rES
 	mov cx, [edi].RMCS.rFlags
+if ?SETRMIOPL
 	and ch,08Eh 					;reset NT,IOPL,TF
-	or ch,?RMIOPL
+	or ch, ?RMIOPL shl 4
+else
+	and ch,0BEh 					;reset NT,TF
+endif
 	test [ebp].RMCALLS.rAX,1		;function 0300h or 0302h?
 	jnz @F
 	sub eax,2
@@ -1034,12 +1038,12 @@ ife ?32BIT
 endif
 	mov fs,eax
 	mov gs,eax
-;	@dprintf "now in protected mode, DS,ES=%X,%X",ds,es
+;	@dprintf "rm2pm: in protected mode, DS,ES=%X,%X",ds,es
 	mov [esp].IRET32.rIP, edi
 	mov ax,ss:[tmpFLReg]
 	mov [esp].IRET32.rCSd, esi
 	and ah,08Fh					;reset IOPL,NT
-	or ah,?PMIOPL
+	or ah, ?PMIOPL shl 4
 	mov [esp].IRET32.rFL, eax
 	mov [esp].IRET32.rSP, ebx
 	mov [esp].IRET32.rSSd, edx
@@ -1047,8 +1051,8 @@ endif
 	@checkhoststack
 
 if ?32BIT
-	@dprintf "rm2pm: CS:Eip=%X:%lX, SS:Esp=%X:%lX, RMS=%X:%X",\
-		si, edi, dx, ebx, ss:v86iret.rSS, ss:v86iret.rSP
+	@dprintf "rm2pm: CS:Eip=%X:%lX, SS:Esp=%X:%lX, RMS=%X:%X, HS=%lX",\
+		si, edi, dx, ebx, ss:v86iret.rSS, ss:v86iret.rSP, esp
 else
 	@dprintf "rm2pm: CS:Ip=%X:%X, SS:Sp=%X:%X, RMS=%X:%X, HS=%lX",\
 		si, di, dx, bx, ss:v86iret.rSS, ss:v86iret.rSP, esp
@@ -1076,7 +1080,7 @@ _pm2rm proc near public
 	push [esp].IRET32.rFL
 if ?SETRMIOPL	;is 0 by default
 	and byte ptr [esp+1],0CFh		;reset IOPL
-	or byte ptr [esp+1],?RMIOPL
+	or byte ptr [esp+1], ?RMIOPL shl 4
 endif
 	pop ss:tmpFLRegD
 	@dprintf "pm2rm: CS:IP=%X:%X, SS:SP=%X:%X, DS=%X, FL=%X, hs=%lX",\

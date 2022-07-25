@@ -99,7 +99,7 @@ _rawjmp_pm proc near public
 	pushf
 	pop ax
 	and ah,8Fh			;mask out IOPL and NT
-	or ah,?PMIOPL
+	or ah, ?PMIOPL shl 4
 	mov word ptr cs:v86iret.rFL,ax
 rawjmp_pm_patch::
 ;--- if there's no VCPI host, this location will be patched
@@ -235,7 +235,7 @@ _jmp_rm endp	;fall thru
 
 ;--- raw jump to real-mode
 ;--- NO pm segregs saved
-;--- ring 0 esp saved in dwHostStack
+;--- obsolete: [ring 0 esp saved in dwHostStack]
 ;--- stack switch to SS:SP in v86iret
 ;--- real-mode segment registers set to values in v86iret
 ;--- real-mode IP in wRmDest
@@ -246,7 +246,7 @@ _rawjmp_rm proc public
 	mov ss:taskseg._Eax,eax
 if ?SETRMIOPL	;is 0 by default
 	and byte ptr [esp+1],0CFh		;reset IOPL
-	or byte ptr [esp+1],?RMIOPL
+	or byte ptr [esp+1], ?RMIOPL shl 4
 endif
 ;--- v86iret.rEFL cannot be used to store flags.
 ;--- This field will be set by the vcpi host.

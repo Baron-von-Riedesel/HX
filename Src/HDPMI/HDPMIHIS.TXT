@@ -1,7 +1,7 @@
  
  History HDPMI 
 
-  __.06.2022, version 3.20
+  __.07.2022, version 3.20
 
   þ fixed: pmstate variable moved to client-specific data region. This
     bug was virtually irrelevant up to v3.19, but there it may have caused
@@ -10,6 +10,9 @@
     as it is and was documented.
   þ fixed: in v3.19, if HDPMI=32 wasn't set, the required DOS memory was
     reported too high if at least one client was already active.
+  þ fixed: raw mode switches to protected-mode didn't set a helper variable
+    that's used to distinguish IRQs and exceptions. As a consequence,
+    exceptions were then treated as IRQs, causing a crash.
   þ int 25h/26h, displays in debug version: register esi was modified!
   þ set error status ax=0211h if int 25h/26h TLB overflow occurs.
   þ int 25h/26h and int 21h, ax=7305h transfer limit was actually
@@ -23,6 +26,8 @@
   þ vendor API "HDPMI" now available in release version. Allows to
     disable host from within client.
   þ a disabled host will be reenabled when a client terminates.
+  þ the HDPMI variants that run clients with IOPL=0 have now a full
+    8 KB IOPB, zeroed. They are included in HXRT, with an "i"-suffix.
 
   30.03.2022, version 3.19
 

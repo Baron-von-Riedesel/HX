@@ -358,7 +358,7 @@ if 0
 endif
 if ?SAVEHOSTSP
 	lodsd
-	mov ss:taskseg._Esp0, eax		;dwHSExcR3 is in client area!
+	mov ss:taskseg._Esp0, eax
 endif
 
 ;--- v3.20: if a client terminates, reenable host

@@ -486,7 +486,6 @@ endif
 	@mov_eax_cr4
 	@printf "CR4=%lX ", eax
 @@:
-;	@printf <"TSS:ESP0=%lX (%lX)",lf>, taskseg._Esp0, dwHSExcR3
 	@printf <"TSS:ESP0=%lX",lf>, taskseg._Esp0
 	mov eax,dr7
 	push eax
@@ -587,6 +586,11 @@ if ?KDSUPP
 	mov al,[savedfDebug]
 	mov [fDebug], al
 endif
+endif
+
+if 0;?PMIOPL eq 0
+_LTRACE_ = 1
+	@waitesckey
 endif
 
 ;--- dump is done

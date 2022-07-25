@@ -192,10 +192,16 @@ endm
 ;--- it's used for INT 08, 0A, 0B, 0C, 0D, 0E, 11 to determine if it
 ;--- is an exception or an IRQ/programmed INT
 
-@testexception macro exclbl
-	cmp [esp+4].IRET32.rCS,_CSSEL_	;exception in r0?
+@testexception macro exclbl, r0exclbl
+	cmp [esp].R0FAULT.rCS,_CSSEL_	;exception in r0?
+ifnb <r0exclbl>
+	jz r0exclbl
+else
 	jz exclbl
-	cmp esp, ss:dwHSExcR3		;exception in r3?
+endif
+	lea esp, [esp+sizeof R3FAULT32]
+	cmp esp, ss:dwHostStack		;exception in r3?
+	lea esp, [esp-sizeof R3FAULT32]
 ;	jbe exclbl	;v3.18: changed, to allow IRQ in r0
 	je exclbl
 endm
@@ -557,12 +563,7 @@ endif
 
 	align 8
 
-if ?HSINEXTMEM and ?MAPDOSHIGH
 taskseg TSSSEG <0, 0, _SSSEL_>
-;taskseg	equ <TSSSEG[2000h]>
-else
-taskseg TSSSEG <0, 0, _SSSEL_>
-endif
 
 ;*** global descriptor table
 
@@ -843,7 +844,7 @@ _RETF_ equ ($ - offset spectab) / 2 + 200h
 if ?INT21API
 	@defx _I2f168A_Msdos, _I2F168A_MSDOS	;"MS-DOS" DPMI extensions entry (retf)
 endif
-if ?I2FHDPMI
+if ?VENDORAPI
 	@defx _I2f168A_Hdpmi, _I2F168A_HDPMI	;"HDPMI" DPMI extensions entry (retf)
 endif
 if ?SUPI2F16840001
@@ -1165,10 +1166,9 @@ if 1
 dwrmSSSPsave	dd 0
 endif
 
-dwHSExcR3		dd 0
-dwHSsaved		dd 0
+dwHSsaved		dd 0	; todo: explain the purpose of this variable
 if ?HSINEXTMEM
-dwStackTop		dd 0
+dwStackTop		dd 0	; todo: explain the purpose of this variable
 endif
 
 ltaskaddr	dd 0		;addr tcb previous client
@@ -1650,8 +1650,6 @@ if ?ALLOWR0IRQ or ?EMUHLTINR0
 							;now ESP->IRET32
 	push ss:taskseg._Esp0
 	mov ss:taskseg._Esp0, esp
-	mov ss:dwHSExcR3, esp
-	sub ss:dwHSExcR3, sizeof R3FAULT
 	sub esp, sizeof IRET32
 	push ss:taskseg._Eax
 ;--- now esp points to this struct:
@@ -1705,8 +1703,6 @@ _retirqr0::
 	add esp,sizeof IRET32
 	xchg eax,[esp]
 	mov ss:taskseg._Esp0, eax		;restore hoststack entry value
-	lea eax,[eax - sizeof R3FAULT]
-	mov ss:dwHSExcR3, eax
 	pop eax
 if _LTRACE_
 	push ebp
@@ -2044,11 +2040,7 @@ LCEFR0X ends
 	push ds
 	push es
 	push ss:taskseg._Esp0
-	mov ss:taskseg._Esp0,esp
- if ?SETEXCHS
-	mov ss:[dwHSExcR3], esp
-	sub ss:[dwHSExcR3],sizeof R3FAULT32
- endif
+	mov ss:taskseg._Esp0, esp
 	sub esp,sizeof R3FAULT32
 	push ss:taskseg._Eax
 	pushad
@@ -2092,11 +2084,6 @@ endif
 	add esp, sizeof IRET32
 	@dprintf "return from ring 0 exception handler, esp=%lX",esp
 	pop ss:taskseg._Esp0
- if ?SETEXCHS
-	push ss:taskseg._Esp0
-	pop ss:[dwHSExcR3]
-	sub ss:[dwHSExcR3], sizeof R3FAULT
- endif
 	pop es
 	pop ds
 	lea esp, [esp+4]	;skip error code
@@ -2744,10 +2731,11 @@ if 0
 	pop eax
 	pop ebp
 endif
-	@testexception exc0D
+	@testexception exc0D, exc0Dx
 	@simintlpms 0D
 exc0D:
-	call checksiminstr		;emulate some priviledged opcodes
+	call emuprivinstr		;emulate some privileged opcodes in ring 3
+exc0Dx:
 	@exception 0D, TRUE
 	@defaultexc 0D,1
 ;int0dcalled:
@@ -3067,8 +3055,8 @@ endif
 	pop bp
 
 if ?NTCLEAR
-	and ah,08Fh 				 ;reset NT,IOPL
-	or ah,?PMIOPL				 ;iopl=3
+	and ah, 08Fh 				;reset NT,IOPL
+	or ah, ?PMIOPL shl 4		;set iopl (0 or 3)
 endif
 if ?DISINT@RM2PM
 	and ah,0FDh
@@ -3318,8 +3306,8 @@ callrmproc_1::
 	mov ebx, [esp+4].IRET32.rFL
 	and bh,not _TF		;reset TF
 if ?SETRMIOPL	;is 0 by default
-	and bh,0CFh
-	or bh,?RMIOPL
+	and bh, 0CFh
+	or bh, ?RMIOPL shl 4
 endif
 	mov ss:[tmpFLReg], bx
 	pop ebx
@@ -3372,8 +3360,8 @@ _TEXT16 ends
 callrmsint_pm:
 	push eax
 	mov ax,ss:[tmpFLReg]
-	and ah,8Fh				;reset NT, IOPL
-	or ah,?PMIOPL
+	and ah, 8Fh				;reset NT, IOPL
+	or ah, ?PMIOPL shl 4
 	mov word ptr [esp+4].IRET32.rFL,ax
 	pop eax
 	iretd
@@ -3523,34 +3511,37 @@ catchreboot endp
 endif
 
 ;*** emulate HLT and move to/from special registers
-;*** emulate sti,cli,in,out if ?PMIOPL == 00
+;*** if ?PMIOPL == 0, emulate sti,cli [,in,out]
 
-SIMINFR struct
+EMUINSFR struct
 dwESI	dd ?
 dwDS	dd ?
-		dd ?			;return address
+		dd ?			;return address (intr0D)
 		R3FAULT32 <>
-SIMINFR ends        
+EMUINSFR ends        
+
+?EMUINOUT equ 0			;1=emulate IN/OUT instructions if IOPL==0
 
 	@ResetTrace
 
-checksiminstr proc
-	push eax
-	lar eax, [esp+8].R0FAULT32.rCSd
-	test ah, 60h
-	pop eax
-	jz doneX		;dont try to emulate anything in ring 0
+emuprivinstr proc
 	push ds
 	push esi
-	lds esi,[esp].SIMINFR.rCSIP
+	lds esi,[esp].EMUINSFR.rCSIP
 	push eax
 	mov eax,ds
 	lsl eax,eax
-	cmp eax,esi		;EIP > limit?		 
+	cmp eax,esi		;EIP > CS limit?
 	pop eax
 	jc done
-	cmp byte ptr [esi],0F4h	;HLT?
-	jz simhlt
+if ?PMIOPL eq 0
+	cmp byte ptr [esi], 0FAh	;CLI?
+	jz emucli
+	cmp byte ptr [esi], 0FBh	;STI?
+	jz emusti
+endif
+	cmp byte ptr [esi], 0F4h	;HLT?
+	jz emuhlt
 	;--- v3.18: no emulation of spec reg moves in "safe" mode
 	test ss:bEnvFlags2, ENVF2_SYSPROT
 	jnz donespec
@@ -3573,17 +3564,26 @@ if ?EMUMOVDRXREG
 	cmp byte ptr [esi+1],23h	;mov drx,xxx?
 	jz emuspecregmove2
 endif
+	jmp done
 donespec:
-if ?PMIOPL ne 30h
-	call simio
+if (?PMIOPL eq 0) and ?EMUINOUT
+	call emuio
 endif
 done:
-;	@dprintf "exception 0d, unknown instr %X",[esi]
+;	@dprintf "exception 0d, unknown instr %X", word ptr [esi]
 	pop esi
 	pop ds
-doneX:
 	ret
-	align 4
+if ?PMIOPL eq 0
+emucli:
+	@dprintf "emulate cli"
+	and byte ptr [esp].EMUINSFR.rFL+1, not 2
+	jmp done_emuclisti
+emusti:
+	@dprintf "emulate sti"
+	or byte ptr [esp].EMUINSFR.rFL+1, 2
+	jmp done_emuclisti
+endif
 
 emuspecregmove2:
 if ?EMUMOVCR0REG
@@ -3605,10 +3605,10 @@ emuspecregmove:
 	pop ds
 	mov ds:[tmpCode], eax
 	pop ds
-	mov esi,[esp+4].SIMINFR.dwESI	;restore ESI
+	mov esi,[esp+4].EMUINSFR.dwESI	;restore ESI
 	@dprintf "emulate 'mov eax, crx', eax=%lX", eax
 	pop eax
-	add [esp].SIMINFR.rIP,2
+	add [esp].EMUINSFR.rIP,2
 
 	push cs
 	push offset tmpCode
@@ -3622,8 +3622,8 @@ _DATA32C segment
 tmpCode dd ?
 _DATA32C ends
 
-simhlt:
-	@dprintf "simulate hlt"
+emuhlt:
+	@dprintf "emulate hlt"
 ife ?SIMHLT
   if ?ALLOWR0IRQ
   ;--- this code works, but just for an emulation of HLT
@@ -3634,8 +3634,7 @@ ife ?SIMHLT
 	sti
 	hlt
 	cli
-;_LTRACE_ = 1
-if _LTRACE_
+   if _LTRACE_
 	push ebp
 	mov ebp,esp
 	@dprintf "back from hlt, frame cs:eip=%X:%lX, fl=%lX, ss:esp=%X:%lX",\
@@ -3643,10 +3642,10 @@ if _LTRACE_
 		[ebp+4].IRET32.rFL,\
 		[ebp+4].IRET32.rSS, [ebp+4].IRET32.rSP
 	pop ebp
-endif
+   endif
 	jmp donehlt
   else
-	pushd offset sim_hlt
+	pushd offset emu_hlt
 	call callrmprocintern
   endif
 else
@@ -3671,6 +3670,7 @@ else
 @@:
 	pop eax
 endif
+done_emuclisti:
 	pop esi
 retfromsim2:
 	pop ds
@@ -3679,30 +3679,26 @@ donehlt:
 	inc [esp].IRET32.rIP
 	iretd					;back to client
 	align 4
-checksiminstr endp
+emuprivinstr endp
 
+if (?PMIOPL eq 0) and ?EMUINOUT
 
-if ?PMIOPL ne 30h
-
-;--- run the IOPL sensitive instructions in ring 0:
-;--- CLI, STI, IN, OUT, INSx, OUTSx
+;--- run IN, OUT, INS, OUTS instructions in ring 0.
+;--- DS:ESI = CS:EIP
 
 	@ResetTrace
 
-SIMIO struct
+EMUIOFR struct
 		dd ?			;saved EAX
 dwExit	dd ?			;offset isioopc
-		dd ?			;return to checksiminstr
-dwESI	dd ?
-dwDS	dd ?
-		dd ?			;return address
-		R3FAULT32 <>
-SIMIO ends
+		dd ?			;return to emuprivinstr
+		EMUINSFR <>
+EMUIOFR ends
 
-simio proc
+emuio proc
 	push offset isioopc
 	push eax
-	lar eax,dword ptr [esp].SIMIO.rCS
+	lar eax,dword ptr [esp].EMUIOFR.rCS
 	bt eax,16h
 	setc ah
 nextopc:
@@ -3718,52 +3714,37 @@ nextopc:
 	or ah,2
 	jmp nextopc
 @@:
-	cmp al,0FAh	;CLI?
-	jz simcli
-	cmp al,0FBh	;STI?
-	jz simsti
 
-	cmp al,0E4h	;in al,const?
+	cmp al, 0E4h	;in al,const?
 	jz siminc
-	cmp al,0E6h	;out const,al?
+	cmp al, 0E6h	;out const,al?
 	jz simoutc
-
-	cmp al,6Ch		;INSB?
+	cmp al, 6Ch		;INSB?
 	jz siminsb
-	cmp al,6Dh		;INSW/D?
+	cmp al, 6Dh		;INSW/D?
 	jz siminsw
-	cmp al,6Eh		;OUTSB?
+	cmp al, 6Eh		;OUTSB?
 	jz simoutsb
-	cmp al,6Fh		;OUTSW/D?
+	cmp al, 6Fh		;OUTSW/D?
 	jz simoutsw
-	cmp al,0ECh	;in al,dx?
+	cmp al, 0ECh	;in al,dx?
 	jz siminaldx
-	cmp al,0EDh	;in (e)ax,dx?
+	cmp al, 0EDh	;in (e)ax,dx?
 	jz siminaxdx
-	cmp al,0EEh	;out dx,al?
+	cmp al, 0EEh	;out dx,al?
 	jz simoutdxal
-	cmp al,0EFh	;out dx,(e)ax?
+	cmp al, 0EFh	;out dx,(e)ax?
 	jz simoutdxax
 	pop eax
 	add esp,4
 	ret
 isioopc:
-	mov [esp-8].SIMIO.rIP, esi
-	pop esi 			   ; skip return to checksiminstr
+	mov [esp-8].EMUIOFR.rIP, esi
+	pop esi 			; skip return to emuprivinstr
 	pop esi
 	pop ds
-	add esp,4+4			;skip returnaddr + error code
-	iretd					;back to client
-simsti:
-;	@dprintf "simulate sti"
-	or byte ptr [esp].SIMIO.rFL+1,2
-	pop eax
-	ret
-simcli:
-	@dprintf "simulate cli"
-	and byte ptr [esp].SIMIO.rFL+1,not 2
-	pop eax
-	ret
+	add esp,4+4			; skip returnaddr + error code
+	iretd				; back to client
 siminc:
 	pop  eax
 	push edx
@@ -3853,8 +3834,8 @@ simrepins:
 	ret
 
 simoutsb:
-	mov [esp].SIMIO.rIP, esi
-	lds esi, fword ptr [esp].SIMIO.dwESI
+	mov [esp].EMUIOFR.rIP, esi
+	lds esi, fword ptr [esp].EMUIOFR.dwESI
 	test ah,2
 	pop eax
 	jnz @F
@@ -3866,8 +3847,8 @@ simoutsb:
 	rep outsb
 	jmp exitouts
 simoutsw:
-	mov [esp].SIMIO.rIP, esi
-	lds esi, fword ptr [esp].SIMIO.dwESI
+	mov [esp].EMUIOFR.rIP, esi
+	lds esi, fword ptr [esp].EMUIOFR.dwESI
 	test ah,2
 	jnz simrepouts
 	test ah,1
@@ -3893,9 +3874,8 @@ simrepouts:
 exitouts:
 	add esp,6*4
 	iretd
-simio endp
+emuio endp
 endif
-
 
 ;*** check if interrupt to modify is a IRQ (or 1Ch,23h,24h)
 ;*** if yes, provide for interrupts in real-mode to be routed to
@@ -4331,12 +4311,18 @@ setcr0wpbit endp
 
 if ?HSINEXTMEM
 
-if ?MAPDOSHIGH
-;?STACKPAGES equ 2+3+1		;2 for host's DOS code, 3 for TSS, 1 for hs 
+ if ?MAPDOSHIGH
+
+;--- if HDPMI's conv. memory is remapped, and the TSS is set
+;--- to the high address, it can contain a full IO-bitmap!
+  if ?PMIOPL eq 0
+?STACKPAGES equ 2+2+1		;2 for host's DOS code, 2 for TSS, 1 for hs 
+  else
 ?STACKPAGES equ 2+1			;2 for host's DOS code, 1 for hs 
-else
+  endif
+ else
 ?STACKPAGES equ 1			;1 for hs 
-endif
+ endif
 
 ;--- set a new host stack
 ;--- in: dwSSBase
@@ -4348,13 +4334,13 @@ endif
 
 setuphoststack proc public
 	@dprintf "setuphoststack: reserve %X pages for host stack", word ptr ?STACKPAGES
-if _LTRACE_
+ if _LTRACE_
 	mov eax, dwSSBase
 	mov eax, es:[eax+offset ltaskaddr]
 	@dprintf "setuphoststack: dwSSBase=%lX ltaskaddr=%lX wLDTLimit=%X",dwSSBase, eax, wLDTLimit
-endif
-if ?MAPDOSHIGH
-	mov ecx,?STACKPAGES		;reserve 3|6 pages
+ endif
+ if ?MAPDOSHIGH
+	mov ecx,?STACKPAGES		;reserve 3 (or 5 if IOPL==0) pages
 	call pm_AllocSysAddrSpace
 	jc error
 	mov ebx, eax
@@ -4393,25 +4379,38 @@ if ?MAPDOSHIGH
 	mov es:[ecx+_SSSEL_].DESCRPTR.A2431, ah
 	pop eax
 
-if 1	;v3.19: set linear address of TSS to high memory
+  if 1	;v3.19: set linear address of TSS to high memory
 	lea edx,[eax+offset taskseg]
 	mov es:[ecx+_TSSSEL_].DESCRPTR.A0015, dx
 	shr edx,16
 	mov es:[ecx+_TSSSEL_].DESCRPTR.A1623, dl
 	mov es:[ecx+_TSSSEL_].DESCRPTR.A2431, dh
-endif
+   if ?PMIOPL eq 0
+;--- set limit of TSS and iobitmap offset if IOPL==0
+	push eax
+	lea edx,[eax+offset taskseg]
+	add eax, 2000h
+	and ax, 0F000h
+	sub eax, edx
+	mov ss:[taskseg.wOffs], ax
+;	add ax, 2000h-1
+	add ax, 2000h		; size of the IOPB must be 8k+1!
+	mov es:[ecx+_TSSSEL_].DESCRPTR.limit, ax
+	pop eax
+   endif
+  endif
 
 	add ecx, _TSSSEL_
 	sub ecx, eax
 	mov dwTSSdesc, ecx
 
-else
+ else
 	mov ecx,?STACKPAGES
 	call pm_AllocSysPagesS
 	jc error
 	lea ebx, [eax+?STACKPAGES*1000h]
 	sub ebx, dwSSBase
-endif
+ endif
 	mov eax,ebx
 	sub ebx, 0F80h
 	mov dwStackTop, ebx
@@ -4421,7 +4420,7 @@ endif
 error:
 	ret
 setuphoststack endp
-endif
+endif	;if ?HSINEXTMEM
 
 
 INITCLPM struct	;protected mode stack frame
@@ -4662,7 +4661,7 @@ if _LTRACE_
 	mov dx,es:[ecx+(_TLBSEL_ and 0F8h)].DESCRPTR.A0015
 endif
 	@dprintf "CreateVM: GDT.base=%lX, dwSSBase=%lX, wSegTLB=%X, TLB=%lX", pdGDT.dwBase, dwSSBase, wSegTLB, edx
-	@dprintf "CreateVM: taskseg.esp0=%lX, dwHSExcR3=%lX ltaskaddr=%lX", taskseg._Esp0, dwHSExcR3, ltaskaddr
+	@dprintf "CreateVM: taskseg.esp0=%lX, ltaskaddr=%lX", taskseg._Esp0, ltaskaddr
 
 ;--- let the heap mgr do its reinitialization
 	call hp_createvm
@@ -4844,7 +4843,7 @@ if ?VM
 	jz novm
 	cmp cApps,0
 	jz firstvm
-	call CreateVM		;expects EDI->client stack, EBP=client registers (PUSHADS )
+	call CreateVM		;expects EBP=client registers (PUSHADS )
 behindcreatevm::        
 	jc initclerr10
 	jmp vmok
@@ -4894,19 +4893,18 @@ endif
 	mov [ebp].INITCLPM.rSS,ax
 
 	movzx eax, wInitSP
-	add ax, sizeof INITCLRM
-	mov [ebp].INITCLPM.rSP, eax
 	movzx edi, wInitSS
 	shl edi, 4
-	movzx eax, wInitSP
 	add edi, eax
+	add ax, sizeof INITCLRM
+	mov [ebp].INITCLPM.rSP, eax
 	mov ax, es:[edi].INITCLRM.wIP
 	mov [ebp].INITCLPM.rIP, eax
 	pushfd
 	pop eax
 	mov ax, es:[edi].INITCLRM.wFlags
 	and ax, 8FFEh			;clear CF, IOPL, NT
-	or ah, ?PMIOPL			;set protected-mode IOPL
+	or ah, ?PMIOPL shl 4	;set protected-mode IOPL
 	mov [ebp].INITCLPM.rFL, eax
 
 ;--- get selector for CS
@@ -5035,8 +5033,6 @@ if ?DBGSUPP
 endif
 	lea eax,[esp + sizeof INITCLPM]
 	mov ds:taskseg._Esp0, eax
-	lea eax,[eax - sizeof R3FAULT32]
-	mov dwHSExcR3, eax
 	@dprintf "initclient: client status ok, ebp=%lX, ss:esp=%lX:%lX", ebp, ss, esp
 	@dprintf "initclient: client: CS:IP=%X:%lX, SS:SP=%X:%lX, DS=%lX",[ebp].INITCLPM.rCS, [ebp].INITCLPM.rIP, [ebp].INITCLPM.rSS, [ebp].INITCLPM.rSP,[ebp].INITCLPM.rDS
 	@dprintf "initclient: GDT: %lX (%X), IDT: %lX (%X), LDT: %lX (%X)", pdGDT.dwBase, pdGDT.wLimit, pdIDT.dwBase, pdIDT.wLimit, dwLDTAddr, wLDTLimit
@@ -5995,11 +5991,11 @@ ife ?ALLOWR0IRQ
 
 ;--- real-mode HLT emulation
 
-sim_hlt proc near
+emu_hlt proc near
 	sti
 	hlt
 	ret
-sim_hlt endp
+emu_hlt endp
 
 endif
 

@@ -797,11 +797,6 @@ if ?HSINEXTMEM
 	sub eax, dwSSBase
 	add eax, 400h
 	mov [dwHostStack], eax
-;--- no need for those moves, we won't switch to ring3 now
-;--- and will set those variables later in protmode
-;	mov taskseg._Esp0, eax
-;	sub eax, sizeof R3FAULT32
-;	mov [dwHSExcR3], eax
 	@drprintf "initsvr_rm: temp. host stack allocated (%lX), size 1kB", dwHostStack
 else
 	mov [dwHostStack], offset ring0stack

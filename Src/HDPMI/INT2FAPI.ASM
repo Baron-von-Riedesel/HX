@@ -7,7 +7,6 @@
 	include external.inc
 
 	option proc:private
-	option casemap:none
 
 ?IDLEFILTER    = 0	;std=0, 1=dont route all int 2Fh, ax=1689 to real-mode 
 ?INT2F15       = 0	;std=0, was 1 prior to v3.19
@@ -19,7 +18,7 @@ else
 ?SUPI2F1684    = 0	;std=0
 endif
 ?SUPI2F168A    = 1	;std=1, support int 2F,ax=168A
-?I2FHDPMI0005  equ 1; 1= support hdpmi API ax=0005 (disable DPMILDR=32)
+?VENDORAPI0005 equ 1; 1= support hdpmi API ax=0005 (enable/disable DPMILDR=32)
 
 ;--- vendor "MS-DOS", Get LDT Selector function int 2f,ax=168A,bx=100
 ;--- required by Win3, should probably be supported in 16-bit only.
@@ -196,7 +195,7 @@ szVendors label byte
 	db 7,"MS-DOS",0
 	dw _I2F168A_MSDOS
  endif
- if ?I2FHDPMI
+ if ?VENDORAPI
 	db 6,"HDPMI",0
 	dw _I2F168A_HDPMI
  endif
@@ -253,7 +252,7 @@ error:
 _I2f168A_Msdos endp
 endif
 
-if ?I2FHDPMI
+if ?VENDORAPI
 
  ifdef _DEBUG
 displayhdltab proto near
@@ -281,7 +280,7 @@ tab168a label word
 	dw offset is0002 - offset start168a
 	dw offset is0003 - offset start168a
 	dw offset is0004 - offset start168a
-if ?I2FHDPMI0005
+if ?VENDORAPI0005
 	dw offset is0005 - offset start168a
 endif
 MAX168A equ ($ - offset tab168a) / sizeof word
@@ -315,7 +314,7 @@ is0003:
 is0004:
 	or ss:fMode, FM_DISABLED
 	ret
-if ?I2FHDPMI0005
+if ?VENDORAPI0005
 ENVF_VMB equ 5
 is0005:
  if ?VM

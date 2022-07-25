@@ -8,7 +8,6 @@
 	.486P
 
 	option proc:private
-	option casemap:none
 
 	include hdpmi.inc
 	include external.inc
@@ -2992,7 +2991,7 @@ pm_CloneGroup32 endp
 ;--- +1 page   GDT + IDT
 ;--- +1 page   LDT
 ;--- +1 page   LPMS
-;--- +2 pages  client save state
+;--- +2 pages  client save state ( since v3.18, it's actually 1 page only )
 ;----------------------------------
 ;    10 pages
 ;--- +7 pages  GROUP32 if code is moved high
@@ -3145,7 +3144,8 @@ endif
 ;--- todo: explain why - this should only be done if dwOfsPgTab0 is > 2FF0h!
 ;--- see test case i315046!!!
 
-	mov eax, 0FF0h
+;	mov eax, 0FF0h
+	mov eax, ?TEMPBASE shr 10	; shr 10 = convert linear address to PTE offset
 	add edi, eax
 	add esi, eax	;let esi point to PTE for 3FC000h
 	mov cl,4
@@ -3237,9 +3237,11 @@ isfirst:
 ;--- restore PTEs for 3FC000-3FFFFF in old pagetab 0;
 ;--- clear them in cloned pagetab 0.
 
-	mov esi, ?TEMPBASE + ?PT0OFS + 0FF0h	;esi -> PTEs for 3FC000h
+;	mov esi, ?TEMPBASE + ?PT0OFS + 0FF0h	;esi -> PTEs for 3FC000h
+	mov esi, ?TEMPBASE + ?PT0OFS + ( ?TEMPBASE shr 10 )	;esi -> PTEs for 3FC000h
 	mov edi, ss:pPageTab0
-	add di, 0FF0h
+;	add di, 0FF0h
+	add di, ?TEMPBASE shr 10
 	xor ecx,ecx
 	movsd
 	mov [esi-4],ecx

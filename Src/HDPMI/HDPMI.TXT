@@ -766,9 +766,10 @@
 
  6.12 Other Features of HDPMI
 
-  þ  clients run with CPL 3, and IOPL is 3. This means, instructions like
-     STI, CLI, IN or OUT are executed in real time. Optionally, a version
-     of HDPM can be created which runs clients in IOPL 0.
+  þ  clients run with CPL 3; IOPL is 3 in the standard version. This means,
+     instructions like STI, CLI, IN or OUT are executed in real time. Since
+     v3.20, there are additionally supplied 2 binaries, named HDPMI16i.exe and
+     HDPMI32i.exe, that run clients with IOPL 0.
   þ  during ring 0 processing NMIs are ignored.
   þ  HDPMI's ring 0 ESP will always have its hiword cleared. This is because
      of a design weakness in Intel CPUs, which don't touch the Hiword of ESP

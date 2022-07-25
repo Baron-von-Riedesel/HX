@@ -124,7 +124,6 @@ else
 endif
 ?DYNTLBSIZE		equ 0FE00h	;std 0FE00, size of dynamic TLB
 ?NOINVLPG		equ 0	;std 0: 1=optionally disable INVLPG usage
-?SETEXCHS		equ 1	;std 1: 1=set exception host stack value
 ?CHECKHOSTSTACK	equ 1	;std 1: 1=detect host stack exhaustion (in host reentries)
 ?CHECKLPMS		equ 1	;std 1: 1=detect LPMS exhaustion; v3.19
 ?RESTRICTMEM	equ 1	;std 1: 1=support -x option to restrict reported free mem
@@ -167,9 +166,9 @@ else
 endif
 
 ifndef ?PMIOPL
-?PMIOPL 		equ 30h	;value for IOPL bits in flags in protected mode
+?PMIOPL 		equ 3	;value for IOPL bits in flags in protected mode
 endif
-?RMIOPL 		equ 30h	;value for IOPL bits in flags in v86 mode (needed?)
+?RMIOPL 		equ 3	;value for IOPL bits in flags in v86 mode (see ?SETRMIOPL)
 
 if ?DYNTLBALLOC
 ?TLBSIZE	equ 2000h	;std 2000h
@@ -279,10 +278,10 @@ endif
 ?PREDEFIDTGATES equ 78h	;number of predefined IDT gates
 ?DIO2RMS		equ 1	;std 1: 1=copy diskio packet onto rm-stack (int 25h/26h/21h,ax=7305h)
 
-;ifdef _DEBUG			; since v3.20, the API is generally available ( to disable host from within client )
-?I2FHDPMI		equ 1	;std 1: 1=support vendor API int 2Fh, ax=168Ah
+;ifdef _DEBUG			; since v3.20, the vendor API is generally available
+?VENDORAPI		equ 1	;std 1: 1=support vendor API int 2Fh, ax=168Ah
 ;else
-;?I2FHDPMI		equ 0
+;VENDORAPI		equ 0
 ;endif
 
 ;----------------------------------------------------------------
@@ -668,6 +667,7 @@ rESP	dd ?
 PMSTATE ends
 
 ;--- store current client ss:esp into pmstate
+;--- done at switches to real-mode
 
 @store_ssesp macro
 	push ebp
@@ -1277,12 +1277,8 @@ endif
 	push ss:pmstate.rESP
 	push ss:pmstate.rSSd
 
-	push ss:[dwHSExcR3]
 	push ss:[dwHostStack]
 	mov ss:[dwHostStack], esp
-	lea esp, [esp - sizeof R3FAULT32]
-	mov ss:[dwHSExcR3], esp
-	lea esp, [esp + sizeof R3FAULT32]
 endm
 
 ;--- restore client state from host stack
@@ -1290,7 +1286,6 @@ endm
 
 @popstate macro bRMSegs
 	pop ss:[dwHostStack]
-	pop ss:[dwHSExcR3]
 	pop ss:pmstate.rSSd
 	pop ss:pmstate.rESP
 	pop ss:pmstate.rFSGS

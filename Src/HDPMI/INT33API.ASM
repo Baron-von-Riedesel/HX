@@ -7,7 +7,6 @@
 	include external.inc
 
 	option proc:private
-	option casemap:none
         
 ?SAVERESTORE	equ 1	;std 1, 1=support save/restore driver state        
 

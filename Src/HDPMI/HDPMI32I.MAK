@@ -1,5 +1,5 @@
 
-# nmake makefile, creates a version of HDPMI32.EXE where clients run in IOPL0.
+# nmake makefile, creates a version of HDPMI32.EXE where clients run with IOPL=0.
 # tools used:
 #  - JWasm | Masm
 #  - JWLib | WLib (Open Watcom) | MS OMF LIB (lib16.exe)
@@ -33,7 +33,7 @@ LOPT = format DOS
 
 LCMDS = $(LOPT) file $(OUTIOPL0)\$(SRC).obj name $*.EXE lib $(OUTIOPL0)\$(NAME).lib op q, map=$*.MAP, stack=0 
 
-AOPT= -nologo -c -Cp -Sg -D?32BIT=1 -D?PMIOPL=00 $(AOPTD) -I$(INC32DIR) -Fl$* -Fo$*
+AOPT= -nologo -c -Cp -Sg -D?32BIT=1 -D?PMIOPL=0 $(AOPTD) -I$(INC32DIR) -Fl$* -Fo$*
 
 NAME  = HDPMI32
 SRC   = hdpmi
@@ -51,14 +51,14 @@ OUTIOPL0=IOPL032
 .asm{$(OUTIOPL0)}.obj:
 	@$(ASM) $(AOPT) $<
 
-ALL: $(OUTIOPL0) $(OUTIOPL0)\$(NAME).EXE
+ALL: $(OUTIOPL0) $(OUTIOPL0)\$(NAME)i.EXE
 
 $(OBJMODS): $(DEPS0)
 
 $(OUTIOPL0):
 	@mkdir $(OUTIOPL0)
 
-$(OUTIOPL0)\$(NAME).EXE: $(OUTIOPL0)\$(SRC).obj $(OUTIOPL0)\$(NAME).lib
+$(OUTIOPL0)\$(NAME)i.EXE: $(OUTIOPL0)\$(SRC).obj $(OUTIOPL0)\$(NAME).lib
 	$(LINK) @<<
 $(LCMDS)
 <<

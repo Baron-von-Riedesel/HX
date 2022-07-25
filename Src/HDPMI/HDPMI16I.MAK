@@ -1,5 +1,5 @@
 
-# nmake makefile, creates HDPMI16.EXE that runs in IOPL0.
+# nmake makefile, creates a version of HDPMI16 where clients run with IOPL=0.
 # tools:
 # - JWasm | Masm
 # - WLib (Open Watcom) | MS OMF lib (lib16.exe)
@@ -29,7 +29,7 @@ OBJMODS = $(OBJNAMES:.\=IOPL016\)
 
 LINK  = jwlink.exe
 
-AOPT   = -nologo -c -Cp -Sg -D?32BIT=0 -D?PMIOPL=00 $(AOPTD) -I$(INC32DIR) -Fl$* -Fo$*
+AOPT   = -nologo -c -Cp -Sg -D?32BIT=0 -D?PMIOPL=0 $(AOPTD) -I$(INC32DIR) -Fl$* -Fo$*
 LCMDS  = format DOS file $(OUTIOPL0)\$(SRC).obj name $*.EXE lib $(OUTIOPL0)\$(NAME).lib op q, map=$*.MAP, stack=0 
 
 SRC   = hdpmi
@@ -47,14 +47,14 @@ OUTIOPL0=IOPL016
 .asm{$(OUTIOPL0)}.obj:
 	@$(ASM) $(AOPT) $<
 
-ALL: $(OUTIOPL0) $(OUTIOPL0)\$(NAME).EXE
+ALL: $(OUTIOPL0) $(OUTIOPL0)\$(NAME)i.EXE
 
 $(OBJMODS): $(DEPS0)
 
 $(OUTIOPL0):
 	@mkdir $(OUTIOPL0)
 
-$(OUTIOPL0)\$(NAME).EXE: $(OUTIOPL0)\$(SRC).obj $(OUTIOPL0)\$(NAME).lib
+$(OUTIOPL0)\$(NAME)i.EXE: $(OUTIOPL0)\$(SRC).obj $(OUTIOPL0)\$(NAME).lib
 	$(LINK) @<<
 $(LCMDS)
 <<

@@ -101,7 +101,7 @@ _enablea20 proto near16
 
 checkvxd proto near
 _I2f168A_Msdos proto near
-if ?I2FHDPMI
+if ?VENDORAPI
 _I2f168A_Hdpmi proto near
 endif
 _vxd_0001 proto near
@@ -252,7 +252,7 @@ externdef _RETCB_:abs
 externdef _RMSWT_:abs
 externdef _SRTSK_:abs
 externdef _I2F168A_MSDOS:abs
-if ?I2FHDPMI
+if ?VENDORAPI
 externdef _I2F168A_HDPMI:abs
 endif
 externdef _I2F1684_0001_:abs
@@ -411,9 +411,7 @@ externdef v86iret:V86IRET		;client v86/real-mode segments
 externdef vcpiOfs:dword			;offset VCPI host entry
 externdef vcpicall:PF32			;address VCPI host entry (used by pm)
 externdef v86topm:VCPIRM2PM		;contains CR3
-;externdef dwHostStack:dword		;value of host stack when switching to real-mode
 dwHostStack textequ <taskseg._Esp0>
-externdef dwHSExcR3:dword		;value of host stack if exception in r3 occured
 if ?HSINEXTMEM
 externdef dwStackTop:dword		;top of host stack
 else
