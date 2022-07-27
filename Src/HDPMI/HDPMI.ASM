@@ -388,7 +388,7 @@ endm
 
 ;--- this is the predefined IDT, which contains 78h gates (Int 00h-77h)
 
-curIDT label near
+curIDT label GATE
   @GATE 00	;divide error
   @GATE 01	;debug exception
   @GATE 02	;NMI
@@ -522,7 +522,7 @@ endif
   @GATE 76
   @GATE 77
 
-	.errnz ($ - curIDT) - (?PREDEFIDTGATES shl 3)
+	.errnz ($ - offset curIDT) - (?PREDEFIDTGATES shl 3)
 
 ife ?MOVEIDT
 
@@ -1763,6 +1763,11 @@ else
 	push dword ptr ds:[?LPMSSIZE-4]	;CS
 	push dword ptr ds:[?LPMSSIZE-8]	;EIP
 	mov ds,[esp+sizeof IRET32]
+endif
+if ?PMIOPL eq 0
+;--- ensure that interrupts are enabled -
+;--- an IRET in ring3 does NOT restore IF if IOPL is 0.
+	or byte ptr [esp].IRET32.rFL+1, 2
 endif
 	iretd
 	align 4

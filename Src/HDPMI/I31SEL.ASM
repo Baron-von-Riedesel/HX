@@ -261,7 +261,7 @@ setrmsel proc public uses ebx eax ds
 	push ss
 	pop ds
 	mov eax, [esp].SETRMFR.dwSel
-	call getrmentry				;check if already in there	
+	call getrmentry				;check if already in there 
 	jnc found					;yes, do nothing
 	xor eax,eax
 	call getrmentry				;get a free entry

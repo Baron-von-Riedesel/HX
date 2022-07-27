@@ -256,5 +256,3 @@ externdef g_csUser:CRITICAL_SECTION
     pop eax
 ;;	@restoreints
     endm
-
-

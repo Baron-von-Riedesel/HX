@@ -18,7 +18,6 @@ else
 ?SUPI2F1684    = 0	;std=0
 endif
 ?SUPI2F168A    = 1	;std=1, support int 2F,ax=168A
-?VENDORAPI0005 equ 1; 1= support hdpmi API ax=0005 (enable/disable DPMILDR=32)
 
 ;--- vendor "MS-DOS", Get LDT Selector function int 2f,ax=168A,bx=100
 ;--- required by Win3, should probably be supported in 16-bit only.
@@ -254,6 +253,10 @@ endif
 
 if ?VENDORAPI
 
+@wofs macro ofs
+	dw offset ofs - offset start168a
+endm
+
  ifdef _DEBUG
 displayhdltab proto near
  endif
@@ -275,14 +278,30 @@ _I2f168A_Hdpmi proc near public
 	ret
 	align 2
 tab168a label word
-	dw offset is0000 - offset start168a
-	dw offset is0001 - offset start168a
-	dw offset is0002 - offset start168a
-	dw offset is0003 - offset start168a
-	dw offset is0004 - offset start168a
-if ?VENDORAPI0005
-	dw offset is0005 - offset start168a
-endif
+ ifdef _DEBUG
+	@wofs is0000
+	@wofs is0001
+	@wofs is0002
+	@wofs is0003
+ else
+	@wofs error
+	@wofs error
+	@wofs error
+	@wofs error
+ endif
+	@wofs is0004
+ if ?VM
+	@wofs is0005
+ else
+	@wofs error
+ endif
+ if ?PMIOPL eq 0
+	@wofs is0006
+	@wofs is0007
+ else
+	@wofs error
+	@wofs error
+ endif
 MAX168A equ ($ - offset tab168a) / sizeof word
 
 start168a:
@@ -303,21 +322,19 @@ is0003:
 	call displayhdltab
 	pop ds
 	ret
- else
-is0000:
-is0001:
-is0002:
-is0003:
+ endif
+error:
 	stc
 	ret
- endif
 is0004:
 	or ss:fMode, FM_DISABLED
 	ret
-if ?VENDORAPI0005
-ENVF_VMB equ 5
-is0005:
+
  if ?VM
+
+ENVF_VMB equ 5
+
+is0005:
 	test ss:[bEnvFlags], ENVF_VM
 	setnz al
 	push eax
@@ -328,14 +345,60 @@ is0005:
 	or ss:bEnvFlags, al
 	call updateclonesize
 	pop eax
- else
-	stc
- endif
 	ret
-endif
+ endif
+
+ if ?PMIOPL eq 0
+
+;--- ax=6: alloc IO port trap
+;--- cx:e/dx = ring3 exception handler
+;--- si = port start
+;--- di = number of ports
+;--- out: NC if ok, handle in eax
+;--- ax=7: release IO port trap
+;--- edx = handle
+;--- out: NC if ok
+
+;--- todo: currently just the ports are trapped;
+;--- no handle is returned and no exception handler stored.
+
+is0006:
+	pushad
+	mov ebx, offset taskseg
+	movzx edx, ss:[ebx].TSSSEG.wOffs
+	add ebx, edx
+	movzx esi, si
+	movzx ecx, di
+	lea eax, [ecx+esi]
+	cmp eax, 10000h
+	cmc
+	jc done_0006
+	mov eax, esi
+@@:
+	bt ss:[ebx], esi; first check status of all ports -
+	jc done_0006	; they must all be "untrapped"
+	inc esi
+	loop @B
+	mov esi, eax	; ok, now repeat the loop, this time
+	mov cx, di		; the bits are set.
+@@:
+	bts ss:[ebx], esi
+	inc esi
+	loop @B
+done_0006:
+	popad
+	ret
+
+;--- todo: implement release IO port trap
+
+is0007:
+	stc
+	ret
+ endif
+ 
 _I2f168A_Hdpmi endp
 
-endif
+endif ; ?VENDORAPI
 
 ;--- external call (i21srvr.asm)
 

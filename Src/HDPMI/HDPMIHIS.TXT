@@ -24,7 +24,7 @@
     be killed ( and the host, if installed residently, will terminate,
     if possible ).
   þ vendor API "HDPMI" now available in release version. Allows to
-    disable host from within client.
+    "disable" host or to switch on/off HDPMI=32.
   þ a disabled host will be reenabled when a client terminates.
   þ the HDPMI variants that run clients with IOPL=0 have now a full
     8 KB IOPB, zeroed. They are included in HXRT, with an "i"-suffix.

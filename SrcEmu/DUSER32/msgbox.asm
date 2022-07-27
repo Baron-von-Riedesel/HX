@@ -14,9 +14,9 @@ endif
 	option proc:private
 
 	include winbase.inc
-	include winuser.inc
-	include wingdi.inc
 	include wincon.inc
+	include wingdi.inc
+	include winuser.inc
 	include macros.inc
 	include duser32.inc
 

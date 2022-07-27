@@ -18,12 +18,13 @@
     6.4  Stacks
     6.5  Client Initialization/Termination
     6.6  DPMI API
-    6.7  VDS API
-    6.8  DOS API Translation
-    6.9  Other API Translation Support
-    6.10 Debug Support
-    6.11 Nested Execution of DPMI Clients
-    6.12 Other Features of HDPMI
+    6.7  Vendor API
+    6.8  VDS API
+    6.9  DOS API Translation
+    6.10 Other API Translation Support
+    6.11 Debug Support
+    6.12 Nested Execution of DPMI Clients
+    6.13 Other Features of HDPMI
    7.    Restrictions of current Version
    8.    Known Problems/Hints
    9.    Compatibility List
@@ -545,17 +546,25 @@
    - MOV reg,CRx (0F 20 xx) - using ESP for <reg> will not work!
    - MOV CRx,reg (0F 22 xx) - using ESP for <reg> will not work!
 
-   Finally, there's support for the so-called "vendor" API, Int 2Fh, 
-   ax=168Ah, ds:e/si=vendor:
+
+ 6.7 Vendor API
+
+   HDPMI supports the so-called "vendor" API in protected-mode. Those APIs
+   usually offer capabilities not covered by the standard DPMI API. To get
+   the API entry point, int 2Fh has to be called in protected-mode, with
+   register AX=168Ah and DS:E/SI pointing to the "vendor" name; on return,
+   register ES:E/DI should contain the entry point and register AL is zero.
+   The following "vendors" are recognized:
    
-   - vendor "MS-DOS": callback supports function 100h (LDT sel)
-   - vendor "HDPMI": callback supports functions:
+   - "MS-DOS": supports function ax=100h (get LDT selector)
+   - "HDPMI": supports functions:
+     - ax=0-3: implemented in debug version only.
      - ax=4: current host won't accept new clients ( enters disabled state ).
      - ax=5: set internal value of stored environment variable flag HDPMI=32.
              in: BL = new value (0|1), out: AL = old value.
 
 
- 6.7 VDS API
+ 6.8 VDS API
 
    The following VDS functions (Int 4Bh, AH=81h) are supported in
    protected-mode:
@@ -587,7 +596,7 @@
    bit 5 at 40h:007Bh should be checked if VDS is available.
 
 
- 6.8 DOS API Translation
+ 6.9 DOS API Translation
 
    HDPMI supports DOS-API translation, both in 16-bit mode and in
    32-bit mode. For translation purposes, HDPMI allocates a static
@@ -680,7 +689,7 @@
      real-mode DOS. Usually this requires a driver to be installed (DOSLFN).
 
 
- 6.9 Other API Translation Support
+ 6.10 Other API Translation Support
 
    Int Function Comment
    ---------------------------------------------------------------------
@@ -704,7 +713,7 @@
    33  ax=0018h set alternate mouse user handler ES:E/DX
 
 
- 6.10 Debug Support
+ 6.11 Debug Support
 
    a) Support in Protected Mode
 
@@ -753,7 +762,7 @@
      giving it a chance to stop execution.
 
 
- 6.11 Nested Execution of several DPMI Clients
+ 6.12 Nested Execution of several DPMI Clients
 
    As already mentioned, usually if two or more clients share one instance
    of HDPMI, they also have to share address space, IDT and LDT. For most
@@ -764,7 +773,7 @@
    and (physical) extended memory. 
 
 
- 6.12 Other Features of HDPMI
+ 6.13 Other Features of HDPMI
 
   þ  clients run with CPL 3; IOPL is 3 in the standard version. This means,
      instructions like STI, CLI, IN or OUT are executed in real time. Since

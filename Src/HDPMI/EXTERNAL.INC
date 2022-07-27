@@ -361,8 +361,8 @@ endif
 externdef dwPmDest:dword
 externdef dwPmDest2:dword
 
-externdef curIDT:near16			;address IDT (valid during startup only)
 externdef curGDT:DESCRPTR		;address GDT (valid during startup only)
+externdef curIDT:GATE			;address IDT (valid during startup only)
 ife ?HSINEXTMEM
 externdef stacktop:near16		;host real-mode stack top
 endif

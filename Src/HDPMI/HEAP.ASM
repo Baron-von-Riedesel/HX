@@ -1,8 +1,10 @@
 
 ;--- host memory heap handler
-;--- for small amounts of memory (< 1 page)
-;--- mainly used for client memory handles 
-;--- TABSIZE 4
+;--- for small amounts of memory, used to store:
+;--- + client address space handles ( i31mem, size MEMITEM )
+;--- + "conv. memory" selectors ( i31sel [int 31h, ax=2], size RMSEL )
+;--- + physical memory blocks ( pagemgr, size PHYSBLK )
+;--- best viewed with TABSIZE 4
 
 	.386
 
