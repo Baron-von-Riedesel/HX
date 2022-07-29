@@ -14,13 +14,32 @@ endif
 
 ?USETICKCNT	equ 1	;1=use GetTickCount for delays > ?TIMESLICE*2
 ?TIMERCACHE	equ 2	;use x timers as cache
+?DISABLEINTS equ 0 
+
+@serialize macro on
+if ?DISABLEINTS
+ if on
+	cli
+ else
+	sti
+ endif
+else
+ if on
+	call EnterSerialization
+ else
+	call LeaveSerialization
+ endif
+endif
+endm
 
 	.DATA
+
+?FREETIMER equ -2
 
 if ?TIMERCACHE        
 g_Timer label TIMER
 	repeat ?TIMERCACHE
-	TIMER <<<SYNCTYPE_TIMER>,0,0>,-1,<>,0,0,-2>	;hThread must be -2
+	TIMER <<<SYNCTYPE_TIMER>,0,0>,-1,<>,0,0,?FREETIMER>	;hThread must be set to ?FREETIMER
 	endm
 endoftimers label byte
 endif
@@ -30,12 +49,10 @@ endif
 ;--- more accurate wait if interval is < 110 ms
 ;--- inp: ecx=time to wait in ms
 
-?FREETIMER equ -2
-
 _Wait proc
 	mov esi, ecx
 if ?TIMERCACHE
-	cli
+	@serialize 1
 	mov ebx, offset g_Timer
 nextitem:
 	cmp [ebx].TIMER.hThread,?FREETIMER
@@ -43,7 +60,7 @@ nextitem:
 	lea ebx, [ebx+sizeof TIMER]
 	cmp ebx, offset endoftimers
 	jnz nextitem
-	sti
+	@serialize 0
 endif
 	xor ecx, ecx
 	invoke CreateWaitableTimer, ecx, ecx, ecx
@@ -59,7 +76,7 @@ error:
 if ?TIMERCACHE
 itemfound:
 	mov [ebx].TIMER.hThread,0
-	sti
+	@serialize 0
 	call xxx
 	mov [ebx].TIMER.hThread,?FREETIMER
 	ret
@@ -81,11 +98,12 @@ xxx:
 ;--- do NOT call WaitForSingleObject (which would call Sleep(0))
 ;	 invoke WaitForSingleObject, ebx, 1000	;timeout 1000 ms
 
-	.while ([ebx].TIMER.bSignaled == FALSE)
-		.if (g_bDispatchFlags & FTI_INIT)
+	.while [ebx].TIMER.bSignaled == FALSE
+;--- v3.8: removed the FTI_INIT check
+;		.if (g_bDispatchFlags & FTI_INIT)
 			or ecx, TF_WAITING
 			call g_dwIdleProc
-		.endif
+;		.endif
 	.endw
 	invoke CancelWaitableTimer, ebx
 	retn

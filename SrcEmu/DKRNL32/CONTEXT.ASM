@@ -17,14 +17,9 @@ endif
 	.list
 
 ?FLOATREGS	equ 1	;std=1, 1=save FPU status in context
-?PUSHCSEIP	equ 0	;std=0, 0=store CS:EIP in global var
+?USEIRET	equ 0	;std=0, 0=use RETD, 1=use IRETD
 
 	.data
-
-ife ?PUSHCSEIP
-g_dfCsEip	df 0
-endif
-;g_dfSsEsp	df 0
 
 externdef g_bFPUPresent:byte
 
@@ -102,41 +97,33 @@ if ?FLOATREGS
 	frstor [edi].FloatSave
 @@:
 endif
-ife ?PUSHCSEIP
-	mov eax, [edi].rEip
-	mov ebp, [edi].SegCs
-	push [edi].SegSs
-	push [edi].rEsp
-	mov dword ptr [g_dfCsEip+0],eax
-	mov word ptr [g_dfCsEip+4],bp
-	mov eax, [edi].EFlags
-if 1
-	and ah, not 2			;clear IF
-endif
+ife ?USEIRET
+	lss esp, fword ptr [edi].rEsp
+	push [edi].SegCs
+	push [edi].rEip
+	push [edi].EFlags
+
 	mov esi, [edi].rEsi
 	mov ebx, [edi].rEbx
 	mov edx, [edi].rEdx
 	mov ecx, [edi].rEcx
-	push eax
 	mov eax, [edi].rEax
 	mov ebp, [edi].rEbp
 
 	mov gs, [edi].SegGs
 	mov fs, [edi].SegFs
 	mov es, [edi].SegEs
-
-	test byte ptr [edi].EFlags+1,2
 	mov ds, [edi].SegDs
 	mov edi, cs:[edi].rEdi
+
+	test byte ptr [esp+1], 2
 	jz @F
 	popfd
-	lss esp, [esp]
 	sti
-	jmp cs:[g_dfCsEip]
+	retd
 @@:
 	popfd
-	lss esp, [esp]
-	jmp cs:[g_dfCsEip]
+	retd
 else
 	lss esp, fword ptr [edi].rEsp
 	push [edi].EFlags

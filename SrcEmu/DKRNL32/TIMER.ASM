@@ -282,7 +282,7 @@ endif
 		invoke InitRTCTimer
 	.endif
 	@restoreints
-	@strace <"AddTimerToList(", pTimer, ")">
+	@strace <"AddTimerToList(", pTimer, "), cntTimer=", g_cntTimer>
 done:
 	ret
 	align 4
@@ -321,7 +321,7 @@ endif
 		pop edx
 	.endif
 	@restoreints
-	@strace <"DeleteTimerFromList(", pTimer, "), found=", edx, ", pTimer=", g_pTimer>
+	@strace <"DeleteTimerFromList(", pTimer, "), found=", edx, ", pTimer=", g_pTimer, ", cntTimer=", g_cntTimer>
 done:
 	ret
 	align 4

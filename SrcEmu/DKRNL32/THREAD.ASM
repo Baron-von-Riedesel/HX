@@ -570,10 +570,10 @@ calldispatch3 proc
 	push ss
 	push esp
   endif   
-	pushfd
+	pushfd                      ; _dispatch() expects EIP,CS,EFL,ESP,SS on stack [ CONTEXT_CTRL ]
 	push cs
-	push [esp+4*4]
-	add dword ptr [esp+3*4],4
+	push [esp+4*4]				; this is supposed to "become" EIP
+	add dword ptr [esp+3*4],4	; add 4 to ESP on stack - explain why ( inside _dispatch() there's another "add" )
 	jmp _dispatch
 	align 4
 calldispatch3 endp
@@ -649,7 +649,7 @@ if ?DPMI16
 else
 	mov ebp, esp
 endif
-	add [ebp].CONTEXT_CTRL.rEsp,4
+	add [ebp].CONTEXT_CTRL.rEsp,4			; todo: explain why ESP is "adjusted"!!!
 if 0
 	verw word ptr [ebp].CONTEXT_CTRL.SegSs
 	jz @F
@@ -1367,7 +1367,7 @@ endif
 		cmp ecx, eax
 		jz done
 
-;--- if thread is not linked (TF_LINKED==0), nothing will happen			
+;--- if thread is not linked (TF_LINKED==0), nothing will happen
 
 		@noints
 		mov edx, [ecx].THREAD.pNext

@@ -141,8 +141,9 @@ InitRTCTimer proto
 
 installrtctimer proc
 
+	@strace <"installrtctimer">
 	mov g_dwGetTimerValuems, offset getrtctimerticks
-	inc g_cntTimer
+	inc g_cntTimer				; to avoid that DeinitRTCTimer() is called in timer.asm
 	.if (!word ptr g_OldIrq08+4)
 		invoke InitRTCTimer
 	.endif

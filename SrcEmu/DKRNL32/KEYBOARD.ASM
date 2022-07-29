@@ -145,8 +145,8 @@ ife ?PAUSE
 	jz normalmode
 endif
 	cmp al,53h					;del key?
-	jz is53					;possibly normalmode (ctrl-alt-del)
-notnormal: ;<--- for 46h (scroll lock) and 53h without ctrl
+	jz is53						;possibly normalmode (ctrl-alt-del)
+notnormal:						;<--- for 46h (scroll lock) and 53h without ctrl
 	mov ax,@flat:[BKEYSTAT]
 	and ax,208h 				;17:8 (any ALT), 18:2 (left alt)
 	push eax
@@ -185,7 +185,7 @@ is45:
 	jnz @F
 	mov al,20h
 	out 20h,al
-	sti
+;	sti
 	jmp after_processing
 @@:
 if ?DISABLEKBD
@@ -246,11 +246,14 @@ endif	;?LOWLEVEL_CTRLBRK
 is53:	 ;alt+del key
 	test byte ptr ds:[BKEYSTAT],4	;either ctrl pressed?
 	jz notnormal
+
 normalmode:
 
 notaltmode:
+
 	@pushf
 	call g_oldirq1
+
 after_processing:
 
 if ?DISABLEKBD
@@ -302,7 +305,7 @@ ReenableKbd:
 	mov al,0AEh
 	out 64h, al
 @@:
-	ret
+	retn
 endif
 	align 4
 

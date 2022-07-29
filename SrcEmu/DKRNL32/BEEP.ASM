@@ -9,6 +9,7 @@ endif
 	option casemap:none
 
 	include winbase.inc
+	include macros.inc
 
 ?USETIMER	equ 1	;user timer 2 for sound
 
@@ -67,9 +68,7 @@ else
 	div ecx
 	mov ecx, eax
 
-	mov ax,0900h	;disable interrupts
-	int 31h
-	push eax
+	@noints
         
 	mov al,0B6h		;80h = select timer2, 30=read/write 2 bytes comes
 					;06h = hardware triggered strobe 
@@ -79,19 +78,17 @@ else
 	mov al,ch
 	out 42h,al
 	in al,61h
-	push eax
-	or al,3		;enable speaker and attach timer2 to speaker
+	mov ecx, eax
+	or al,3			;enable speaker and attach timer2 to speaker
 	out 61h,al
 
-	sti
+	@restoreints
 
-	invoke	Sleep, dwDuration
-
+	push ecx
+	invoke Sleep, dwDuration
 	pop eax
 	out 61h,al		;disable speaker
 
-	pop eax
-	int 31h			;restore interrupt state
 endif
 done:
 	ret
