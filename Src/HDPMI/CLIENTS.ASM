@@ -8,9 +8,9 @@
 
 	option proc:private
 
-externdef startcldata32:near
+externdef startcldata32:byte
 ifndef ?PE
-externdef endcldata32:near
+externdef endcldata32:byte
 else
 ?SIZECLDATA32 equ 400h	;also defined in hdpmi.asm
 endif
@@ -153,13 +153,13 @@ endif
 	push edi
 	cld
 if ?VM
-	mov esi,offset _StartOfVMData
-	mov ecx,offset _StartOfClientData
+	mov esi, offset _StartOfVMData
+	mov ecx, offset _StartOfClientData
 	sub ecx, esi
 	rep movsb
 endif
-	mov esi,offset _StartOfClientData	;save client specific data
-	mov ecx,offset _EndOfClientData
+	mov esi, offset _StartOfClientData	;save client specific data
+	mov ecx, offset _EndOfClientData
 	sub ecx, esi
 	@dprintf "saveclientstate, save 16bit data dst=%lX, src=%lX, size=%lX", edi, esi, ecx
 	shr ecx, 2
@@ -178,9 +178,9 @@ endif
 	push cs
 	pop ds
 
-	mov esi,offset startcldata32
+	mov esi, offset startcldata32
 ifndef ?PE
-	mov ecx,offset endcldata32
+	mov ecx, offset endcldata32
 	sub ecx, esi
 else
 	mov ecx, ?SIZECLDATA32
@@ -334,12 +334,12 @@ endif
 	@dprintf "restoreclientstate, src addr=%lX",esi
 
 if ?VM
-	mov ecx,offset _StartOfClientData
-	sub ecx,offset _StartOfVMData
+	mov ecx, offset _StartOfClientData
+	sub ecx, offset _StartOfVMData
 	add esi, ecx
 endif
-	mov edi,offset _StartOfClientData
-	mov ecx,offset _EndOfClientData
+	mov edi, offset _StartOfClientData
+	mov ecx, offset _EndOfClientData
 	sub ecx, edi
 	@dprintf "restoreclientstate: load 16bit data, dst=%lX, src=%lX, size=%lX", edi, esi, ecx
 	shr ecx, 2
@@ -378,9 +378,9 @@ endif
 
 	push byte ptr _CSALIAS_
 	pop es
-	mov edi,offset startcldata32
+	mov edi, offset startcldata32
 ifndef ?PE
-	mov ecx,offset endcldata32
+	mov ecx, offset endcldata32
 	sub ecx, edi
 else
 	mov ecx, ?SIZECLDATA32

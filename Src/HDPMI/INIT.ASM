@@ -1375,7 +1375,7 @@ ifdef ?PE
 else
 	mov dx,ds:[8]	;size of header
 	shl dx,4
-	add dx,offset endof16bit
+	add dx, offset endof16bit
 	xor cx,cx
 endif
 	mov ax,4200h

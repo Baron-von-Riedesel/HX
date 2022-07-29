@@ -126,7 +126,7 @@ SysAddrDown	dd 0		;init: top of sys address space (FFC00000)
 
 ;--- the VM-specific data is cleared for a new VM
 
-startvdata label near
+startvdata label byte
 
 ;--- dwMaxOfsPT tells what client address space has been "created".
 ;--- it's an offset within SYSAREA1 (FFC00000).
@@ -162,7 +162,7 @@ if ?XMSBLOCKCNT
 bXMSBlocks	db 0
 endif
 		align 4
-endvdata label near
+endvdata label byte
 
 _DATA16 ends
 
@@ -3042,12 +3042,12 @@ pm_createvm proc public
 	test fMode, FM_CLONE	;dont clear the PhysBlk var
 	jz noinit				;for the first instance
 
-	mov edx, offset GROUP16:startvdata
+	mov edx, offset startvdata
 	xor eax, eax
 @@:
 	mov [edx], eax
 	add edx, 4
-	cmp edx, offset GROUP16:endvdata
+	cmp edx, offset endvdata
 	jb @B
 
 	test fHost, FH_XMS or FH_VCPI

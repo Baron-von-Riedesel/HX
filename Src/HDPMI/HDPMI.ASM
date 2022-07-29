@@ -36,24 +36,24 @@ BEGGRP16 ends
 _DATA16 segment dword use16 public 'CODE'
 _DATA16 ends
 _DATA16V segment dword use16 public 'CODE'
-_StartOfVMData label near
+_StartOfVMData label byte
 _DATA16V ends
 _DATA16C segment dword use16 public 'CODE'
-_StartOfClientData label near
+_StartOfClientData label byte
 _DATA16C ends
 _TEXT16 segment dword use16 public 'CODE'
-_EndOfClientData label near
+_EndOfClientData label byte
 _TEXT16 ends
 _TEXT16X segment dword use16 public 'CODE'
 _TEXT16X ends
 CONST16 segment byte use16 public 'CODE'
 CONST16 ends
 GDTSEG segment para use16 public 'CODE'
-_Endof16bitres label near
+_Endof16bitres label byte
 GDTSEG ends
 IDTSEG segment para use16 public 'CODE'
-externdef startofidtseg:near
-startofidtseg label near
+;externdef startofidtseg:byte
+;startofidtseg label byte
 IDTSEG ends
 _ITEXT16 segment byte use16 public 'CODE'
 extern mystart:near					;use EXTERN to force include of mystart!
@@ -64,7 +64,7 @@ STACK segment use16 stack 'STACK'	;WLink needs 'STACK' to find the stack seg
 STACK ends
 endif
 ENDGRP16 segment para use16 public 'CODE'
-endof16bit label near
+endof16bit label byte
 ENDGRP16 ends
 endm
 
@@ -80,15 +80,15 @@ else
 _DATA32C segment dword use_ public 'CODE'
 endif
 	public startcldata32
-startcldata32 label near
+startcldata32 label byte
 _DATA32C ends
 
 ifndef ?PE
 _DATA32C$Z segment para use_ public 'CODE'
 	public endcldata32
-endcldata32 label near
+endcldata32 label byte
 	public startof32bitr3
-startof32bitr3 label near
+startof32bitr3 label byte
 _DATA32C$Z ends
 else
 ?SIZECLDATA32 equ 400h	;also defined in clients.asm
@@ -97,7 +97,7 @@ endif
 ifdef ?PE
 _TEXT32R3 segment dword use_ public
 ;	public startof32bitr3
-;startof32bitr3 label near
+;startof32bitr3 label byte
 _TEXT32R3 ends
 else
 _TEXT32R3 segment dword use_ public 'CODE'
@@ -349,7 +349,7 @@ fMode2	db 0				;more flags (FM2_xxx)
 	align 8
 
 ife ?HSINEXTMEM
-stacktop label near
+stacktop label byte
 endif
 
 if ?MOVEGDT
@@ -554,7 +554,7 @@ ife ?HSINEXTMEM
 	?R0STACKSIZE = 600h-4
   endif
 	db ?R0STACKSIZE dup (?)
-ring0stack label near
+ring0stack label byte
 endif
 
 ;--- task state segment (TSS)
@@ -717,7 +717,7 @@ endif
 ?GDTLIMIT equ ?SIZEGDT - 1
 
 if ?MOVEGDT
-;endofgdtseg label near
+;endofgdtseg label byte
 endofgdtseg equ $+15	; offset is used as "segment offset" (shr 4), so ensure its big enough
 GDTSEG ends
 endif
@@ -1034,8 +1034,8 @@ endif
 	align 4
 
 _DATA16V segment
-dwTSSdesc	dd offset tssdesc	;normalized address TSS descriptor
-rmsels		dd 0				;normalized start "real mode selector" list
+dwTSSdesc	dd offset tssdesc	;normalized address TSS descriptor in GDT
+pRMSel		dd 0				;normalized start "conv. memory selector" list (int 31h, ax=2)
 _DATA16V ends
 
 if ?GUARDPAGE0
@@ -3994,7 +3994,7 @@ watchtab label word
 	@watchentry 23h*4,       2*4, 11h
 	@watchentry 1Ch*4,       1*4, 10h
 	@watchentry ?MPICBASE*4, 8*4,  0h
-watchtab_end label near
+watchtab_end label byte
 
 ;*** client wants to read RM-IVT directly (address in CR2)
 ;--- in: CR2
@@ -4016,7 +4016,7 @@ nextitem:
 	cmp eax, edx
 	jnb found
 	add esi, 2*3	;size of watchentry
-	cmp esi, watchtab_end
+	cmp esi, offset watchtab_end
 	jnz nextitem
 exit:
 	pop edx
@@ -4509,7 +4509,7 @@ endif
 	@dprintf "CreateVM: prev client VM data=%lX (size %lX)", esi, ecx
 	shr ecx, 2
 	mov edi,[esp]	;get new base
-	add edi,offset _StartOfVMData
+	add edi, offset _StartOfVMData
 	rep movsd
 	@dprintf "CreateVM: client + VM data copied, edi=%lX",edi
 
@@ -4643,7 +4643,7 @@ endif
 	mov [linadvs],eax		;patch code in rawjmp_pm
 
 	mov wLDTLimit, 0
-	mov rmsels,0			;just to be sure
+	mov pRMSel, 0			;just to be sure
 	mov al,-2
 if ?INTRM2PM
 	mov int96hk.bInt, al	;do not hook int 96/int 2F

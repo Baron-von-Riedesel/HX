@@ -8,7 +8,14 @@
 
 	option proc:private
 
-?CACHERMSEL = 1
+;--- item of linked list of "conv. memory" selectors (int 31h, ax=2)
+
+RMSEL struct
+pNext dd ?		;next item
+segm  dw ?		;segment value
+limit dw ?		;limit
+sel   dw ?		;selector
+RMSEL ends
 
 _TEXT32 segment
 
@@ -190,7 +197,7 @@ freesel proc public
 	mov [esp].I31FR1.dwDS,0
 @@:
 freesel1::
-	call checksel		;will pop return addr if error
+	call checksel		; check if it's an allocated descriptor (won't return on error)
 	mov dword ptr [ebx+0],0
 	mov dword ptr [ebx+4],0
 	or bl,4+?RING
@@ -211,7 +218,7 @@ freesel1::
 	mov gs, eax
 @@:
 	pop eax
-	call resetrmsel
+	call freermsel
 ;--- v3.19: debug log after segment register have been cleared - in case DOS is used for output.
 	@dprintf "freesel: selector %X released, DS=%X", bx, [esp].I31FR1.wDS
 	clc
@@ -221,10 +228,15 @@ freesel endp
 
 ;*** search an entry in real-mode selector list
 ;--- inp: ax = selector
+;--- out: found: NC, ebx= found RMSEL item
+;---      not found: C, ebx=last item in list
+;--- ds=group16
 ;--- modifies ebx
 
+	assume ds:GROUP16
+
 getrmentry proc uses edx
-	mov ebx, offset rmsels
+	mov ebx, offset pRMSel
 nextitem:
 	mov edx, ebx
 	mov ebx,[ebx].RMSEL.pNext
@@ -240,10 +252,12 @@ notfound:
 	align 4
 getrmentry endp
 
-;*** add an entry in real mode selector list
+;*** add an entry in conv. memory selector list
 ;--- inp: [esp+4]:selector
 ;---      [esp+8]:segment
-;--- called by setpspsel
+;--- out: nothing
+;--- called by setpspsel ( helpers.asm )
+;--- limit is 255 then!
 
 	@ResetTrace
 
@@ -289,15 +303,16 @@ setrmsel endp
 
 ;*** delete selector from real mode selector list
 ;*** inp: selector in bx
+;--- called by freesel (ax=1)
 
-resetrmsel proc uses ebx eax ds
+freermsel proc uses ebx eax ds
 
 	push ss
 	pop ds
 	mov eax,ebx
 	call getrmentry
 	jc exit
-	@dprintf "resetrmsel: rm selector %X is now invalid",ax
+	@dprintf "freermsel: rm selector %X is now invalid",ax
 	xor eax,eax
 	mov [ebx].RMSEL.sel,ax
 	mov [ebx].RMSEL.segm,ax
@@ -306,16 +321,16 @@ exit:
 	ret
 	align 4
 
-resetrmsel endp
+freermsel endp
 
 ;*** check rm selector list, delete invalid entries
-;*** called on client exit
+;*** called by _restoreclientstate()
 ;--- ds=GROUP16
 
 checkrmsel proc public
 	pushad
-	mov ebx,offset rmsels
-	jmp skipitem
+	mov ebx, pRMSel
+	jmp checkitem
 nextitem:
 	mov ax,[ebx].RMSEL.sel
 	lsl ecx,eax
@@ -329,6 +344,7 @@ nextitem:
 	mov [ebx].RMSEL.segm,ax
 skipitem:
 	mov ebx,[ebx].RMSEL.pNext
+checkitem:
 	and ebx,ebx
 	jnz nextitem
 	popad
@@ -336,8 +352,10 @@ skipitem:
 	align 4
 checkrmsel endp
 
-;*** allocate a selector for conventional memory (dos rm sel)
-;*** scan a list of already created selectors to avoid duplicate entries
+	assume ds:nothing
+
+;*** allocate a selector for conventional memory.
+;*** scan the list of already created selectors to avoid duplicate entries
 ;*** inp: segment in BX, min limit in AX
 ;*** out: selector in AX
 ;--- C set if function failed
@@ -353,10 +371,10 @@ allocxsel proc public uses ds
 	push ss
 	pop ds
 	assume ds:GROUP16
-	@dprintf "allocxsel: alloc real mode sel, seg=%X, minlim=%X, rmsels=%lX",bx,ax,rmsels
-	mov esi,offset rmsels
+	@dprintf "allocxsel: alloc real mode sel, seg=%X, minlim=%X, pRMSel=%lX",bx,ax,pRMSel
+	mov esi, offset pRMSel
 nextitem:
-	mov edx, esi
+;	mov edx, esi
 	mov esi,[esi].RMSEL.pNext
 	and esi, esi
 	jz notfound
@@ -366,12 +384,12 @@ nextitem:
 	ja nextitem
 	jmp found
 notfound:
-	mov esi, edx
-	push ebx
+;	mov esi, edx
+;	push ebx
 	xor eax,eax
 	call getrmentry			;get a free entry (in EBX)!
 	mov esi, ebx
-	pop ebx
+;	pop ebx
 	jnc @F
 	push sizeof RMSEL
 	call _heapalloc
@@ -450,15 +468,18 @@ locksel proc public
 	align 4
 locksel endp
 
+;--- check if selector in BX
+;--- is a valid LDT selector.
+;--- modifies EBX.
 
 checksel proc
-	test bl,4
+	test bl,4		; in LDT?
 	jz error
-	cmp bx,ss:[wLDTLimit]
+	cmp bx,ss:[wLDTLimit]	; within LDT limit?
 	ja error
 	and bl,0F8h
 	movzx ebx,bx
-	cmp byte ptr [ebx+5],0
+	cmp byte ptr [ebx+5],0	; descriptor allocated?
 	jz error
 	clc
 	ret

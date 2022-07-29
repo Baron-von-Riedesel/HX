@@ -13,7 +13,7 @@
 
 ifndef ?PE
 _DATA32C$Z segment dword ?USE32 public 'CODE'
-externdef startof32bitr3:near
+externdef startof32bitr3:byte
 _DATA32C$Z ends
 GROUP32 group _DATA32C$Z
 endif
@@ -81,8 +81,8 @@ endif
 ifndef ?PE
 	and di,0F000h
 	add di,400h
-	mov esi,offset startof32bitr3
-	mov ecx,offset endoftext32
+	mov esi, offset startof32bitr3
+	mov ecx, offset endoftext32
 	sub ecx, esi
 	@dprintf "movehigh_pm: copy r3 code size=%lX, src=%lX, dst=%lX",ecx, esi, edi
 	shr ecx, 2
@@ -218,7 +218,7 @@ endif
 	mov edi,esp
 	mov eax,"CATS"
 	mov ecx,esp
-	sub ecx,offset stacktop
+	sub ecx, offset stacktop
 	shr ecx,2
 @@:
 	push eax

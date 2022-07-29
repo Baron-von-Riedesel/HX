@@ -51,7 +51,7 @@ _DATA16 ends
 
 CONST32 segment
 
-regtexts label near
+regtexts label byte
 	db "CS=",00
 	db " SS=",00
 	db lf,"DS=",00

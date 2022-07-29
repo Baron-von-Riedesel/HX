@@ -279,7 +279,7 @@ endif
 BEGGRP16 ends
 
 ENDGRP16 segment
-externdef endof16bit:near
+externdef endof16bit:byte
 ENDGRP16 ends
 
 ifndef ?PE
@@ -350,9 +350,9 @@ if ?LDTROSEL
 externdef selLDTsafe:word
 endif
 
-externdef _StartOfVMData:near16
-externdef _StartOfClientData:near16
-externdef _EndOfClientData:near16
+externdef _StartOfVMData:byte
+externdef _StartOfClientData:byte
+externdef _EndOfClientData:byte
 externdef _cpu:byte
 if ?MOVEGDT
 externdef endofgdtseg:near16
@@ -364,7 +364,7 @@ externdef dwPmDest2:dword
 externdef curGDT:DESCRPTR		;address GDT (valid during startup only)
 externdef curIDT:GATE			;address IDT (valid during startup only)
 ife ?HSINEXTMEM
-externdef stacktop:near16		;host real-mode stack top
+externdef stacktop:byte			;host real-mode stack top
 endif
 externdef vcpidesc:DESCRPTR
 externdef pmbrdesc:DESCRPTR
@@ -402,7 +402,7 @@ externdef fXMSAlloc:byte		;XMS alloc command (v2/v3)
 externdef fXMSQuery:byte		;XMS query command (v2/v3)
 externdef ltaskaddr:dword		;linear address next client data
 ;externdef rmcbs:RMCB			;start client real-mode callbacks
-externdef rmsels:dword			;start real-mode selector list
+externdef pRMSel:dword			;start real-mode selector list
 if ?SUPP32RTM
 externdef szVirtual:byte		;string "VIRTUAL SUPPORT"
 endif
@@ -415,7 +415,7 @@ dwHostStack textequ <taskseg._Esp0>
 if ?HSINEXTMEM
 externdef dwStackTop:dword		;top of host stack
 else
-externdef ring0stack:near
+externdef ring0stack:byte
 endif
 externdef wVersion:word			;DPMI version
 externdef xmsaddr:PF16			;XMS entry (RM)
@@ -475,8 +475,8 @@ externdef mouse15_rmcb:dword
 
 _DATA32C ends
 
-;externdef startcldata32:near
-;externdef endcldata32:near
+;externdef startcldata32:byte
+;externdef endcldata32:byte
 ifndef ?PE
 externdef endoftext32:near
 endif

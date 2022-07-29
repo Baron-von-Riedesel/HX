@@ -735,15 +735,6 @@ rGS		dw ?
  ends
 V86IRET ends
 
-;--- item of linked list of "real-mode" selectors (int 31h, ax=0002)
-
-RMSEL struct
-pNext dd ?		;next item
-segm  dw ?		;segment value
-limit dw ?		;limit
-sel   dw ?		;selector
-RMSEL ends
-
 ;--- IRET stack frames
 
 ;--- IRET protected mode without SS:E/SP
