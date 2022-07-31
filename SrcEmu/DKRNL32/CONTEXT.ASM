@@ -75,6 +75,10 @@ endif
 
 _SaveContext endp
 
+;--- v3.8.0: the previously implemented code tried to avoid to modify
+;--- memory below ESP ( used a global var to temporarily store CS:EIP ).
+;--- this caused problems if running with IOPL 0 and hence was removed. 
+
 externdef stdcall _LoadContext@4:near
 
 _LoadContext@4::
@@ -97,25 +101,28 @@ if ?FLOATREGS
 	frstor [edi].FloatSave
 @@:
 endif
-ife ?USEIRET
-	lss esp, fword ptr [edi].rEsp
-	push [edi].SegCs
-	push [edi].rEip
-	push [edi].EFlags
-
 	mov esi, [edi].rEsi
 	mov ebx, [edi].rEbx
 	mov edx, [edi].rEdx
 	mov ecx, [edi].rEcx
 	mov eax, [edi].rEax
 	mov ebp, [edi].rEbp
-
 	mov gs, [edi].SegGs
 	mov fs, [edi].SegFs
 	mov es, [edi].SegEs
+	lss esp, fword ptr [edi].rEsp
+ife ?USEIRET
+	push [edi].SegCs
+	push [edi].rEip
+	push [edi].EFlags
+else
+	push [edi].EFlags
+	push [edi].SegCs
+	push [edi].rEip
+endif
 	mov ds, [edi].SegDs
 	mov edi, cs:[edi].rEdi
-
+ife ?USEIRET
 	test byte ptr [esp+1], 2
 	jz @F
 	popfd
@@ -125,25 +132,7 @@ ife ?USEIRET
 	popfd
 	retd
 else
-	lss esp, fword ptr [edi].rEsp
-	push [edi].EFlags
-	push [edi].SegCs
-	push [edi].rEip
-
-	mov esi, [edi].rEsi
-	mov ebx, [edi].rEbx
-	mov edx, [edi].rEdx
-	mov ecx, [edi].rEcx
-	mov eax, [edi].rEax
-	mov ebp, [edi].rEbp
-
-	mov gs, [edi].SegGs
-	mov fs, [edi].SegFs
-	mov es, [edi].SegEs
-	mov ds, [edi].SegDs
-	mov edi, cs:[edi].rEdi
-
-	test byte ptr [esp+2*4+1],2
+	test byte ptr [esp+2*4+1], 2
 	jz @F
 	sti
 @@:

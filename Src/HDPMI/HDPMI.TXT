@@ -159,11 +159,10 @@
        vectors while HDPMI is running. In this case HDPMI has to remain
        resident in any case, regardless if a client is running or not.
        
-   (*) It is possible to install both HDPMI16 and HDPMI32 permanently, but 
-       for this to work it is required that HDPMI16 is installed first.
-       Installing HDPMI16 permanently is the only way to run 16bit clients
-       while HDPMI32 is loaded. The hosts will share one TLB, so both hosts
-       will consume just about 13 kB conventional DOS memory.
+   (*) If both HDPMI16 and HDPMI32 are installed permanently, the hosts
+       will share the TLB, so both hosts will consume just about 13 kB
+       conventional DOS memory. The order in which the host are installed
+       might matter - usually it's better to install HDPMI16 first.
 
 
  4. Environment Settings
@@ -451,10 +450,13 @@
      memory block that the DPMI client has to deliver to the server on its
      initial switch to protected mode. This stack's size will be at
      least 200h bytes. It is used when there is a reflection from protected
-     mode interrupts to real mode. If protected-mode is reentered (by a
-     real-mode callback, a raw jump or a hardware IRQ), the RMS is in use
-     and HDPMI will then use the real mode SS:SP of the last entry to
-     protected mode as current real-mode stack.
+     mode interrupts to real mode or when one of the "call real-mode"
+     functions ( int 31h, ax=300h/301h/302h ) is called with registers SS:SP
+     set to 0000:0000. If protected-mode is reentered (by a real-mode
+     callback, a raw jump or a hardware IRQ), the current RMS is assumed to
+     be in use and HDPMI will then use the real mode SS:SP of the last entry
+     to protected mode as current real-mode stack; this is the strategy also
+     used by Windows 3x/9x.
 
    þ the ring 0 stack. This stack is invisible to the client, it is
      used by the dpmi host. Since HDPMI v3.18, this stack is 4 kB in size and
