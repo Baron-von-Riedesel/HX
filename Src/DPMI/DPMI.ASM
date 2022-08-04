@@ -622,16 +622,6 @@ mycb16 proc
 	iret
 mycb16 endp
 
-if 0
-gettimer proc
-	push ds
-	mov ds,[_0000H]
-	mov eax,ds:[46Ch]
-	pop ds
-	ret
-gettimer endp
-endif
-
 ;--- this returns timer value in ms
 
 _GetTimerValue proc uses ds
@@ -885,6 +875,7 @@ modeswtest endp
 ;--- test execution speed of disable/enable interrupts
 
 clitest proc
+
 	pushfd
 	pop eax
 	mov cx,ax
