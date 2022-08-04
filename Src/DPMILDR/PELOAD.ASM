@@ -206,35 +206,37 @@ _DATA ends
 
 _TEXT segment
 
+PELOADF struct
+xmemhdl		dd ?
+xmemadr		dd ?
+szExePath	df ?
+hFile		dw ?
+			dw ?	;to align the stack to DWORD
+PELOADF ends
+
+LM32FR struct
+	org - sizeof PELOADF
+	PELOADF <>
+	dd ?	; pushed ebp
+	dw ?	; return addr
+	PUSHADS <>
+	dw ?	; saved DS ( see @saveregs_exec )
+rES	dw ?
+	dw ?	; saved GS
+LM32FR ends
+
 ;*** DS:EDX = program path ***
 ;*** ES:EBX = parameter block ***
 ;*** NE_hdr: the first 40h bytes of header ***
 
-PELOADF struct
-_xmemhdl	dd ?
-_xmemadr	dd ?
-_szExePath	df ?
-_hFile		dw ?
-			dw ?	;to align the stack to DWORD
-PELOADF ends
-
 LoadModule32 proc stdcall public
-
-rEAX equ <[ebp+6+7*4]>
-rEBX equ <[ebp+6+4*4]>		;apps only: before the call there was a pushad
-rES_ equ <[ebp+6+8*4+2]>	;but remember, this is a 16-bit proc! 
-
-hFile		equ <[ebp-sizeof PELOADF].PELOADF._hFile>
-szExePath	equ <[ebp-sizeof PELOADF].PELOADF._szExePath>
-xmemadr		equ <[ebp-sizeof PELOADF].PELOADF._xmemadr>
-xmemhdl		equ <[ebp-sizeof PELOADF].PELOADF._xmemhdl>
 
 	push ebp
 	mov ebp,esp
 if ?LFN
 	sub esp,sizeof PELOADF
-	mov dword ptr szExePath+0,edx
-	mov word ptr szExePath+4,ds
+	mov dword ptr [ebp].LM32FR.szExePath+0, edx
+	mov word ptr [ebp].LM32FR.szExePath+4, ds
 else
 	sub esp,80+sizeof PELOADF		;loader stack is 1024 bytes!
 	mov edi,esp
@@ -245,8 +247,8 @@ else
 	inc edi
 	and cl,cl
 	jnz @B
-	mov dword ptr szExePath+0,esp
-	mov word ptr szExePath+4,ss
+	mov dword ptr [ebp].LM32FR.szExePath+0, esp
+	mov word ptr [ebp].LM32FR.szExePath+4, ss
 endif
 	@trace_s <"LoadModule32 enter",lf>
 	mov ds,cs:[wFlatDS]
@@ -336,7 +338,7 @@ ScanImportsDir endp
 ;*** search module in module list
 ;*** if found & DLL, dont reload
 ;*** apps will always be loaded
-;*** module to search is in szExePath
+;*** module to search is in [ebp].LM32FR.szExePath
 ;*** output: esi->IMAGE_NT_HEADERS
 
 ;*** the modul to search can be changed (kernel32.dll -> dkrnl32.dll)
@@ -345,7 +347,7 @@ ScanImportsDir endp
 SearchPEModule proc
 if ?LFN
 	push es
-	les edi,szExePath
+	les edi, [ebp].LM32FR.szExePath
 	mov ecx,-1
 	mov al,0
 	repnz scas byte ptr [edi]
@@ -362,7 +364,7 @@ else
 	mov edi,esp
 endif
 	push ds
-	lds esi,szExePath
+	lds esi, [ebp].LM32FR.szExePath
 next:
 	mov ecx,edi
 @@:
@@ -449,7 +451,7 @@ SearchPEModule endp
 
 printname proc uses ds esi
 
-	lds esi,szExePath
+	lds esi, [ebp].LM32FR.szExePath
 @@:
 	lods byte ptr [esi]
 	and al,al
@@ -586,7 +588,7 @@ LoadPEModule proc near
 
 	@trace_s <"LoadPEModule entry",lf>
 	push ds
-	lds edx,szExePath
+	lds edx, [ebp].LM32FR.szExePath
 	mov cl,00
 	call openfile
 	pop ds
@@ -594,9 +596,9 @@ LoadPEModule proc near
 	mov ax,offset szErrPE2 		  ;file open error
 	ret
 @@:
-	mov hFile,ax
+	mov [ebp].LM32FR.hFile,ax
 if ?USESTACK
-	mov xmemadr, esp
+	mov [ebp].LM32FR.xmemadr, esp
 	sub esp, sizeof MZHDR
 	mov edx, esp
 	push ss
@@ -610,11 +612,11 @@ else
 	push offset szErrPE3
 	jmp errorxx
 @@:
-	mov word ptr xmemadr+0,cx
-	mov word ptr xmemadr+2,bx
-	mov word ptr xmemhdl+0,di
-	mov word ptr xmemhdl+2,si
-	mov edx,xmemadr
+	mov word ptr [ebp].LM32FR.xmemadr+0,cx
+	mov word ptr [ebp].LM32FR.xmemadr+2,bx
+	mov word ptr [ebp].LM32FR.xmemhdl+0,di
+	mov word ptr [ebp].LM32FR.xmemhdl+2,si
+	mov edx,[ebp].LM32FR.xmemadr
   if ?CLEARHEADER
 	mov edi,edx
 	mov ecx,1000h/4
@@ -623,7 +625,7 @@ else
   endif
 endif
 	mov ecx, sizeof MZHDR
-	mov bx,hFile
+	mov bx, [ebp].LM32FR.hFile
 	mov ah,3Fh				;read MZ header
 	int 21h
 	jc error41
@@ -678,8 +680,8 @@ if ?NOGUIAPPS
 	test [edx].IMAGE_NT_HEADERS.FileHeader.Characteristics,IMAGE_FILE_DLL
 	jnz isdll1
   if ?LOADAPPSASDLLS
-	xor ecx,ecx		;if an application binary is to load as a dll
-	cmp cx, rES_	;ignore the entry point
+	xor ecx,ecx				;if an application binary is to load as a dll
+	cmp cx, [ebp].LM32FR.rES;ignore the entry point
 	jnz @F
 	or [edx].IMAGE_NT_HEADERS.FileHeader.Characteristics,IMAGE_FILE_DLL
 	mov [edx].IMAGE_NT_HEADERS.OptionalHeader.AddressOfEntryPoint, ecx
@@ -748,7 +750,7 @@ if ?USESTACK
 	int 31h
 	pop eax
 	jc UseStdAlloc
-	mov xmemhdl, esi
+	mov [ebp].LM32FR.xmemhdl, esi
 	mov edi, ebx
 	jmp allocok
 UseStdAlloc:
@@ -762,8 +764,8 @@ UseStdAlloc:
 	mov ax,0501h
 	int 31h
 	jc error1
-	mov word ptr xmemhdl+0, di
-	mov word ptr xmemhdl+2, si
+	mov word ptr [ebp].LM32FR.xmemhdl+0, di
+	mov word ptr [ebp].LM32FR.xmemhdl+2, si
 	push bx
 	push cx
 	pop edi
@@ -790,7 +792,7 @@ allocok:
 	rep movs dword ptr [edi], [esi]
 	push es
 	pop ds
-	mov bx,hFile
+	mov bx, [ebp].LM32FR.hFile
 endif	;?USESTACK
 
 ;--------------------------------- now read object table
@@ -828,17 +830,17 @@ ife ?USESTACK
 	push eax
 	pop cx
 	pop bx
-	mov di,xmemhdl+0
-	mov si,xmemhdl+2
+	mov di,[ebp].LM32FR.xmemhdl+0
+	mov si,[ebp].LM32FR.xmemhdl+2
 	mov ax,0503h				 ;resize mem block
 	int 31h
 	jc error1
-	mov xmemhdl+0, di
-	mov xmemhdl+2, si
+	mov [ebp].LM32FR.xmemhdl+0, di
+	mov [ebp].LM32FR.xmemhdl+2, si
 	push bx
 	push cx
 	pop eax
-	mov xmemadr, eax
+	mov [ebp].LM32FR.xmemadr, eax
 else
 	lea eax, [edx-sizeof MZHDR]
 endif
@@ -851,7 +853,7 @@ endif
 
 	add edi, [edx - sizeof MZHDR].MZHDR.pExeNam
 	push ds
-	lds esi,szExePath
+	lds esi, [ebp].LM32FR.szExePath
 nextchar0:
 	mov ecx,edi
 nextchar:
@@ -879,12 +881,12 @@ endif
 
 ;----------------------------- read rest of image
 
-	mov bx,hFile
+	mov bx, [ebp].LM32FR.hFile
 	call LoadImage
 	jc error
 	mov ah,3Eh			;file close
 	int 21h
-	mov word ptr hFile, -1
+	mov [ebp].LM32FR.hFile, -1
 
 	call DoFixups		;do internal fixups
 	jc errorx			;error if relocs are stripped
@@ -976,7 +978,7 @@ endif
 	mov [si].TASK.wFlags,1			;set "loading"
 if ?MULTPSP
 	push es
-	les edi,szExePath
+	les edi, [ebp].LM32FR.szExePath
 	call CreatePsp
 	pop es
 	jc error71
@@ -985,8 +987,8 @@ if ?INT24RES or ?INT23RES
 	call saveint2x
 endif
 	push es
-	mov es,rES_
-	mov ebx,rEBX
+	mov es, [ebp].LM32FR.rES
+	mov ebx, [ebp].LM32FR.rEBX
 	call SetCmdLine
 	pop es
 if ?MULTPSP
@@ -1008,11 +1010,11 @@ isdll:
 	xchg eax,ds:[dwMod32]
 	pop ds
 	mov [esi.MZHDR.pNxtMod - sizeof MZHDR],eax
-	mov eax,xmemhdl
+	mov eax, [ebp].LM32FR.xmemhdl
 	mov [esi.MZHDR.hImage - sizeof MZHDR],eax
 	clc
 if ?USESTACK
-	mov esp,xmemadr
+	mov esp, [ebp].LM32FR.xmemadr
 endif
 	ret
 error1:
@@ -1052,12 +1054,12 @@ error53:
 error:
 errorx:
 	push ax
-	mov di, word ptr xmemhdl+0
-	mov si, word ptr xmemhdl+2
+	mov di, word ptr [ebp].LM32FR.xmemhdl+0
+	mov si, word ptr [ebp].LM32FR.xmemhdl+2
 	mov ax, 0502h
 	int 31h
 errorxx:
-	mov bx,hFile
+	mov bx, [ebp].LM32FR.hFile
 	.if (bx != -1)
 		mov ah,3Eh
 		int 21h
@@ -1065,7 +1067,7 @@ errorxx:
 	pop ax
 	stc
 if ?USESTACK
-	mov esp,xmemadr
+	mov esp, [ebp].LM32FR.xmemadr
 endif
 	ret
 
@@ -1467,7 +1469,7 @@ if ?INT41SUPPORT
 ;---        DS_StartTask message.
 ;--- v3.11: switch DPMILDR=1 deactivated
 ;---        instead an exc 03 is generated if a debugger is detected.
-;	test byte ptr rEAX, 1	; was it int 21h, ax=4B01h?
+;	test byte ptr [ebp].LM32FR.rEAX, 1	; was it int 21h, ax=4B01h?
 ;	jnz xxx
 ;	test cs:bEnvFlgs,ENVFL_BREAKATENTRY
 ;	jz @F
@@ -2431,7 +2433,7 @@ found:
 	and eax,eax
 	jz error
 	add eax,ebx
-	mov [esp+1Ch],eax
+	mov [esp].PUSHADS.rEAX,eax
 	jmp exit
 error:
 	stc

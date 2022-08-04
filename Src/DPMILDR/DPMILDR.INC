@@ -362,6 +362,81 @@ endif
 
 TASK ends
 
+PUSHADS struct
+rEDI	dd ?	;+0
+union
+rESI	dd ?	;+4
+rSI		dw ?	;+4
+ends
+rEBP	dd ?	;+8
+		dd ?	;+12
+rEBX	dd ?	;+16
+rEDX	dd ?	;+20
+union
+rECX	dd ?	;+24
+rCX		dw ?	;+24
+ends
+union
+rEAX	dd ?	;+28
+rAX		dw ?	;+28
+ends
+PUSHADS ends
+
+PUSHAS struct
+rDI 	dw ?	;+0
+rSI 	dw ?	;+2
+rBP 	dw ?	;+4
+		dw ?	;+6
+rBX 	dw ?	;+8
+rDX 	dw ?	;+10
+rCX 	dw ?	;+12
+rAX 	dw ?	;+14
+PUSHAS ends
+
+DPMIEXC struct
+if ?32BIT
+		dd ?	;+0
+		dd ?	;+4
+errcode	dd ?	;+8
+union
+_cseip	df ?	;+12
+struct
+_eip	dd ?	;+12
+_cs		dw ?	;+16
+ends
+ends
+		dw ?	;+18
+_eflags	dd ?	;+20
+union
+_ssesp	df ?	;+24
+struct
+_esp	dd ?	;+24
+_ss		dw ?	;+28
+ends
+ends
+		dw ?	;+30
+else
+		dw ?	;+0
+		dw ?	;+2
+errcode	dw ?	;+4
+union
+_csip	dd ?	;+6
+struct
+_ip		dw ?	;+6
+_cs		dw ?	;+8
+ends
+ends
+_flags	dw ?	;+10
+union
+_sssp	dd ?	;+12
+struct
+_sp		dw ?	;+12
+_ss		dw ?	;+14
+ends
+ends
+endif
+DPMIEXC ends
+
 ;********** Macros **********
 
 ;-- define a string
@@ -390,12 +465,10 @@ if ?32BIT
 	push es
 	push ds
 	pushad
-?SIZE_SAVEREGS equ 8*4+3*2
 else
 	push es
 	push ds
 	pusha
-?SIZE_SAVEREGS equ 8*2+2*2
 endif
 	endm
 

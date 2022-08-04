@@ -3,61 +3,60 @@
 
 ;*** call a real mode Proc from protected mode
 ;*** called by exception handler
-;*** EBP -> PUSHA(D), Errorcode, CS:IP, flags
+;*** EBP -> EXCFR ( PUSHA(D), DPMIEXC )
+;--- ES:SI = segment descriptor
 
 ExecRMProc proc
 if ?32BIT
 
 	push esi
 	push ds
-	lds esi,[ebp+0Eh]	   ;CS:EIP of exception address
-	cmp byte ptr [esi],9Ah ;far call?
+	lds esi,[ebp].EXCFR._cseip	; CS:EIP of exception address
+	cmp word ptr [esi],9A66h	; far16 call?
 	pop ds
 	pop esi
-	jnz error2			   ;anything else is invalid
+	jnz error2			;anything else is invalid
 
-	push ebp
-	mov dx,ss
-	mov bx,[ebp+20h]	   ;get SS:ESP
-	mov ebp,[ebp+1Ch]
-	mov ss,bx
-	mov ecx,[ebp+00h]	   ;and then CS:EIP
-	mov bx,[ebp+04h]?
-	mov ss,dx
-	pop ebp
+;--- copy the DWORD at SS:ESP to BX:CX ( supposed to be CS:IP )
+
+	mov dx,ds
+	mov ebx,[ebp].EXCFR._esp
+	mov ds,[ebp].EXCFR._ss
+	mov cx,[ebx+0]
+	mov bx,[ebx+2]
+	mov ds,dx
 
 else
 	push si
 	push ds
-	lds si,[bp+08h]		;CS:IP of exception
+	lds si,[bp].EXCFR._csip		;CS:IP of exception
 	cmp byte ptr [si],9Ah
 	pop ds
 	pop si
 	jnz error2
 
-	push bp
-	mov dx,ss
-	mov bx,[bp+10h] 	;SS
-	mov bp,[bp+0Eh] 	;SP
-	mov ss,bx
-	mov cx,[bp+00h] 	;IP
-	mov bx,[bp+02h] 	;CS
-	mov ss,dx
-	pop bp
+;--- copy the DWORD at SS:SP to BX:CX ( supposed to be CS:IP )
+
+	mov dx,ds
+	mov bx,[bp].EXCFR._sp
+	mov ds,[bp].EXCFR._ss
+	mov cx,[bx+0]
+	mov bx,[bx+2]
+	mov ds,dx
 
 endif
 	push cx
-	call Sel2Segment	;get base of BX
+	call Sel2Segment	;translate BX to segment
 	pop cx
-	jc error1			;error: no in 1. MB
+	jc error1			;error: not a valid segment
 if ?32BIT
 	push edi
-	sub esp,sizeof RMCS
-	mov edi,esp
+	sub esp, sizeof RMCS
+	mov edi, esp
 else
 	push di
-	sub sp,sizeof RMCS
-	mov di,sp
+	sub sp, sizeof RMCS
+	mov di, sp
 endif
 	mov ax,es:[si+XDOSSEG]
 	push es
@@ -65,28 +64,33 @@ endif
 	push ss
 	pop es
 if ?32BIT
-	mov es:[edi.RMCS.rCS],ax   ;what's with (E)IP?
+	mov es:[edi].RMCS.rSSSP,0
+	mov es:[edi].RMCS.rIP,?
+	mov es:[edi].RMCS.rCS,ax
 else
-	mov es:[di.RMCS.rCS],ax
+	mov es:[ed].RMCS.rSSSP,0
+	mov es:[di].RMCS.rIP,?
+	mov es:[di].RMCS.rCS,ax
 endif
 	push bx
 	push cx
-	mov cx,0002 		;copy 2 words???
+	mov cx,0002 		;copy 2 words ( BX:CX ) to RMS
 	xor bx,bx
-	mov ax,0301h		;call Real Mode Proc
+	mov ax,0301h		;call Real Mode far Proc
 	call dpmicall
 	jc error3
 	add sp,+04
 if ?32BIT
-	mov eax,word ptr es:[edi.RMCS.rEAX]
-	mov edx,word ptr es:[edi.RMCS.rEDX]
-	add dword ptr [ebp+0Eh],+07  ;adjust EIP (call far32)
+	mov ax,word ptr es:[edi].RMCS.rEAX
+	mov dx,word ptr es:[edi].RMCS.rEDX
+	add [ebp].EXCFR._eip, 7	;adjust EIP (7 = sizeof call far32)
+	add esp,sizeof RMCS
 else
-	mov ax,word ptr es:[di.RMCS.rEAX]
-	mov dx,word ptr es:[di.RMCS.rEDX]
-	add word ptr [bp+08h],+05  ;adjust EIP (call far16)
-endif
+	mov ax,word ptr es:[di].RMCS.rEAX
+	mov dx,word ptr es:[di].RMCS.rEDX
+	add [bp].EXCFR._ip, 5	;adjust IP (5 = sizeof call far16)
 	add sp,sizeof RMCS
+endif
 	clc
 exit:
 	pop es
@@ -107,34 +111,44 @@ error2:
 	ret
 error3:
 	mov ax,offset errstr42	;error 'CallRealModeProc Error'
+if ?32BIT
+	add esp,4 + sizeof RMCS
+else
 	add sp,4 + sizeof RMCS
+endif
 	stc
 	jmp exit
 
 ExecRMProc endp
 
-;*** selector -> segment (BX=selector) ***
-;*** RC: Carry on errors, else SEGMENT in BX ***
+;--- selector -> segment
+;--- in: BX=selector
+;--- out: C if error; NC ok, BX=segment
 
 Sel2Segment proc
 	mov ax,0006h		;get base
 	call dpmicall
 	jc exit
+	test dl, 0fh
+	stc
+	jnz exit
 if ?32BIT
 	push cx
 	push dx
 	pop eax
 	shr eax,4
 	test eax,0FFFF0000h
-else
-	mov ax,dx
-	mov dx,cx
-	mov bx,0010h		;shr 4
-	div bx
-	cmp dx,+00			;im 1. MB?
-endif
 	stc
 	jnz exit
+else
+	mov ax, dx
+	shr ax, 4
+	test cx, 0fff0
+	stc
+	jnz exit
+	shl cx, 12
+	or ax, cx
+endif
 	mov bx,ax
 	clc
 exit:

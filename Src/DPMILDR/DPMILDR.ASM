@@ -59,7 +59,7 @@ _RESIZEPSP_ 	 = 1	;1 1=resize loader psp to 120h after moved in ext. memory
 ?COPYENV		= 1		;1 1=copy environment ptr at PSP:[2Ch] to child psp.
 						;  required for FreeDOS
 ?DOSEMUSUPP		= 1		;1 1=support DOSEMU
-?PHARLABTNT		= 1		;1 1=support PharLab TNT executables (PL) (32bit only)
+?PHARLAPTNT		= 1		;1 1=support PharLap TNT executables (PL) (32bit only)
 ?HIDENEASWELL	= 1		;1 1=hide loader and server for NE exes if DPMILDR=8
 ?CHECKCALLER	= 0		;0 1=??? (had this ever worked?)
 ?SETINIT		= 1		;1 1=set init flag for Dlls
@@ -838,47 +838,36 @@ endif
 
 Exc0BProc proc
 
-DPMIEXC struct
+EXCFR struct
 if ?32BIT
-		dd ?
-		dd ?
-errcode	dd ?
-_eip	dd ?
-_cs		dw ?
-		dw ?
-_eflags	dd ?
-_esp	dd ?
-_ss		dw ?
-		dw ?
-EXCERRC	equ [ebp+20h].DPMIEXC.errcode
-EXCIP	equ [ebp+20h].DPMIEXC._eip
-EXCCS	equ [ebp+20h].DPMIEXC._cs
-EXCFL	equ [ebp+20h].DPMIEXC._eflags
-EXCSP	equ [ebp+20h].DPMIEXC._esp
-EXCSS	equ [ebp+20h].DPMIEXC._ss
-EXCAX	equ [ebp+1Ch]
-EXCCX	equ [ebp+18h]
-EXCSI	equ [ebp+04h]
+	PUSHADS <>
 else
-		dw ?
-		dw ?
-errcode	dw ?
-_ip		dw ?
-_cs		dw ?
-_flags	dw ?
-_sp		dw ?
-_ss		dw ?
-EXCERRC	equ [bp+10h].DPMIEXC.errcode
-EXCIP	equ [bp+10h].DPMIEXC._ip
-EXCCS	equ [bp+10h].DPMIEXC._cs
-EXCFL	equ [bp+10h].DPMIEXC._flags
-EXCSP	equ [bp+10h].DPMIEXC._sp
-EXCSS	equ [bp+10h].DPMIEXC._ss
-EXCAX	equ [bp+0Eh]
-EXCCX	equ [bp+0Ch]
-EXCSI	equ [bp+02h]
+	PUSHAS <>
 endif
-DPMIEXC ends
+	DPMIEXC <>
+EXCFR ends
+
+if ?32BIT
+EXCERRC	equ <[ebp].EXCFR.errcode>
+EXCIP	equ <[ebp].EXCFR._eip>
+EXCCS	equ <[ebp].EXCFR._cs>
+EXCFL	equ <[ebp].EXCFR._eflags>
+EXCSP	equ <[ebp].EXCFR._esp>
+EXCSS	equ <[ebp].EXCFR._ss>
+EXCAX	equ <[ebp].EXCFR.rAX>
+EXCCX	equ <[ebp].EXCFR.rCX>
+EXCSI	equ <[ebp].EXCFR.rSI>
+else
+EXCERRC	equ <[bp].EXCFR.errcode>
+EXCIP	equ <[bp].EXCFR._ip>
+EXCCS	equ <[bp].EXCFR._cs>
+EXCFL	equ <[bp].EXCFR._flags>
+EXCSP	equ <[bp].EXCFR._sp>
+EXCSS	equ <[bp].EXCFR._ss>
+EXCAX	equ <[bp].EXCFR.rAX>
+EXCCX	equ <[bp].EXCFR.rCX>
+EXCSI	equ <[bp].EXCFR.rSI>
+endif
 
 	test cs:[fMode], FMODE_DISABLED
 	jnz calloldexc0b
@@ -1648,7 +1637,7 @@ if ?PESUPP
 ;	jz int214b_1
 	cmp word ptr cs:[NE_Hdr],'EP'
 	jz @F
-if ?PHARLABTNT
+if ?PHARLAPTNT
 	cmp word ptr cs:[NE_Hdr],'LP'
 	jz @F
 endif
@@ -5405,13 +5394,13 @@ SegNo2Sel proc uses bx
 	mul bl
 	mov bx,ax
 	add bx,es:[NEHDR.ne_segtab]
-	mov ax,es:[bx].SEGITEM.wSel		;normal selector (R/E for Code,
-if ?RMSEGMENTS						;				 R/W for Data)
+	mov ax,es:[bx].SEGITEM.wSel		; normal selector (R/E for Code,
+if ?RMSEGMENTS						; R/W for Data)
 	test byte ptr es:[bx.SEGITEM.flags],SF_RES1	;DOS-Block?
 	jz exit
 	test byte ptr es:[bx.SEGITEM.flags],SF_DATA	;CODE?
 	jnz @F
-	mov ax,es:[bx+DOSSEL]				 ;Code selector
+	mov ax,es:[bx+DOSSEL]			; Code selector
 	jmp exit
 @@:
 	mov ax,es:[bx+XDOSSEG]
