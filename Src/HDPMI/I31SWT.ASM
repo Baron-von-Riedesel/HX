@@ -1043,7 +1043,9 @@ endif
 	mov ax,ss:[tmpFLReg]
 	mov [esp].IRET32.rCSd, esi
 	and ah,08Fh					;reset IOPL,NT
+if ?PMIOPL
 	or ah, ?PMIOPL shl 4
+endif
 	mov [esp].IRET32.rFL, eax
 	mov [esp].IRET32.rSP, ebx
 	mov [esp].IRET32.rSSd, edx

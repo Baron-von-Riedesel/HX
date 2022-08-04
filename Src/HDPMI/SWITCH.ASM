@@ -99,7 +99,9 @@ _rawjmp_pm proc near public
 	pushf
 	pop ax
 	and ah,8Fh			;mask out IOPL and NT
+if ?PMIOPL
 	or ah, ?PMIOPL shl 4
+endif
 	mov word ptr cs:v86iret.rFL,ax
 rawjmp_pm_patch::
 ;--- if there's no VCPI host, this location will be patched

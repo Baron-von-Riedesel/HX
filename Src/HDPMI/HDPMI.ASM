@@ -2596,7 +2596,7 @@ intr00 endp
 
 ;--- exc 01: test if it is a hw break
 ;--- register dr6: bits 0-3: hw break
-;--- bit 14: trace int
+;--- bit 14: trace int ( must be reset by software! )
 ;--- bit 15: 
 
 intr01 proc
@@ -2606,8 +2606,8 @@ if ?TESTEXC01
 	test ax, 0C00Fh
 	jz @F
 	@dprintf "intr01: debug exception occured, dr6=%lX", eax
-	mov ah,0
-	mov dr6,eax
+	mov ah,0		; reset DR6 bits 12-15
+	mov dr6, eax
 	pop eax
 	jmp isdebugexc
 @@:
@@ -3061,7 +3061,9 @@ endif
 
 if ?NTCLEAR
 	and ah, 08Fh 				;reset NT,IOPL
+ if ?PMIOPL
 	or ah, ?PMIOPL shl 4		;set iopl (0 or 3)
+ endif
 endif
 if ?DISINT@RM2PM
 	and ah,0FDh
@@ -3309,7 +3311,7 @@ callrmproc_iretframe proc
 	push ebx
 callrmproc_1::
 	mov ebx, [esp+4].IRET32.rFL
-	and bh,not _TF		;reset TF
+	and bh, not _TF		;reset TF
 if ?SETRMIOPL	;is 0 by default
 	and bh, 0CFh
 	or bh, ?RMIOPL shl 4
@@ -3366,7 +3368,9 @@ callrmsint_pm:
 	push eax
 	mov ax,ss:[tmpFLReg]
 	and ah, 8Fh				;reset NT, IOPL
+if ?PMIOPL
 	or ah, ?PMIOPL shl 4
+endif
 	mov word ptr [esp+4].IRET32.rFL,ax
 	pop eax
 	iretd
@@ -3519,120 +3523,92 @@ endif
 ;*** if ?PMIOPL == 0, emulate sti,cli [,in,out]
 
 EMUINSFR struct
+dwEAX	dd ?
 dwESI	dd ?
 dwDS	dd ?
 		dd ?			;return address (intr0D)
 		R3FAULT32 <>
 EMUINSFR ends        
 
-?EMUINOUT equ 0			;1=emulate IN/OUT instructions if IOPL==0
+?CHKIOINS equ 0			;1=if IOPL=0, check if IN/OUT instruction at cs:eip
 
 	@ResetTrace
 
 emuprivinstr proc
 	push ds
 	push esi
-	lds esi,[esp].EMUINSFR.rCSIP
 	push eax
+	lds esi,[esp].EMUINSFR.rCSIP
 	mov eax,ds
 	lsl eax,eax
 	cmp eax,esi		;EIP > CS limit?
-	pop eax
 	jc done
+	cld
+	lodsb
 if ?PMIOPL eq 0
-	cmp byte ptr [esi], 0FAh	;CLI?
+	cmp al, 0FAh	;CLI?
 	jz emucli
-	cmp byte ptr [esi], 0FBh	;STI?
+	cmp al, 0FBh	;STI?
 	jz emusti
 endif
-	cmp byte ptr [esi], 0F4h	;HLT?
+	cmp al, 0F4h	;HLT?
 	jz emuhlt
 	;--- v3.18: no emulation of spec reg moves in "safe" mode
 	test ss:bEnvFlags2, ENVF2_SYSPROT
 	jnz donespec
 if ?EMUMOVREGCRX or ?EMUMOVCRXREG or ?EMUMOVCR0REG or ?EMUMOVREGDRX or ?EMUMOVDRXREG
-	cmp byte ptr [esi],0Fh
+	cmp al, 0Fh
 	jnz donespec
+	lodsb
 if ?EMUMOVREGCRX
-	cmp byte ptr [esi+1],20h	;mov xxx,crx?
+	cmp al,20h		;mov xxx,crx?
 	jz emuspecregmove
 endif
 if ?EMUMOVCRXREG or ?EMUMOVCR0REG       
-	cmp byte ptr [esi+1],22h	;mov crx,xxx?
+	cmp al,22h		;mov crx,xxx?
 	jz emuspecregmove2
 endif
 if ?EMUMOVREGDRX
-	cmp byte ptr [esi+1],21h	;mov xxx,drx?
+	cmp al,21h		;mov xxx,drx?
 	jz emuspecregmove
 endif
 if ?EMUMOVDRXREG
-	cmp byte ptr [esi+1],23h	;mov drx,xxx?
+	cmp al,23h		;mov drx,xxx?
 	jz emuspecregmove2
 endif
 	jmp done
 donespec:
-if (?PMIOPL eq 0) and ?EMUINOUT
-	call emuio
+if (?PMIOPL eq 0) and ?CHKIOINS
+	call chkioins
 endif
 done:
 ;	@dprintf "exception 0d, unknown instr %X", word ptr [esi]
+	pop eax
 	pop esi
 	pop ds
 	ret
+	align 4
+
 if ?PMIOPL eq 0
 emucli:
 	@dprintf "emulate cli"
 	and byte ptr [esp].EMUINSFR.rFL+1, not 2
 	jmp done_emuclisti
+	align 4
 emusti:
 	@dprintf "emulate sti"
 	or byte ptr [esp].EMUINSFR.rFL+1, 2
 	jmp done_emuclisti
 endif
 
-emuspecregmove2:
-if ?EMUMOVCR0REG
-	push eax
-	mov al,[esi+2]
-	and al,0F8h
-	cmp al,0C0h
-	pop eax
-	jnz done
-endif
-emuspecregmove:
-	push eax
-	mov al,[esi+2]
-	mov ah,0CBh		;RETF
-	shl eax, 16
-	mov ax,[esi+0]		;the opcode is 3 bytes long (0F 2x xx)
-	push ds
-	push byte ptr _CSALIAS_
-	pop ds
-	mov ds:[tmpCode], eax
-	pop ds
-	mov esi,[esp+4].EMUINSFR.dwESI	;restore ESI
-	@dprintf "emulate 'mov eax, crx', eax=%lX", eax
-	pop eax
-	add [esp].EMUINSFR.rIP,2
-
-	push cs
-	push offset tmpCode
-	call fword ptr [esp]
-	add esp, 3*4		;dont touch esi now, skip far32, esi
-	jmp retfromsim2
-	align 4
-endif
-
-_DATA32C segment
-tmpCode dd ?
-_DATA32C ends
-
 emuhlt:
 	@dprintf "emulate hlt"
 ife ?SIMHLT
   if ?ALLOWR0IRQ
   ;--- this code works, but just for an emulation of HLT
-  ;--- in protected-mode it requires to much (hackish) code.
+  ;--- in protected-mode it requires too much (hackish) code.
+	mov [esp].EMUINSFR.rIP, esi
+	pop eax
 	pop esi
 	pop ds
 	lea esp,[esp+4+4]		;skip returnaddr + error code
@@ -3648,13 +3624,12 @@ ife ?SIMHLT
 		[ebp+4].IRET32.rSS, [ebp+4].IRET32.rSP
 	pop ebp
    endif
-	jmp donehlt
+	iretd   
   else
 	pushd offset emu_hlt
 	call callrmprocintern
   endif
 else
-	push eax
 @@:
 	in al,21h
 	xor al,0FFh
@@ -3673,42 +3648,79 @@ else
 	and al,ah
 	jz @B
 @@:
-	pop eax
 endif
 done_emuclisti:
+	mov [esp].EMUINSFR.rIP, esi
+	pop eax
 	pop esi
 retfromsim2:
 	pop ds
 	lea esp,[esp+4+4]		;skip returnaddr + error code
-donehlt:
-	inc [esp].IRET32.rIP
 	iretd					;back to client
 	align 4
+
+_DATA32C segment
+tmpProc label near		; v3.20: now called "near"
+tmpCode dd ?
+_DATA32C ends
+
+emuspecregmove2:
+ife ?EMUMOVCR0REG
+	mov al,[esi]
+	and al,0F8h
+	cmp al,0C0h		; mov cr0, reg?
+	jz done			; return and do a GPF
+endif
+emuspecregmove:
+	lodsb
+;	mov ah,0CBh		;RETF v3.20: changed to near call
+	mov ah,0C3h		;RETN
+	shl eax, 16
+	mov ax,[esi-3]	;the opcode is 3 bytes long (0F 2x xx)
+	push byte ptr _CSALIAS_
+	pop ds
+	mov ds:[tmpCode], eax
+	mov [esp].EMUINSFR.rIP, esi
+	@dprintf "emulate 'mov eax, crx', eax=%lX", eax
+	pop eax
+	pop esi
+if 0	; v3.20: changed to near call
+	push cs
+	push offset tmpCode
+	call fword ptr [esp]
+	add esp, 3*4		; dont touch esi now, skip far32 & esi
+else
+	call tmpProc
+endif
+	jmp retfromsim2
+	align 4
+endif
+
 emuprivinstr endp
 
-if (?PMIOPL eq 0) and ?EMUINOUT
+if (?PMIOPL eq 0) and ?CHKIOINS
 
-;--- run IN, OUT, INS, OUTS instructions in ring 0.
+;--- check if current instruction is IN, OUT, INS, OUTS
 ;--- DS:ESI = CS:EIP
 
 	@ResetTrace
 
-EMUIOFR struct
-		dd ?			;saved EAX
-dwExit	dd ?			;offset isioopc
-		dd ?			;return to emuprivinstr
-		EMUINSFR <>
-EMUIOFR ends
+CHKIOFR struct
+	dd ?			; return to emuprivinstr
+	EMUINSFR <>
+CHKIOFR ends
 
-emuio proc
-	push offset isioopc
-	push eax
-	lar eax,dword ptr [esp].EMUIOFR.rCS
+chkioins proc
+	cmp al, 0E4h	;in al,const?
+	jz siminc
+	cmp al, 0E6h	;out const,al?
+	jz simoutc
+	lar eax,dword ptr [esp].CHKIOFR.rCS
 	bt eax,16h
 	setc ah
+	dec esi
 nextopc:
-	mov al,[esi]
-	inc esi
+	lodsb
 	cmp al,66h
 	jnz @F
 	xor ah,1
@@ -3719,11 +3731,6 @@ nextopc:
 	or ah,2
 	jmp nextopc
 @@:
-
-	cmp al, 0E4h	;in al,const?
-	jz siminc
-	cmp al, 0E6h	;out const,al?
-	jz simoutc
 	cmp al, 6Ch		;INSB?
 	jz siminsb
 	cmp al, 6Dh		;INSW/D?
@@ -3740,146 +3747,27 @@ nextopc:
 	jz simoutdxal
 	cmp al, 0EFh	;out dx,(e)ax?
 	jz simoutdxax
-	pop eax
-	add esp,4
-	ret
-isioopc:
-	mov [esp-8].EMUIOFR.rIP, esi
-	pop esi 			; skip return to emuprivinstr
-	pop esi
-	pop ds
-	add esp,4+4			; skip returnaddr + error code
-	iretd				; back to client
-siminc:
-	pop  eax
-	push edx
-	mov dl,[esi]
-	inc esi
-	mov dh,0
-	@dprintf "simulate in al,%X",dx
-	in al,dx
-	pop edx
-	ret
-simoutc:
-	pop eax
-	push edx
-	mov dl,[esi]
-	inc esi
-	mov dh,0
-	@dprintf "simulate out %X,al",dx
-	out dx,al
-	pop edx
-	ret
-siminaldx:
-	pop eax
-	in al,dx
-	@dprintf "simulate in al,dx [dx=%X, ax=%X]",dx,ax
-	ret
-siminaxdx:								;(66) ED
-	test ah,1
-	pop eax
-	jnz @F
-	in ax,dx
-	@dprintf "simulate in ax,dx [dx=%X, ax=%X]",dx,ax
-	ret
-@@:
-	in eax,dx
-	@dprintf "simulate in eax,dx [dx=%X, eax=%lX]",dx,eax
-	ret
-simoutdxal:
-	pop eax
-	@dprintf "simulate out dx,al [dx=%X, ax=%X]",dx,ax
-	out dx,al
-	ret
-simoutdxax: 							;(66) EF
-	test ah,1
-	pop eax
-	jnz @F
-	@dprintf "simulate out dx,ax [dx=%X,ax=%X]",dx,ax
-	out dx,ax
-	ret
-@@:
-	@dprintf "simulate out dx,eax [dx=%X, eax=%lX]",dx,eax
-	out dx,eax
-	ret
-siminsb:
-	test ah,2
-	pop eax
-	jnz @F
-	insb
-	@dprintf "simulate insb [dx=%X, es:edi=%lX:%lX]",dx,es,edi
-	ret
-@@:
-	rep insb
-	@dprintf "simulate rep insb [dx=%X, es:edi=%lX:%lX]",dx,es,edi
-	ret
-siminsw:
-	test ah,2
-	jnz simrepins
-	test ah,1
-	pop eax
-	jnz @F
-	@dprintf "simulate insw [dx=%X, es:edi=%lX:%lX]",dx,es,edi
-	insw
-	ret
-@@:
-	@dprintf "simulate insd [dx=%X, es:edi=%lX:%lX]",dx,es,edi
-	insd
-	ret
-simrepins:
-	test ah,1
-	pop eax
-	jnz @F
-	@dprintf "simulate rep insw [dx=%X, es:edi=%lX:%lX]",dx,es,edi
-	rep insw
-	ret
-@@:
-	@dprintf "simulate rep insd [dx=%X, es:edi=%lX:%lX]",dx,es,edi
-	rep insd
-	ret
+	ret				;return and generate normal GPF
 
-simoutsb:
-	mov [esp].EMUIOFR.rIP, esi
-	lds esi, fword ptr [esp].EMUIOFR.dwESI
-	test ah,2
-	pop eax
-	jnz @F
-	@dprintf "simulate outsb [dx=%X, ds:esi=%lX:%lX]",dx,ds,esi
-	outsb
-	jmp exitouts
-@@:
-	@dprintf "simulate rep outsb [dx=%X, ds:esi=%lX:%lX, ecx=%lX]",dx,ds,esi,ecx
-	rep outsb
-	jmp exitouts
-simoutsw:
-	mov [esp].EMUIOFR.rIP, esi
-	lds esi, fword ptr [esp].EMUIOFR.dwESI
-	test ah,2
-	jnz simrepouts
-	test ah,1
-	pop eax
-	jnz @F
-	@dprintf "simulate outsw [dx=%X, ds:esi=%lX:%lX]",dx,ds,esi
-	outsw
-	jmp exitouts
-@@:
-	@dprintf "simulate outsd [dx=%X, ds:esi=%lX:%lX]",dx,ds,esi
-	outsd
-	jmp exitouts
-simrepouts:
-	test ah,1
-	pop eax
-	jnz @F
-	@dprintf "simulate rep outsw [dx=%X, ds:esi=%lX:%lX, ecx=%lX]",dx,ds,esi,ecx
-	rep outsw
-	jmp exitouts
-@@:
-	@dprintf "simulate rep outsd [dx=%X, ds:esi=%lX:%lX, ecx=%lX]",dx,ds,esi,ecx
-	rep outsd
-exitouts:
-	add esp,6*4
-	iretd
-emuio endp
+;--- v3.20: no need anymore to run i/o instructions in ring0 if iopl==0
+;--- since now a IOPB exists and if a port is trapped, a special exception
+;--- is to be generated.
+
+siminc:					;          E4
+simoutc:				;          E6
+siminaldx:				;          EC
+siminaxdx:				;     (66) ED
+simoutdxal: 			;          EE
+simoutdxax: 			;     (66) EF
+siminsb:				;(F3)      6C
+siminsw:				;(F3) (66) 6D
+simoutsb:				;(F3)      6E
+simoutsw:				;(F3) (66) 6F
+if 0
+;	todo: check if the port(s) are trapped and generate the special exception for trapped IO access
+endif
+	ret
+chkioins endp
 endif
 
 ;*** check if interrupt to modify is a IRQ (or 1Ch,23h,24h)
@@ -4909,7 +4797,9 @@ endif
 	pop eax
 	mov ax, es:[edi].INITCLRM.wFlags
 	and ax, 8FFEh			;clear CF, IOPL, NT
+if ?PMIOPL
 	or ah, ?PMIOPL shl 4	;set protected-mode IOPL
+endif
 	mov [ebp].INITCLPM.rFL, eax
 
 ;--- get selector for CS
