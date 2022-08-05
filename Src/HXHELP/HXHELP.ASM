@@ -31,12 +31,6 @@ else
 @flatwr	equ <gs>
  if ?NE
 ?DPMI16	equ 1
- else
-externdef stdcall __baseadd:dword	;MZ binary: set base address
-public __STACKSIZE
-public __HEAPSIZE
-__STACKSIZE equ 4000h
-__HEAPSIZE equ 0
  endif
 endif
 		option casemap:none
@@ -112,33 +106,40 @@ endif
 ;
 ;Hardware break point table entry structure.
 ;
-HBRK	struct
+HBRK struct
 HBRK_Flags		dw ?	;padding.
 HBRK_Handle 	dw ?	;DPMI break point handle.
 HBRK_Address	dd ?	;Linear break point address.
 HBRK_Size		db ?	;DPMI size code to use.
 HBRK_Type		db ?	;DPMI type code to use.
-HBRK	ends
+HBRK ends
 
-MaxWatches		equ 	256
+NUMWATCH	equ 256
+NUMSBREAK	equ 64
 
 ;
 ;Software watch point table entry structure.
 ;
-WATCH	struct
+
+WATCH struct
 WATCH_Flags 	dd ?
 WATCH_Address	dd ?
 WATCH_Length	dd ?
 WATCH_Check 	dd ?
-WATCH	ends
+WATCH ends
 
+SBREAK struct
+dwAddr	dd ?		;linear address
+dwOffs	dd ?		;offset of break
+wSeg	dw ?		;segment/selector
+wFlags	dw ?		;bit 0: is set, bit 1: is real-mode
+SBREAK ends
 
-		.data
+	.data
 
 g_psp			DD 0	;PSP selector of debug helper app
 ReqAddress		dd 0	;
 ReqLength		dd 0
-RealModeRegs	RMCS <>	;rmcs to communicate with real-mode trap 
 g_dsreg			dd 0
 g_flatsel		dd 0	;flat data selector
 g_bWantReturn	db 0
@@ -153,6 +154,7 @@ if ?DJGPP
 g_bIsDjgpp		db 0
 endif
 g_bRC			db 0
+				align 4
 g_dwHelperStart	dd 0
 g_dwHelperEnd	dd 0
 if ?DPMI16
@@ -172,7 +174,7 @@ g_dwSaveRestoreRM	dd 0	;rm address save/restore task state
 g_dwInternalBrkAddr	dd -1
 g_bSavedInternalBrk	db 0
 
-g_rminttab	label byte
+g_rminttab label byte
 		db 0
 dwOldInt00RM	dd 0
 		db 1
@@ -192,12 +194,14 @@ g_fV86		db 0		;0=real-mode,1=v86 mode
 g_fRealMode	db 0		;-1=debuggee in real-mode
 g_fPrevMode	db 0
 g_fPrevDef	db 0		;saved default bit of CS in prot-mode (bit 0)
-if ?STOPATPM or ?STOPAT4G
+ if ?STOPATPM or ?STOPAT4G
 g_fDPMIClient db 0		;bit 0: 1=debuggee is a dpmi client
 						;bit 1: 1=stopped in pm already
 						;bit 2: 1=stopped in pm at int 21h, ax=ff00
+ endif
 endif
-endif
+
+	align 4
 
 OldInt00		INTVEC 0
 OldInt01		INTVEC 0
@@ -232,6 +236,8 @@ pOldVec	dd ?
 pProc	dd ?
 excstr ends
 
+	.const
+
 InterruptTab label byte
 		excstr <00h, 0, offset OldInt00, offset Int00Handler>
 		excstr <01h, 1, offset OldInt01, offset Int01Handler>
@@ -243,6 +249,8 @@ InterruptTab label byte
 		excstr <41h, 0, offset OldInt41, offset Int41Handler>
 		excstr <75h, 0, offset OldInt75, offset Int75Handler>
 		db -1
+
+	align 4
 
 ExceptionTab label byte
 		excstr <00h, 0, offset OldExc00, offset Exc00Handler>
@@ -260,7 +268,9 @@ ExceptionTab label byte
 		excstr <10h, 0, offset OldExc10, offset Exc10Handler>
 		db -1
 
-ReqTable		label dword
+	align 4
+
+ReqTable label dword
 		dd 0	;0 Req_Connect
 		dd 0	;1 Req_Disconnect
 		dd 0	;2 Req_Suspend
@@ -396,6 +406,8 @@ endif
 		dd 0	;126
 		dd 0	;127
 
+	.data
+
 DebugPSP		dd 0
 DebugModule		dd 0
 DebugPrevCS		dw 0
@@ -419,18 +431,7 @@ bInternalExc	db 0	;-1=internal exception in trap helper
 bIsGDT			db 0	;is selector in GDT?
 wDbgeeFpuEmu	dw 0
 
-HBRKTable		db size HBRK * 4 dup (0)
 NumWatches		dd 0
-WatchTable		db size WATCH * 256 dup (0)
-
-SBREAK	struct
-dwAddr	dd ?		;linear address
-dwOffs	dd ?		;offset of break
-wSeg	dw ?		;segment/selector
-wFlags	dw ?		;bit 0: is set, bit 1: is real-mode
-SBREAK	ends
-
-SoftBrkTable	SBREAK 64 dup (<>)	
 
 pErrorMessage	dd 0
 
@@ -509,13 +510,11 @@ ErrorList  label dword
 		@DefMsg "Page access exception (0Eh)"
 		@DefMsg
 		@DefMsg "Floating point exception (10h)"	;32
-SIZEERRORLIST	equ ($ - ErrorList) / 4
+SIZEERRORLIST equ ($ - ErrorList) / 4
 
 
 dwExcProc		dd 0	;offset to jump to on internal exc 0Eh
 dfDbgeeExc0e	df 0	;old exc 0e vector saved
-
-KeyTable		dd 128/32 dup (0)  ;keypress table.
 
 if ?DPMI16
 szConfigFile	db "HXHP16.CFG",0
@@ -543,9 +542,15 @@ szError			db "Error: ",0
 szReq			db "Rqst: ",0
 szReply			db "Rply: ",0
 
-		.data?
+	.data?
 
+WatchTable		WATCH NUMWATCH dup (<>)
+SoftBrkTable	SBREAK NUMSBREAK dup (<>)
+HBRKTable		HBRK 4 dup (<>)
+KeyTable		dd 128/32 dup (?)  ;keypress table.
 execpb			EXECPM <>
+RealModeRegs	RMCS <>	;rmcs to communicate with real-mode trap 
+				align 4
 ProgName		db 128 dup (?)
 ProgCommand 	db 256 dup (?)
 ReqBuffer		db 512 dup (?)
@@ -948,7 +953,7 @@ endif
 	mov edx, g_dwRMAddr
 	mov word ptr @flat:[edx].DEBRMVAR.pmcs,cs
 	mov word ptr @flat:[edx].DEBRMVAR.pmds,ds
-	mov eax,offset loadstack -	80h
+	mov eax,offset loadstack - 80h
 	mov @flat:[edx].DEBRMVAR.pmesp,eax
 	mov @flat:[edx].DEBRMVAR.pmeip,offset rm2pm
 
@@ -3706,7 +3711,7 @@ REQ_SET_WATCH proc
 	mov ebx,offset HBRKTable
 	mov ebp,4
 @@1watch:
-	test [ebx].HBRK.HBRK_Flags,1	   ;free?
+	test [ebx].HBRK.HBRK_Flags,1	;free?
 	jz @@2watch
 	add ebx,size HBRK
 	dec ebp
@@ -3753,7 +3758,7 @@ cont_1:
 ;a software WATCH.
 ;
 @@3watch:
-	cmp NumWatches,MaxWatches	;all watches in use?
+	cmp NumWatches, NUMWATCH	;all watches in use?
 	jnz @@4watch
 	;
 	;No more watches either so return an error.
@@ -3771,8 +3776,8 @@ cont_1:
 ;Must be a free WATCH entry so find it.
 ;
 @@4watch:
-	mov ebx,offset WatchTable
-	mov ebp,MaxWatches
+	mov ebx, offset WatchTable
+	mov ebp, NUMWATCH
 @@5watch:
 	test [ebx].WATCH.WATCH_Flags,1
 	jz @@6watch
@@ -3909,8 +3914,8 @@ cont_1:
 ;
 	cmp NumWatches,0			;no point if no WATCH's in use.
 	jz @@2cwatch
-	mov ebx,offset WatchTable
-	mov ebp,MaxWatches
+	mov ebx, offset WatchTable
+	mov ebp, NUMWATCH
 @@0cwatch:
 	test [ebx].WATCH.WATCH_Flags,1	   ;in use?
 	jz @@1cwatch
@@ -3944,7 +3949,7 @@ REQ_CLEAR_WATCH endp
 AddBreakToTable proc
 	pushad
 	mov ebx, offset SoftBrkTable
-	mov ecx, 64
+	mov ecx, NUMSBREAK
 	.while (ecx)
 		test [ebx].SBREAK.wFlags,1	;is free?
 		jnz @F
@@ -3970,7 +3975,7 @@ AddBreakToTable endp
 RemoveBreakFromTable proc
 	pushad
 	mov ebx, offset SoftBrkTable
-	mov ecx, 64
+	mov ecx, NUMSBREAK
 	.while (ecx)
 		test [ebx].SBREAK.wFlags,1	;is free?
 		jz @F
@@ -3991,7 +3996,7 @@ RemoveBreakFromTable endp
 
 FindBreakInTable proc uses ebx ecx
 	mov ebx, offset SoftBrkTable
-	mov ecx, 64
+	mov ecx, NUMSBREAK
 	.while (ecx)
 		test [ebx].SBREAK.wFlags,1	;is free?
 		jz @F
@@ -4824,8 +4829,8 @@ endif
 ;
 ;Check state of all watches.
 ;
-	mov esi,offset WatchTable
-	mov ebp,MaxWatches
+	mov esi, offset WatchTable
+	mov ebp, NUMWATCH
 nextitem:
 	test [esi].WATCH.WATCH_Flags,1	   ;in use?
 	jz @@hbrk7
@@ -6681,6 +6686,19 @@ else
   endif
 endif
 	mov [g_dwHelperEnd], eax
+
+;--- clear .data?
+
+ife ?FLAT
+	push ds
+	pop es
+endif
+	mov edi, offset WatchTable
+	mov ecx, offset loadstack - offset WatchTable
+	shr ecx, 2
+	xor eax, eax
+	rep stosd
+
 	mov ah,62h
 	int 21h
 	mov [g_psp], ebx	;selector PSP
