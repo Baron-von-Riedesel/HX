@@ -52,7 +52,7 @@ _WINNT40BUG_	 = 1	;1 1=workaround for bug in nt 4.0 for 32bit clients:
 						;  NP exceptions didn't work
 _RESIZEPSP_ 	 = 1	;1 1=resize loader psp to 120h after moved in ext. memory
 ?FASTCSCHANGE	 = 0	;0 1=modify CS attributes directly (critical)
-?GSFLAT			 = 1	;1 1=GS has zero based flat selector for 32bit apps
+?GSFLAT			 = 1	;1 1=GS has zero based flat selector for 32bit NE apps
 ?CHECKTOP		 = 0	;0 1=check if this instance of the loader is the
 						;  current one if an app is terminating. (doesnt work
 						;  yet!)
@@ -124,7 +124,7 @@ if ?32BIT
 
 else
 		.286
-		
+
 ?PESUPP = 0
 @use16	textequ <>
 endif
@@ -384,7 +384,7 @@ defdgrp label word
 	dw SF_DATA or SF_MOVABL
 	dw 0
 
-fpOSFixups label byte			 ;Floating Point OS-fixups
+fpOSFixups label byte			;Floating Point OS-fixups
 	  dw FIARQQ,FJARQQ
 	  dw FISRQQ,FJSRQQ
 	  dw FICRQQ,FJCRQQ
@@ -1074,16 +1074,16 @@ endif
 
 if _SUPTSR_
 do2131 proc
-	cmp [wTDStk],offset starttaskstk + sizeof TASK	   ;last app?
+	cmp [wTDStk],offset starttaskstk + sizeof TASK	;last app?
 	jz @F
 	ret
 @@:
 	push ax
 	mov bx,[wLdrPSP]			;set psp of loader
 	mov es,bx
-	mov ah,50h
+	mov ah, 50h
 	int 21h
-	mov ax,0306h				;get real mode entry point
+	mov ax, 306h				;get real mode entry point
 	int 31h
 	pop ax
 if ?32BIT
@@ -1096,9 +1096,9 @@ endif
 	mov di,80h
 	push di
 	cld
-								;BA 10 00  mov dx,0010h
-								;B8 xx 31  mov ax,31xxh
-								;CD 21	  int 21h
+;--- BA 10 00  mov dx,0010h
+;--- B8 xx 31  mov ax,31xxh
+;--- CD 21     int 21h
 	mov cl,al
 	mov ax,10BAh
 	stosw
@@ -1109,12 +1109,12 @@ endif
 	stosw
 	mov ax,21CDh
 	stosw
-	pop di						   ;IP
-	mov ax,cs:[wPSPSegm]		   ;DS
-	mov cx,ax					   ;ES
-	mov dx,ax					   ;SS
-	mov si,ax					   ;CS
-	mov bx,100h 				   ;SP
+	pop di						;IP
+	mov ax,cs:[wPSPSegm]		;DS
+	mov cx,ax					;ES
+	mov dx,ax					;SS
+	mov si,ax					;CS
+	mov bx,100h 				;SP
 	@retf
 do2131 endp
 endif
@@ -1169,10 +1169,10 @@ endif
 jmpprevint21::
 if ?32BIT
 	db 66h
-	db 0eah			   ;jmp ssss:oooooooo
+	db 0eah			;jmp ssss:oooooooo
 oldint21 df 0
 else
-	db 0eah			   ;jmp ssss:oooo
+	db 0eah			;jmp ssss:oooo
 oldint21 dd 0
 endif
 	align 4
@@ -1367,7 +1367,7 @@ if ?MULTPSP
 endif
 
 if _SUPTSR_
-	cmp ah,31h					;go resident?
+	cmp ah,31h				;go resident?
 	jnz @F
 	call do2131
 	jmp i214c_1	;exit int 21h
@@ -1392,7 +1392,7 @@ if ?32BIT
 	push eax
 	pop di
 	pop si
-	mov ax,0502h				;free stack handle
+	mov ax,0502h			;free stack handle
 	int 31h
 	pop si
 	jmp i214c_2
@@ -1411,7 +1411,7 @@ endif
 	call FreeLib16
 i214c_2:
 if ?INT24RES or ?INT23RES
-	call restoreint2x			;restore int 23h/24h,DTA
+	call restoreint2x		;restore int 23h/24h,DTA
 endif
 	mov [wTDStk],si
 if ?MULTPSP
@@ -1593,7 +1593,7 @@ else
 	push si
 	push di
 endif
-	call LoadLibIntern2	   ;load NE module (DS:EDX -> path)
+	call LoadLibIntern2		;load NE module (DS:EDX -> path)
 if ?32BIT
 	pop edi
 	pop esi
@@ -1630,8 +1630,8 @@ if ?32BIT
 else
 	mov ax,cs:[wlError]
 endif
-	jnz retf2ex 		  ;if no, return with error
-	mov ax,cx			  ;restore AX
+	jnz retf2ex 		;if no, return with error
+	mov ax,cx			;restore AX
 if ?PESUPP
 ;	cmp byte ptr cs:[bEnabled],0  ;is peloader enabled?
 ;	jz int214b_1
@@ -1645,12 +1645,12 @@ endif
 	jnz int214b_1			;is not a PE executable 
 @@:
 	@saveregs_exec
-	mov ds,cs:[wLdrDS]	  ;call with full path so we dont need
-	mov edx,offset szModName  ;to search PATH again
+	mov ds,cs:[wLdrDS]		;call with full path so we dont need
+	mov edx,offset szModName;to search PATH again
 	call LoadModule32
 	mov [esp+1Ch],eax
 	@restoreregs_exec
-	jnc retf2ex 		  ;done
+	jnc retf2ex 			;done
 	and ax,ax
 	stc
 	jnz retf2ex
@@ -1697,7 +1697,7 @@ if _LASTRC_
 @@:
 endif
 if ?SUPAPPTITLE
-	call setapptitle2	  ;restore app title
+	call setapptitle2	;restore app title
 endif
 if ?32BIT
 	@printf <"dpmildr 21-4bh: returning to launching app, ss:esp=%X:%lX",lf>, ss, esp
@@ -1707,8 +1707,8 @@ endif
 	popf
 	@int3 _INT03RETEXEC_
 retf2ex::
-	push ax				   ;copy flags
-	lahf				   ;to ensure trace flag isn't touched
+	push ax				;copy flags
+	lahf				;to ensure trace flag isn't touched
 if ?32BIT
   if 0
 	push ebp
@@ -1943,7 +1943,7 @@ if ?INT41SUPPORT	;v3.11: support debugger directly instead of DPMILDR=1
 @@:
  endif
 endif
-;	@iret		; Open Watcom's WD isn't happy with IRET(D)s
+;	@iret			; Open Watcom's WD isn't happy with IRET(D)s
 if ?32BIT
 	db 66h
 endif
@@ -1965,7 +1965,7 @@ endif
 if ?32BIT
 if ?DOSEMUSUPP
 
-;--- EXEC param block in dosemu is wrong
+;--- EXEC param block in dosemu differs from hdpmi/win9x/winnt
 
 __loadpgm proc
 	push es
@@ -2141,28 +2141,27 @@ else
 endif
 
 if ?32BIT
-	xor eax,eax
-	mov [ebp.RMCS.rDI],ax
-	mov [ebp.RMCS.rDX],ax
-	mov [ebp.RMCS.rSSSP],eax
+	mov [ebp.RMCS.rDI],cx
+	mov [ebp.RMCS.rDX],cx
+	mov [ebp.RMCS.rFlags],cx
+	mov [ebp.RMCS.rSSSP],ecx
 	mov [ebp.RMCS.rAX],168Eh
 	mov edi,ebp
 else
-	xor ax,ax
-	mov [bp.RMCS.rDI],ax
-	mov [bp.RMCS.rDX],ax ;set app title
-	mov [bp.RMCS.rSS],ax
-	mov [bp.RMCS.rSP],ax
+	mov [bp.RMCS.rDI],cx
+	mov [bp.RMCS.rDX],cx ;set app title
+	mov [bp.RMCS.rFlags],cx
+	mov [bp.RMCS.rSS],cx
+	mov [bp.RMCS.rSP],cx
 	mov [bp.RMCS.rAX],168Eh
 	mov di,bp
 endif
 
-;---------------------- call int 2F, AX=168Eh
+;--- call int 2F, AX=168Eh
 	push ss
 	pop es
-	mov bx,002Fh
-	xor cx,cx
-	mov ax,0300h
+	mov bx, 2Fh
+	mov ax, 300h
 	call dpmicall
 
 	mov ax,0101h
@@ -2274,12 +2273,12 @@ CopyPgmInEnv proc
   endif
 	xor di,di
 	xor si,si
-	rep movsb		;copy old environment to new environment block
+	rep movsb				;copy old environment to new environment block
   if ?32BIT
 	pop esi
 	pop ds
 @@:
-	lods byte ptr [esi]	;copy program name into new environment block
+	lods byte ptr [esi]		;copy program name into new environment block
 	stosb
 	and al,al
 	jnz @B
@@ -2287,7 +2286,7 @@ CopyPgmInEnv proc
 	pop si
 	pop ds
     if ?OS2COMPAT
-	mov bx,di               ;save ptr within env
+	mov bx,di				;save ptr within env
     endif
 @@:
 	lodsb
@@ -2304,7 +2303,7 @@ CopyPgmInEnv proc
 	jnz done
 ;	mov ds:[042h],di
 @@:
-	mov al,es:[bx]		;OS2v1 has 2 copies of progname
+	mov al,es:[bx]			;OS2v1 has 2 copies of progname
 	stos byte ptr es:[di]
 	inc bx
 	or al,al
@@ -2610,31 +2609,31 @@ endif
 	@trace_s <"restoring exception vectors",lf>
 if ?EXC01RESET
 if ?32BIT
-	mov cx,word ptr oldexc01+4
 	mov edx,dword ptr oldexc01+0
+	mov cx,word ptr oldexc01+4
 else
-	mov cx,word ptr oldexc01+2
 	mov dx,word ptr oldexc01+0
+	mov cx,word ptr oldexc01+2
 endif
 	mov bl,01h
 	call setexc
 endif
 if ?32BIT
-	mov cx,word ptr oldexc0b+4
 	mov edx,dword ptr oldexc0b+0
+	mov cx,word ptr oldexc0b+4
 else
-	mov cx,word ptr oldexc0b+2
 	mov dx,word ptr oldexc0b+0
+	mov cx,word ptr oldexc0b+2
 endif
 	mov bl,0Bh
 	call setexc
 if _TRAPEXC0D_
 if ?32BIT
-	mov cx,word ptr oldexc0D+4
 	mov edx,dword ptr oldexc0D+0
+	mov cx,word ptr oldexc0D+4
 else
-	mov cx,word ptr oldexc0D+2
 	mov dx,word ptr oldexc0D+0
+	mov cx,word ptr oldexc0D+2
 endif
 	mov bl,0Dh
 	call setexc
@@ -2648,11 +2647,11 @@ if ?PESUPP
 endif
 	@trace_s <"restoring vector int 0x21",lf>
 if ?32BIT
-	mov cx,word ptr ds:[oldint21+4]
 	mov edx,dword ptr ds:[oldint21+0]
+	mov cx,word ptr ds:[oldint21+4]
 else
-	mov cx,word ptr ds:[oldint21+2]
 	mov dx,word ptr ds:[oldint21+0]
+	mov cx,word ptr ds:[oldint21+2]
 endif
 	mov bl,21h
 	mov ax,0205h			;set pm int
@@ -2661,11 +2660,11 @@ endif
 if ?TRAPINT41
 	@trace_s <"restoring vector int 0x41",lf>
   if ?32BIT
-	mov cx,word ptr ds:[oldint41+4]
 	mov edx,dword ptr ds:[oldint41+0]
+	mov cx,word ptr ds:[oldint41+4]
   else
-	mov cx,word ptr ds:[oldint41+2]
 	mov dx,word ptr ds:[oldint41+0]
+	mov cx,word ptr ds:[oldint41+2]
   endif
 	mov bl,41h
 	mov ax,0205h
@@ -6913,10 +6912,10 @@ endif	;?EXTLOAD
 doscall proc
 if ?32BIT
 	pushfd
-	call fword ptr cs:[oldint21]
+	call cs:[oldint21]
 else
 	pushf
-	call dword ptr cs:[oldint21]
+	call cs:[oldint21]
 endif
 	ret
 doscall endp
@@ -6925,12 +6924,12 @@ dpmicall proc
 	push ax
 if ?32BIT
 	pushfd
-	call fword ptr cs:[oldint31]
+	call cs:[oldint31]
 	jc @F
 	lea esp,[esp+2]
 else
 	pushf
-	call dword ptr cs:[oldint31]
+	call cs:[oldint31]
 	jc @F
 	inc sp
 	inc sp
@@ -7377,7 +7376,7 @@ moveinextmem proc
 ;--- this requires attributes of current CS to change
 if ?FASTCSCHANGE
 	mov ax,cs					;copy CS desc first 
-	call CreateAlias				;descriptor BX -> AX
+	call CreateAlias			;descriptor BX -> AX
 	jc exit
 else
 	mov cx,1					;do it the safe way, get a temp sel
@@ -7385,7 +7384,7 @@ else
 	int 31h
 	jc exit
 	@trace_s <"extload: alloc temp selector ok",lf>
-	call CreateAlias				;[BX] -> [AX], AX=Codesel
+	call CreateAlias			;[BX] -> [AX], AX=Codesel
 	jc exit
 	@trace_s <"extload: CreateAlias ok",lf>
 	push ax
@@ -7393,7 +7392,7 @@ else
 	push offset nextsm			;switch to new CS
 	retf
 nextsm:
-	call CreateAlias				;now original CS can be modified
+	call CreateAlias			;now original CS can be modified
 	jc exit
 	push bx
 	push ax
@@ -7422,7 +7421,7 @@ endif
 	pop ss						;now set SS permanently
 	@trace_s <"extload: ds ss copied",lf>
 if _RESIZEPSP_
-	;--- size PSP + 20h bytes (for int2f rm)
+;--- size PSP + 20h bytes (for int2f rm)
   if ?HDPMI
 	mov bx, [wResHDPMI]
   else
@@ -7613,7 +7612,7 @@ if ?32BIT
 else
 	mov dx, offset int21proc
 endif
-	mov ax,0205h			;set Int 21 PM vector
+	mov ax, 205h			;set Int 21 PM vector
 	call dpmicall
 	popa
 	ret
@@ -7775,29 +7774,29 @@ GetPgmParms endp
 
 
 changememstrat proc
-	mov ax,5802h			 ;save umb link state
+	mov ax,5802h			;save umb link state
 	int 21h
 	xor ah,ah
 	mov word ptr [blksize+0],ax
-	mov ax,5800h			 ;save memory alloc strategie
+	mov ax,5800h			;save memory alloc strategie
 	int 21h
 	xor ah,ah
 	mov word ptr [blksize+2],ax
-	mov ax,5803h			 ;set umb link state
+	mov ax,5803h			;set umb link state
 	mov bx,0001h
 	int 21h
-	mov ax,5801h			 ;set "fit best" strategy
-	mov bx,0081h			 ;first high, then low
+	mov ax,5801h			;set "fit best" strategy
+	mov bx,0081h			;first high, then low
 	int 21h
 	ret
 changememstrat endp
 
 restorememstrat proc
 	mov bx,word ptr [blksize+2]
-	mov ax,5801h			  ;memory alloc strat restore
+	mov ax,5801h			;memory alloc strat restore
 	int 21h
 	mov bx,word ptr [blksize+0]
-	mov ax,5803h			  ;umb link restore
+	mov ax,5803h			;umb link restore
 	int 21h
 	ret
 restorememstrat endp
@@ -7923,8 +7922,8 @@ InitProtMode proc
 
 	@trace_s <"enter initialize PM",lf>
 
-	mov bl,21h				;get int 21 PM vector
-	mov ax,0204h			;get pm int
+	mov bl, 21h				;get int 21 PM vector
+	mov ax, 204h			;get pm int
 	int 31h
 if ?32BIT
 	mov dword ptr [oldint21+0],edx
@@ -7933,7 +7932,7 @@ else
 	mov word ptr [oldint21+0],dx
 	mov word ptr [oldint21+2],cx
 endif
-	mov bl,31h				;get int 31 PM vector
+	mov bl, 31h				;get int 31 PM vector
 	int 31h
 if ?32BIT
 	mov dword ptr [oldint31+0],edx
@@ -7943,7 +7942,7 @@ else
 	mov word ptr [oldint31+2],cx
 endif
 if ?TRAPINT41
-	mov bl,41h
+	mov bl, 41h
 	int 31h
   if ?32BIT
 	mov dword ptr [oldint41+0],edx
@@ -7963,18 +7962,18 @@ if _SETCSLIM_
 	mov bx,cs
 	xor cx,cx
 	mov dx,[wCSlim]
-	mov ax,0008h			;set limit	
+	mov ax, 8				;set limit
 	int 31h
 endif
 if _SETDSLIM_
 	mov bx,ds
 	xor cx,cx
 	mov dx,[wCSlim]
-	mov ax,0008h			;set limit
+	mov ax, 8				;set limit
 	int 31h
 endif
 	mov cx, 1 				;get a selector for ALIAS segments
-	mov ax,0000
+	xor ax, ax
 	int 31h
 	jc initprex
 	mov [aliassel],ax
@@ -7983,8 +7982,8 @@ if ?DOSEMUSUPP
  if ?32BIT
 	mov bx,ax
 	lar cx,ax
-	shr cx,8
-	mov ax,0009				;set acc rights
+	shr cx, 8
+	mov ax, 9				;set acc rights
 	int 31h
  endif
 endif
@@ -7995,20 +7994,20 @@ if ?EXTLOAD
 	cmp byte ptr wVersion,20	;not for OS/2
 	jnb @F
 if 0;?DOSEMUSUPP
-	test fMode, FMODE_DOSEMU		;not for DOSEMU
+	test fMode, FMODE_DOSEMU	;not for DOSEMU
 	jnz @F
 endif
-	call moveinextmem	   ;move ldr Code/Data in extended memory
+	call moveinextmem			;move ldr Code/Data in extended memory
 @@:
 endif
 if ?PESUPP
 	call InitPELoader
 endif
 if _TRAPEXC0D_
-	mov bl,0Dh
-	mov ax,0202h		   ;get Exception 0D
+	mov bl, 0Dh
+	mov ax, 202h		;get Exception 0D
 	int 31h
-  if ?32BIT		 
+  if ?32BIT
 	mov dword ptr oldexc0D+0,edx
 	mov word ptr oldexc0D+4,cx
 	mov edx, offset LEXC0D
@@ -8022,8 +8021,8 @@ if _TRAPEXC0D_
 	jc initprex
 endif
 if ?EXC01RESET
-	mov bl,01h
-	mov ax,0202h		   ;get Exception 01
+	mov bl, 1
+	mov ax, 202h		;get Exception 01
 	int 31h
   if ?32BIT
 	mov dword ptr oldexc01+0,edx
@@ -8040,5 +8039,4 @@ InitProtMode endp
 
 _ITEXT ends
 
-end  main
-
+	end  main
