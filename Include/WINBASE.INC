@@ -814,6 +814,7 @@ ExitThread				proto near stdcall :dword
 ExpandEnvironmentStringsA proto near stdcall :ptr BYTE, :ptr BYTE, :dword
 FatalAppExitA			proto near stdcall :dword, :ptr BYTE
 FileTimeToDosDateTime	proto near stdcall :ptr FILETIME, :ptr WORD, :ptr WORD
+FileTimeToLocalFileTime	proto near stdcall :ptr FILETIME, :ptr FILETIME
 FileTimeToSystemTime    proto near stdcall :ptr FILETIME, :ptr SYSTEMTIME
 FindAtomA				proto near stdcall :ptr byte
 FindClose				proto near stdcall :dword
@@ -1043,7 +1044,8 @@ externdef stdcall  _imp__ExitThread@4				:pfunc@4
 externdef stdcall  _imp__ExpandEnvironmentStringsA@12:pfunc@12
 externdef stdcall  _imp__FatalAppExitA@8			:pfunc@8
 externdef stdcall  _imp__FileTimeToDosDateTime@12 	:pfunc@12
-externdef stdcall  _imp__FileTimeToSystemTime@8     :pfunc@8
+externdef stdcall  _imp__FileTimeToLocalFileTime@8	:pfunc@8
+externdef stdcall  _imp__FileTimeToSystemTime@8		:pfunc@8
 externdef stdcall  _imp__FindAtomA@4				:pfunc@4
 externdef stdcall  _imp__FindClose@4				:pfunc@4
 externdef stdcall  _imp__FindFirstFileA@8			:pfunc@8
@@ -1251,6 +1253,7 @@ ExitThread				equ <_imp__ExitThread@4>
 ExpandEnvironmentStringsA	equ <_imp__ExpandEnvironmentStringsA@12>
 FatalAppExitA			equ <_imp__FatalAppExitA@8>
 FileTimeToDosDateTime	equ <_imp__FileTimeToDosDateTime@12>
+FileTimeToLocalFileTime	equ <_imp__FileTimeToLocalFileTime@8>
 FileTimeToSystemTime    equ <_imp__FileTimeToSystemTime@8>
 FindAtomA				equ <_imp__FindAtomA@4>
 FindClose				equ <_imp__FindClose@4>
