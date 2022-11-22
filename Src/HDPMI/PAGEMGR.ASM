@@ -2130,6 +2130,9 @@ error:
 	align 4
 pm_AllocSysPagesDn endp
 
+;--- free system region, eax=linear addr, ecx=pages
+;--- out: nothing?
+
 pm_FreeSysPagesDn proc public
 	push ecx
 	push eax
@@ -2140,6 +2143,7 @@ pm_FreeSysPagesDn proc public
 	jnz @F
 	mov edx,ecx
 	shl edx,12
+	@dprintf "pm_FreeSysPagesDn: update SysAddrDown, %lX + %lX", SysAddrDown, edx
 	add SysAddrDown,edx
 @@:
 	ret

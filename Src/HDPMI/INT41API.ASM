@@ -19,12 +19,17 @@ _TEXT32 segment
 intr41 proc public
 	push eax
 	lar eax, [esp+4].IRET32.rCSd
-	and ah,60h
+	and ah,60h	; ring 0?
 	pop eax
-	jnz @F
+	jnz int41r3
 	@dprintf "intr41: called from ring0, AX=%X",ax
+	push eax		; v3.20: check if SS is ours
+	mov eax, ss
+	cmp ax, _SSSEL_
+	pop eax
+	jz intr41_		; if yes, handle it
 	iretd
-@@:
+int41r3:
 	@dprintf "intr41: called from ring3, AX=%X",ax
 	@simintpms 41
 intr41 endp

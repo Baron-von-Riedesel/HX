@@ -1,0 +1,25 @@
+
+  HDPMI API
+  
+  The HDPMI API can be accessed by calling Int 31h, ax=168ah, ds:e/si="HDPMI".
+  This call returns AL=00 if successful, and the API's entry address in es:e/di.
+  To call a function, register AX has to be set to the function#, additional
+  arguments are passed as described below.
+
+      #       description
+  --------------------------------------------------------------------------
+      0       debug version only: disable log writing
+      1       debug version only: enable log writing
+      2       debug version only: select extended log writing, flags in BX
+      3       debug version only: display client's memory objects
+      4       current host won't accept new clients ( enters disabled state );
+              if a new client is launched, it will have to install a fresh
+              instance of HDPMI.
+      5       set internal value of stored environment variable flag HDPMI=32.
+              in: BL = new value (0|1), out: AL = old value.
+      6       IOPL=0 version only: trap IO ports
+      7       IOPL=0 version only: untrap IO ports
+      8       IOPL=0 version only: read/write trapped ports
+      9       IOPL=0 version only: simulate HW-Interrupt
+  
+

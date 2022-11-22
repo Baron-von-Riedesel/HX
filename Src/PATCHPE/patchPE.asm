@@ -10,11 +10,11 @@
 
 ?REBASE equ 0
 
-fopen proto c :ptr, :ptr
+fopen  proto c :ptr, :ptr
 fclose proto c :dword
-fread proto c :ptr, :dword, :dword, :dword
+fread  proto c :ptr, :dword, :dword, :dword
 fwrite proto c :ptr, :dword, :dword, :dword
-fseek proto c :ptr, :dword, :dword
+fseek  proto c :ptr, :dword, :dword
 printf proto c :ptr, :vararg
 
 SEEK_SET equ 0
@@ -55,6 +55,7 @@ bHeap db 0
 bModified db 0
 bPatchPE db 0
 bPatchPX db 0
+wSubSys dw -1
 bStack db 0
 bVerbose db 0
 bOptions db 0
@@ -214,6 +215,10 @@ endif
 				invoke printf, CStr("Binary won't run with all DPMI hosts.",10)
 			.endif
 		.endif
+		.if wSubSys != -1
+			mov ax, wSubSys
+			mov PE_Hdr.OptionalHeader.Subsystem, ax
+		.endif
 		invoke fseek, pFile, dwPEPos, SEEK_SET
 		.if eax == -1
 			invoke printf, CStr("fseek error",10)
@@ -323,10 +328,15 @@ endif
 			cmc
 		.elseif (ax == 'v')
 			or bVerbose, 1
-		.elseif (ax == 'w')
+		.elseif ax == 'w'
 			or bCodeWriteable,1
-		.elseif (ax == 'x')
+		.elseif ax == 'x'
 			or bPatchPX, 1
+		.elseif ax == ':y'
+			add ebx,2
+			call getnum
+			jc exit
+			mov wSubSys, ax
 		.else
 			jmp err
 		.endif
@@ -365,7 +375,7 @@ main proc c public argc:dword, argv:ptr
 	xor eax,eax
 	ret
 usage:
-	invoke printf, CStr("patchPE v2.0 Copyright Japheth 2005-2021",10)
+	invoke printf, CStr("patchPE v2.1 Copyright Japheth 2005-2022",10)
 	invoke printf, CStr(" allows to change a few attributes of PE/PX binaries",10)
 	invoke printf, CStr(" usage: patchPE [ options ] filename",10)
 	invoke printf, CStr(" options are:",10)
@@ -377,6 +387,7 @@ endif
 	invoke printf, CStr("  -s:reserve[,commit]   set stack size",10)
 	invoke printf, CStr("  -w   make all code sections writeable",10)
 	invoke printf, CStr("  -x   patch header to 'PX'.",10)
+	invoke printf, CStr("  -y:subsystem   set subsystem",10)
 	invoke printf, CStr(" if no option is given, -x is assumed",10)
 	ret
 main endp

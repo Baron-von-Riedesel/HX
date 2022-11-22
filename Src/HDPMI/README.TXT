@@ -104,15 +104,7 @@
  
    -z: toggles log writing
 
-  It also supports DPMI API int 2Fh, ax=168Ah, with ds:e/si pointing to "HDPMI".
-  This call returns in es:e/di a far16/far32 address that may be called with:
-  
-    AX    function
-   ------------------------------ 
-   0000   disable log writing
-   0001   enable log writing
-   0002   set flags (in bx) for extended log writing
-   0003   display client's memory objects
+  Additionally, there are some functions accessible thru the DPMI vendor API.
 
 
  4. Makefiles

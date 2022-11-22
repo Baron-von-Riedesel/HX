@@ -1,7 +1,7 @@
  
  History HDPMI 
 
-  __.07.2022, version 3.20
+  __.11.2022, version 3.20
 
   þ fixed: pmstate variable moved to client-specific data region. This
     bug was virtually irrelevant up to v3.19, but there it may have caused
@@ -28,6 +28,7 @@
   þ a disabled host will be reenabled when a client terminates.
   þ the HDPMI variants that run clients with IOPL=0 have now a full
     8 KB IOPB, zeroed. They are included in HXRT, with an "i"-suffix.
+  þ enabled kernel debug API for the standard version.
 
   30.03.2022, version 3.19
 

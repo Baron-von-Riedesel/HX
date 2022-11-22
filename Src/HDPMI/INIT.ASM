@@ -531,17 +531,24 @@ initwdeb386_pm proc
 	test fDebug,FDEBUG_KDPRESENT
 	jz done
 	pushad
-;--- call wdeb386, tell it IDT address
+;--- call wdeb386, tell it IDT address (es:edi)
 	mov edi,[pdIDT.dwBase]
+
+;--- for Deb386, we also supply i/o routine addresses
+	mov ebx, offset _fputchrx
+	mov edx, offset _fgetchrx
+
 	mov al,PMINIT_INIT_IDT
-	@dprintf "call debugger pm proc,ax=%X,es:edi=%X:%lX (init IDT)",ax,es,edi
+	@dprintf "call debugger pm proc,ax=%X,es:edi=%lX:%lX (init IDT)",ax,es,edi
 	call fword ptr [dbgpminit]
+if 0 ; v3.20
 	mov ax,DS_DebLoaded
 	@dprintf "int 41h call,ax=%X",ax
 	int Debug_Serv_Int
 	@dprintf "int 41h ret,ax=%X (is F386?)",ax	;should return F386 in AX
-	mov ax,0f001h
+	mov ax,0f001h	; conditional BP?
 	int Debug_Serv_Int
+endif
 	popad
 done:
 	ret

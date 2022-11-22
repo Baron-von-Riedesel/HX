@@ -559,11 +559,7 @@
    The following "vendors" are recognized:
    
    - "MS-DOS": supports function ax=100h (get LDT selector)
-   - "HDPMI": supports functions:
-     - ax=0-3: implemented in debug version only.
-     - ax=4: current host won't accept new clients ( enters disabled state ).
-     - ax=5: set internal value of stored environment variable flag HDPMI=32.
-             in: BL = new value (0|1), out: AL = old value.
+   - "HDPMI": see HDPMIAPI.TXT for details.
 
 
  6.8 VDS API

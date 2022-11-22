@@ -6,6 +6,9 @@
 ifndef ?32BIT
 ?32BIT   equ 0  ; 1=run as 32-bit client
 endif
+ifndef ?INT41
+?INT41 equ 0
+endif
 
 EXECRM struct
 environ dw ?
@@ -80,6 +83,14 @@ if ?LIMITCS
     int 31h
 endif
     add sp, 4
+if ?INT41
+	mov ax, 4Fh
+	int 41h
+	cmp ax, 0f386h
+	jnz @F
+	int 3
+@@:
+endif
     ret
 
 nodpmi:

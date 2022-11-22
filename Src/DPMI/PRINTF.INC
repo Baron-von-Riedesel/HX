@@ -4,7 +4,7 @@
 ;--- define and print a string
 
 ; @printf: print formated strings
-; understands %x, %lx, %u, %lu, %s, %ls, %b
+; understands %x, %lx, %u, %lu, %s, %ls, %lp
 
 @printf macro xx,a1,a2,a3,a4,a5,a6,a7,a8
 	ifnb <a8>
@@ -20,13 +20,18 @@
 	call _printf
 endm
 
-	.code
-
 _putchar proc
 
 	push dx
-	mov ah,02
-	mov dl,al
+	cmp al, 10
+	jnz @F
+	mov dl, 13
+	mov ah, 2
+	int 21h
+	mov al, 10
+@@:
+	mov dl, al
+	mov ah, 2
 	int 21h
 	pop dx
 	ret
@@ -36,31 +41,19 @@ _putchar endp
 ;--- display a near16 string
 ;--- modifies AX
 
-_strout proc uses bx
-	mov bx, ax
+_strout proc uses si
+	mov si, ax
 nextchar:
-	mov al,[bx]
+	lodsb
 	and al,al
 	jz done
-	cmp al,10
-	jnz @F
-	mov al,13
 	call _putchar
-	mov al,10
-@@:
-	call _putchar
-	inc bx
 	jmp nextchar
 done:
 	ret
 _strout endp
 
 
-_byteout_0x:	; display byte in AL, hexadecimal, leading zeros
-	push 16
-	push 2
-	movzx eax,al
-	jmp dwordout_0x
 _wordout_x:		; display word in AX, hexadecimal
 	movzx eax,ax
 _dwordout_x:	; display dword in EAX, hexadecimal
@@ -129,7 +122,6 @@ endm
 ;--- %lu: dword dec
 ;--- %s:  string near
 ;--- %ls: string far16
-;--- %b:  byte hex
 ;--- %lp: fword hex
 ;--- registers modified: edx, hiword eax
 
@@ -151,11 +143,6 @@ nextitem:
 	push offset nextitem
 	cmp al,'%'
 	jz special
-	cmp al,lf
-	jnz _putchar
-	mov al,13
-	call _putchar
-	mov al,lf
 	jmp _putchar
 done:
 	pop si
@@ -178,8 +165,6 @@ special:
 	jz printf_u
 	cmp al,'s'
 	jz printf_s
-	cmp al,'b'
-	jz printf_b
 	cmp al,'l'
 	jnz @F
 	lodsb
@@ -232,10 +217,6 @@ printf_lu:						;%lu : dword
 	jmp _putchar
 @@:
 	call _dwordout_u
-	retn
-printf_b:						;%b
-	@getwordfromstack ax
-	call _byteout_0x
 	retn
 _printf endp
 

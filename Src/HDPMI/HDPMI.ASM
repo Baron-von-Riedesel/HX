@@ -43,6 +43,9 @@ _StartOfClientData label byte
 _DATA16C ends
 _TEXT16 segment dword use16 public 'CODE'
 _EndOfClientData label byte
+ifdef _DEBUG
+externdef wCloneSize:word	; used in dprintf as forward ref ( problem with TYPE op )
+endif
 _TEXT16 ends
 _TEXT16X segment dword use16 public 'CODE'
 _TEXT16X ends
@@ -199,9 +202,16 @@ ifnb <r0exclbl>
 else
 	jz exclbl
 endif
-	lea esp, [esp+sizeof R3FAULT32]
+if ?KDSUPP or ?ALLOWR0IRQ
+	push eax
+	lea eax, [esp+R3FAULT32+4]
+	cmp eax, ss:[dwHostStack]
+	pop eax
+else
+	lea esp, [esp+sizeof R3FAULT32]	; this code also works as a debug protection
 	cmp esp, ss:dwHostStack		;exception in r3?
 	lea esp, [esp-sizeof R3FAULT32]
+endif
 ;	jbe exclbl	;v3.18: changed, to allow IRQ in r0
 	je exclbl
 endm

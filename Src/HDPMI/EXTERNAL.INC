@@ -82,10 +82,14 @@ ife ?DOSOUTPUT
 IsTextMode    proto near
 forcetextmode proto near
 endif
-;_putchrx proto near 
 
 if ?I41SUPPORT
+_putchrx proto near 
 _getchrx proto near
+endif
+if ?WDEB386
+_fputchrx proto far32
+_fgetchrx proto far32
 endif
 
 _$stroutx proto near16

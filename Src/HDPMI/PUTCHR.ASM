@@ -238,6 +238,16 @@ slowdown endp
  endif
 endif
 
+if ?WDEB386
+_fputchrx proc far public
+	call _putchrx
+	ret
+_fputchrx endp
+_fgetchrx proc far public
+	call _getchrx
+	ret
+_fgetchrx endp
+endif
 ;--- display a char in AL
 ;--- do not assume SS == GROUP16 here, because this function
 ;--- may be called by int 41h.
@@ -260,7 +270,7 @@ ifdef _DEBUG
 @@:
 endif
 	push es
-if ?USEDEBUGOUTPUT	;is active only if ?WDEB386 is on 
+if ?USEDEBUGOUTPUT and ?I41SUPPORT	;?USEDEBUGOUTPUT active only if ?WDEB386==1
 	mov edx,ss
 	cmp dx,byte ptr _SSSEL_		;ring 0 with SS==GROUP16?
 	jnz @F
@@ -627,9 +637,9 @@ nibout:
 	jmp _putchrx
 byteout endp
 
-if ?I41SUPPORT
+if ?I41SUPPORT or ?WDEB386
 
-_getchrx proc near
+_getchrx proc public
 if ?SEROUT
 	pushfd
 	push ecx
@@ -656,13 +666,14 @@ getchrx_ex:
 	popfd
 	ret
 endif
-if ?VIODIROUT
+if 1; ?VIODIROUT
 	mov ah,00
 	@simrmint 16h
 	ret
-endif
+else
 	mov al,00
 	ret
+endif
 _getchrx endp
 
 endif

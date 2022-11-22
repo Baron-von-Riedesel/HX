@@ -62,7 +62,7 @@
   cause an application to behave differently if a file is accessed by more
   than one handle (it needn't be a file on a network drive!). For FreeDOS
   there is a SHARE.COM available which works with FAT32, but some versions
-  are buggy. Then try http://www.japheth.de/Download/share.zip [FreeDOS only].
+  are buggy.
 
   3.2 Time Zones
 

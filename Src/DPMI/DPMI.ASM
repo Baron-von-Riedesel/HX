@@ -2,8 +2,7 @@
 ;*** simple check of dpmi host ***
 
 	.286
-	.model small
-DGROUP group _TEXT
+	.model tiny
 	.stack 500h
 	.dosseg
 	option casemap:none
@@ -29,20 +28,6 @@ endm
 
 	include dpmi.inc
 
-	.data
-
-xmsaddr		PF16 0	;far16 address of XMS host
-dwXMSHighest dd 0	;highest physical address managed by XMS
-dwAlloc		dd 0	;amount of memory to alloc before starting shell
-dwLinAddr	dd 400000h;addr of memory to alloc with ax=504h
-dwI15		dd 0	;free memory in kB returned by Int 15h ax=e801
-dwPort		dd 21h	;default port used for IN benchmark
-wXMSVer		dw 0
-_0000H      dw 0	;descriptor for access to page 0
-bXMS		db 0	;XMS host found
-b16Bit		db 0	;1=start as 16bit client
-bIsNT		db 0	; avoid NT/XP's DOSX bug
-
 EXECRM struct
 wEnv     dw ?
 wCmdOfs  dw ?
@@ -53,6 +38,19 @@ wFcb2Ofs dw ?
 wFcb2Seg dw ?
 EXECRM ends
 
+	.data
+
+xmsaddr		PF16 0	;far16 address of XMS host
+dwXMSHighest dd 0	;highest physical address managed by XMS
+dwI15		dd 0	;free memory in kB returned by Int 15h ax=e801
+dwAlloc		dd 0	;-s: amount of memory to alloc before starting shell
+dwLinAddr	dd 400000h;-l: default addr for int 31h, ax=504h alloc
+wPort		dw 21h	;-i: default port used for IN benchmark
+wXMSVer		dw 0
+_0000H      dw 0	;descriptor for access to page 0
+bXMS		db 0	;XMS host found
+bIsNT		db 0	; avoid NT/XP's DOSX bug
+
 ;--- exec parameter block used for shell option
 
 execparm EXECRM <0,offset cmdl, 0, offset fcb, 0, offset fcb, 0>
@@ -60,26 +58,28 @@ execparm EXECRM <0,offset cmdl, 0, offset fcb, 0, offset fcb, 0>
 
 ;--- option flags
 
-OP_ALLOC	equ 1	;alloc memory 501
-OP_LINALLOC	equ 2	;alloc memory 504
-OP_REALLOC	equ 4	;alloc memory 501, then realloc until error
-OP_RMCB		equ 8	;alloc real-mode callbacks until error occurs
-OP_SHELL	equ 16	;alloc some memory, then start a shell
-OP_MODESW	equ 32	;mode switch benchmark
-OP_CLISTI	equ 64	;CLI/STI benchmark
-OP_IN		equ 128	;IN benchmark
-OP2_NESTED	equ 1	;nested execution test
-OP2_HSFATAL	equ 2	;host stack exhaustion
-OP2_DESC	equ 4	;alloc descriptors
-OP2_EXTMEM	equ 8	;use int 31h, ax=50bh
-OP2_HOOK	equ 10h	;hook int 21h, then launch another DPMI instance
+OP_ALLOC	equ 1	;-m: alloc memory 501
+OP_LINALLOC	equ 2	;-l: alloc memory 504
+OP_REALLOC	equ 4	;-n: alloc memory 501, then realloc until error
+OP_RMCB		equ 8	;-b: alloc real-mode callbacks until error occurs
+OP_SHELL	equ 16	;-s: alloc some memory, then start a shell
+OP_MODESW	equ 32	;-r: mode switch benchmark
+OP_CLISTI	equ 64	;-c: CLI/STI benchmark
+OP_IN		equ 128	;-i: IN benchmark
+OP2_NESTED	equ 1	;-t: nested execution test
+OP2_HSFATAL	equ 2	;-e: host stack exhaustion
+OP2_DESC	equ 4	;-d: alloc descriptors
+OP2_EXTMEM	equ 8	;-x: use int 31h, ax=50bh
+OP2_HOOK	equ 16	;-z: hook int 21h, then launch another DPMI instance
+OP2_EXC0E	equ 32	;-p: cause a page fault
 
 wOpt		label word
 bOpt1		db 0
 bOpt2		db 0
-bFill		db 0	;fill memory allocated with options -m or -s
-bWaitKey	db 0	;wait for a key press in pm
-bNestLvl	db 2	;nesting level for -t
+b16Bit		db 0	;-16: 1=start as 16bit client
+bFill		db 0	;-f: fill memory allocated with options -m or -s
+bWaitKey	db 0	;-w: wait for a key press in pm
+bNestLvl	db 2	;-t: default nesting level
 
 	.const
 
@@ -91,7 +91,7 @@ szHelp label byte
 	db "DPMI v2.1, Public Domain, written by Japheth",lf
 	db "displays infos about installed DPMI host",lf
 	db "usage: DPMI [ -options ]",lf
-	db "  -16: use entry for 16-bit client in any case",lf
+	db "  -16: run as 16-bit client even if host supports 32-bit",lf
 	db "  -b: allocate real-mode callbacks until error",lf
 	db "  -c: measure STI/CLI [enable/disable interrupt] execution time in p-mode",lf
 	db "  -d: allocate descriptors until error",lf
@@ -101,6 +101,7 @@ szHelp label byte
 	db "  -l[addr]: allocate 1000h bytes at addr (def 400000h) with function 504h",lf
 	db "  -m: allocate largest free block with function 501h",lf
 	db "  -n: realloc a memory block until an error occurs",lf
+	db "  -p: hook exc 0Eh, cause a page fault, then skip the faulting instruction",lf
 	db "  -r: measure mode switch execution time",lf
 	db "  -s<n>: allocate <n> kB of extended memory, then launch a shell",lf
 	db "  -t[n]: test nested execution of mode switches; n: nesting level (def 2)",lf
@@ -309,7 +310,7 @@ startshell proc
 	.while (byte ptr es:[di])
 		mov dx, di
 		mov si, offset szCOMSP
-		mov cx, 8
+		mov cx, sizeof szCOMSP
 		repz cmpsb
 		jz found
 		mov di, dx
@@ -391,6 +392,7 @@ local dwSAddr:dword
 		mov di, offset buffer	;es:di = buffer
 		clc
 		int 15h
+		.break .if CARRY?
 		.break .if (eax != "SMAP")
 		.if ([di].E820ENTRY.dwType == 1)
 			mov eax, es:[di].E820ENTRY.dwLenLow
@@ -932,14 +934,14 @@ inptest proc
 	call gettimer
 	mov esi, eax
 	mov ecx,200000
-	mov edx, dwPort
+	mov dx, wPort
 @@:
 	in al,dx
 	dec ecx
 	jnz @B
 	call gettimer
 	sub eax,esi
-	mov edx, dwPort
+	mov dx, wPort
 	@printf <"time executing 200.000 * IN %x: %lu ms",lf>, dx, eax
 	ret
 inptest endp
@@ -981,10 +983,10 @@ rmcbtest endp
 
 rmcb32 proc
 
-	assume ds:nothing,es:nothing,ss:nothing
+;	assume ds:nothing,es:nothing,ss:nothing
 
 	cld
-	cmp b16Bit,1
+	cmp cs:b16Bit,1
 	jnz @F
 	movzx edi,di
 	movzx esi,si
@@ -1014,8 +1016,7 @@ rmcb32 proc
 		mov cx,0
 		mov ax,0301h
 		int 31h
-		@printf <"%sback in rm callback, rm ss:sp=%x:%x, rm cx=%x; exiting",lf>, offset blanks,\
-			es:[edi].RMCS.rSS, es:[edi].RMCS.rSP, es:[edi].RMCS.rCX
+		@printf <"%sback in rm callback, rm ss:sp=%x:%x, rm cx=%x; exiting",lf>, offset blanks, es:[edi].RMCS.rSS, es:[edi].RMCS.rSP, es:[edi].RMCS.rCX
 		pop es:[edi].RMCS.rSSSP
 	.else
 		@printf <"%sexiting",lf>, offset blanks
@@ -1034,7 +1035,7 @@ rmcb32 endp
 
 myrmproc proc far
 	mov ds,cs:[wDgrp]
-	assume ds:DGROUP
+;	assume ds:DGROUP
 	mov ax,sp
 	.if cx <= ?MAXNEST
 		mov word ptr [bx],'  '
@@ -1057,7 +1058,7 @@ myrmproc proc far
 	ret
 myrmproc endp
 
-	assume es:DGROUP,ss:DGROUP
+;	assume es:DGROUP,ss:DGROUP
 ;--- test nested execution
 
 nesttest proc
@@ -1164,7 +1165,7 @@ error:
 
 descalloc endp
 
-;--- get a flat selector
+;--- get a flat selector in BX
 
 getflatsel proc
 	mov cx,1
@@ -1280,6 +1281,8 @@ done:
 	ret
 realloc endp
 
+;--- option -l
+
 linalloc proc
 	mov ebx,dwLinAddr
 	mov ecx,1000h
@@ -1294,8 +1297,75 @@ linalloc_failed:
 	ret
 linalloc endp
 
+;--- option -p
+
+pagefault proc
+local oldexc0e:fword
+	mov bl, 0Eh
+	mov ax, 202h
+	int 31h
+	mov dword ptr [oldexc0e], edx
+	mov word ptr [oldexc0e+4], cx
+	mov edx, offset exc0E32
+	cmp b16Bit, 0
+	jz @F
+	mov dx, offset exc0E16
+@@:
+	mov cx, cs
+	mov ax, 203h
+	int 31h
+
+	call getflatsel
+	mov es, bx
+	xor cx, cx
+ifdef __JWASM__
+	mov ax, es:[40000000h]	; accepted by Masm, but truncated to 16-bit (=offset 0000)
+else
+	mov edx, 40000000h
+	mov ax, es:[edx]
+endif
+
+continue:
+
+	.if cx
+		@printf <"page fault occured. Ok.",lf>
+	.else
+		@printf <"page fault did NOT occur. Error.",lf>
+	.endif
+
+	push ds
+	pop es
+	mov ax, 1
+	int 31h
+
+	mov edx, dword ptr [oldexc0e]
+	mov cx, word ptr [oldexc0e+4]
+	mov bl, 0Eh
+	mov ax, 203h
+	int 31h
+	ret
+
+exc0E16:
+	push bp
+	mov bp, sp
+	mov [bp+2].EXCFRAME16._eip, offset continue
+	inc cx
+	pop bp
+	retf
+exc0E32:
+	mov [esp].EXCFRAME._eip, offset continue
+	inc cx
+	db 66h
+	retf
+
+pagefault endp
+
+;--- option -x
+
 dispextmem proc
+
 local mix:MEMINFOX
+
 	lea di,mix
 	push ss
 	pop es
@@ -1365,15 +1435,15 @@ chk2f168a proc
 	jc failed2
 	jmp ok
 @@:
+	push bp
+	mov bp,sp
 	push es
 	push di
 	mov ax,100h		;get LDT selector
-	mov bp,sp
-	call far16 ptr [bp]
-	sahf
-	add sp,4
-	test ah,1
-	jnz failed2
+	call far16 ptr [bp-4]
+	mov sp,bp
+	pop bp
+	jc failed2
 ok:
 	@printf <"'%s' API, ax=100h (get LDT selector): %x",lf>, si, ax
 done:
@@ -1467,7 +1537,7 @@ do_protmode proc
 	@printf <"DPMI version flags: %x",lf>, wDPMIFlgs
 	movzx ax, byte ptr wPICs+0
 	movzx cx, byte ptr wPICs+1
-	@printf <"master/slave PICs base: %b/%b",lf>, ax, cx
+	@printf <"master/slave PICs base: %x/%x",lf>, ax, cx
 @@:
 ;--- get save/restore state addresses, BX:CX for rm, SI:E/DI for pm
 ;--- size of buffer in AX
@@ -1623,6 +1693,10 @@ status_displayed:
 	jz @F
 	call dispextmem
 @@:
+	test bOpt2, OP2_EXC0E
+	jz @F
+	call pagefault
+@@:
 	test bOpt2, OP2_HOOK
 	jz @F
 	call hookandrun
@@ -1663,7 +1737,7 @@ startclient proc
 	movzx ax,byte ptr wVersion+1
 	movzx bx,byte ptr wVersion+0
 	movzx cx,byte ptr wCPU
-	@printf <"DPMI host found, version=%u.%u, cpu: %b, support of 32-bit clients: %x",lf>,ax,bx,cx,wFlags
+	@printf <"DPMI host found, version=%u.%u, cpu: 0%x, support of 32-bit clients: %x",lf>,ax,bx,cx,wFlags
 	@printf <"entry initial switch to protected-mode: %x:%x",lf>, word ptr dwPMEntry+2, word ptr dwPMEntry+0
 	@printf <"size task-specific memory: %u paragraphs",lf>, wTaskMem
 @@:
@@ -1787,10 +1861,12 @@ main proc c
 				mov bl,16
 				call getnum
 				jc @F
-				mov dwPort, edx
+				mov wPort, dx
 @@:
 			.elseif (al == 'r')
 				or bOpt1, OP_MODESW
+			.elseif (al == 'p')
+				or bOpt2, OP2_EXC0E
 			.elseif (al == 't')
 				or bOpt2, OP2_NESTED
 				mov bl,10

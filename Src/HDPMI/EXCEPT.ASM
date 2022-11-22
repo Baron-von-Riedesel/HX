@@ -18,6 +18,8 @@
 ?RESETMOUSE		= 0 ;std 1, 1=reset mouse before getting a key
 ?SAFERMSTACK	= 0 ;std 0, 1=ensure real-mode stack is usable
 
+?CALLDBG equ 1	; 1=call kernel debugger after exception dump
+
 ifdef _DEBUG
 ?DISPGDT equ 0
 else
@@ -599,7 +601,7 @@ if ?DUMP
 	call __debug			;call internal debugger
 endif
 	dec bExcEntry
-if ?WDEB386
+if ?KDSUPP and ?CALLDBG
 	test [fDebug],FDEBUG_KDPRESENT
 	jnz calldebugger
 endif
@@ -710,9 +712,9 @@ myexitr3:
 	pop ss	;in case the int 21h did return cause a GPF now
 _TEXT32R3 ends
 
-if ?WDEB386
+if ?KDSUPP and ?CALLDBG
 
-if 0
+ if 0
 EXCSTR struct
 nr		db ?
 pszText	word ?
@@ -736,13 +738,13 @@ excstrtab label byte
 	EXCSTR {0Eh, offset exc0Estr}
 NUMEXCSTR equ ($ - offset excstrtab) / sizeof EXCSTR
 	EXCSTR {0FFh, offset defaultstr}
-endif
+ endif
 
 ;*** cause the debugger to break
 ;*** inp: EBP -> exception frame
 
 calldebugger proc
-if 0
+ if 0
 	push ds
 	push ss
 	pop ds
@@ -766,11 +768,13 @@ nextitem:
 	mov ax,DS_Out_Str
 	int Debug_Serv_Int
 	pop ds
-endif
-if ?386SWAT
+ endif
+ if ?386SWAT
 ;--- todo
-endif
-if ?WDEB386
+ endif
+ if ?WDEB386
+  if 0
+;--- setting up an INT stack frame? Why?
 	mov ebx,[ebp].de.rIP
 	mov ecx,[ebp].de.rCSd
 	mov eax,[ebp].de.rFL
@@ -780,15 +784,19 @@ if ?WDEB386
 	mov [esi+4],ecx
 	mov [esi+8],eax
 	mov [ebp].de.rSP,esi
-	mov ax,DS_ForcedGO
+	mov ax,DS_ForcedGO	;set BP at cx:ebx
 	int Debug_Serv_Int
-endif
+  endif
 	mov es, dword ptr [ebp].rES
 	mov ds, dword ptr [ebp].rDS
 	lea esp,[ebp].rEDI
 	popad
-	lss esp,[esp+4].R3FAULT32.rSSSP
-	iretd
+;	lss esp,[esp+4].R3FAULT32.rSSSP
+	add esp, 2*4	; skipp excno & errorcode
+	int 3
+;	iretd		; this returns to the faulting opcode!?
+ endif
+	jmp fatappexit
 
 calldebugger endp
 

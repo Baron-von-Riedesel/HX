@@ -122,13 +122,19 @@ ifdef _DEBUG
 endif
 if ?USEDEBUGOUTPUT
 	test cs:fDebug,FDEBUG_OUTPFORKD
-	jz @F
+	jz noint68
+	cmp al,10
+	jnz @F
+	mov al,13
+	call @F
+	mov al,10
+@@:
 	push ax
 	mov ah,D386_Display_Char
 	int D386_RM_Int
 	pop ax
 	ret
-@@:
+noint68:
 endif
 if ?DOSOUTPUT
 	push dx

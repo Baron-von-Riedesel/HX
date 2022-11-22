@@ -4,6 +4,10 @@
 ;--- imports are NOT supported, the binary
 ;--- must be "self-contained".
 
+;--- the 32-bit app is called with registers:
+;--- ebx=linear address of PSP
+;--- esi=linear address of module 
+
 	.386
 	.nolist
 	include winnt.inc
@@ -75,7 +79,7 @@ if ?HDPMI
 dwHostRes equ <[ebp+8]>
 endif
 	movzx esi,si
-	push esi		;rmSeg
+	push esi		;rmSeg (=PSP)
 	movzx edi,di
 	shl edi,4
 	push edi		;buffer
@@ -647,14 +651,13 @@ endif
 	int 31h				;create alias for 32bit flat CS
 	jc nodescriptor
 	push ebx
-	mov cx,si
-	movzx ecx,cx
+	movzx ecx,si		;get PSP segment address
 	shl ecx,4
 	mov ds,ax
 	mov es,ax
 	mov ss,ax
 	add esp,ecx
-	add ecx,00100h		;the _TEXT segment is first
+	add ecx,00100h		;the _TEXT segment is first, just skip PSP header
 if ?HDPMI
 	add ecx,offset endhdpmi
 endif

@@ -366,7 +366,7 @@ endif
 	and ss:[fMode], not FM_DISABLED
 
 if _LTRACE_
-	push ss;[wIntRmCb]  ; wIntRmCb has just been restored, but prevent any reentrance
+	push ss:[wIntRmCb]  ; wIntRmCb has just been restored, but prevent any reentrance
 	mov ss:[wIntRmCb], 0; until all data has been copied back
 endif
 
@@ -426,19 +426,21 @@ ife ?USESYSSPACE2
 	pop si
 	@dprintf "restoreclientstate: freeing client state memory %lX",di,si
 	call freemem
+ if _LTRACE_
+	jnc @F
+	@dprintf "restoreclientstate: free client state memory failed"
+@@:
+ endif
 else
 	call _getsavelength
 	shr ecx, 12
 	inc ecx
 	pop eax
+;	@dprintf "restoreclientstate: calling pm_FreeSysPagesDn( eax=%lX, ecx=%lX )", eax, ecx
 	call pm_FreeSysPagesDn
+	@dprintf "restoreclientstate: back from pm_FreeSysPagesDn"
 endif
 
-if _LTRACE_
-	jnc @F
-	@dprintf "restoreclientstate: free client state memory failed"
-@@:
-endif
 if ?CR0COPY
 	mov eax, cr0
 	mov al, bCR0
@@ -482,6 +484,7 @@ ResizeLDT proc near
 	sub cx,ax				;ecx=F000,E000,...,0000
 	shr cx,12				;ecx=0F,0E,...,00
 	add eax,[dwLDTAddr]
+	@dprintf "ResizeLDT: calling pm_UncommitRegion( eax=%lX, ecx=%lX )", eax, ecx
 	call pm_UncommitRegion	;free memory starting at eax, ecx pages
 	ret
 	align 4

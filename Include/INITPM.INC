@@ -6,6 +6,10 @@
 ?LOADSERVER	equ 1	;try to find HDPMI if no DPMI host has been found
 ?TEST386	equ 1		;1=test for 386 cpu (needed?)
 
+ifndef ?INT41
+?INT41 equ 0
+endif
+
 _TEXT16 segment use16 word public 'CODE'
 
 ;--- this is the real mode entry with functions
@@ -149,6 +153,14 @@ nomemneeded:
 
 	push ebx
 	pushd start32
+if ?INT41
+	mov ax, 4Fh
+	int 41h
+	cmp ax, 0f386h
+	jnz @F
+	int 3
+@@:
+endif
 	db 66h
 	retf
 
