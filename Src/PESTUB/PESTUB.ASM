@@ -541,6 +541,8 @@ step1:
 		invoke printf, CStr(<"couldn't get size of %s",lf>), pszStubname
 		jmp main_ex
 	.endif
+	add eax, 4-1
+	and al, 0FCh
 	mov dwSizeStubNew, eax
 
 	invoke malloc, eax
@@ -550,9 +552,17 @@ step1:
 	.endif
 	mov pStub, eax
 
+	mov ecx, dwSizeStubNew
+	and ecx, ecx
+	jz main_ex
+	lea ecx, [ecx+eax-4]
+	mov dword ptr [ecx], 0
+
 ;--- read new stub into memory
 
 	invoke _lread, hFileStub, eax, dwSizeStubNew
+	add eax, 4-1
+	and al, 0fCh
 	.if (eax != dwSizeStubNew)
 		invoke printf, CStr(<"couldn't read %s",lf>), pszStubname
 		jmp main_ex
@@ -863,7 +873,7 @@ endif
 		add esi, eax
 		.if (fVerbose)
 			push eax
-			invoke	printf, CStr(<"writing rest of binary [%u bytes] to temporary file...",cr>), esi
+			invoke printf, CStr(<"writing rest of binary [%u bytes] to temporary file...",cr>), esi
 			pop eax
 		.endif
 		invoke _lwrite, hFileOut, pFileBuffer, eax
@@ -875,7 +885,7 @@ endif
 	mov bError, FALSE
 	jmp main_ex
 displayusage:
-	invoke printf, CStr(<"pestub v3.2, copyright japheth 2003-2021",lf>)
+	invoke printf, CStr(<"pestub v3.3, copyright japheth 2003-2022",lf>)
 	invoke printf, CStr(<"pestub may be used to exchange stub of a PE|PX binary, or to",lf>)
 	invoke printf, CStr(<"check it for being compatible with HX's PE|PX loader.",lf,lf>)
 	invoke printf, CStr(<"usage: pestub [ options ] filename [stubname]",lf>)

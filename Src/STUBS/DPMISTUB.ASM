@@ -360,4 +360,8 @@ _BSS segment public 'DATA'
 _BSS ends
 endif
 
+;--- to suppress warning "no stack defined"
+STACK segment para stack 'STACK'
+STACK ends
+
 	end main

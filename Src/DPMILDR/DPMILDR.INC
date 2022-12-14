@@ -80,7 +80,7 @@ ENVFL_IGNNOOPENERR	equ 40h	;64   ignore SEM_NOOPENFILEERRORBOX flag
 if ?32BIT
 ENVFL_IGNUNRESIMP	equ 80h	;128  ignore unresolved imports (PE only)
 endif
-ENVFL2_LOADDBGOUT	equ 01h	;256  try to load debugout.dll /debugo32.dll
+ENVFL2_LOADDBGOUT	equ 01h	;256  try to load debugout.dll ( 16-bit loader only )
 ;ENVFL2_IGN214B92	equ 02h	;512  ignore int 21h, ax=4b92h requests (module list)
 if ?32BIT
 ENVFL2_USEPREFADDR  equ 04h	;1024 load PE dlls at their prefered load address

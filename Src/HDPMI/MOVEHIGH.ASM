@@ -169,6 +169,9 @@ ife ?MOVEGDT
 @@:
 endif
 	mov esi, pdIDT.dwBase
+if 1
+	mov pdIDT.wLimit, 256*8-1
+endif
 	mov pdIDT.dwBase, edi
 	push es
 	pop ds

@@ -316,8 +316,6 @@ externdef kdpatch1:near
 externdef kdpatch2:near
 externdef rawjmp_pm_patch:near
 externdef intrrm2pm:far
-externdef kdinit_rm:near
-externdef kdinit2_rm:near
 ;externdef load_rmsegs:near
 externdef rawjmp_rm_all:near
 _TEXT16 ends

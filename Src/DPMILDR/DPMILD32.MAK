@@ -80,7 +80,7 @@ $(ODIR2)\$(NAME).BIN: $(MODS2) $(NAME).mak
 	@$(LINK16BIN) format dos file {$(MODS2)} name $*.BIN op q, knoweas, map=$*.MAP
 
 $(ODIR2)\dpmildr.obj: dpmildr.asm dpmildr.inc peload.inc version.inc $(INCTR)
-	@$(ASM) $(AOPT) -D?STUB=1 -D?KERNEL16=0 -D?LOADDBGDLL=0 dpmildr.asm
+	@$(ASM) $(AOPT) -D?STUB=1 -D?KERNEL16=0 dpmildr.asm
 
 $(ODIR2)\peload.obj: peload.asm dpmildr.inc peload.inc mzhdr32.inc $(INCTR)
 	@$(ASM) $(AOPT) -D?STUB=1 -D?KERNEL16=0 peload.asm
@@ -111,7 +111,7 @@ $(ODIR4)\HDLD32.BIN: $(MODS4) $(NAME).mak
 	@$(LINK16BIN) format dos file {$(MODS4)} name $*.BIN op q, map=$*.MAP, knoweas 
 
 $(ODIR4)\dpmildr.obj: dpmildr.asm dpmildr.inc peload.inc version.inc ..\HDPMI\STUB32\HDPMI32.INC $(INCTR)
-	@$(ASM) $(AOPT) -D?STUB=1 -D?KERNEL16=0 -D?LOADDBGDLL=0 -D?SERVER=0 -D?HDPMI=1 -D?NEAPPS=0 -I..\HDPMI\STUB32 dpmildr.asm
+	@$(ASM) $(AOPT) -D?STUB=1 -D?KERNEL16=0 -D?SERVER=0 -D?HDPMI=1 -D?NEAPPS=0 -I..\HDPMI\STUB32 dpmildr.asm
 
 $(ODIR4)\peload.obj: peload.asm dpmildr.inc peload.inc mzhdr32.inc $(INCTR)
 	@$(ASM) $(AOPT) -D?STUB=1 -D?KERNEL16=0 peload.asm

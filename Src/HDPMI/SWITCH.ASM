@@ -13,40 +13,6 @@
 
 _TEXT16 segment
 
-if ?WDEB386
-
-;--- called by switch to protected-mode
-
-kdinit_rm proc
-	pusha
-	mov ax,D386_Reinit * 100h + 0
-	mov bx, _FLATSEL_
-	mov cx, _KDSEL_		;2 selectors for WDEB386
-	mov dx, _GDTSEL_	;GDT selector
-	int D386_RM_Int
-	popa
-	ret
-	align 4
-kdinit_rm endp
-
-;--- called by switch to real-mode
-
-kdinit2_rm proc
-	mov ah,D386_Real_Mode_Init
-	int D386_RM_Int
-	ret
-	align 4
-kdinit2_rm endp
-
-if 0;?WDEB386
-;--- if no debugger present, this code is disabled
-;--- currently moved to a dead location, since
-;--- wdeb386 doesn't work
-kdpatch1::call kdinit_rm
-endif
-
-endif
-
 ;*** switch to protected mode
 ;--- - clear IF
 ;--- - save real-mode segment registers
@@ -208,13 +174,6 @@ endif
 	jmp ss:[dwPmDest2]
 	align 4
 vcpi_pmentry endp
-
-if 0;?WDEB386
-;--- if no debugger present, this code is disabled
-;--- currently moved to a dead location, since wdeb386
-;--- doesn't work
-kdpatch2:: call kdinit2_rm
-endif
 
 	@ResetTrace
 

@@ -927,7 +927,11 @@ v86iret		V86IRET <<offset rawjmp_rm_all>>
 pdGDT	PDESCR <?GDTLIMIT,0>	;pseudo descriptor GDT
 	align 4
 
+if 0
 pdIDT	PDESCR <7FFh,0>			;pseudo descriptor IDT protected mode
+else
+pdIDT	PDESCR <?PREDEFIDTGATES*8-1,0>			;pseudo descriptor IDT protected mode
+endif
 selLDT	dw _SELLDT_				;Selector LDT alias (fix)
 	align 4
 ;nullidt PDESCR <3FFh,0>		;pseudo descriptor IDT real mode
@@ -2495,10 +2499,14 @@ endif
 
 if ?WINDBG
 
-	@ResetTrace
+;--- int 22h in PL0 protected-mode is an API that
+;--- the Win3x/9x VMM supplies for the debugger ( WDeb386 ).
+;--- it is called with a function # in AX (or AH?)
+;--- function 0 is query ( must return AX=F386h if service available )
 
+	@ResetTrace
 intr22:
-	@dprintf "intr22: Win386 debug API called, ax=%X",ax
+	@dprintf "intr22: Win386 debug API called, ax=%X", ax
 	iretd
 	align 4
 endif

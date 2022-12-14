@@ -783,7 +783,7 @@ exit:
 
 _defaultexceptionhandler endp
 
-;*** ok, here we are in exception handling on the client (flat) stack
+;*** ok, here we are in exception handling on the client (hopefully flat) stack
 ;*** registers are unchanged except cs:eip and esp
 
 doexc2  proc except:MYEXC
@@ -899,6 +899,19 @@ if 0;def _DEBUG
 	invoke ReleaseSemaphore, [eax].HEAPDESC.semaphor,1,0
 @@:        
 endif
+
+ife ?DPMI16
+;--- v3.8: check if stack is flat
+	mov ebx, ss
+	mov ax, 6
+	int 31h
+	jc @F
+	or cx, dx	; zero-based?
+	jz @F
+	invoke FatalAppExitA, 0, addr szFatalExit
+@@:
+endif
+
 	mov edi, fs:[THREAD_INFORMATION_BLOCK.pvExcept]
 nextframe:
 	or eax, -1
@@ -1069,6 +1082,14 @@ if ?DPMI16
 	movzx ebp,sp
 	add ebp,8*4+1*4
 else
+ if 1
+	mov eax, ss
+	lar eax, eax
+	bt eax, 22		; stack 32-bit?
+	jc @F
+	movzx esp, sp
+@@:
+ endif
 	lea ebp,[esp+8*4+1*4]	;pushad, ExceptionCode
 endif
 

@@ -21,7 +21,9 @@ endif
 ?RMSEGMENTS		 = 0	;0 1=support realmode segments (doesn't work!)
 ?DOSAPI			 = 1	;1 1=activate DOS API translation, required for OS/2
 ifndef ?LOADDBGDLL
-?LOADDBGDLL		 = 1	;1 load DEBUGOUT.DLL on startup if DPMILDR=256
+;---v3.11: deactivated for dpmild32
+;?LOADDBGDLL		 = 1	;1 load DEBUGOUT.DLL on startup if DPMILDR=256
+?LOADDBGDLL		 = 1 - ?32BIT	;1=load DEBUGOUT.DLL on startup if DPMILDR=256
 endif
 ifndef ?SERVER
 ?SERVER			 = 1	;1 1=load DPMI host HDPMIXX.EXE if no DPMI installed
@@ -1921,7 +1923,7 @@ ife ?32BIT
 	jnz @B
 	inc bx			; bx=points to program name
 	mov ax,es
-	push 0			; OS wants ES cleared???
+	push 0			; OS/2 wants ES cleared???
 	pop es
 notos2:
 endif

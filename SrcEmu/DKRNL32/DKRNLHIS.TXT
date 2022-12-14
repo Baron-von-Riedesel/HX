@@ -10,6 +10,8 @@
   þ fixed: if application had no heap, GetCommandLine() failed.
   þ fixed: IRQ 1 handler didn't always enable interrupts before IRET; if 
     running with IOPL=0, this may have caused the application to "hang".
+  þ fatal exit if dkrnl32's exception handler detects a non-zero-based SS
+    segment.
 
   30.03.2022: version 3.7
 

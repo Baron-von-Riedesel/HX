@@ -128,9 +128,8 @@
        called, however, an error message is displayed and the application
        will exit.
 
-     - bit 8 (DPMILDR=256): try to load NE debug dll DEBUGO32.DLL
-       at startup. This is mainly for compatibility with older versions,
-       where the loader has tried to load this dll unconditionally.
+     - bit 8 (DPMILDR=256): removed since v3.11 - was support for trying
+       to load NE dll DEBUGO32.DLL at startup.
        
      - bit 9 (DPMILDR=512): <not used currently>
 
@@ -474,7 +473,7 @@
 
 14.  History
 
- __.07.2022: version 3.11
+ __.12.2022: version 3.11
 
  þ bugfix: the last few bytes of DPMILD32's exit code was executed as 32-bit,
    although the code was actually 16-bit; as a result, a wrong DOS exit
@@ -486,6 +485,7 @@
    is present via Int 41h and runs an Int 3 before program entry.
  þ bugfix: changing value of DPMILDR=8 by API int 21h, ax=4b94h may have
    caused the loader not to release the PSP and environment of a task.
+ þ switch DPMILDR=256 removed (loading NE dll DEBUGO32.DLL).
 
  30.03.2022: version 3.10
  

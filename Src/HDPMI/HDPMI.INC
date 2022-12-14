@@ -23,7 +23,7 @@ ifndef ?WDEB386
 ?WDEB386		equ 0
 endif
 ?KDSUPP			equ ?WDEB386 or ?386SWAT
-?WINDBG			equ 0	;std=0, 1=support Win386 pm int 22h debug API
+?WINDBG			equ ?KDSUPP	;1=support Win386 pm int 22h debug API
 
 ifndef ?ENHANCED
 ?ENHANCED		equ 0	;std=0, 1=simulate Win386 (enhanced mode)
