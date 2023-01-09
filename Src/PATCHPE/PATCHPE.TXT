@@ -11,6 +11,15 @@
 
  2. History
  
+ 2022/12, V2.1
+
+ þ support PE32+.
+ þ -y option to set subsystem.
+
+ 2020/12, V2.0
+
+ þ -s & -h options to set stack/heap size.
+
  2009/06/05, V1.5
 
  þ JWasm's -mz option used to create PatchPE.EXE.

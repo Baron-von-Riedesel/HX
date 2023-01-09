@@ -82,6 +82,7 @@
   2022/12: V3.3
   
   þ ensure that stub size is dword aligned
+  þ added support for PE32+
 
   2021/01/17: V3.2
   

@@ -20,6 +20,7 @@ printf proto c :ptr, :vararg
 SEEK_SET equ 0
 
 	include winnt.inc
+	include pe64.inc
 
 CStr macro text:VARARG
 local sym
@@ -113,7 +114,12 @@ endif
 		invoke printf, CStr('cannot read PE/PX header',10)
 		jmp exit
 	.endif
+	.if ( PE_Hdr.FileHeader.Machine != IMAGE_FILE_MACHINE_I386 && PE_Hdr.FileHeader.Machine != IMAGE_FILE_MACHINE_AMD64 )
+		invoke printf, CStr('cannot handle machine %X',10), PE_Hdr.FileHeader.Machine
+		jmp exit
+	.endif
 	.if ((PE_Hdr.Signature == "EP") || (PE_Hdr.Signature == "XP"))
+			
 		invoke fread, addr PE_Hdr.OptionalHeader, 1, PE_Hdr.FileHeader.SizeofOptionalHeader, pFile
 		.if ax != PE_Hdr.FileHeader.SizeofOptionalHeader
 			invoke printf, CStr('cannot read PE/PX optional header',10)
@@ -127,16 +133,32 @@ if 0
 		.endif
 endif
 		.if bStack
+			lea edi, PE_Hdr.OptionalHeader
 			mov eax,dwStkRes
-			mov PE_Hdr.OptionalHeader.SizeOfStackReserve, eax
+			.if ( PE_Hdr.FileHeader.Machine == IMAGE_FILE_MACHINE_I386 )
+				mov [edi].IMAGE_OPTIONAL_HEADER.SizeOfStackReserve, eax
+			.else
+				mov dword ptr [edi].IMAGE_OPTIONAL_HEADER64.SizeOfStackReserve, eax
+			.endif
 			mov eax,dwStkCommit
 			.if eax != -1
-				mov PE_Hdr.OptionalHeader.SizeOfStackCommit, eax
+				.if ( PE_Hdr.FileHeader.Machine == IMAGE_FILE_MACHINE_I386 )
+					mov [edi].IMAGE_OPTIONAL_HEADER.SizeOfStackCommit, eax
+				.else
+					mov dword ptr [edi].IMAGE_OPTIONAL_HEADER64.SizeOfStackCommit, eax
+				.endif
 			.endif
 			;--- don't allow reserve to be < commit
-			mov eax, PE_Hdr.OptionalHeader.SizeOfStackReserve
-			.if eax < PE_Hdr.OptionalHeader.SizeOfStackCommit
-				mov PE_Hdr.OptionalHeader.SizeOfStackCommit, eax
+			.if ( PE_Hdr.FileHeader.Machine == IMAGE_FILE_MACHINE_I386 )
+				mov eax, [edi].IMAGE_OPTIONAL_HEADER.SizeOfStackReserve
+				.if eax < [edi].IMAGE_OPTIONAL_HEADER.SizeOfStackCommit
+					mov [edi].IMAGE_OPTIONAL_HEADER.SizeOfStackCommit, eax
+				.endif
+			.else
+				mov eax, dword ptr [edi].IMAGE_OPTIONAL_HEADER64.SizeOfStackReserve
+				.if eax < dword ptr [edi].IMAGE_OPTIONAL_HEADER64.SizeOfStackCommit
+					mov dword ptr [edi].IMAGE_OPTIONAL_HEADER64.SizeOfStackCommit, eax
+				.endif
 			.endif
 		.endif
 if ?REBASE
@@ -148,15 +170,29 @@ if ?REBASE
 endif
 		.if bHeap
 			mov eax,dwHeapRes
-			mov PE_Hdr.OptionalHeader.SizeOfHeapReserve, eax
-			mov eax,dwHeapCommit
-			.if eax != -1
-				mov PE_Hdr.OptionalHeader.SizeOfHeapCommit, eax
-			.endif
-			;--- don't allow reserve to be < commit
-			mov eax, PE_Hdr.OptionalHeader.SizeOfHeapReserve
-			.if eax < PE_Hdr.OptionalHeader.SizeOfHeapCommit
-				mov PE_Hdr.OptionalHeader.SizeOfHeapCommit, eax
+			lea edi, PE_Hdr.OptionalHeader
+			.if ( PE_Hdr.FileHeader.Machine == IMAGE_FILE_MACHINE_I386 )
+				mov [edi].IMAGE_OPTIONAL_HEADER.SizeOfHeapReserve, eax
+				mov eax,dwHeapCommit
+				.if eax != -1
+					mov [edi].IMAGE_OPTIONAL_HEADER.SizeOfHeapCommit, eax
+				.endif
+				;--- don't allow reserve to be < commit
+				mov eax, [edi].IMAGE_OPTIONAL_HEADER.SizeOfHeapReserve
+				.if eax < [edi].IMAGE_OPTIONAL_HEADER.SizeOfHeapCommit
+					mov [edi].IMAGE_OPTIONAL_HEADER.SizeOfHeapCommit, eax
+				.endif
+			.else
+				mov dword ptr [edi].IMAGE_OPTIONAL_HEADER64.SizeOfHeapReserve, eax
+				mov eax,dwHeapCommit
+				.if eax != -1
+					mov dword ptr [edi].IMAGE_OPTIONAL_HEADER64.SizeOfHeapCommit, eax
+				.endif
+				;--- don't allow reserve to be < commit
+				mov eax, dword ptr [edi].IMAGE_OPTIONAL_HEADER64.SizeOfHeapReserve
+				.if eax < dword ptr [edi].IMAGE_OPTIONAL_HEADER64.SizeOfHeapCommit
+					mov dword ptr [edi].IMAGE_OPTIONAL_HEADER64.SizeOfHeapCommit, eax
+				.endif
 			.endif
 		.endif
 		.if bCodeWriteable
@@ -216,8 +252,13 @@ endif
 			.endif
 		.endif
 		.if wSubSys != -1
+			lea edi, PE_Hdr.OptionalHeader
 			mov ax, wSubSys
-			mov PE_Hdr.OptionalHeader.Subsystem, ax
+			.if ( PE_Hdr.FileHeader.Machine == IMAGE_FILE_MACHINE_I386 )
+				mov [edi].IMAGE_OPTIONAL_HEADER.Subsystem, ax
+			.else
+				mov [edi].IMAGE_OPTIONAL_HEADER64.Subsystem, ax
+			.endif
 		.endif
 		invoke fseek, pFile, dwPEPos, SEEK_SET
 		.if eax == -1

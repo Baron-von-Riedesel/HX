@@ -16,6 +16,7 @@ endif
 	include winbase.inc
 	include wincon.inc
 	include macros.inc
+	include pe64.inc
 	.cref
 	.list
 
@@ -45,20 +46,20 @@ dwHdrMin		DWORD -1
 dwHdrMax		DWORD 0
 dwWarnings		DWORD 0
 dwWarnings2		DWORD 0
-fNoBackup		BYTE 0		;dont write a backup file
+fNoBackup		BYTE 0		;/n dont write a backup file
 if ?XOPT
-fPX				BYTE 0		;patch PE to PX
+fPX				BYTE 0		;/x patch PE to PX
 endif
-fVerbose		BYTE 0		;display maximum msgs
-fAdjustSOH		BYTE 0		;adjust SizeOfHeaders (problem with XP!)
-fReadOnly		BYTE 0
-fIgnoreWarnings	BYTE 0
+fVerbose		BYTE 0		;/v display maximum msgs
+fAdjustSOH		BYTE 0		;/s adjust SizeOfHeaders (problem with XP!)
+fReadOnly		BYTE 0		;/r
+fIgnoreWarnings	BYTE 0		;/i
 if ?WOPT
-fWriteable		BYTE 0
+fWriteable		BYTE 0		;/w
 endif
-fQuiet			BYTE 0
+fQuiet			BYTE 0		;/q
 if ?ZOPT
-fZ 				BYTE 0
+fZ 				BYTE 0		;/z
 endif
 
 wvsprintfA proto stdcall :dword, :dword, :dword
@@ -105,13 +106,12 @@ printf  endp
 ;*** search for section of a rva in section table ***
 ;*** rc: eax -> IMAGE_SECTION_HEADER
 
-searchsection proc uses esi edi pHdr:ptr IMAGE_NT_HEADERS,rva:dword
+searchsection proc uses esi edi dwObjects:dword, rva:dword
 
-	mov esi,pHdr
 	mov edi,pObjtab
 	and edi,edi
 	jz notfound
-	movzx ecx,[esi].IMAGE_NT_HEADERS.FileHeader.NumberOfSections
+	mov ecx, dwObjects
 	mov eax,rva
 searchsec_1:
 	mov edx, [edi].IMAGE_SECTION_HEADER.VirtualAddress
@@ -135,23 +135,23 @@ found:
 	ret
 searchsection endp
 
-CheckImportDirectory proc uses ebx esi edi pHdr:ptr IMAGE_NT_HEADERS, dwHdrSize:dword
+CheckImportDirectory proc uses ebx esi edi dwObjects:dword, pImportData:ptr IMAGE_DATA_DIRECTORY, dwHdrSize:dword
 
 local	dwOffs:dword
 local	dwSize:dword
 local	pImports:dword
 
 	mov pImports, 0
-	mov esi, pHdr
-	assume esi:ptr IMAGE_NT_HEADERS
-	mov edi,[esi].OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_IMPORT*sizeof IMAGE_DATA_DIRECTORY].VirtualAddress
-	invoke	searchsection, esi, edi
+	mov esi, pImportData
+	assume esi:ptr IMAGE_DATA_DIRECTORY
+	mov edi,[esi].VirtualAddress
+	invoke	searchsection, dwObjects, edi
 	.if (!eax)
 		jmp exit
 	.endif
 	mov edi,eax
 ;--- now load the import directory
-	mov eax,[esi].OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_IMPORT*sizeof IMAGE_DATA_DIRECTORY].VirtualAddress
+	mov eax,[esi].VirtualAddress
 	sub eax,[edi.IMAGE_SECTION_HEADER.VirtualAddress]
 ;--- eax = offset in section of import dir
 	mov dwOffs, eax
@@ -173,7 +173,7 @@ local	pImports:dword
 	.endif
 	mov edi, pImports
 	add edi, dwOffs
-	mov ecx, [esi].OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_IMPORT*sizeof IMAGE_DATA_DIRECTORY].Size_
+	mov ecx, [esi].Size_
 	xor ebx, ebx
 	.while (ecx)
 		.break .if (![edi].IMAGE_IMPORT_DESCRIPTOR.Name_)
@@ -211,15 +211,14 @@ CheckImportDirectory endp
 
 ;*** display sections ***
 
-PrintSections proc uses esi edi pHdr:ptr IMAGE_NT_HEADERS, lpObjTable
+PrintSections proc uses esi edi dwObjects:dword, lpObjTable:ptr
 
 local	szStr[80]:byte
 
-	mov esi, pHdr
 	invoke printf, CStr(<"Name        vSize      RVA    pSize  pOffset  pRelocs nRel    flags",lf>)
 	invoke printf, CStr(<"-------------------------------------------------------------------",lf>)
+	mov ecx, dwObjects
 	mov edi, lpObjTable
-	movzx ecx,[esi].IMAGE_NT_HEADERS.FileHeader.NumberOfSections
 objout_1:
 	push ecx
 	push ebx
@@ -246,14 +245,13 @@ objout_ex:
 	ret
 PrintSections  endp
 
-;*** patch DataDirectory ***
+;*** patch DataDirectory
 ;*** if a RVA is in the area of the old header, it has to be adjusted
 
-PatchDataDirectory proc uses ebx esi edi pPE:ptr IMAGE_NT_HEADERS, dwHdrSize:dword
+PatchDataDirectory proc uses ebx esi edi dwDirs:dword, pData:ptr IMAGE_DATA_DIRECTORY, dwHdrSize:dword
 
-	mov esi, pPE
-	mov ecx, [esi].IMAGE_NT_HEADERS.OptionalHeader.NumberOfRvaAndSizes
-	lea ebx, [esi].IMAGE_NT_HEADERS.OptionalHeader.DataDirectory
+	mov ecx, dwDirs
+	mov ebx, pData
 	.while (ecx)
 ;		mov eax, [esi].IMAGE_NT_HEADERS.OptionalHeader.SizeOfHeaders
 		mov eax, dwHdrSize
@@ -263,7 +261,7 @@ PatchDataDirectory proc uses ebx esi edi pPE:ptr IMAGE_NT_HEADERS, dwHdrSize:dwo
 		.if (edi && (eax >= edi))
 			.if 1;(fVerbose)
 				pushad
-				sub ecx, [esi].IMAGE_NT_HEADERS.OptionalHeader.NumberOfRvaAndSizes
+				sub ecx, dwDirs
 				neg ecx
 				invoke printf, CStr(<"warning: RVA of data directory entry %u is %X (^ into PE header)",lf>),\
 					ecx, [ebx].IMAGE_DATA_DIRECTORY.VirtualAddress
@@ -290,11 +288,10 @@ PatchDataDirectory endp
 ;*** patch object table ***
 ;*** PointerToRawData has to be modified ***
 
-PatchObjectTable proc uses ebx esi edi pPE:ptr IMAGE_NT_HEADERS, pNewObjTab:ptr, dwHdrSize:DWORD
+PatchObjectTable proc uses ebx edi dwObjects:dword, pNewObjTab:ptr, dwHdrSize:DWORD, dwImageSize:dword
 
-	mov esi, pPE
+	mov ecx, dwObjects
 	mov edi, pNewObjTab
-	movzx ecx, [esi].IMAGE_NT_HEADERS.FileHeader.NumberOfSections
 	.while (ecx)
 		push ecx
 ;		mov eax, [esi].IMAGE_NT_HEADERS.OptionalHeader.SizeOfHeaders
@@ -320,12 +317,12 @@ if ?WOPT
 endif
 		.if ([edi].IMAGE_SECTION_HEADER.Misc.VirtualSize)
 			mov eax, [edi].IMAGE_SECTION_HEADER.VirtualAddress
-			.if (eax >= [esi].IMAGE_NT_HEADERS.OptionalHeader.SizeOfImage)
+			.if eax >= dwImageSize
 				pushad
 				invoke printf, CStr(<"warning: RVA of section '%-8.8s' is %X, but image size is %X only",lf>),\
 					addr [edi].IMAGE_SECTION_HEADER.Name_, 
 					[edi].IMAGE_SECTION_HEADER.VirtualAddress,
-					[esi].IMAGE_NT_HEADERS.OptionalHeader.SizeOfImage
+					dwImageSize
 				inc dwWarnings
 				popad
 			.endif
@@ -337,10 +334,10 @@ endif
 
 	.if (fVerbose)
 		invoke printf, CStr(<lf,"Object table before modification",lf,lf>)
-		invoke PrintSections, pPE, pObjtab
+		invoke PrintSections, dwObjects, pObjtab
 
 		invoke printf, CStr(<lf,"Object table after modification",lf,lf>)
-		invoke PrintSections, pPE, pNewObjTab
+		invoke PrintSections, dwObjects, pNewObjTab
 		invoke printf, CStr(<lf>)
 	.endif
 	ret
@@ -436,7 +433,11 @@ local	pNewObjTab:ptr
 local	dwWritten:DWORD
 local	bError:DWORD
 local	mzhdr[40h]:BYTE
-local	pehdr:IMAGE_NT_HEADERS
+local	signature:DWORD
+local	dwSizeOfHeaders:DWORD
+local	filehdr:IMAGE_FILE_HEADER
+local	opthdr32:IMAGE_OPTIONAL_HEADER
+local	opthdr64:IMAGE_OPTIONAL_HEADER64
 local	szPath[MAX_PATH]:byte
 local	szFile[MAX_PATH]:byte
 local	pszFile:LPSTR
@@ -599,23 +600,22 @@ nostub:
 		invoke printf, CStr(<"%s is not a PE binary - lseek() failed",lf>),pszFilename
 		jmp main_ex
 	.endif
-	invoke RtlZeroMemory, addr pehdr, sizeof pehdr
-	invoke _lread, hFileInp, addr pehdr.Signature, sizeof IMAGE_NT_HEADERS.Signature
+	invoke _lread, hFileInp, addr signature, sizeof signature
 	.if (eax == 0)
 		invoke printf, CStr(<"%s has no valid PE format - read() failed",lf>), pszFilename
 		jmp main_ex
 	.endif
-	movzx eax,word ptr pehdr
+	mov eax, signature
 	.if eax != "EP" && eax != "XP"
 		invoke printf, CStr(<"%s has no valid PE|PX format - magic bytes PE|PX not found",lf>), pszFilename
 		jmp main_ex
 	.endif
 if ?ZOPT
 	.if ( fZ )
-		mov byte ptr pehdr.Signature+1, 'X'
+		mov byte ptr signature+1, 'X'
 		invoke _llseek, hFileInp, dwSizeStubOld, FILE_BEGIN 
-		invoke _lwrite, hFileInp, addr pehdr.Signature, sizeof IMAGE_NT_HEADERS.Signature
-		.if (eax != sizeof IMAGE_NT_HEADERS.Signature)
+		invoke _lwrite, hFileInp, addr signature, sizeof signature
+		.if (eax != sizeof signature)
 			invoke GetLastError
 			invoke printf, CStr(<"writing '%s' failed [%X]",lf>), pszFilename, eax
 			jmp main_ex
@@ -625,31 +625,55 @@ if ?ZOPT
 		jmp @exit
 	.endif
 endif
-	invoke _lread, hFileInp, addr pehdr.FileHeader, sizeof IMAGE_NT_HEADERS.FileHeader
-	.if (eax != sizeof IMAGE_NT_HEADERS.FileHeader)
+	invoke RtlZeroMemory, addr filehdr, sizeof filehdr
+	invoke _lread, hFileInp, addr filehdr, sizeof filehdr
+	.if eax != sizeof filehdr
 		invoke printf, CStr(<"Error reading FileHeader",lf>)
 		jmp main_ex
 	.endif
 if ?XOPT
-	.if ((fPX) && (pehdr.FileHeader.Characteristics & IMAGE_FILE_RELOCS_STRIPPED))
+	.if (fPX) && ( filehdr.Characteristics & IMAGE_FILE_RELOCS_STRIPPED)
 		invoke printf, CStr(<"warning: this binary is linked without relocations!",lf>)
 		invoke printf, CStr(<"         most likely the HX PE loader cannot load it within a DOS box",lf>)
 		invoke printf, CStr(<"         and Windows won't accept it anymore because cmdline option -x was set.",lf>)
 		inc dwWarnings2
 	.endif
 endif
-	invoke ZeroMemory, addr pehdr.OptionalHeader, sizeof pehdr.OptionalHeader
-	movzx eax, pehdr.FileHeader.SizeOfOptionalHeader
-	.if (eax > sizeof IMAGE_OPTIONAL_HEADER)
-		invoke printf, CStr(<"Size of optional Header too large",lf>)
+	.if filehdr.Machine != IMAGE_FILE_MACHINE_I386 && filehdr.Machine != IMAGE_FILE_MACHINE_AMD64
+		invoke printf, CStr("Error: unknown machine type %X",lf), filehdr.Machine
 		jmp main_ex
 	.endif
-	push eax
-	invoke _lread, hFileInp, addr pehdr.OptionalHeader, eax
-	pop ecx
-	.if (eax != ecx)
-		invoke printf, CStr(<"Error reading optional Header",lf>)
-		jmp main_ex
+
+	.if filehdr.Machine == IMAGE_FILE_MACHINE_I386
+		movzx eax, filehdr.SizeOfOptionalHeader
+		.if eax > sizeof IMAGE_OPTIONAL_HEADER
+			invoke printf, CStr(<"Size of optional Header too large",lf>)
+			jmp main_ex
+		.endif
+		push eax
+		invoke _lread, hFileInp, addr opthdr32, eax
+		pop ecx
+		.if (eax != ecx)
+			invoke printf, CStr(<"Error reading optional Header",lf>)
+			jmp main_ex
+		.endif
+		mov eax, opthdr32.SizeOfHeaders
+		mov dwSizeOfHeaders, eax
+	.else
+		movzx eax, filehdr.SizeOfOptionalHeader
+		.if eax > sizeof IMAGE_OPTIONAL_HEADER64
+			invoke printf, CStr(<"Size of optional Header too large",lf>)
+			jmp main_ex
+		.endif
+		push eax
+		invoke _lread, hFileInp, addr opthdr64, eax
+		pop ecx
+		.if (eax != ecx)
+			invoke printf, CStr(<"Error reading optional Header",lf>)
+			jmp main_ex
+		.endif
+		mov eax, opthdr64.SizeOfHeaders
+		mov dwSizeOfHeaders, eax
 	.endif
 
 	invoke GetFullPathName, pszFilename, sizeof szPath, addr szPath, addr pszFile
@@ -676,7 +700,8 @@ endif
 		invoke printf, CStr(<"loading object table...",lf>)
 	.endif
 
-	movzx eax,pehdr.FileHeader.NumberOfSections
+
+	movzx eax, filehdr.NumberOfSections
 	mov ecx,sizeof IMAGE_SECTION_HEADER
 	mul ecx
 	mov dwObjSize,eax
@@ -692,13 +717,13 @@ endif
 		jmp main_ex
 	.endif
 
-	mov esi, pehdr.OptionalHeader.SizeOfHeaders
+	mov esi, dwSizeOfHeaders
 	.if (fVerbose)
 		invoke printf, CStr(<"OptionalHeader.SizeOfHeaders=%X",lf>), esi
 	.endif
 
 	mov edi, pObjtab
-	movzx ecx,pehdr.FileHeader.NumberOfSections
+	movzx ecx,filehdr.NumberOfSections
 	.if (ecx)
 		mov esi,-1
 	.endif
@@ -718,14 +743,24 @@ endif
 	.endif
 	mov dwSizeHeaderOld, esi
 
-	movzx eax, pehdr.FileHeader.NumberOfSections
+	movzx eax, filehdr.NumberOfSections
 	mov ecx, sizeof IMAGE_SECTION_HEADER
 	mul ecx
-	add eax, sizeof IMAGE_NT_HEADERS
+	add eax, 4	; signature
+	add eax, sizeof IMAGE_FILE_HEADER
+	.if filehdr.Machine == IMAGE_FILE_MACHINE_I386
+		add eax, sizeof IMAGE_OPTIONAL_HEADER
+	.else
+		add eax, sizeof IMAGE_OPTIONAL_HEADER64
+	.endif
 	add eax, dwSizeStubNew
 ;-------------------------------- in eax now new header size
 	mov edx, esi
-	mov ecx, pehdr.OptionalHeader.FileAlignment
+	.if filehdr.Machine == IMAGE_FILE_MACHINE_I386
+		mov ecx, opthdr32.FileAlignment
+	.else
+		mov ecx, opthdr64.FileAlignment
+	.endif
 	.if (eax < edx)
 ;-------------------------------- new header size is smaller, shrink header
 		.while (eax < edx)
@@ -743,16 +778,29 @@ endif
 	.if (fVerbose)
 		invoke printf, CStr(<"checking import directory...",lf>)
 	.endif
-	invoke CheckImportDirectory, addr pehdr, esi
+	
+	.if filehdr.Machine == IMAGE_FILE_MACHINE_I386
+		lea ecx, opthdr32.DataDirectory[IMAGE_DIRECTORY_ENTRY_IMPORT*sizeof IMAGE_DATA_DIRECTORY]
+	.else
+		lea ecx, opthdr64.DataDirectory[IMAGE_DIRECTORY_ENTRY_IMPORT*sizeof IMAGE_DATA_DIRECTORY]
+	.endif
+	invoke CheckImportDirectory, filehdr.NumberOfSections, ecx, esi
 
 	.if (fVerbose)
 		invoke printf, CStr(<"patching data directories...",lf>)
 	.endif
-	invoke PatchDataDirectory, addr pehdr, esi
+	.if filehdr.Machine == IMAGE_FILE_MACHINE_I386
+		mov ecx, opthdr32.NumberOfRvaAndSizes
+		lea edx, opthdr32.DataDirectory
+	.else
+		mov ecx, opthdr64.NumberOfRvaAndSizes
+		lea edx, opthdr64.DataDirectory
+	.endif
+	invoke PatchDataDirectory, ecx, edx, esi
 	.if (fVerbose)
 		invoke printf, CStr(<"patching object table...",lf>)
 	.endif
-	movzx eax, pehdr.FileHeader.NumberOfSections
+	movzx eax, filehdr.NumberOfSections
 	mov ecx, sizeof IMAGE_SECTION_HEADER
 	mul ecx
 	invoke malloc, eax
@@ -763,7 +811,12 @@ endif
 	mov pNewObjTab, eax
 	invoke CopyMemory, pNewObjTab, pObjtab, dwObjSize
         
-	invoke PatchObjectTable, addr pehdr, pNewObjTab, esi
+	.if filehdr.Machine == IMAGE_FILE_MACHINE_I386
+		mov eax, opthdr32.SizeOfImage
+	.else
+		mov eax, opthdr64.SizeOfImage
+	.endif
+	invoke PatchObjectTable, filehdr.NumberOfSections, pNewObjTab, esi, eax
 
 	.if (fReadOnly)
 		mov bError, FALSE
@@ -777,14 +830,19 @@ endif
 	.endif
 	invoke _lwrite, hFileOut, pStub, dwSizeStubNew
 
-;----------------------------- changing size of header doesnt work for winxp
+;--- changing size of header doesnt work for winxp???
+
 	.if (fAdjustSOH)
 		mov eax, dwSizeHeader
-		mov pehdr.OptionalHeader.SizeOfHeaders, eax
+		.if filehdr.Machine == IMAGE_FILE_MACHINE_I386
+			mov opthdr32.SizeOfHeaders, eax
+		.else
+			mov opthdr64.SizeOfHeaders, eax
+		.endif
 	.endif
 if ?XOPT
 	.if (fPX)
-		mov pehdr.Signature, 'XP'
+		mov signature, 'XP'
 	.endif
 endif
 	.if (fVerbose)
@@ -793,19 +851,24 @@ endif
 
 ;--- write new PE file header
 
-	invoke _lwrite, hFileOut, addr pehdr, 4 + sizeof IMAGE_FILE_HEADER
+	invoke _lwrite, hFileOut, addr signature, sizeof dword
+	invoke _lwrite, hFileOut, addr filehdr, sizeof filehdr
 
-;	mov pehdr.FileHeader.SizeOfOptionalHeader, sizeof IMAGE_OPTIONAL_HEADER
+;	mov filehdr.FileHeader.SizeOfOptionalHeader, sizeof IMAGE_OPTIONAL_HEADER
 
 	.if (fVerbose)
-		movzx ecx, pehdr.FileHeader.SizeOfOptionalHeader
+		movzx ecx, filehdr.SizeOfOptionalHeader
 		invoke printf, CStr(<"writing PE optional header [%u bytes] to temporary file...",lf>), ecx
 	.endif
-	movzx ecx, pehdr.FileHeader.SizeOfOptionalHeader
+	movzx ecx, filehdr.SizeOfOptionalHeader
 
 ;--- write new PE optional header
 
-	invoke _lwrite, hFileOut, addr pehdr + 4 + sizeof IMAGE_FILE_HEADER, ecx
+	.if filehdr.Machine == IMAGE_FILE_MACHINE_I386
+		invoke _lwrite, hFileOut, addr opthdr32, ecx
+	.else
+		invoke _lwrite, hFileOut, addr opthdr64, ecx
+	.endif
 	.if (fVerbose)
 		invoke printf, CStr(<"writing object table [%u bytes] to temporary file...",lf>), dwObjSize
 	.endif
@@ -979,8 +1042,9 @@ main_ex:
 		.endif
 	.endif
 	xor eax, eax
-	.if (bError)
-		invoke Beep, 2000, 100
+	.if (bError && (fQuiet == 0))
+;		invoke Beep, 2000, 100
+		invoke printf, CStr("%c"), 7
 		mov eax, 1
 	.endif
 @exit:

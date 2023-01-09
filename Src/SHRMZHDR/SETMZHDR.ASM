@@ -12,6 +12,8 @@ fwrite proto c :ptr, :dword, :dword, :dword
 fseek proto c :ptr, :dword, :dword
 printf proto c :ptr, :vararg
 
+externdef c errno:dword
+
 SEEK_SET equ 0
 
 lf equ 10
@@ -106,7 +108,7 @@ local	rc:DWORD
 	mov pFile,eax
 	invoke fread, addr mzhdr, 1, 20h, pFile
 	.if (eax != 20h)
-		invoke printf, CStr("setmzhdr: read error",lf)
+		invoke printf, CStr("setmzhdr: read error [%u]",lf), errno
 		jmp exit
 	.endif
 
@@ -158,7 +160,7 @@ local	rc:DWORD
 	invoke fseek, pFile, 0, SEEK_SET
 	invoke fwrite, addr mzhdr, 1, 20h, pFile
 	.if (eax != 20h)
-		invoke printf, CStr('setmzhdr: write error',lf)
+		invoke printf, CStr('setmzhdr: write error [%u]',lf), errno
 		jmp exit
 	.endif
 	mov rc,0
