@@ -59,24 +59,28 @@ tab168a label word
 
  if ?PMIOPL eq 0
 
-;--- best might be to somewhat copy the API implemented by NTVDM ( see nt_vdd.inc )
-
-;--- ax= 6: alloc IO port trap
-;---        cx:e/dx = ring3 exception handler?
-;---        si = port start
-;---        di = number of ports
+;--- ax= 6: set IO port trap range
+;---        ds:e/si = ptr TRAPPROCS
+;---        dx = start port range
+;---        cx = size port range
 ;---        out: NC if ok, handle in eax
-;--- ax= 7: release IO port trap
+;--- ax= 7: reset IO port trap range
 ;---        edx = handle
 ;---        out: NC if ok
 ;--- ax= 8: simulate IO (read/write trapped ports)
-;--- ax= 9: virtualize IRQ
-;--- ax=10: devirtualize IRQ
+;--- ax= 9: simulate HW interrupt
 
-	@wofs is0006	; trap port range(s)
-	@wofs is0007	; release trapped port range(s)
-;	@wofs is0008	; read/write trapped ports
-;	@wofs is0009	; virtualize IRQ
+;--- exception handler entered with error code:
+;--- bit 0-2: size of instruction
+;--- bit   3: 0=port in DX, 1=port in bits 8-15
+;--- bit 4-5: IO size, 00=byte, 01=word, 11=dword
+;--- bit   6: string instruction
+;--- bit   7: REP prefix detected
+
+	@wofs is0006	; trap port range
+	@wofs is0007	; release trapped port range
+;	@wofs is0008	; Simulate IO
+;	@wofs is0009	; Simulate HW interrupt
 
  endif
 MAX168A equ ($ - offset tab168a) / sizeof word
@@ -125,53 +129,221 @@ is0005:
 	ret
  endif
 
+_I2f168A_Hdpmi endp
+
  if ?PMIOPL eq 0
 
-;--- exception handler entered with error code:
-;--- bit 0: 0=in, 1=out
-;--- bit 1: 0=port in dx, 1= port in bits 8-15
-;--- bit 2-3: access 00=byte, 01=word, 10=dword, 11=string
-;--- bit 4-7: size of instruction
+;--- port trapping API.
+;--- it's a (vague) copy of the API implemented by NTVDM ( see nt_vdd.inc )
 
-is0006:
-	pushad
+NUMTRAP equ 4	; max trap ranges, currently static
+
+TRAPPROCS struct
+if ?32BIT
+pInProc  df ?	; handle proc for IN
+pOutProc df ?	; handle proc for OUT
+else
+pInProc  dd ?
+pOutProc dd ?
+endif
+TRAPPROCS ends
+
+;--- port range item
+
+TRAPH struct
+wSize    dw ?	; size range
+wStart   dw ?	; start range
+	TRAPPROCS <>
+TRAPH ends
+
+_DATA32C segment
+traphdl TRAPH NUMTRAP dup (<>)
+_DATA32C ends
+
+;--- cx=ports to check
+;--- edx=start range
+;--- eax=check proc
+
+checkrange proc
 	mov ebx, offset taskseg
-	movzx edx, ss:[ebx].TSSSEG.wOffs
-	add ebx, edx
-	movzx esi, si
-	movzx ecx, di
-	lea eax, [ecx+esi]
+	push eax
+	movzx eax, ss:[ebx].TSSSEG.wOffs
+	add ebx, eax
+	pop eax
+@@:
+	call eax
+	jc @F
+	inc edx
+	loopw @B
+@@:
+	ret
+checkport::
+	bt ss:[ebx], edx
+	retn
+setport::
+	bts ss:[ebx], edx
+	retn
+resetport::
+	btr ss:[ebx], edx
+	clc
+	retn
+
+checkrange endp
+
+;--- set IO port trap range
+
+;--- errors:
+;--- a) no free TRAPH entry
+;--- b) cx = 0
+;--- c) dx+cx > 10000h
+;--- d) not all ports untrapped
+
+is0006 proc
+	pushad
+	mov edi, offset traphdl
+nextitem:
+	cmp cs:[edi].TRAPH.wSize, 0
+	jz foundfree
+	add edi, sizeof TRAPH
+	cmp edi, offset traphdl+sizeof traphdl
+	jnz nextitem
+	jmp error_0006
+foundfree:
+
+;--- free entry found
+
+;--- first check status of all ports -
+;--- they must all be "untrapped"
+
+	movzx ecx, cx
+	jecxz error_0006
+	movzx edx, dx
+	lea eax, [ecx+edx]
 	cmp eax, 10000h
-	cmc
-	jc done_0006
-	mov eax, esi
-@@:
-	bt ss:[ebx], esi; first check status of all ports -
-	jc done_0006	; they must all be "untrapped"
-	inc esi
-	loop @B
-	mov esi, eax	; ok, now repeat the loop, this time
-	mov cx, di		; the bits are set.
-@@:
-	bts ss:[ebx], esi
-	inc esi
-	loop @B
+	ja error_0006
+	mov eax, offset checkport
+	push ecx
+	push edx
+	call checkrange
+	pop edx
+	pop ecx
+	jc error_0006
 
-;--- todo: store handler routines and return handle in eax
-;--- in a first step, it might be sufficient to have static storage for 4 port ranges.
+;--- all ports are untrapped - now set the IOPB bits
 
+	mov eax, offset setport
+	call checkrange
+	mov [esp].PUSHADS.rEAX, edi
+
+;--- store the handlers
+
+	mov ecx, [esp].PUSHADS.rECX
+	mov edx, [esp].PUSHADS.rEDX
+	push es
+	push byte ptr _CSALIAS_
+	pop es
+	mov es:[edi].TRAPH.wSize, cx
+	mov es:[edi].TRAPH.wStart, dx
+	add edi, 4
+	cld
+	movsd
+	movsd
+if ?32BIT
+	movsd
+endif
+	pop es
+	jmp done_0006
+error_0006:
+	stc
 done_0006:
 	popad
 	ret
+is0006 endp
 
-is0007:
-is0008:
-is0009:
+;--- release IO port trap range
+;--- edx=handle
+;--- out: NC=ok, C=error
+
+is0007 proc
+
+	pushad
+	mov edi, offset traphdl
+nextitem:
+	cmp edx, edi
+	jz found
+	add edi, sizeof TRAPH
+	cmp edi, offset traphdl+sizeof traphdl
+	jnz nextitem
+	stc
+	jmp exit
+found:
+	movzx ecx, cs:[edi].TRAPH.wSize
+	stc
+	jecxz exit
+	movzx edx, cs:[edi].TRAPH.wStart
+	mov eax, offset resetport
+	call checkrange
+	push ds
+	push byte ptr _CSALIAS_
+	pop ds
+	mov [edi].TRAPH.wSize, 0
+	pop ds
+	clc
+exit:
+	popad
+	ret
+
+is0007 endp
+
+;is0008:
+;is0009:
 	stc
 	ret
- endif
+
+;--- get trap proc for a certain port
+;--- in:  port in DX
+;---      AL[0]: 0=IN, 1=OUT
+;--- out: proc in SI:E/AX
+
+gettrapproc proc public
+	push ebx
+	push ecx
+	mov ebx, offset traphdl
+nextitem:
+	mov cx, cs:[ebx].TRAPH.wStart
+	cmp dx, cx
+	jb @F
+	add cx, cs:[ebx].TRAPH.wSize
+	dec cx
+	cmp dx, cx
+	jbe found
+@@:
+	add ebx, sizeof TRAPH
+	cmp ebx, offset traphdl+sizeof traphdl
+	jnz nextitem
+	pop ecx
+	pop ebx
+	stc
+	ret
+found:
+	add ebx, 4
+	test al, 2	; IN[S] or OUT[S]
+	jz @F
+	add ebx, 4 + ?32BIT * 2
+@@:
+if ?32BIT
+	mov eax, cs:[ebx+0]
+	mov  si, cs:[ebx+4]
+else
+	mov  ax, cs:[ebx+0]
+	mov  si, cs:[ebx+2]
+endif
+	pop ecx
+	pop ebx
+	ret
+gettrapproc endp
  
-_I2f168A_Hdpmi endp
+ endif
 
 _TEXT32 ends
 

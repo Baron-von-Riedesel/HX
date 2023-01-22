@@ -1,5 +1,7 @@
 
   HDPMI API
+
+  1) Overview
   
   The HDPMI API can be accessed by calling Int 31h, ax=168ah, ds:e/si="HDPMI".
   This call returns AL=00 if successful, and the API's entry address in es:e/di.
@@ -8,18 +10,70 @@
 
       #       description
   --------------------------------------------------------------------------
-      0       debug version only: disable log writing
-      1       debug version only: enable log writing
-      2       debug version only: select extended log writing, flags in BX
-      3       debug version only: display client's memory objects
+
+      functions 0-3 for debug versions only
+
+      0       disable log writing
+      1       enable log writing
+      2       select extended log writing
+              in: BX = flags
+      3       display client's memory objects
+
       4       current host won't accept new clients ( enters disabled state );
               if a new client is launched, it will have to install a fresh
               instance of HDPMI.
       5       set internal value of stored environment variable flag HDPMI=32.
-              in: BL = new value (0|1), out: AL = old value.
-      6       IOPL=0 version only: trap IO ports
-      7       IOPL=0 version only: untrap IO ports
-      8       IOPL=0 version only: read/write trapped ports
-      9       IOPL=0 version only: simulate HW-Interrupt
+              in: BL = new value (0|1)
+              out: AL = old value.
+
+      functions 6-9 for IOPL=0 versions only
+
+      6       Set IO port range to trap
+              in: DS:E/SI -> io handlers for in/out
+                  DX = start port range
+                  CX = size port range
+              out: EAX = handle
+
+      7       Reset trapped IO port range
+              in: EDX = handle
+
+      8       Simulate IO [not yet implemented]
+              in: BX = flags ( "error code" )
+                  EBP = value for al/ax/eax ( OUT only )
+                  DX = port ( if BL[6-7]=00 )
+                  DS:E/SI -> value(s) ( if OUTS ) 
+                  ES:E/DI -> buffer ( if INS )
+                  E/CX = count ( if INS/OUTS and REP )
+              out: AL/AX/EAX = read value ( IN only )
+
+      9       Simulate HW interrupt [not yet implemented]
+              SS:E/SP -> master/slave, line
+              
   
+
+  2) IO Port trapping ( AX=6 )
+
+  DS:E/SI -> TRAPPROCS structure:
+
+   TRAPPROCS struct
+     FARPROC ?	; proc to handle IN[S] instructions
+     FARPROC ?	; proc to handle OUT[S] instructions
+   TRAPPROCS ends
+
+  FARPROC is FAR16 for 16-bit, FAR32 for 32-bit.
+
+  If a trapped port is accessed, the host will call the handler proc like it
+  calls exception handler procs. Error code is setup like this:
+
+  Bits      Information
+  ---------------------------------------------------------
+  0-2       size of instruction
+  3         0=port in DX, 1=port in bits 8-15
+  4-5       IO size: 00=byte, 01=word, 11=dword
+  6         string instruction
+  7         REP prefix detected
+  8-15      port if bit 3=1
+
+  The proc MUST handle the exception, that is, (at least) EIP must be changed,
+  or it will instantly be called again.
 

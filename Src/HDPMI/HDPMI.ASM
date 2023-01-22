@@ -1313,6 +1313,10 @@ excvec label R3PROC
 	R3PROC < _EXC1E_,_INTSEL_>
 	R3PROC < _EXC1F_,_INTSEL_>
 
+if ?PMIOPL eq 0
+	R3PROC < 0, 0 >	; filled by ioinstr()
+endif
+
 _DATA32C ends
 
 ;--- end client specific data in GROUP32
@@ -3538,7 +3542,9 @@ catchreboot endp
 endif
 
 ;*** emulate HLT and move to/from special registers
-;*** if ?PMIOPL == 0, emulate sti,cli [,in,out]
+;*** if ?PMIOPL == 0:
+;---    emulate sti,cli
+;---    if current instr is IN[S]/OUT[S], check if port is trapped
 
 EMUINSFR struct
 dwEAX	dd ?
@@ -3547,8 +3553,6 @@ dwDS	dd ?
 		dd ?			;return address (intr0D)
 		R3FAULT32 <>
 EMUINSFR ends        
-
-?CHKIOINS equ 0			;1=if IOPL=0, check if IN/OUT instruction at cs:eip
 
 	@ResetTrace
 
@@ -3562,12 +3566,44 @@ emuprivinstr proc
 	cmp eax,esi		;EIP > CS limit?
 	jc done
 	cld
+if ?PMIOPL eq 0
+	mov ah, 0
+endif
+@@:
 	lodsb
 if ?PMIOPL eq 0
+	cmp al, 66h
+	jnz @F
+	or ah, 20h
+	jmp @B
+@@:
+	cmp al, 0F3h	;REP?
+	jnz @F
+	or ah, 80h
+	jmp @B
+@@:
 	cmp al, 0FAh	;CLI?
 	jz emucli
 	cmp al, 0FBh	;STI?
 	jz emusti
+
+	push eax
+
+;--- E4/E5/E6/E7? IN AL/AX,XX - OUT XX,AL/AX
+;--- EC/ED/EE/EF? IN AL/AX,DX - OUT DX,AL/AX
+;--- 6C/6D/6E/6F? (INSB/W, OUTSB/W)
+;--- AL[1]: 0=IN, 1=OUT
+
+	and al, 0FCh
+	cmp al, 0E4h
+	jz ioinstr1
+	cmp al, 0ECh
+	jz ioinstr2
+	or ah, 040h		; string instr
+	cmp al, 6Ch
+	jz ioinstr3
+
+	pop eax
 endif
 	cmp al, 0F4h	;HLT?
 	jz emuhlt
@@ -3596,9 +3632,6 @@ if ?EMUMOVDRXREG
 endif
 	jmp done
 donespec:
-if (?PMIOPL eq 0) and ?CHKIOINS
-	call chkioins
-endif
 done:
 ;	@dprintf "exception 0d, unknown instr %X", word ptr [esi]
 	pop eax
@@ -3714,79 +3747,57 @@ endif
 	align 4
 endif
 
-emuprivinstr endp
+if ?PMIOPL eq 0
 
-if (?PMIOPL eq 0) and ?CHKIOINS
+gettrapproc proto
 
-;--- check if current instruction is IN, OUT, INS, OUTS
-;--- DS:ESI = CS:EIP
-
-	@ResetTrace
-
-CHKIOFR struct
-	dd ?			; return to emuprivinstr
-	EMUINSFR <>
-CHKIOFR ends
-
-chkioins proc
-	cmp al, 0E4h	;in al,const?
-	jz siminc
-	cmp al, 0E6h	;out const,al?
-	jz simoutc
-	lar eax,dword ptr [esp].CHKIOFR.rCS
-	bt eax,16h
-	setc ah
-	dec esi
-nextopc:
+ioinstr1: ; IN/OUT, port at CS:E/IP 
+	or ah, 8
 	lodsb
-	cmp al,66h
-	jnz @F
-	xor ah,1
-	jmp nextopc
+	mov byte ptr [esp+4].EMUINSFR.rErr+1, al
+ioinstr2: ; IN/OUT, port in DX
+ioinstr3: ; INS/OUTS
+	mov al, [esp]
+	sub esi, [esp+4].EMUINSFR.rIP
+	or word ptr [esp+4].EMUINSFR.rErr, si
+	test al, 1
+	jz byteacc
+	mov esi, ds
+	lar esi, esi
+	shr esi, 23
+	jnc @F
+	xor ah, 20h
 @@:
-	cmp al,0F3h
-	jnz @F
-	or ah,2
-	jmp nextopc
-@@:
-	cmp al, 6Ch		;INSB?
-	jz siminsb
-	cmp al, 6Dh		;INSW/D?
-	jz siminsw
-	cmp al, 6Eh		;OUTSB?
-	jz simoutsb
-	cmp al, 6Fh		;OUTSW/D?
-	jz simoutsw
-	cmp al, 0ECh	;in al,dx?
-	jz siminaldx
-	cmp al, 0EDh	;in (e)ax,dx?
-	jz siminaxdx
-	cmp al, 0EEh	;out dx,al?
-	jz simoutdxal
-	cmp al, 0EFh	;out dx,(e)ax?
-	jz simoutdxax
-	ret				;return and generate normal GPF
+	or ah, 10h
+byteacc:
+	or byte ptr [esp+4].EMUINSFR.rErr, ah
+	pop eax
 
-;--- v3.20: no need anymore to run i/o instructions in ring0 if iopl==0
-;--- since now a IOPB exists and if a port is trapped, a special exception
-;--- is to be generated.
+;--- get trap proc in SI:E/AX
+;--- AL[1] = mode (0=IN/1=OUT)
 
-siminc:					;          E4
-simoutc:				;          E6
-siminaldx:				;          EC
-siminaxdx:				;     (66) ED
-simoutdxal: 			;          EE
-simoutdxax: 			;     (66) EF
-siminsb:				;(F3)      6C
-siminsw:				;(F3) (66) 6D
-simoutsb:				;(F3)      6E
-simoutsw:				;(F3) (66) 6F
-if 0
-;	todo: check if the port(s) are trapped and generate the special exception for trapped IO access
+	call gettrapproc
+	push _CSALIAS_
+	pop ds
+	assume ds:GROUP32
+if ?32BIT
+	mov dword ptr [excvec + 20h * sizeof R3PROC+0], eax
+	mov  word ptr [excvec + 20h * sizeof R3PROC+4], si
+else
+	mov word ptr [excvec + 20h * sizeof R3PROC+0], ax
+	mov word ptr [excvec + 20h * sizeof R3PROC+2], si
 endif
-	ret
-chkioins endp
+	pop eax
+	pop esi
+	pop ds
+	assume ds:nothing
+	lea esp, [esp+4]	; skip return addr
+	push 20h
+	jmp lpms_call_exc
+
 endif
+
+emuprivinstr endp
 
 ;*** check if interrupt to modify is a IRQ (or 1Ch,23h,24h)
 ;*** if yes, provide for interrupts in real-mode to be routed to

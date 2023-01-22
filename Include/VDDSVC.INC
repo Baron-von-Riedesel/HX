@@ -1,4 +1,22 @@
 
+;/** interrupt simulation services **/
+
+ICA_MASTER equ 0
+ICA_SLAVE  equ 1
+
+;--- ms=master/slave
+;--- line=interrupt line 0-7
+;--- count=1
+
+VDDSimulateInterrupt macro ms, line, count
+	push 1
+	push line
+	push ms
+	call call_ica_hw_interrupt
+endm
+
+;/** Register manipulation services **/
+
 VDM_V86	equ 0
 VDM_PM	equ 1
 
