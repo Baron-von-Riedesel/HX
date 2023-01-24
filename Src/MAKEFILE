@@ -75,6 +75,7 @@ install:
 	@copy HDPMI\HDPMIST\HDPMIST.EXE $(HXINST)\Bin
 	@copy HDPMI\HDPMI.TXT           $(HXINST)\Doc
 	@copy HDPMI\HDPMIHIS.TXT        $(HXINST)\Doc
+	@copy HDPMI\HDPMIAPI.TXT        $(HXINST)\Doc
 
 	@copy DPMILDR\STD16\DPMILD16.EXE   $(HXINST)\Bin
 	@copy DPMILDR\STD32\DPMILD32.EXE   $(HXINST)\Bin

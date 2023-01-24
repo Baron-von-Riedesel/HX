@@ -1,6 +1,6 @@
 //////////////////////////////////////////////////////////////////////////////
 /                                                                            /
-/               HDPMI - DPMI Server (Version 3.19)                           /
+/               HDPMI - DPMI Server (Version 3.20)                           /
 /                                                                            /
 //////////////////////////////////////////////////////////////////////////////
 
@@ -462,7 +462,7 @@
      used by the dpmi host. Since HDPMI v3.18, this stack is 4 kB in size and
      is located in a protected system region; previously, this stack was 2 kB
      in size and was located in conventional memory. The host uses this stack
-     for it's normal processing and to save the client's segment register
+     for its normal processing and to save the client's segment register
      values.
 
 
@@ -713,52 +713,37 @@
 
  6.11 Debug Support
 
-   a) Support in Protected Mode
+    Since v3.20, debug support is enabled (again) in the standard variant.
+   For other variants, debug support may be enabled in the makefiles by
+   setting ?WDEB386=1.
 
-   Since v3.18, debug support is disabled in the standard version. 
-   There are Makefiles supplied to generate a version that has 
-   debug support enabled. The following is valid for those versions
-   only.
+    HDPMI's default support for kernel debugging is based on the API used
+   by MS WDeb386. Optionally, the API may be changed to the 386SWAT style,
+   by setting ?386SWAT=1 in the makefile. However, this variant is mostly
+   untested by now.
 
-   HDPMI supports Int 41h processing in protected mode. HDPMI provides
-   that ring 0 Int 41h calls are not reflected in ring 3. It's also
-   ensured that no Int 41h call will be reflected to real mode.
+   The kernel debugger support consists of 
 
-   HDPMI itself issues three Int 41h calls, all in ring 0 (and therefore
-   only of use for kernel debuggers):
+   - a real-mode API ( interrupt 68h ). This interrupt is used to allow
+     the kernel debugger to modify GDT entries and to get a protected-mode
+     address to be called as soon as protected-mode has been activated.
 
-     - on initialization of the server
-     - a breakpoint if a new DPMI clients starts
-     - on termination of the server
-
-   Environment switch HDPMI=8192 will cause HDPMI to set the client's
-   trace flag on its initial switch to protected-mode. This should work
-   with any DPMI-aware debugger.
+   - protected-mode init ( FAR32 call ), to allow the debugger to setup
+     its vectors in the IDT.
    
-   Furthermore, there are enough free entries left in the GDT to allow
-   HDPMI itself being debugged by Qualitas' debugger 386SWAT. Requires
-   GDT in extended memory, so switch HDPMI=512 must not be set for this
-   to work.
+   - interrupt 41h in protected-mode, to notify the kernel debugger of
+     certain events.
 
-   b) Support in Real Mode
+   - interrupt 22h, supposed to be called by the kernel debugger to get
+     information from the host ( i.e. linear addresses of paging tables ).
 
-   Kernel debuggers such as WDEB386.EXE start in real mode and before any
-   DPMI server is active. That's why they need some support from the
-   DPMI server to get a chance to do their protected mode initialization,
-   (to modify IDT vectors they want to hook or set GDT descriptors).
-   For this reason HDPMI supports WDEB386's real-mode Int 68h API.
+    If an exception occurs, the default exception handler will execute a
+   breakpoint, so the kernel debugger has a "last" chance to examine the
+   status of host and client.
 
-   c) Other Debug Support
-
-   - the value of the trace flag is preserved if a mode switch occurs.
-     The switch from real mode to protected mode has been made "debug
-     aware", so that there is no risk a debugger traces into nontracable
-     code, thereby crashing the system.
-
-   - if HDPMI detects a kernel debugger, its output is send to the debugger.
-     If an exception occurs, the debugger will be notified as well,
-     giving it a chance to stop execution.
-
+    Since WDeb386 requires a serial connection and a second machine, there's
+   a simple replacement available, Deb386, that doesn't need this setup.
+   
 
  6.12 Nested Execution of several DPMI Clients
 

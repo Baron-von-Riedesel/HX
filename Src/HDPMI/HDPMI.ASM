@@ -3569,25 +3569,36 @@ emuprivinstr proc
 if ?PMIOPL eq 0
 	mov ah, 0
 endif
-@@:
+nextbyte:
 	lodsb
 if ?PMIOPL eq 0
+
+	cmp al, 26h
+	jz prefseg
+	cmp al, 2Eh
+	jz prefseg
+	cmp al, 36h
+	jz prefseg
+	cmp al, 64h
+	jz prefseg
+	cmp al, 65h
+	jz prefseg
 	cmp al, 66h
-	jnz @F
-	or ah, 20h
-	jmp @B
-@@:
+	jz pref66
+	cmp al, 67h
+	jz pref67
 	cmp al, 0F3h	;REP?
-	jnz @F
-	or ah, 80h
-	jmp @B
-@@:
+	jz preff3
+
 	cmp al, 0FAh	;CLI?
 	jz emucli
 	cmp al, 0FBh	;STI?
 	jz emusti
 
 	push eax
+
+SI_STRING   equ 8
+SI_CPORT    equ 40h	; if IN/OUT: 1=port in bits 8-15
 
 ;--- E4/E5/E6/E7? IN AL/AX,XX - OUT XX,AL/AX
 ;--- EC/ED/EE/EF? IN AL/AX,DX - OUT DX,AL/AX
@@ -3599,7 +3610,7 @@ if ?PMIOPL eq 0
 	jz ioinstr1
 	cmp al, 0ECh
 	jz ioinstr2
-	or ah, 040h		; string instr
+	or ah, SI_STRING	; string instr
 	cmp al, 6Ch
 	jz ioinstr3
 
@@ -3749,34 +3760,57 @@ endif
 
 if ?PMIOPL eq 0
 
+prefseg:
+	mov byte ptr [esp].EMUINSFR.rErr+1, al
+	jmp nextbyte
+pref66:
+	or ah, 20h
+	jmp nextbyte
+pref67:
+	or ah, 40h
+	jmp nextbyte
+preff3:
+	or ah, 80h
+	jmp nextbyte
+
 gettrapproc proto
 
 ioinstr1: ; IN/OUT, port at CS:E/IP 
-	or ah, 8
+	or ah, SI_CPORT
 	lodsb
 	mov byte ptr [esp+4].EMUINSFR.rErr+1, al
 ioinstr2: ; IN/OUT, port in DX
 ioinstr3: ; INS/OUTS
 	mov al, [esp]
-	sub esi, [esp+4].EMUINSFR.rIP
-	or word ptr [esp+4].EMUINSFR.rErr, si
-	test al, 1
+	add esp, 4
+	sub esi, [esp].EMUINSFR.rIP
+	or word ptr [esp].EMUINSFR.rErr, si
+	test al, 1	; byte or word/dword access?
 	jz byteacc
 	mov esi, ds
 	lar esi, esi
 	shr esi, 23
 	jnc @F
-	xor ah, 20h
+	xor ah, 20h	; prefix 66h
+	test ah, 8	; string instruction?
+	jz @F
+	xor ah, 40h	; prefix 67h
 @@:
 	or ah, 10h
 byteacc:
-	or byte ptr [esp+4].EMUINSFR.rErr, ah
-	pop eax
+	or byte ptr [esp].EMUINSFR.rErr, ah
 
 ;--- get trap proc in SI:E/AX
 ;--- AL[1] = mode (0=IN/1=OUT)
 
-	call gettrapproc
+	push edx
+	and ah, SI_STRING or SI_CPORT
+	cmp ah, SI_CPORT	; port in DX?
+	jnz @F
+	movzx dx, byte ptr [esp+4].EMUINSFR.rErr+1
+@@:
+	call gettrapproc	; get trap proc for port in DX
+	pop edx
 	push _CSALIAS_
 	pop ds
 	assume ds:GROUP32

@@ -1,5 +1,5 @@
 
-;--- int 2f, ax=1684, vendor HDPMI code
+;--- int 2f, ax=168Ah, vendor HDPMI code
 
 	.386
 
@@ -59,27 +59,9 @@ tab168a label word
 
  if ?PMIOPL eq 0
 
-;--- ax= 6: set IO port trap range
-;---        ds:e/si = ptr TRAPPROCS
-;---        dx = start port range
-;---        cx = size port range
-;---        out: NC if ok, handle in eax
-;--- ax= 7: reset IO port trap range
-;---        edx = handle
-;---        out: NC if ok
-;--- ax= 8: simulate IO (read/write trapped ports)
-;--- ax= 9: simulate HW interrupt
-
-;--- exception handler entered with error code:
-;--- bit 0-2: size of instruction
-;--- bit   3: 0=port in DX, 1=port in bits 8-15
-;--- bit 4-5: IO size, 00=byte, 01=word, 11=dword
-;--- bit   6: string instruction
-;--- bit   7: REP prefix detected
-
 	@wofs is0006	; trap port range
 	@wofs is0007	; release trapped port range
-;	@wofs is0008	; Simulate IO
+	@wofs simio		; Simulate IO
 ;	@wofs is0009	; Simulate HW interrupt
 
  endif
@@ -135,6 +117,32 @@ _I2f168A_Hdpmi endp
 
 ;--- port trapping API.
 ;--- it's a (vague) copy of the API implemented by NTVDM ( see nt_vdd.inc )
+
+;--- ax= 6: set IO port trap range
+;---        ds:e/si = ptr TRAPPROCS
+;---        dx = start port range
+;---        cx = size port range
+;---        out: NC if ok, handle in eax
+;--- ax= 7: reset IO port trap range
+;---        edx = handle
+;---        out: NC if ok
+;--- ax= 8: simulate IO (read/write trapped ports)
+;--- ax= 9: simulate HW interrupt
+
+;--- exception handler entered with error code:
+;--- bit 0-2: size of instruction
+;--- bit   3: 0=IN/OUT, 1=INS/OUTS (string instr)
+;--- bit 4-5: IO size, 00=byte, 01=word, 11=dword
+;--- bit   6: IN/OUT: 0=port in DX, 1=port in bits 8-15
+;---          INS/OUTS: 1=ignore hiword ESI/EDI/ECX
+;--- bit   7: REP prefix detected
+
+SI_STRING   equ 8
+SI_WORD     equ 10h
+SI_DWORD    equ 20h
+SI_CPORT    equ 40h	; if IN/OUT: 1=port in bits 8-15
+SI_ADDR16   equ 40h	; if INS/OUTS: 1=don't use hiwords ESI/EDI/ECX
+SI_REPPRE   equ 80h
 
 NUMTRAP equ 4	; max trap ranges, currently static
 
@@ -295,13 +303,8 @@ exit:
 
 is0007 endp
 
-;is0008:
-;is0009:
-	stc
-	ret
-
 ;--- get trap proc for a certain port
-;--- in:  port in DX
+;--- in:  AH: flags
 ;---      AL[0]: 0=IN, 1=OUT
 ;--- out: proc in SI:E/AX
 
@@ -342,6 +345,174 @@ endif
 	pop ebx
 	ret
 gettrapproc endp
+
+;--- Simulate IN[S]/OUT[S] in ring 0
+;--- BX holds flags setup by hdpmi
+
+SI_OUT equ 1	; bit 0 of BL: 0=IN[S], 1=OUT[S]
+
+simio proc
+	test bl, SI_STRING
+	jnz sim_string
+
+;--- IN/OUT: may modify DX and EAX
+
+	test bl, SI_CPORT
+	jnz @F
+	mov dl, bh
+	mov dh, 0
+@@:
+	test bl, SI_OUT
+	jnz sim_out
+	test bl, SI_DWORD
+	jnz dword_in
+	test bl, SI_WORD
+	jnz word_in
+	in al,dx
+	ret
+word_in:
+	in ax,dx
+	ret
+dword_in:
+	in eax,dx
+	ret
+sim_out:
+	mov eax, ecx
+	test bl, SI_DWORD
+	jnz dword_out
+	test bl, SI_WORD
+	jnz word_out
+	out dx, al
+	ret
+word_out:
+	out dx, ax
+	ret
+dword_out:
+	out dx, eax
+	ret
+
+;--- INS/OUTS
+;--- modifies ESI/EDI
+;--- modifes ECX if REP prefix
+;--- may clear hiword ESI/EDI/ECX
+
+sim_string:
+	test bl, SI_ADDR16
+	jz @F
+	movzx esi, si
+	movzx edi, di
+	movzx ecx, cx
+@@:
+	test bl, SI_OUT
+	jnz sim_outstr
+	test bl, SI_REPPRE
+	jnz sim_inrep
+	test bl, SI_DWORD
+	jnz dword_instr
+	test bl, SI_WORD
+	jnz word_instr
+	insb
+	ret
+word_instr:
+	insw
+	ret
+dword_instr:
+	insd
+	ret
+
+sim_inrep:
+	test bl, SI_DWORD
+	jnz dword_inrep
+	test bl, SI_WORD
+	jnz word_inrep
+	rep insb
+	ret
+word_inrep:
+	rep insw
+	ret
+dword_inrep:
+	rep insd
+	ret
+
+;--- OUTS: may have a segment prefix!
+
+SIMSOUTFR struct
+	dd ?	;sim_sout_ret
+	dd ?	;ds
+	dd ?	;
+	IRET32 <>
+SIMSOUTFR ends
+
+sim_sout_ret:
+	pop ds
+	ret
+
+sim_outstr:
+	push ds
+	push offset sim_sout_ret
+	call outstr_setds
+	test bl, SI_REPPRE
+	jnz sim_outrep
+	test bl, SI_DWORD
+	jnz dword_outstr
+	test bl, SI_WORD
+	jnz word_outstr
+	outsb
+	ret
+word_outstr:
+	outsw
+	ret
+dword_outstr:
+	outsd
+	ret
+
+sim_outrep:
+	test bl, SI_DWORD
+	jnz dword_outrep
+	test bl, SI_WORD
+	jnz word_outrep
+	rep outsb
+	ret
+word_outrep:
+	rep outsw
+	ret
+dword_outrep:
+	rep outsd
+	ret
+
+outstr_setds:
+	mov al, bh
+	cmp al, 26h
+	jz setes
+	cmp al, 2Eh
+	jz setcs
+	cmp al, 36h
+	jz setss
+	cmp al, 64h
+	jz setfs
+	cmp al, 65h
+	jz setgs
+	ret
+setes:
+	push es
+	pop ds
+	ret
+setcs:
+	mov ds, [esp+4].SIMSOUTFR.rCS
+	ret
+setss:
+	mov ds, [esp+4].SIMSOUTFR.rSS
+	ret
+setfs:
+	push fs
+	pop ds
+	ret
+setgs:
+	push gs
+	pop ds
+	ret
+
+simio endp
  
  endif
 

@@ -37,13 +37,15 @@
       7       Reset trapped IO port range
               in: EDX = handle
 
-      8       Simulate IO [not yet implemented]
-              in: BX = flags ( "error code" )
-                  EBP = value for al/ax/eax ( OUT only )
-                  DX = port ( if BL[6-7]=00 )
+      8       Simulate IO
+              in: BX = flags
+                  bit 0: 0=IN, 1=OUT
+                  bit 3-15: bits as set in error code ( see below )
+                  DX = port ( if BL[3]=0 )
                   DS:E/SI -> value(s) ( if OUTS ) 
                   ES:E/DI -> buffer ( if INS )
-                  E/CX = count ( if INS/OUTS and REP )
+                  ECX = OUT: value for al/ax/eax
+                      = INS/OUTS + REP: count
               out: AL/AX/EAX = read value ( IN only )
 
       9       Simulate HW interrupt [not yet implemented]
@@ -68,11 +70,13 @@
   Bits      Information
   ---------------------------------------------------------
   0-2       size of instruction
-  3         0=port in DX, 1=port in bits 8-15
+  3         0=IN/OUT, 1=INS/OUTS (string instruction)
   4-5       IO size: 00=byte, 01=word, 11=dword
-  6         string instruction
-  7         REP prefix detected
-  8-15      port if bit 3=1
+  6         if IN/OUT: 0=port in DX, 1=port in bits 8-15
+            if INS/OUTS: 1=hiword ESI/EDI/ECX not to be used
+  7         1=REP prefix detected
+  8-15      if IN/OUT and bit 6=1: port
+  8-15      if OUTS: segment prefix; 26/2E/36/3E/64/65 or 00
 
   The proc MUST handle the exception, that is, (at least) EIP must be changed,
   or it will instantly be called again.
