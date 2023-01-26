@@ -912,25 +912,9 @@ rFL 	dd ?
 
 R0FAULT32 ends
 
-R0FAULT16 struct
-
-rErr	dw ?
-union
-struct
-rIP 	dw ?
-rCS 	dw ?
-ends
-struct
-rCSIP	dd ?
-ends
-ends
-rFL 	dw ?
-
-R0FAULT16 ends
-
-
 R0FAULT struct
-if ?32BIT
+;--- v3.20: ring 0 fault is ALWAYS 32-bit, R0FAULT16 has been removed
+if 1
 		R0FAULT32 <>
 else
 		R0FAULT16 <>
@@ -959,7 +943,17 @@ ends
 R3FAULT32 ends
 
 R3FAULT16 struct
-		R0FAULT16 <>
+rErr	dw ?
+union
+struct
+rIP 	dw ?
+rCS 	dw ?
+ends
+struct
+rCSIP	dd ?
+ends
+ends
+rFL 	dw ?
 
 union
 struct

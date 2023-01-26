@@ -254,6 +254,9 @@ foundfree:
 	mov es:[edi].TRAPH.wStart, dx
 	add edi, 4
 	cld
+ife ?32BIT
+	movzx esi, si
+endif
 	movsd
 	movsd
 if ?32BIT

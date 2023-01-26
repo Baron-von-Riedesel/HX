@@ -3782,32 +3782,35 @@ ioinstr1: ; IN/OUT, port at CS:E/IP
 ioinstr2: ; IN/OUT, port in DX
 ioinstr3: ; INS/OUTS
 	mov al, [esp]
-	add esp, 4
-	sub esi, [esp].EMUINSFR.rIP
-	or word ptr [esp].EMUINSFR.rErr, si
-	test al, 1	; byte or word/dword access?
-	jz byteacc
+	sub esi, [esp+4].EMUINSFR.rIP
+	or word ptr [esp+4].EMUINSFR.rErr, si
+	mov [esp], edx
 	mov esi, ds
 	lar esi, esi
 	shr esi, 23
-	jnc @F
-	xor ah, 20h	; prefix 66h
+	setc dl
+	shl dl, 5
+	test al, 1	; byte or word/dword access?
+	jz @F
+	or ah, 10h	; word/dword acc
+	xor ah, dl	; dword if a) D=1 and no 66h b) D=0 and 66h
+@@:
 	test ah, 8	; string instruction?
 	jz @F
-	xor ah, 40h	; prefix 67h
+	shl dl, 1
+	xor dl, 40h
+	xor ah, dl	; clear hiword if a) D=0 and no 67h b) D=1 and 67h
 @@:
-	or ah, 10h
-byteacc:
-	or byte ptr [esp].EMUINSFR.rErr, ah
+	or byte ptr [esp+4].EMUINSFR.rErr, ah
 
 ;--- get trap proc in SI:E/AX
 ;--- AL[1] = mode (0=IN/1=OUT)
 
-	push edx
+	mov edx, [esp]
 	and ah, SI_STRING or SI_CPORT
 	cmp ah, SI_CPORT	; port in DX?
 	jnz @F
-	movzx dx, byte ptr [esp+4].EMUINSFR.rErr+1
+	movzx edx, byte ptr [esp+4].EMUINSFR.rErr+1
 @@:
 	call gettrapproc	; get trap proc for port in DX
 	pop edx
