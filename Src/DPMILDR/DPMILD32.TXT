@@ -473,7 +473,7 @@
 
 14.  History
 
- __.12.2022: version 3.11
+ 28.01.2023: version 3.11
 
  þ bugfix: the last few bytes of DPMILD32's exit code was executed as 32-bit,
    although the code was actually 16-bit; as a result, a wrong DOS exit

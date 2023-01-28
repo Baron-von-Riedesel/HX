@@ -1,7 +1,7 @@
  
  History HDPMI 
 
-  __.01.2023, version 3.20
+  28.01.2023, version 3.20
 
   þ fixed: pmstate variable moved to client-specific data region. This
     bug was virtually irrelevant up to v3.19, but there it may have caused
@@ -30,6 +30,7 @@
     8 KB IOPB, zeroed. They are included in HXRT, with an "i"-suffix.
   þ enabled kernel debug API for the standard version.
   þ port trapping API added for HDPMI variants that run clients with IOPL=0.
+  þ fixed: exc 0Dh in ring 0 for hdpmi16 was not detected reliably.
 
   30.03.2022, version 3.19
 

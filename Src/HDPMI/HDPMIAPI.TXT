@@ -39,14 +39,14 @@
 
       8       Simulate IO
               in: BX = flags
-                  bit 0: 0=IN, 1=OUT
+                  bit 0: 0=IN[S], 1=OUT[S]
                   bit 3-15: bits as set in error code ( see below )
-                  DX = port ( if BL[3]=0 )
-                  DS:E/SI -> value(s) ( if OUTS ) 
-                  ES:E/DI -> buffer ( if INS )
-                  ECX = OUT: value for al/ax/eax
-                      = INS/OUTS + REP: count
-              out: AL/AX/EAX = read value ( IN only )
+                  DX = port ( if BL[3]=1 or BL[6]=0 )
+                  DS:E/SI -> value(s) ( if BL[0]=1 and BL[3]=1; OUTS ) 
+                  ES:E/DI -> buffer ( if BL[0]=0 and BL[3]=1; INS )
+                  ECX = value for al/ax/eax ( if BL[0]=1 and BL[3]=0; OUT )
+                      = count ( if BL[3]=1 and BL[7]=1; REP INS/OUTS )
+              out: AL/AX/EAX = read value ( if BL[0]=0 and BL[3]=0; IN )
 
       9       Simulate HW interrupt [not yet implemented]
               SS:E/SP -> master/slave, line

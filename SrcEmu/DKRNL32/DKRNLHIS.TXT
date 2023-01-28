@@ -1,5 +1,5 @@
 
-  __.07.2022: version 3.8
+  28.01.2023: version 3.8
 
   þ allow file size > 2 GB if not running on NT platforms
   þ GetLargestConsoleWindowSize: if current cols exceed "max", use current
