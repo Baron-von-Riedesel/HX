@@ -1,12 +1,16 @@
  
  History HDPMI 
 
+  05.02.2023, version 3.20a
+
+  þ HDPMIxxi: fixed SimulateIO function.
+ 
   28.01.2023, version 3.20
 
   þ fixed: pmstate variable moved to client-specific data region. This
     bug was virtually irrelevant up to v3.19, but there it may have caused
     a crash followed by DOS memory corruption.
-  þ fixed: in int 21h, ax=4Bh translation, try to translate only if al=0,
+  þ fixed: in int 21h, ah=4Bh translation, try to translate only if al=0,
     as it is and was documented.
   þ fixed: in v3.19, if HDPMI=32 wasn't set, the required DOS memory was
     reported too high if at least one client was already active.

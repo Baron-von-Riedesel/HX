@@ -44,9 +44,10 @@
                   DX = port ( if BL[3]=1 or BL[6]=0 )
                   DS:E/SI -> value(s) ( if BL[0]=1 and BL[3]=1; OUTS ) 
                   ES:E/DI -> buffer ( if BL[0]=0 and BL[3]=1; INS )
-                  ECX = value for al/ax/eax ( if BL[0]=1 and BL[3]=0; OUT )
+                  ECX = value for al/ax/eax ( if BL[3]=0; IN/OUT )
                       = count ( if BL[3]=1 and BL[7]=1; REP INS/OUTS )
-              out: AL/AX/EAX = read value ( if BL[0]=0 and BL[3]=0; IN )
+              out: EAX: if BL[3] = 0, is initialized with value of ECX,
+                        and, if IN, (partly ) modified.
 
       9       Simulate HW interrupt [not yet implemented]
               SS:E/SP -> master/slave, line

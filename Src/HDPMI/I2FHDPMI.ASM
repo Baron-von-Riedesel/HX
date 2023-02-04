@@ -361,10 +361,11 @@ simio proc
 ;--- IN/OUT: may modify DX and EAX
 
 	test bl, SI_CPORT
-	jnz @F
+	jz @F				; v3.20a: fixed, was "jnz" 
 	mov dl, bh
 	mov dh, 0
 @@:
+	mov eax, ecx		; v3.20a: fixed: init EAX not just for OUT, but also for IN!
 	test bl, SI_OUT
 	jnz sim_out
 	test bl, SI_DWORD
@@ -380,7 +381,6 @@ dword_in:
 	in eax,dx
 	ret
 sim_out:
-	mov eax, ecx
 	test bl, SI_DWORD
 	jnz dword_out
 	test bl, SI_WORD
