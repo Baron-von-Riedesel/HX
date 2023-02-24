@@ -64,7 +64,7 @@ regtexts label byte
 	db " TR=",00
 	db lf,"ERRC=",00
 
-ife ?DOSOUTPUT
+if (?DOSOUTPUT eq 0) or (?FORCETEXTMODE eq 1)
 szTerm1	db "terminate ",0
 szTerm2	db "(c)lient or ",0
 szTerm3	db "(s)erver now? ",0
@@ -109,18 +109,10 @@ error:
 	ret
 mygetbase endp
 
-ife ?DOSOUTPUT
-
-ifndef ?VIODIROUT
-?VIODIROUT equ 0
-endif
-if ?VIODIROUT
-
-forcetextmode proc public
 if ?FORCETEXTMODE
+forcetextmode proc public
 	test ss:fMode2, FM2_FORCETEXT
 	jz exit
-endif
 	call IsTextMode
 	jz exit
 	push eax
@@ -137,7 +129,6 @@ endif
 exit:
 	ret
 forcetextmode endp
-endif
 endif
 
 	assume ds:nothing
@@ -327,9 +318,7 @@ if ?SAFERMSTACK
 	mov v86iret.rSP, 100h
 endif
 if ?FORCETEXTMODE
-if ?VIODIROUT
 	call forcetextmode
-endif
 endif
 
 ;	test [fDebug],FDEBUG_KDPRESENT
@@ -615,7 +604,7 @@ if 0
 	jae serverexit
 endif
 
-if ?DOSOUTPUT
+if (?DOSOUTPUT eq 1) and (?FORCETEXTMODE eq 0)
 
 ;--- v3.20: to avoid a loop, force client termination if fatappexit caused another exc
 	mov dl,'s'
@@ -804,7 +793,7 @@ endif
 
 _TEXT32 ends
 
-ife ?DOSOUTPUT
+if (?DOSOUTPUT eq 0) or (?FORCETEXTMODE eq 1)
 
 _TEXT16 segment
 

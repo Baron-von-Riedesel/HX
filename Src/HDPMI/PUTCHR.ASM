@@ -204,7 +204,12 @@ endif
 	ret
 scroll endp
 
-if ?CHECKTEXTMODE
+endif	;?VIODIROUT
+
+if ?CHECKTEXTMODE or ?FORCETEXTMODE
+
+;--- probably should better query BIOS variable instead of EGA/VGA port.
+
 IsTextMode proc public	;used also by exception display routine
 	push eax
 	mov dx,3ceh
@@ -217,8 +222,6 @@ IsTextMode proc public	;used also by exception display routine
 	ret
 IsTextMode endp
 endif
-
-endif	;?VIODIROUT
 
 if _LTRACE_
  if ?SLOWDOWN

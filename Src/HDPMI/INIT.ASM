@@ -1107,9 +1107,11 @@ endif
 if ?NOINVLPG
 	db "  -g: don't use INVLPG opcode",lf
 endif
+if ?HIDEIVTHOOKS
 	db "  -i: hide host's IVT hooks for IRQ 0-15 [1]",lf
+endif
 if ?FORCETEXTMODE
-	db "  -k: ensure a text mode is set for host's displays",lf
+	db "  -k: ensure a text mode is set for host displays",lf
 endif
 	db "  -l: allocate TLB in low DOS memory [8]",lf
 	db "  -m: disable DPMI 1.0 memory functions [1024]",lf
@@ -1663,8 +1665,10 @@ else
 	cmp al,'g'
 	jz noinvlpg
  endif
+ if ?HIDEIVTHOOKS
 	cmp al,'i'
 	jz hideivthooks
+ endif
 	cmp al,'m'
 	jz ismem10disable
 	cmp al,'l'
@@ -1763,7 +1767,9 @@ endif
 if ?NOINVLPG
 	@OPTENTRY 'g', noinvlpg
 endif
+if ?HIDEIVTHOOKS
 	@OPTENTRY 'i', hideivthooks
+endif
 if ?FORCETEXTMODE        
 	@OPTENTRY 'k', setforcetext
 endif
@@ -1805,9 +1811,11 @@ setforcetext:
 	or fMode2, FM2_FORCETEXT
 	retn
 endif
+if ?HIDEIVTHOOKS
 hideivthooks:
-	or bEnvFlags, ENVF_GUARDPAGE0
+	or bEnvFlags, ENVF_HIDEIVTHOOKS
 	retn
+endif
 if ?NOINVLPG
 noinvlpg:
 	or fMode2, FM2_NOINVLPG

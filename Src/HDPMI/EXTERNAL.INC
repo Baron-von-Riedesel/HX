@@ -78,7 +78,7 @@ _heapalloc        proto near
 ;--- output routines
 
 _stroutx proto near
-ife ?DOSOUTPUT
+if ?FORCETEXTMODE
 IsTextMode    proto near
 forcetextmode proto near
 endif
@@ -304,7 +304,6 @@ externdef rawjmp_rm_vcpi:near
 _TEXT32 ends
 
 _TEXT16 segment
-externdef callrmintintern_rm_exit:near16
 externdef meventr:near16			;real-mode mouse event proc
 externdef linadvs:dword
 externdef unhookIVTvecs:near

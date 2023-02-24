@@ -466,7 +466,7 @@ skipbyte:
 			jb done
 			mov g_bDSPVer, al
 if ?SBPROONLY
-			mov g_bDSPVer, 3	;SB Pro fix	
+			mov g_bDSPVer, 3	;SB Pro fix
 endif
 			invoke AllocDmaMem
 			jc done
@@ -810,13 +810,13 @@ SBPrepareDSP proc
 
 ;;	.if (([ebx].WAVEOBJ.wf.wBitsPerSample == 8) || (g_bDMAHigh < 4))
 	.if (g_dwBitsPerSample == 8)
-		mov al, DSP_PAUSE8BIT	
-		mov ah, DSP_CONTINUE8BIT	
+		mov al, DSP_PAUSE8BIT
+		mov ah, DSP_CONTINUE8BIT
 		mov edx, g_dwSBBase
 		add dl, SB_DSPINTACK
 	.else
-		mov al, DSP_PAUSE16BIT	
-		mov ah, DSP_CONTINUE16BIT	
+		mov al, DSP_PAUSE16BIT
+		mov ah, DSP_CONTINUE16BIT
 		mov edx, g_dwSBBase
 		add dl, SB16_DSPINTACK
 	.endif
@@ -897,7 +897,7 @@ PageXLat DB 87H,83H,81H,82H,8Fh,8BH,89H,8AH
 ;--- DMA low mode : 00 + 000A
 
 ;--- DMA high mode : C0 + 000A * 2 == D4
-;--- DMA write	   : C0 + 000B * 2 == D6
+;--- DMA write     : C0 + 000B * 2 == D6
 ;--- DMA flipflop  : C0 + 000C * 2 == D8
 
 

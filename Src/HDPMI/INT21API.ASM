@@ -287,7 +287,7 @@ endif
 	@dprintf "i21,00: simulating i21, ax=4C00, [psp+18]=%lX, [psp-0F]=%X, esp=%lX", dword ptr es:[ebx+18h], word ptr es:[ebx-0Fh], esp
 	mov eax, ss:[dwHostSeg]
 	shl eax,16
-	mov ax,offset callrmintintern_rm_exit
+	mov ax,offset rm_exit
 	mov es:[ebx+000Ah], eax
 	mov ax,4C00h
 if _LTRACE_
@@ -303,6 +303,12 @@ endif
 	pop es
 	popad
 	ret
+pm_exit:
+	ret 4
+_TEXT16 segment
+rm_exit:
+	@jmp_pmX pm_exit
+_TEXT16 ends
 	align 4
 
 ife ?DTAINHOSTPSP

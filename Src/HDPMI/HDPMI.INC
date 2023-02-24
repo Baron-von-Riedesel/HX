@@ -61,14 +61,19 @@ ifndef ?MOVEIDT
 ?MOVEIDT		equ 1	;std=1, 1=move IDT into extended memory on startup
 endif
 ?DYNBREAKTAB	equ 1	;std=1, 1=create pm break table dynamically (MUST be 1)
-?CHECKIRQRM		equ 1	;std=1, 1=get/set the fake real-mode ints with
-						; functions 31h, ax=0200/0201 for internal rm cbs
 ?INTRM2PM		equ 1	;std=1, use a real-mode int to protect switch to
 						;protected mode (int 96h)
 if ?INTRM2PM
 ?XRM2PM 		equ 96h	;std=96h, real-mode to prot-mode int no
 endif
-?GUARDPAGE0		equ 1	;std=1, optionally guard page 0 access (HDPMI=1);
+
+ifndef ?HIDEIVTHOOKS
+?HIDEIVTHOOKS	equ 1	;std=1 1=hide IVT hooks from client (enables HDPMI=1 and -i option);
+endif
+?GUARDPAGE0		equ ?HIDEIVTHOOKS	; optionally guard page 0 access
+?CHECKIRQRM		equ ?HIDEIVTHOOKS	; 1=get/set the fake real-mode ints with
+									; functions 31h, ax=0200/0201 for internal rm cbs
+
 ?DYNTLBALLOC	equ 1	;std=1, 1=alloc a temp 64 kB TLB for int 21, ah=3f/40
 ?SETRMIOPL		equ 0	;std=0, 1=set IOPL for real mode (not needed)
 ?SCRATCHSEL		equ 0	;std=0, scratch selector required?
@@ -117,10 +122,8 @@ endif
 ?INT15XMS		equ 1	;std 1: 1=optionally use ext. mem the XMS host ignored
 ?SUPPDOS33		equ 1	;std 1: 1=support DOS 3.3
 ?MEMBUFF		equ 1	;std 1: 1=optionally don't report true free phys pages
-if ?DOSOUTPUT
-?FORCETEXTMODE	equ 0	;std 0: don't force text mode if DOS output is used
-else
-?FORCETEXTMODE	equ 1	;std 1: 1=optionally don't switch to text mode
+ifndef ?FORCETEXTMODE
+?FORCETEXTMODE	equ 0	;std 0: 0=don't set text mode in default exception handler
 endif
 ?DYNTLBSIZE		equ 0FE00h	;std 0FE00, size of dynamic TLB
 ?NOINVLPG		equ 0	;std 0: 1=optionally disable INVLPG usage
@@ -266,12 +269,6 @@ endif
 ?EXC10FRAME		equ 0		;std 0: 1=always set dpmi v1 exc frame if host
 							;		is to be a v1 host (doesnt work yet)
 
-if ?GUARDPAGE0
-?CHECKIFINRMIVT equ 0		;check if host owns the ivt IRQ vector
-else
-?CHECKIFINRMIVT equ 1		;why? Currently, this switch is dead
-endif
-
 ?TRAPI15E801	equ 1	;std 1: trap int 15h, ax=e801h in raw mode
 						;this may be required if HDPMI=32 is set
 
@@ -385,7 +382,9 @@ endif
 
 ;--- flags in bEnvFlags (low byte of environment variable HDPMI)
 
-ENVF_GUARDPAGE0	equ 01h	; guard page 0 (for DOS4G extender)
+if ?HIDEIVTHOOKS
+ENVF_HIDEIVTHOOKS equ 01h ; hide true rm IRQ vectors from client (for DOS4G extender)
+endif
 ENVF_INCLDOSMEM equ 02h ; include dos memory in page pool
 ENVF_DPMI10		equ 04h	; report DPMI 1.0 version
 ENVF_TLBLOW		equ 08h	; TLB is in low dow memory
@@ -595,12 +594,12 @@ CR0_PG	equ 80000000h   ;paging
 ;--- and another that is accessed in pm only (INTRMCB).
 
 INTRMCBr struct
-rm_vec	 dd ?	;current IVT entry
+rm_vec	 dd ?	; rm cs:ip routed to from pm INTs ( IRQs, 1C, 23, 24 )
 INTRMCBr ends
 
 INTRMCB struct
 orgvec	dd ?	;saved (original) real mode vector, access in protmode only
-pmvec	dw ?	;near16 ptr to a R3PROC, r/o, access in protmode only 
+pmvec	dw ?	;either near16 to a R3PROC or IDT ofs, r/o, access in protmode only 
 bFlags	db ?	;see RMVFL_xxx, r/o
 bIntNo	db ?	;Int number, r/o, access in protmode only
 INTRMCB ends
@@ -611,8 +610,8 @@ INTRMCB ends
 ;--- all flags are read-only
 
 RMVFL_IGN		equ 01h		;don't touch this INT's vector in IVT
-RMVFL_IDT		equ 02h		;field pmvec point directly in IDT
-RMVFL_FARPROC   equ 04h		;is a far proc, not an int
+RMVFL_IDT		equ 02h		;field pmvec is an IDT offset
+RMVFL_FARPROC   equ 04h		;is a far proc, not an int ( mouse event )
 RMVFL_SETALWAYS equ 08h		;init RM vector for each client (int 23/24)
 
 ;--- ring 3 far proc address structure
@@ -1245,6 +1244,9 @@ endm
 
 @pushstate macro bRMSegs
 ifnb <bRMSegs>
+ ife ?HIDEIVTHOOKS
+	push dword ptr ss:[wIrqOrgRm]
+ endif
 	push ss:v86iret.rESd
 	push ss:v86iret.rDSd
 	push ss:v86iret.rFSd
@@ -1281,6 +1283,9 @@ ifnb <bRMSegs>
 	pop ss:v86iret.rFSd
 	pop ss:v86iret.rDSd
 	pop ss:v86iret.rESd
+ ife ?HIDEIVTHOOKS
+	pop dword ptr ss:[wIrqOrgRm]
+ endif
 endif
 endm
 
@@ -1404,6 +1409,33 @@ endm
 @jmp_pm macro dest
 	pushw LOWWORD offset dest
 	jmp _jmp_pm
+endm
+
+;--- v3.21: simplified real-mode call
+;--- either NEAR, FAR or IRET frame.
+
+@call_rm macro dest_rm, ?far, flags
+local rmhelp, pmret
+	@jmp_rm rmhelp
+	align 4
+_TEXT16 segment
+rmhelp:
+	pushw LOWWORD offset pmret
+ifnb <flags>
+ ifidn <flags>,<1>
+	pushf
+ else
+	push flags
+ endif
+endif
+if ?far
+	push cs
+endif
+	push offset _jmp_pmX
+	jmp dest_rm
+	align 2
+_TEXT16 ends
+pmret:
 endm
 
 ;--- @jmp_pmX is like @jmp_pm, but with @rm2pmbrk first

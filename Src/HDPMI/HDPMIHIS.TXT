@@ -4,6 +4,7 @@
   05.02.2023, version 3.20a
 
   þ HDPMIxxi: fixed SimulateIO function.
+  þ HDPMIxxi: max trap ranges doubled ( 4 to 8 ).
  
   28.01.2023, version 3.20
 
