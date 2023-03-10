@@ -707,11 +707,21 @@ ife ?CR0COPY
 	int 67h
 	mov eax, ebx
 endif
-	jmp initdpmi_1	;expects eax to hold CR0
+	jmp initdpmi_1	;expects eax to hold CR0 if ?CR0COPY==0
 
 ;--- no VCPI host found
 
 vcpidone:
+
+	smsw ax				;cpu must be in real-mode
+	test al,1
+	jnz nopmhost		;else we cannot run
+if ?SAVEMSW
+	mov wMSW, ax
+endif
+
+;--- v3.21: exchanged check for PAE and PE to ensure the write to CR4
+;--- is never done in v86-mode.
 
 	test byte ptr dwFeatures,40h	;PAE supported?
 	jz @F
@@ -720,12 +730,6 @@ vcpidone:
 	@mov_cr4_eax
 @@:
 
-	smsw ax				;cpu must be in real-mode
-if ?SAVEMSW
-	mov wMSW, ax
-endif
-	test al,1
-	jnz nopmhost		;else we cannot run
 ife ?CR0COPY
 	mov eax, cr0
 initdpmi_1:

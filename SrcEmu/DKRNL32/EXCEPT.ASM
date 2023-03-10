@@ -905,11 +905,23 @@ ife ?DPMI16
 	mov ebx, ss
 	mov ax, 6
 	int 31h
-	jc @F
-	or cx, dx	; zero-based?
-	jz @F
-	invoke FatalAppExitA, 0, addr szFatalExit
+	jc ssok
+	push cx
+	push dx
+	pop eax
+	and eax, eax
+	jz ssok
+	lar edx, ebx
+	bts edx, 22	; 32bit?
+	jnc @F
+	push ds
+	pop ss
+	add esp, eax
+	invoke _GetCurrentThread
+	invoke _defaultexceptionhandler, addr excrec, edi, [eax].THREAD.pContext
 @@:
+	invoke FatalAppExitA, 0, addr szFatalExit
+ssok:
 endif
 
 	mov edi, fs:[THREAD_INFORMATION_BLOCK.pvExcept]

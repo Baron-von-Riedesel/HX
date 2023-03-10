@@ -740,24 +740,24 @@ exit:
 	align 4
 InitIrq endp
 
-;--- PCM data format is either 8-bit unsigned or 16-bit signed		  
+;--- PCM data format is either 8-bit unsigned or 16-bit signed
 
 SBWritePlayCmd proc
 
 if ?SBPRO
 	.if (g_bDSPVer < 4)
-		WRITEDSP g_dwSBBase, 90h ;8 bit DMA autoinit highspeed (>23 kHz)
+		WRITEDSP g_dwSBBase, DSP_8BITAUTOINITHS	; 8 bit DMA autoinit highspeed (>23 kHz)
 		jmp done
 	.endif
 endif
 
 	.if (g_dwBitsPerSample == 8)
 		@strace <"SBWritePlayCmd 8 bit, channels=", g_dwChannels>
-		mov cl,0C6h
+		mov cl, DSP_AUTOINITOUT8
 		mov ah, DSP_MODE_UNSIGNED
 	.else
 		@strace <"SBWritePlayCmd 16 bit, channels=", g_dwChannels>
-		mov cl,0B6h
+		mov cl, DSP_AUTOINITOUT16
 		mov ah, DSP_MODE_SIGNED
 	.endif
 	WRITEDSP g_dwSBBase, cl
@@ -809,7 +809,7 @@ SBPrepareDSP proc
 	invoke InitDMA
 
 ;;	.if (([ebx].WAVEOBJ.wf.wBitsPerSample == 8) || (g_bDMAHigh < 4))
-	.if (g_dwBitsPerSample == 8)
+	.if g_dwBitsPerSample == 8
 		mov al, DSP_PAUSE8BIT
 		mov ah, DSP_CONTINUE8BIT
 		mov edx, g_dwSBBase

@@ -1,8 +1,11 @@
  
  History HDPMI 
 
-  05.02.2023, version 3.20a
+  09.03.2023, version 3.21
 
+  þ fixed: reset PAE in CR4 only if ensured cpu is in real-mode.
+  þ IRQ routing: if interrupt hasn't been modified by a client, route IRQ
+    to the real vector in the IVT, not to the internally stored one.
   þ HDPMIxxi: fixed SimulateIO function.
   þ HDPMIxxi: max trap ranges doubled ( 4 to 8 ).
  

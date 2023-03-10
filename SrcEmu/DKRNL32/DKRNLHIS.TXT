@@ -1,4 +1,8 @@
 
+  __.__.2023: version 3.9
+
+  þ fatal exit if dkrnl32's exception handler detects a 16-bit SS.
+
   28.01.2023: version 3.8
 
   þ allow file size > 2 GB if not running on NT platforms

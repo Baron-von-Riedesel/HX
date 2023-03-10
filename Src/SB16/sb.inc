@@ -21,6 +21,7 @@ DSP_SETINPSAMPLERATE	equ 042h	;SB16:
 DSP_CONTAUTOINIT8BIT    equ 045h	;SB16:
 DSP_CONTAUTOINIT16BIT   equ 047h	;SB16:
 DSP_SETDMABLOCKSIZE     equ 048h	;SB:
+DSP_8BITAUTOINITHS		equ 090h	;SB-SBPro 8 bit autoinit highspeed
 DSP_SINGLECYCLEOUT16	equ 0B0h	;SB16: 16 bit single-cycle for output
 DSP_AUTOINITOUT16		equ 0B6h	;SB16: 16 bit autoinit for output
 DSP_SINGLECYCLEOUT8		equ 0C0h	;SB16: 8 bit single-cycle for output
@@ -47,72 +48,72 @@ DSP_MODE_STEREO			equ 100000b
 ;--- destroys  : AL
 
 WAITWRITE MACRO
-LOCAL	loopWait,endloop
+LOCAL loopWait,endloop
 
-		push	ecx
-		xor 	ecx,ecx		; need that for slow SBs !
-loopWait:	
-		dec 	cx
-		jz		endloop
-		in		al,dx		; AL = WRITE COMMAND STATUS
-		or		al,al
-		js		loopWait	; Jump if bit7=1 - writing not allowed
+	push ecx
+	xor ecx,ecx		; need that for slow SBs !
+loopWait:
+	dec cx
+	jz endloop
+	in al,dx		; AL = WRITE COMMAND STATUS
+	or al,al
+	js loopWait	; Jump if bit7=1 - writing not allowed
 endloop:
-		pop 	ecx
-		ENDM
+	pop ecx
+ENDM
 
 
 ;--- arguments : DX = Status port   (normaly BASEADDR+0Eh)
 ;--- destroys  : AL
 
 WAITREAD MACRO
-LOCAL	loopWait,endloop
+LOCAL loopWait,endloop
 
-		push	ecx
-		xor 	ecx,ecx		; need that for slow SBs !
+	push ecx
+	xor ecx,ecx		; need that for slow SBs !
 loopWait:
-		dec 	cx
-		jz		endloop
-		in		al,dx		; AL = DATA AVAILABLE STATUS
-		or		al,al
-		jns 	loopWait	; Jump if bit7=0 - no data available
+	dec cx
+	jz endloop
+	in al,dx		; AL = DATA AVAILABLE STATUS
+	or al,al
+	jns loopWait	; Jump if bit7=0 - no data available
 endloop:
-		pop	ecx
-		ENDM
+	pop ecx
+ENDM
 
 ;--- arguments: SB base port
 ;--- destroys : EDX,AL
 
 SB_RESET_DSP  MACRO BaseAddr
-		mov		edx, BaseAddr
-        add		dl, SB_DSPRESET
-        mov     al,1
-        out     dx,al          ; start DSP reset
+	mov edx, BaseAddr
+	add dl, SB_DSPRESET
+	mov al,1
+	out dx,al		   ; start DSP reset
 
-        in      al,dx
-        in      al,dx
-        in      al,dx
-        in      al,dx          ; wait 3 æsec
+	in al,dx
+	in al,dx
+	in al,dx
+	in al,dx		   ; wait 3 æsec
 
-        xor     al,al
-        out     dx,al          ; end DSP Reset
+	xor al,al
+	out dx,al		   ; end DSP Reset
 
-        mov     edx,BaseAddr
-        add     dl, SB_DSPSTATUS
-        WAITREAD
-        mov     edx,BaseAddr
-        add     dl, SB_DSPREAD
-        in      al,dx
-        ENDM
+	mov edx,BaseAddr
+	add dl, SB_DSPSTATUS
+	WAITREAD
+	mov edx,BaseAddr
+	add dl, SB_DSPREAD
+	in al,dx
+ENDM
 
 ;--- arguments: SB base port, byte to write to DSP
 ;--- destroys : EDX,AL
 
 WRITEDSP MACRO dwBase, bByte
-		mov edx, dwBase
-        add dl, SB_DSPWRITE
-		WAITWRITE
-        mov al, bByte
-        out dx, al
-		endm
+	mov edx, dwBase
+	add dl, SB_DSPWRITE
+	WAITWRITE
+	mov al, bByte
+	out dx, al
+endm
 
