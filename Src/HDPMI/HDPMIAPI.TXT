@@ -26,7 +26,7 @@
               in: BL = new value (0|1)
               out: AL = old value.
 
-      functions 6-9 for IOPL=0 versions only
+      functions 6-10 for IOPL=0 versions only
 
       6       Set IO port range to trap
               in: DS:E/SI -> io handlers for in/out
@@ -49,9 +49,11 @@
               out: EAX: if BL[3] = 0, is initialized with value of ECX,
                         and, if IN, (partly ) modified.
 
-      9       Simulate HW interrupt [not yet implemented]
-              SS:E/SP -> master/slave, line
+      9       Trap CLI/STI
+              in: CX:E/DX = trap handler for CLI or STI (0:0 resets )
+                  BL: 0=CLI, 1=STI
               
+     10       Simulate HW interrupt [not yet implemented]
   
 
   2) IO Port trapping ( AX=6 )
@@ -81,4 +83,10 @@
 
   The proc MUST handle the exception, that is, (at least) EIP must be changed,
   or it will instantly be called again.
+
+  3) CLI/STI trapping ( AX=9 )
+
+  For performance reasons, there's no stack switch; the handler proc must
+  exit with an IRET/D, which will directly return to the interrupted
+  ring3 code.
 

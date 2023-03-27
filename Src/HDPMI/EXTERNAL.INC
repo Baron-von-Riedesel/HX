@@ -474,6 +474,13 @@ externdef excvec:R3PROC
 
 externdef mouse15_rmcb:dword
 
+ if ?PMIOPL eq 0
+  if ?TRAPCLISTI
+externdef clihdlr:R3PROC
+externdef stihdlr:R3PROC
+  endif
+ endif
+
 _DATA32C ends
 
 ;externdef startcldata32:byte

@@ -345,8 +345,7 @@ endif
 	add word ptr [bp+2],2
 	mov si,word ptr cs:[si]
 nextitem:
-	db 2Eh		;seg CS
-	lodsb
+	lodsb cs:[si]
 	and al,al
 	jz done
 	cmp al,'%'
@@ -370,15 +369,13 @@ endif
 	ret
 format: 
 	push offset nextitem
-	db 2Eh
-	lodsb
+	lodsb cs:[si]
 	cmp al,'X'
 	jz stroutx_X
 	cmp al,'l'
 	jnz @F
 ;;	mov dl,al
-	db 2Eh
-	lodsb
+	lodsb cs:[si]
 	cmp al,'X'
 	jz stroutx_lX
 @@:

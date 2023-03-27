@@ -479,27 +479,48 @@ I3109FR ends
 ;--- ax=0900h: disable virtual interrupt state
 ;--- ax=0901h: enable virtual interrupt state
 ;--- ax=0902h: get virtual interrupt state
+;--- v3.21: if PVI is set in CR4, get/set the VIF
+
+ife ?PMIOPL 
+VIRTIF equ 1	;1=support VIF
+else
+VIRTIF equ 0
+endif
 
 func09 proc
-	mov ebx,[esp].I3109FR.rEBX
-	add esp, sizeof I3109FR
-	and byte ptr [esp].IRET32.rFL,not 1	;clear carry
+if VIRTIF
+	test ss:[dwFeatures], 2		;VIF supported
+	jz @F
+	.586
+	mov ebx, cr4
+	.386
+	test bl, 2
+	mov bx, 19
+	jnz vifbitset
+@@:
+	mov bx, 9
+vifbitset:
+else
+	mov bx, 9
+endif
+	and byte ptr [esp + sizeof I3109FR].IRET32.rFL,not 1	;clear carry
 	cmp al,1
 	jz enableint
 	jnc getintstate
 disableint:
-	btr word ptr [esp].IRET32.rFL,9
-	setc al
-	iretd
+	btr word ptr [esp + sizeof I3109FR].IRET32.rFL, bx
+	jmp @F
 	align 4
 enableint:
-	bts word ptr [esp].IRET32.rFL,9
-	setc al
-	iretd
+	bts word ptr [esp + sizeof I3109FR].IRET32.rFL, bx
+	jmp @F
 	align 4
 getintstate:
-	bt word ptr [esp].IRET32.rFL,9
+	bt word ptr [esp + sizeof I3109FR].IRET32.rFL, bx
+@@:
 	setc al
+	mov ebx,[esp].I3109FR.rEBX
+	add esp, sizeof I3109FR
 	iretd
 	align 4
 func09 endp

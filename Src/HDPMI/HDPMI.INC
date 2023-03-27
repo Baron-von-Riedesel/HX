@@ -272,6 +272,10 @@ endif
 ?TRAPI15E801	equ 1	;std 1: trap int 15h, ax=e801h in raw mode
 						;this may be required if HDPMI=32 is set
 
+ife ?PMIOPL
+?TRAPCLISTI		equ 1	; trap API for CLI/STI
+?SETVIF			equ 1	; init VIF, set VIF on mode switches
+endif
 ?PREDEFIDTGATES equ 78h	;number of predefined IDT gates
 ?DIO2RMS		equ 1	;std 1: 1=copy diskio packet onto rm-stack (int 25h/26h/21h,ax=7305h)
 

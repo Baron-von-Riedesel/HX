@@ -1040,6 +1040,22 @@ endif
 	mov gs,eax
 ;	@dprintf "rm2pm: in protected mode, DS,ES=%X,%X",ds,es
 	mov [esp].IRET32.rIP, edi
+ife ?PMIOPL
+ if ?SETVIF
+	test ss:[dwFeatures], 2
+	jz @F
+	.586
+	mov eax, cr4
+	.386
+	movzx eax, ax
+	test al, 2
+	jz @F
+	bts ss:[tmpFLReg], 9
+	jnc @F
+	bts eax, 19		; set VIF
+@@:
+ endif
+endif
 	mov ax,ss:[tmpFLReg]
 	mov [esp].IRET32.rCSd, esi
 	and ah,08Fh					;reset IOPL,NT

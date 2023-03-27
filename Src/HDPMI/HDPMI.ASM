@@ -3647,15 +3647,66 @@ done:
 	ret
 	align 4
 
-if ?PMIOPL eq 0
+ife ?PMIOPL
 emucli:
 	@dprintf "emulate cli"
-	and byte ptr [esp].EMUINSFR.rFL+1, not 2
+	and byte ptr [esp].EMUINSFR.rFL+1, not 2	; reset IF
+ if ?TRAPCLISTI
+	cmp [clihdlr._Cs], 0
+	jnz clitrapped
+ endif
 	jmp done_emuclisti
+ if ?TRAPCLISTI
+stitrapped:
+	push offset stihdlr
+	jmp @F
+clitrapped:
+	push offset clihdlr
+@@:
+	push edi
+	push es
+  if ?32BIT
+	les edi, [esp+3*4].EMUINSFR.rSSSP
+	lea edi, [edi-3*4]
+	mov [esp+3*4].EMUINSFR.rSP, edi
+	mov eax, esi
+	stosd
+	mov eax, [esp+3*4].EMUINSFR.rCSd
+	stosd
+	mov eax, [esp+3*4].EMUINSFR.rFL
+	stosd
+	mov edi, [esp+2*4]
+	mov esi, cs:[edi].R3PROC._Eip
+	mov eax, cs:[edi].R3PROC._Cs
+	mov [esp+3*4].EMUINSFR.rCSd, eax
+  else
+	les edi, [esp+3*4].EMUINSFR.rSSSP
+	lea edi, [edi-3*2]
+	mov [esp+3*4].EMUINSFR.rSP, edi
+	mov eax, esi
+	stosw
+	mov eax, [esp+3*4].EMUINSFR.rCSd
+	stosw
+	mov eax, [esp+3*4].EMUINSFR.rFL
+	stosw
+	mov edi, [esp+2*4]
+	movzx esi, cs:[edi].R3PROC._Eip
+	mov ax, cs:[edi].R3PROC._Cs
+	mov [esp+3*4].EMUINSFR.rCS, ax
+  endif
+	pop es
+	pop edi
+	add esp, 4
+	jmp done_emuclisti
+ endif
 	align 4
 emusti:
 	@dprintf "emulate sti"
-	or byte ptr [esp].EMUINSFR.rFL+1, 2
+	or byte ptr [esp].EMUINSFR.rFL+1, 2	; set IF
+ if ?TRAPCLISTI
+	cmp [stihdlr._Cs], 0
+	jnz stitrapped
+ endif
 	jmp done_emuclisti
 endif
 
@@ -4861,6 +4912,18 @@ endif
 	and ax, 8FFEh			;clear CF, IOPL, NT
 if ?PMIOPL
 	or ah, ?PMIOPL shl 4	;set protected-mode IOPL
+elseif ?SETVIF
+	test dwFeatures, 2
+	jz @F
+	test ah, 2
+	jz @F
+	.586
+	mov ecx, cr4
+	.386
+	test cl, 2
+	jz @F
+	bts eax, 19		; set VIF if PVI is set
+@@:
 endif
 	mov [ebp].INITCLPM.rFL, eax
 

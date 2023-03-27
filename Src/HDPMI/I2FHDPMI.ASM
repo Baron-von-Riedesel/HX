@@ -62,7 +62,8 @@ tab168a label word
 	@wofs is0006	; trap port range
 	@wofs is0007	; release trapped port range
 	@wofs simio		; Simulate IO
-;	@wofs is0009	; Simulate HW interrupt
+	@wofs is0009	; trap CLI/STI
+;	@wofs is000A	; Simulate HW interrupt
 
  endif
 MAX168A equ ($ - offset tab168a) / sizeof word
@@ -516,8 +517,42 @@ setgs:
 	ret
 
 simio endp
+
+  if ?TRAPCLISTI
+
+;--- CLI/STI trap
+
+_DATA32C segment
+clihdlr R3PROC <>
+stihdlr R3PROC <>
+_DATA32C ends
+
+is0009 proc
+	pushad
+	push es
+	push byte ptr _CSALIAS_
+	pop es
+	cld
+	and bl,1
+	movzx ebx, bl
+	mov eax, edx
+if ?32BIT
+	lea edi, [ebx*8+offset clihdlr]
+	stosd
+else
+	lea edi, [ebx*4+offset clihdlr]
+	stosw
+endif
+	mov eax, ecx
+	stosw
+	pop es
+	popad
+	ret
+is0009 endp
+
+  endif
  
- endif
+ endif ; ?PMIOPL eq 0
 
 _TEXT32 ends
 

@@ -14,6 +14,7 @@ OPT_GDT  equ 2	;display GDT
 OPT_IDT  equ 4	;display IDT
 OPT_LDT  equ 8	;display LDT
 OPT_RMIV equ 16	;display internal real-mode interrupt vectors
+OPT_TSS  equ 32	;display TSS (IOPB)
 
 	@seg _ITEXT16
 
@@ -168,7 +169,7 @@ local buffer2[1024]:dword
 printpd endp
 
 ;--- get physical address of linear address
-;--- esi=PD
+;--- in: esi=PD
 
 getphysaddr proc stdcall uses esi edi dwAddr:dword
 
@@ -326,6 +327,96 @@ local ldt[4096]:byte
 	ret
 printldt endp
 
+;--- print TSS ( IOPB )
+
+printtss proc stdcall uses esi edi dwAddr:dword
+
+local dwTSSBase:dword
+local dwTSSLim:dword
+local tssdesc:DESCRPTR
+local tss:TSSSEG
+local iopb[64]:dword	;64*32=2048 ports
+
+	invoke getphysaddr, dwAddr
+	push esi
+	mov esi, eax
+	mov di, ss
+	movzx edi, di
+	shl edi, 4
+	lea bx, tssdesc
+	movzx ebx, bx
+	add edi, ebx
+	mov cx, sizeof DESCRPTR
+	call copymem
+	pop esi
+	mov ah, tssdesc.A2431
+	mov al, tssdesc.A1623
+	shl eax, 16
+	mov ax, tssdesc.A0015
+	mov dwTSSBase, eax
+	mov ch, 0
+	mov cl, tssdesc.lim_gr
+	and cl, 0Fh
+	shl ecx, 16
+	mov cx, tssdesc.limit
+	mov dwTSSLim, ecx
+	@rprintf <"   TSS base=%lX, limit=%lX, ">, eax, ecx
+	invoke getphysaddr, eax
+	push esi
+	mov esi, eax
+	mov di, ss
+	movzx edi, di
+	shl edi, 4
+	lea bx, tss
+	movzx ebx, bx
+	add edi, ebx
+	mov cx, sizeof TSSSEG
+	call copymem
+	pop esi
+	@rprintf <"offset IOPB=%X",lf>, tss.wOffs
+	mov ecx, dwTSSLim
+	movzx ebx, tss.wOffs
+	cmp ecx, ebx
+	jbe noiopb
+	mov eax, dwTSSBase
+	add eax, ebx
+	invoke getphysaddr, eax
+	mov esi, eax
+	mov di, ss
+	movzx edi, di
+	shl edi, 4
+	lea bx, iopb
+	movzx ebx, bx
+	add edi, ebx
+	mov cx, sizeof iopb
+	call copymem
+	mov ecx, sizeof iopb shl 3
+	xor ebx, ebx
+	xor di, di
+nextport:
+	bt iopb, ebx
+	jnc skipport
+	and di, di
+	jnz @F
+	@rprintf <"   trapped ports below 800h:">
+@@:
+	test di, 7
+	jnz @F
+	@rprintf <lf,"   ">
+@@:
+	@rprintf <"%X ">, bx
+	inc di
+skipport:
+	inc ebx
+	loop nextport
+noiopb:
+	cmp di,0
+	jnz @F
+	@rprintf <"   no trapped ports below 800h",lf>
+@@:
+	ret
+printtss endp
+
 ;--- print mode flags
 
 printmode proc
@@ -465,6 +556,11 @@ local buffer[8]:byte
 			@rprintf <"   no LDT found",lf>
 		.endif
 	.endif
+	.if fOptions & OPT_TSS
+		mov eax, pdGDT.dwBase
+		add eax, _TSSSEL_
+		invoke printtss, eax
+	.endif
 	.if fOptions & OPT_RMIV
 		invoke printirvt 
 	.endif
@@ -508,6 +604,8 @@ local fOptions:word
 				or fOptions, OPT_LDT
 			.elseif al == 'r'
 				or fOptions, OPT_RMIV
+			.elseif al == 't'
+				or fOptions, OPT_TSS
 			.elseif al == '?'
 				@rprintf <"HDPMIST displays states of currently loaded HDPMI instances",lf>
 				@rprintf <"usage: HDPMIST [options]",lf>
@@ -518,8 +616,10 @@ local fOptions:word
 				@rprintf <"  -l display LDT",lf>
 				@rprintf <"  -p display PTEs",lf>
 				@rprintf <"  -r display internal real-mode callbacks",lf>
+				@rprintf <"  -t display TSS & IOPB",lf>
 				jmp exit
 			.else
+				mov byte ptr es:[si+1],0
 				dec si
 				@rprintf <"unknown option %s",lf>,es,si
 				jmp exit

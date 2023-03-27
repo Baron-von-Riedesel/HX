@@ -1,13 +1,20 @@
  
  History HDPMI 
 
-  09.03.2023, version 3.21
+  25.03.2023, version 3.21
 
-  þ fixed: reset PAE in CR4 only if ensured cpu is in real-mode.
+  þ fixed: reset PAE in CR4 only if ensured cpu is in real-mode - previously
+    it caused a crash in Qemm if loaded with NOEMS.
   þ IRQ routing: if interrupt hasn't been modified by a client, route IRQ
     to the real vector in the IVT, not to the internally stored one.
   þ HDPMIxxi: fixed SimulateIO function.
   þ HDPMIxxi: max trap ranges doubled ( 4 to 8 ).
+  þ HDPMIxxi.exe are now linked as PE binaries. As with the standard veriants,
+    this ensures that 32-bit code and data won't share pages.
+  þ HDPMIST: option -t added to display TSS infos.
+  þ HDPMIxxi: int 31h, ax=9xx functions will get/set the virtual flag (VIF) if
+    CR4.PVI is set.
+  þ HDPMIxxi: new API function 9 to trap CLI/STI.
  
   28.01.2023, version 3.20
 
