@@ -339,6 +339,9 @@ externdef dwFeatures:dword
 externdef int15hk:IVTHOOK
 externdef wEMShandle:word
 externdef intrmcbrs:INTRMCBr
+if ?RESTRICTMEM
+externdef resshift:byte
+endif
 
 if ?DYNBREAKTAB
 externdef _MAXCB_:abs

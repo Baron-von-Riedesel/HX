@@ -131,10 +131,12 @@
      -u: this switch will uninstall a running instance of HDPMI.
      -v: if both XMS and VCPI hosts were detected, use VCPI memory allocation
          and ignore XMS host. 
-     -x: limit reported free memory to 256 MB. The application may still
-         allocate more than 256 MB, it's just DPMI function 0x500h that will
-         be affected. Some old dos-extended applications simply don't expect
-         GBs of free memory.
+     -x[n]: limit reported free memory. As default, the limit is 256MB, but
+         the optional n ( which must be a digit ) works as a shift factor,
+         thus reducing the limit to 128/64/32/16/8/4/2 or 1MB. Note, however,
+         that the application may still allocate more than the limit, it's
+         just DPMI function 0x500h that will be affected. Some old dos-extended
+         applications simply don't expect GBs of free memory.
      -y: use extended memory not managed by XMS host. Usually a "modern"
          XMS host can handle all extended memory, but old ones may handle
          63 or 255 MB only. Then setting this option may be useful. For

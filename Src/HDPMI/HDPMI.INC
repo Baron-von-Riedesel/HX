@@ -274,7 +274,8 @@ endif
 
 ife ?PMIOPL
 ?TRAPCLISTI		equ 1	; trap API for CLI/STI
-?SETVIF			equ 1	; init VIF, set VIF on mode switches
+?IFALWAYSON		equ 0	; don't reset IF, set VIF on mode switches only;
+						; 1 won't work unless IRQs are hold back in a queue
 endif
 ?PREDEFIDTGATES equ 78h	;number of predefined IDT gates
 ?DIO2RMS		equ 1	;std 1: 1=copy diskio packet onto rm-stack (int 25h/26h/21h,ax=7305h)
@@ -404,7 +405,7 @@ ENVF2_HMAMAPPING equ 01h;   256 remap PTEs for HMA in VCPI mode so that
 ENVF2_LDTLOW	equ 02h ;   512 allocate IDT+LDT in user address space +
 						;       dont move GDT high
 ENVF2_NOMEM10	equ 04h ;  1024 disable DPMI 1.0 memory functions
-ENVF2_CLRHIWORD equ 08h ;  2048 clear hiword of esi/edi
+ENVF2_CLRHIWORD equ 08h ;  2048 clear hiword of esi/edi on init (32RTM)
 ENVF2_SYSPROT	equ 10h ;  4096 alloc pages for GDT/IDT/LDT readonly
 ENVF2_DEBUG  	equ 20h ;  8192 assume a (kernel) debugger is present
 ;ENVF2_NOI2F160A	equ 40h	; 16384 don't respond to int 2fh, ax=160Ah

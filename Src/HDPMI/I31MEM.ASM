@@ -15,10 +15,7 @@
 ?USESTDALLOC	equ 0		;std=0, 1=use std allocation functions for IDT/LDT
 
 if ?RESTRICTMEM
-;--- exact value for -x cmdline option may be set here, default 255 MB
-?MAXFREEPAGES	equ 65536-256	;65280 * 4k pages = 255 MB
-;?MAXFREEPAGES	equ 16384-256	;16128 * 4k pages = 63 MB
-;?MAXFREEPAGES	equ 4096-256	;3840  * 4k pages = 15 MB
+?MAXFREEPAGES	equ 65536	;65536 * 4k pages = 256 MB
 endif
 
 ;--- extended structure for int 31h, ax=50bh
@@ -560,9 +557,19 @@ getmeminfo proc public
 if ?RESTRICTMEM
 	test ss:[fMode2],FM2_RESTRMEM
 	jz @F
-	cmp eax, ?MAXFREEPAGES
+	mov ebx, ?MAXFREEPAGES
+	push ecx
+	mov cl, ss:[resshift]
+	shr ebx, cl		; 256/128/64/32/16/8/4/2
+	pop ecx
+	sub ebx, 256	; subtract 256 pages (=1MB)
+	jbe @F
+	cmp eax, ebx
 	jb @F
-	mov eax, ?MAXFREEPAGES
+	mov eax, ebx
+	mov ecx, ebx	; v3.21: ecx has to be adjusted as well ( in case both -x and -n are set )   
+	shr ecx, 10
+	inc ecx
 @@:
 endif
 ife ?32BIT

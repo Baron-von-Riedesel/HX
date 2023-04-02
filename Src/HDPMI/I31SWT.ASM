@@ -145,7 +145,7 @@ rmcb_pm proc
 if 0
 ;--- this code worked in v3.18, but had problems with raw mode switches;
 ;--- see regression test rawjmp6.asm
-	lea esp,[esp-sizeof IRET32]
+	lea esp, [esp-sizeof IRET32]
 	mov [esp].IRET32.rIP, _RETCB_
 	mov [esp].IRET32.rCS, _INTSEL_
 	push ebp
@@ -153,11 +153,11 @@ if 0
 	pushfd
 	pop eax
 	mov [esp+2*4].IRET32.rFL, eax
-	mov ebp,[esp+2*4+sizeof IRET32]	;get previous value of dwHostStack
-	mov eax,[ebp-sizeof IRET32].IRET32.rSP
-	mov ebp,[ebp-sizeof IRET32].IRET32.rSSd
-	mov [esp+2*4].IRET32.rSP,eax
-	mov [esp+2*4].IRET32.rSSd,ebp
+	mov ebp, [esp+2*4+sizeof IRET32]	;get previous value of dwHostStack
+	mov eax, [ebp-sizeof IRET32].IRET32.rSP
+	mov ebp, [ebp-sizeof IRET32].IRET32.rSSd
+	mov [esp+2*4].IRET32.rSP, eax
+	mov [esp+2*4].IRET32.rSSd, ebp
 	pop eax
 	pop ebp
 else
@@ -172,11 +172,11 @@ endif
 	inc ss:[cRMCB]
 
 	push edi
-	mov fs,ss:pmstate.rFS
+	mov fs, ss:pmstate.rFS
 	movzx edi, ss:[MyRMCS.rCS]
-	mov gs,ss:pmstate.rGS
+	mov gs, ss:pmstate.rGS
 	sub di, ss:[wHostSeg]		;seg RMSwitch
-	shl edi,4					;RMCB size is 16!
+	shl edi, 4					;RMCB size is 16!
 	.errnz sizeof RMCB - 16
 ;--- Masm silently ignores second override, JWasm gives a warning.
 ;--- Since Masm v6 prefers to use the GROUP for fixup calculation,
@@ -192,16 +192,17 @@ if _LTRACE_
 endif
 	les edi, fword ptr cs:[edi+offset clrmcbs].RMCB.rmcs
 	pop es:[edi].RMCS.rEDI
-	mov es:[edi].RMCS.rESI,esi
-	mov es:[edi].RMCS.rEBP,ebp
-	mov es:[edi].RMCS.rEBX,ebx
-	mov es:[edi].RMCS.rEDX,edx
-	mov es:[edi].RMCS.rECX,ecx
-	mov es:[edi].RMCS.rEAX,eax
-	mov cx,ss:[MyRMCS.rCS]
-	mov ax,ss:[MyRMCS.rFlags]
-	mov es:[edi].RMCS.rCS,cx
-	mov es:[edi].RMCS.rFlags,ax
+	mov es:[edi].RMCS.rESI, esi
+	mov es:[edi].RMCS.rEBP, ebp
+	mov es:[edi].RMCS.rEBX, ebx
+	mov es:[edi].RMCS.rEDX, edx
+	mov es:[edi].RMCS.rECX, ecx
+	mov es:[edi].RMCS.rEAX, eax
+	mov cx, ss:[MyRMCS.rCS]
+	mov ax, ss:[MyRMCS.rFlags]
+	mov es:[edi].RMCS.rCS, cx
+	mov es:[edi].RMCS.rFlags, ax
+
 if 0
  if ?CLEARDIR
 	and ah,08Bh					;NT+IOPL+D reset
@@ -209,7 +210,7 @@ if 0
 	and ah,08Fh 				;NT+IOPL reset
  endif
 	or ah, ?PMIOPL shl 4		;set IOPL
-	mov ss:[tmpFLReg],ax
+	mov ss:[tmpFLReg], ax
 endif
 ;--- on entry to a real-mode callback, DS:E/SI is
 ;--- supposed to point to real-mode SS:SP.
@@ -223,21 +224,21 @@ endif
 
 if ?RMCBSTATICSS
 	movzx ebx, ss:[MyRMCS.rCS]
-	mov ds,ss:[selLDT]
+	mov ds, ss:[selLDT]
 	sub bx, ss:[wHostSeg]		;seg RMSwitch
-	movzx edx,ss:v86iret.rSS
+	movzx edx, ss:v86iret.rSS
 	shl ebx, 4                  ;*16 (sizeof RMCB)
-	mov es:[edi].RMCS.rSS,dx
+	mov es:[edi].RMCS.rSS, dx
 	shl edx, 4					;edx = linear address of real-mode SS
 ;--- Masm silently ignores second override, JWasm gives a warning
 ;	movzx ebx, cs:[ebx+offset clrmcbs].RMCB.wSS
 	movzx ebx, cs:[ebx+offset clrmcbs].RMCB.wSS
 	push ebx
-	and bl,0F8h
-	mov [ebx].DESCRPTR.A0015,dx
+	and bl, 0F8h
+	mov [ebx].DESCRPTR.A0015, dx
 	shr edx, 16
-	mov [ebx].DESCRPTR.A1623,dl	;max value is 0Fh
-	mov [ebx].DESCRPTR.A2431,dh	;is always 00
+	mov [ebx].DESCRPTR.A1623, dl;max value is 0Fh
+	mov [ebx].DESCRPTR.A2431, dh;is always 00
 	pop ds
 else
 
@@ -245,26 +246,26 @@ else
 ;--- limit in AX, = -1
 
 ;--- make sure DS is a valid selector before any output
-	xor ecx,ecx
-	mov ds,ecx
+	xor ecx, ecx
+	mov ds, ecx
 
 	@dprintf "rmcb: will try to alloc a rm-selector"
 
-	mov bx,ss:v86iret.rSS
-	mov ax,-1
-	mov es:[edi].RMCS.rSS,bx
+	mov bx, ss:v86iret.rSS
+	mov ax, -1
+	mov es:[edi].RMCS.rSS, bx
 	call allocxsel
 	jc _exitclientEx4
-	mov ds,eax			;now DS -> rm SS
+	mov ds, eax			;now DS -> rm SS
 endif
 
 ;--- store current real-mode segment values ES,DS,FS,GS in RMCS (ES:EDI)
-	movzx esi,ss:v86iret.rSP
+	movzx esi, ss:v86iret.rSP
 	mov eax, [esi-sizeof RMCBSF].RMCBSF.dwESDS
 	mov ecx, [esi-sizeof RMCBSF].RMCBSF.dwFSGS
-	mov dword ptr es:[edi].RMCS.rES,eax
-	mov dword ptr es:[edi].RMCS.rFS,ecx
-	mov es:[edi].RMCS.rSP,si
+	mov dword ptr es:[edi].RMCS.rES, eax
+	mov dword ptr es:[edi].RMCS.rFS, ecx
+	mov es:[edi].RMCS.rSP, si
 
 if _LTRACE_ and ?RMCBLOG
 	@dprintf "rmcb, rm ES-DS-FS-GS=%X %X %X %X hs=%lX", eax, ecx, esp
@@ -275,18 +276,18 @@ endif
 ;--- set RMCS IP
 	mov ax, es:[edi].RMCS.rCS
 	sub ax, ss:[wHostSeg]			;seg RMSwitch
-	shl eax,4						;RMCS size is 16!
-	mov cx,ax						;handle nach cx
+	shl eax, 4						;RMCS size is 16!
+	mov cx, ax						;handle nach cx
 	neg ax
-	add ax,offset RMSwitch
-	mov es:[edi].RMCS.rIP,ax		;IP is calculated from CS
+	add ax, offset RMSwitch
+	mov es:[edi].RMCS.rIP, ax		;IP is calculated from CS
 
-	movzx eax,cx					;callback handle
-	add eax,offset clrmcbs
+	movzx eax, cx					;callback handle
+	add eax, offset clrmcbs
 
 if _LTRACE_ and ?RMCBLOG
 	push ebp
-	mov ebp,esp
+	mov ebp, esp
 	@dprintf "rmcb, IRET32 frame for lpms_call_int: %lX %lX %lX %lX %lX",\
 		[ebp+4].IRET32.rIP, [ebp+4].IRET32.rCSd, [ebp+4].IRET32.rFL,\
 		[ebp+4].IRET32.rSP, [ebp+4].IRET32.rSSd
@@ -294,10 +295,10 @@ if _LTRACE_ and ?RMCBLOG
 
  if ?32BIT
 	@dprintf "rmcb, jmp to pm proc=%X:%lX, EDI=%lX:%lX, ESI=%lX:%lX, HS=%lX",\
-		word ptr cs:[eax].R3PROC._Cs,cs:[eax].R3PROC._Eip,es,edi,ds,esi,ss:taskseg._Esp0
+		word ptr cs:[eax].R3PROC._Cs, cs:[eax].R3PROC._Eip, es, edi, ds, esi, ss:taskseg._Esp0
  else
 	@dprintf "rmcb, jmp to pm proc=%X:%X,ES:DI=%lX:%X,DS:SI=%lX:%X,HS=%lX",\
-		cs:[eax].R3PROC._Cs,cs:[eax].R3PROC._Eip,es,di,ds,si,ss:taskseg._Esp0
+		cs:[eax].R3PROC._Cs, cs:[eax].R3PROC._Eip, es, di, ds, si, ss:taskseg._Esp0
  endif
 endif
 	push eax
@@ -1005,7 +1006,7 @@ rm2pm_brk::
 
 	pop cs:[tmpFLReg]
 ife ?DOSOUTPUT
-	@drprintf "rm2pm: si:edi=%X:%lX ax=%X cx=%X",si,edi,ax,cx
+	@drprintf "rm2pm: si:edi=%X:%lX ax=%X cx=%X", si, edi, ax, cx
 endif
 
 ife ?RAW_SETDEFRMSINPM
@@ -1027,40 +1028,44 @@ endif
 _TEXT32 segment
 
 rm2pm_pm:
-	mov ds,eax
-	mov es,ecx
+	mov ds, eax
+	mov es, ecx
 
 	sub esp, sizeof IRET32
-	xor eax,eax
+	xor eax, eax
 ife ?32BIT
 	movzx edi, di
 	movzx ebx, bx
 endif
-	mov fs,eax
-	mov gs,eax
+	mov fs, eax
+	mov gs, eax
 ;	@dprintf "rm2pm: in protected mode, DS,ES=%X,%X",ds,es
 	mov [esp].IRET32.rIP, edi
-ife ?PMIOPL
- if ?SETVIF
-	test ss:[dwFeatures], 2
-	jz @F
-	.586
-	mov eax, cr4
-	.386
-	movzx eax, ax
-	test al, 2
-	jz @F
-	bts ss:[tmpFLReg], 9
-	jnc @F
-	bts eax, 19		; set VIF
-@@:
- endif
-endif
-	mov ax,ss:[tmpFLReg]
+	mov ax, ss:[tmpFLReg]
 	mov [esp].IRET32.rCSd, esi
-	and ah,08Fh					;reset IOPL,NT
+	and ah, 08Fh		; reset IOPL,NT
 if ?PMIOPL
 	or ah, ?PMIOPL shl 4
+else
+	test byte ptr ss:[dwFeatures], 2
+	jz @F
+	.586p
+	mov ecx, cr4
+	.386p
+	test cl, 2			; PVI set?
+	jz @F
+ if ?IFALWAYSON
+;--- if CR4.PVI is on, set IF=1 and VIF=rm IF
+	bts eax, 9			; set IF
+	jnc @F
+	bts eax, 19			; set VIF if IF was 1
+@@:
+ else
+	test ah, 2
+	jz @F
+	bts eax, 19			; set VIF if IF is 1
+@@:
+ endif
 endif
 	mov [esp].IRET32.rFL, eax
 	mov [esp].IRET32.rSP, ebx

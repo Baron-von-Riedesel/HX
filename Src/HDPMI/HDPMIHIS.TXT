@@ -15,6 +15,7 @@
   þ HDPMIxxi: int 31h, ax=9xx functions will get/set the virtual flag (VIF) if
     CR4.PVI is set.
   þ HDPMIxxi: new API function 9 to trap CLI/STI.
+  þ cmdline option -x got an optional shift factor.
  
   28.01.2023, version 3.20
 

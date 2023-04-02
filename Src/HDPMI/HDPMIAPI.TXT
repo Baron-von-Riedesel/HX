@@ -86,7 +86,11 @@
 
   3) CLI/STI trapping ( AX=9 )
 
-  For performance reasons, there's no stack switch; the handler proc must
-  exit with an IRET/D, which will directly return to the interrupted
-  ring3 code.
+   On entry, HDPMI has already changed the IF ( cleared IF for CLI, set IF for
+  STI ). For performance reasons, there's no stack switch; the handler proc
+  must exit with an IRET/D, which will directly return to the interrupted
+  ring3 code. All registers must be preserved.
+   If CR4 PVI is set, no exception is triggered on CLI/STI, hence the handler
+  won't be called ( for STI, this isn't entirely true: if the VIP flag is set,
+  an exception is generated; as for HDPMI, it will never set this bit ).
 

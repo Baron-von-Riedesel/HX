@@ -482,14 +482,14 @@ I3109FR ends
 ;--- v3.21: if PVI is set in CR4, get/set the VIF
 
 ife ?PMIOPL 
-VIRTIF equ 1	;1=support VIF
+VIRTIF equ 0	;1=set/reset VIF instead of IF
 else
 VIRTIF equ 0
 endif
 
 func09 proc
 if VIRTIF
-	test ss:[dwFeatures], 2		;VIF supported
+	test byte ptr ss:[dwFeatures], 2	; PVI supported?
 	jz @F
 	.586
 	mov ebx, cr4

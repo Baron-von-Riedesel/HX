@@ -1017,6 +1017,9 @@ else
 bFPUAnd		db not (CR0_EM or CR0_TS)
 bFPUOr		db 0
 endif
+if ?RESTRICTMEM
+resshift	db 0				;shift right factor for -x option
+endif
 
 if ?KDSUPP
 fDebug	  db 0					;kernel debugger present?
@@ -1032,6 +1035,7 @@ ifdef _DEBUG
 traceflgs  dw ?LOG_INT30 or ?LOG_INTRMCB or ?LOG_INT31GEN
 bStdout db 80h
 endif
+
 ;--- table of real-mode IVT vectors to intercept
 
 @jmpoldvec macro intno
@@ -1441,8 +1445,22 @@ else
 	mov [esi].IRET16PM.rFL,ax
 endif
 
-	and ah,not (_NT or _IF or _TF)		;NT,IF,TF reset
-	mov [esp].EXC2INT.n.rFL,eax
+	and ah, not (1+2)		;reset IF & TF
+ife ?PMIOPL
+ if ?IFALWAYSON
+	test byte ptr ss:[dwFeatures], 2
+	jz @F
+	.586p
+	mov ebx, cr4
+	.486p
+	test bl, 2
+	jz @F
+	or ah, 2
+@@:
+ endif
+	btr eax, 19
+endif
+	mov [esp].EXC2INT.n.rFL, eax
 
 	pop edi
 	pop esi
@@ -1541,7 +1559,7 @@ lpms_call_int proc public
 
 	cmp [esp+4].IRET32.rCS,_CSSEL_ ;interrupt in ring 0?
 	jz lpms_call_inr0
-	sub esp,sizeof RETF32+4
+	sub esp,sizeof IRET32
 	push ds
 	push eax
 	push edx
@@ -1552,10 +1570,9 @@ rEdi	dd ?
 rEdx	dd ?
 rEax	dd ?
 rDs		dd ?
-rEfl	dd ?
-retfs	RETF32 <>
+new		IRET32 <>
 pR3Proc	dd ?
-iret32  IRET32 <>
+old		IRET32 <>
 IRQFRAME ends
 
 	mov edi,[esp].IRQFRAME.pR3Proc
@@ -1566,47 +1583,61 @@ else
 	movzx eax, cs:[edi].R3PROC._Eip
 	movzx edx, cs:[edi].R3PROC._Cs
 endif
-	mov [esp].IRQFRAME.retfs.rIP,eax
-	mov [esp].IRQFRAME.retfs.rCSd,edx
+	mov [esp].IRQFRAME.new.rIP,eax
+	mov [esp].IRQFRAME.new.rCSd,edx
 
 	cmp ss:bLPMSused,0			;LPMS free?
 	jz lpms_ci_21
 
-	lds edi, [esp].IRQFRAME.iret32.rSSSP
+	lds edi, [esp].IRQFRAME.old.rSSSP
 	sub edi,sizeof IRETSPM
-	mov [esp].IRQFRAME.retfs.rSP, edi
-	mov [esp].IRQFRAME.retfs.rSS, ds
+	mov [esp].IRQFRAME.new.rSP, edi
+	mov [esp].IRQFRAME.new.rSS, ds
 ife ?32BIT
 	@checkssattr ds,di
 endif
 
-	mov eax, [esp].IRQFRAME.iret32.rIP
-	mov edx, [esp].IRQFRAME.iret32.rCSd
+	mov eax, [esp].IRQFRAME.old.rIP
+	mov edx, [esp].IRQFRAME.old.rCSd
 if ?32BIT
 	mov [edi].IRETSPM.rIP, eax
 	mov [edi].IRETSPM.rCSd, edx
-	mov eax, [esp].IRQFRAME.iret32.rFL
+	mov eax, [esp].IRQFRAME.old.rFL
 	mov [edi].IRETSPM.rFL, eax
 else
 	mov [edi].IRETSPM.rIP, ax
 	mov [edi].IRETSPM.rCS, dx
-	mov eax, [esp].IRQFRAME.iret32.rFL
+	mov eax, [esp].IRQFRAME.old.rFL
 	mov [edi].IRETSPM.rFL, ax
 endif
-	and ah,not 3		;reset TF + IF
-	mov [esp].IRQFRAME.rEfl,eax
+	and ah, not 1+2		;reset TF + IF
+ife ?PMIOPL
+ if ?IFALWAYSON
+	test byte ptr ss:[dwFeatures], 2
+	jz @F
+	.586p
+	mov edx, cr4
+	.486p
+	test dl, 2
+	jz @F
+	or ah, 2
+@@:
+ endif
+	btr eax, 19
+endif
+	mov [esp].IRQFRAME.new.rFL, eax
 if 0;_LTRACE_	;this might be called quite frequently, spoiling any useful log file
 	push ebp
 	mov ebp, esp
 	@dprintf "lpms_call_int, nosw:ip=%X:%lX fl=%lX nip=%X:%lX nsp=%X:%lX",\
-		[ebp+4].IRQFRAME.iret32.rCS,[ebp+4].IRQFRAME.iret32.rIP,[ebp+4].IRQFRAME.iret32.rFL,\
-		[ebp+4].IRQFRAME.retfs.rCS,[ebp+4].IRQFRAME.retfs.rIP,[ebp+4].IRQFRAME.retfs.rSS,[ebp+4].IRQFRAME.retfs.rSP
+		[ebp+4].IRQFRAME.old.rCS,[ebp+4].IRQFRAME.old.rIP,[ebp+4].IRQFRAME.old.rFL,\
+		[ebp+4].IRQFRAME.new.rCS,[ebp+4].IRQFRAME.new.rIP,[ebp+4].IRQFRAME.new.rSS,[ebp+4].IRQFRAME.new.rSP
 	mov ds, [ebp+4].IRQFRAME.rDs
-	mov ds, [ebp+4].IRQFRAME.retfs.rSS
-	mov ds, [ebp+4].IRQFRAME.retfs.rCS
-	lsl eax, [ebp+4].IRQFRAME.retfs.rSSd
-	lar edx, [ebp+4].IRQFRAME.retfs.rSSd
-	@dprintf "lpms_call_int, nosw: nfl=%lX ds:esi=%X:%lX slSS=%lX arSS=%lX",[ebp+4].IRQFRAME.rEfl, word ptr [ebp+4].IRQFRAME.rDs, esi, eax, edx
+	mov ds, [ebp+4].IRQFRAME.new.rSS
+	mov ds, [ebp+4].IRQFRAME.new.rCS
+	lsl eax, [ebp+4].IRQFRAME.new.rSSd
+	lar edx, [ebp+4].IRQFRAME.new.rSSd
+	@dprintf "lpms_call_int, nosw: nfl=%lX ds:esi=%X:%lX slSS=%lX arSS=%lX",[ebp+4].IRQFRAME.new.rFL, word ptr [ebp+4].IRQFRAME.rDs, esi, eax, edx
 	pop ebp
 endif
 	jmp done
@@ -1620,8 +1651,8 @@ endif
 ;--- + client EIP, CS
 
 lpms_ci_21:
-	mov eax, [esp].IRQFRAME.iret32.rSP
-	mov edx, [esp].IRQFRAME.iret32.rSSd
+	mov eax, [esp].IRQFRAME.old.rSP
+	mov edx, [esp].IRQFRAME.old.rSSd
 	mov dword ptr ss:spPMS+0,eax
 	mov dword ptr ss:spPMS+4,edx
 	mov ss:bLPMSused,1
@@ -1631,13 +1662,13 @@ ifdef _DEBUG
 	@dprintf "lpms_call_int, sw: invalid PMS=%X:%lX", dx, eax
 @@:
 endif
-	mov edi,?LPMSSIZE- (2*4 + sizeof IRETSPM)	;initial value LPMS
-	mov eax,_LPMSSEL_
+	mov edi, ?LPMSSIZE- (2*4 + sizeof IRETSPM)	;initial value LPMS
+	mov eax, _LPMSSEL_
 	mov ds,eax
-	mov [esp].IRQFRAME.retfs.rSP, edi
-	mov [esp].IRQFRAME.retfs.rSSd, eax
+	mov [esp].IRQFRAME.new.rSP, edi
+	mov [esp].IRQFRAME.new.rSSd, eax
 
-	mov eax, [esp].IRQFRAME.iret32.rFL
+	mov eax, [esp].IRQFRAME.old.rFL
 	mov [edi].IRETSPM.rIP, _RTINT_
 	mov [edi].IRETSPM.rCS, _INTSEL_
 if ?32BIT
@@ -1645,11 +1676,25 @@ if ?32BIT
 else
 	mov [edi].IRETSPM.rFL, ax
 endif
-	and ah,not 3		;reset TF + IF
-	mov [esp].IRQFRAME.rEfl,eax
+	and ah, not 1+2		;reset TF + IF
+ife ?PMIOPL
+ if ?IFALWAYSON
+	test byte ptr ss:[dwFeatures], 2
+	jz @F
+	.586p
+	mov edx, cr4
+	.486p
+	test dl, 2
+	jz @F
+	or ah, 2
+@@:
+ endif
+	btr eax, 19
+endif
+	mov [esp].IRQFRAME.new.rFL, eax
 
-	mov eax, [esp].IRQFRAME.iret32.rIP
-	mov edx, [esp].IRQFRAME.iret32.rCSd
+	mov eax, [esp].IRQFRAME.old.rIP
+	mov edx, [esp].IRQFRAME.old.rCSd
 	mov [edi+sizeof IRETSPM+0], eax
 	mov [edi+sizeof IRETSPM+4], edx
 
@@ -1657,10 +1702,10 @@ if 0;_LTRACE_	;this might be called quite frequently, spoiling any useful log fi
 	push ebp
 	mov ebp,esp
 	@dprintf "lpms_call_int, sw:ip=%X:%lX sp=%X:%lX fl=%lX nip=%X:%lX nsp=%X:%lX",\
-		[ebp+4].IRQFRAME.iret32.rCS, [ebp+4].IRQFRAME.iret32.rIP,\
-		[ebp+4].IRQFRAME.iret32.rSS, [ebp+4].IRQFRAME.iret32.rSP,\
-		[ebp+4].IRQFRAME.iret32.rFL
-		[ebp+4].IRQFRAME.retfs.rCS,[ebp+4].IRQFRAME.retfs.rIP,[ebp+4].IRQFRAME.retfs.rSS,[ebp+4].IRQFRAME.retfs.rSP
+		[ebp+4].IRQFRAME.old.rCS, [ebp+4].IRQFRAME.old.rIP,\
+		[ebp+4].IRQFRAME.old.rSS, [ebp+4].IRQFRAME.old.rSP,\
+		[ebp+4].IRQFRAME.old.rFL
+		[ebp+4].IRQFRAME.new.rCS,[ebp+4].IRQFRAME.new.rIP,[ebp+4].IRQFRAME.new.rSS,[ebp+4].IRQFRAME.new.rSP
 	pop ebp
 endif   
 
@@ -1669,8 +1714,7 @@ done:
 	pop edx
 	pop eax
 	pop ds
-	popfd
-	retf
+	iretd
 
 ;*** IRQ in Ring 0 - this is not possible currently
 ;--- just do a fatal exit.
@@ -1696,14 +1740,14 @@ dwEsp0	dd ?		;old taskseg._Esp0
 iro		IRET32PM <>	;the frame that returns to where the IRQ has happened in r0
 IRQ0FR ends
 
-if _LTRACE_
+ if _LTRACE_
 	push ebp
 	mov ebp,esp
 	@dprintf "lpms_call_int: cs:ip=%X:%lX fl=%lX",\
 		[ebp+4].IRQ0FR.iro.rCS, [ebp+4].IRQ0FR.iro.rIP, [ebp+4].IRQ0FR.iro.rFL
 	pop ebp
 ;	@dprintf "lpms_call_int: esp=%lX", esp
-endif
+ endif
 ;--- build the IRET32 frame that returns to r0.
 ;--- the old taskseg._Esp0 is on the stack and
 ;--- may be used to get the r3 ss:esp.
@@ -1720,7 +1764,7 @@ endif
 	pop ebp
 	mov [esp+4].IRQ0FR.irn.rSSd, eax
 	pop eax
-if _LTRACE_
+ if _LTRACE_
 	push ebp
 	mov ebp,esp
 	@dprintf "lpms_call_int: irq in r0, cs:ip=%X:%lX fl=%lX, ss:sp=%X:%lX",\
@@ -1728,7 +1772,7 @@ if _LTRACE_
 		[ebp+4].IRQ0FR.irn.rFL,\
 		[ebp+4].IRQ0FR.irn.rSS, [ebp+4].IRQ0FR.irn.rSP
 	pop ebp
-endif
+ endif
 	jmp lpms_call_int
 
 ;--- returning from r3 interrupt handler
@@ -1740,18 +1784,19 @@ _retirqr0::
 	xchg eax,[esp]
 	mov ss:taskseg._Esp0, eax		;restore hoststack entry value
 	pop eax
-if _LTRACE_
+ if _LTRACE_
 	push ebp
 	mov ebp,esp
 	@dprintf "retirqr0: cs:ip=%X:%lX fl=%lX", [ebp+4].IRET32PM.rCS, [ebp+4].IRET32PM.rIP, [ebp+4].IRET32PM.rFL
 	pop ebp
 ;	@dprintf "retirqr0: esp=%lX", esp
-endif
+ endif
 	iretd	;return to ring 0 code that was interrupted.
 else
 	mov ax,_EAERR3_
 	jmp _exitclientEx
-endif
+endif ; ?ALLOWR0IRQ or ?EMUHLTINR0
+
 	align 4
 
 lpms_call_int endp
@@ -1824,19 +1869,19 @@ rpmstacki endp
 ;*** [ESP+4]: R3FAULT32 (ErrCode,EIP,CS,EFL,...
 ;*** ----------------------------------------------
 ;*** - build a DPMIEXC frame on L/PMS:
-;*** - build a RETF32 frame on host stack
-;*** - execute RETFD
+;*** - build a IRET32 frame on host stack
+;*** - execute IRET32
 
 	@ResetTrace
 
 LCEFR struct
-r		RETF32 <>
+r		IRET32 <>
 dwExc	dd ?
 f		R3FAULT32 <>	;or R0FAULT32 for an exception in ring 0
 LCEFR ends
 
 lpms_call_exc proc
-	sub esp,sizeof RETF32
+	sub esp,sizeof IRET32
 	push ebp
 	mov ebp,esp
 	push eax
@@ -1977,6 +2022,22 @@ else
 	mov [edi].DPMIEXC.rSP, dx
 	mov [edi].DPMIEXC.rSS, si
 endif
+	and ah, not 1+2
+ife ?PMIOPL
+ if ?IFALWAYSON
+	test byte ptr ss:[dwFeatures], 2
+	jz @F
+	.586p
+	mov ecx, cr4
+	test cl, 2
+	jz @F
+	or ah, 2
+@@:
+ endif
+	btr eax, 19
+endif
+	mov [ebp+4].LCEFR.r.rFL, eax
+
 	mov edi, [ebp+4].LCEFR.dwExc
   if ?32BIT
 	mov eax, cs:[edi*sizeof R3PROC+offset excvec].R3PROC._Eip
@@ -1989,8 +2050,8 @@ endif
 	mov [ebp+4].LCEFR.r.rCSd, esi
 
 	@dprintf "jmp handler: cs:ip=%X:%lX ss:sp=%X:%lX",\
-		[ebp+4].RETF32.rCS, [ebp+4].RETF32.rIP,\
-		[ebp+4].RETF32.rSS, [ebp+4].RETF32.rSP
+		[ebp+4].LCEFR.r.rCS, [ebp+4].LCEFR.r.rIP,\
+		[ebp+4].LCEFR.r.rSS, [ebp+4].LCEFR.r.rSP
 
 	pop ds
 	pop edi
@@ -1999,7 +2060,7 @@ endif
 	pop ecx
 	pop eax
 	pop ebp
-	retf
+	iretd
 	align 4
 lpms_call_exc endp
 
@@ -2008,7 +2069,7 @@ lpms_call_exc endp
 lpms_call_host_exc proc
 
 LCEFR0 struct
-r	 	RETF32 <>
+r	 	IRET32 <>
 dwExc	dd ?
 f	  	R0FAULT32 <>
 LCEFR0 ends
@@ -2053,13 +2114,14 @@ endif
 	mov esp, ss:taskseg._Esi
 	@dprintf "an exception occured in ring 0, ss unknown"
 	jmp _exceptZ
+
 ss_is_hoststack:        
 	mov eax,[ebp+4].LCEFR0.dwExc
 
 	@dprintf "an exception %X occured in ring 0",ax
 if _LTRACE_
 	push eax
-	lar eax, [ebp+4].LCEFR.f.rCSd
+	lar eax, [ebp+4].LCEFR0.f.rCSd
 	@dprintf "acc rights of CS=%lX",eax
 	pop eax
 endif
@@ -2084,7 +2146,7 @@ LCEFR0X ends
 	jnc nodpmi10handlerX
 	pop eax
 	pop ebp
-	add esp, sizeof RETF32
+	add esp, sizeof IRET32
 	pop ss:taskseg._Eax			;get exception no
 	push ds
 	push es
@@ -2121,6 +2183,7 @@ LCEFR0X ends
 	popad
 	@dprintf "frame for exc in ring 0 built, esp=%lX, jmp to lpms_call_exc",esp
 	jmp lpms_call_exc
+
 retexcr0::
 if _LTRACE_
 	push ebp
@@ -2137,6 +2200,7 @@ endif
 	pop ds
 	lea esp, [esp+4]	;skip error code
 	iretd
+
 nodpmi10handlerX:
 endif
 
@@ -2214,8 +2278,8 @@ lpms_ce_4:
 @@:
 	pop eax
 	pop ebp
-	add esp,sizeof RETF32 + 4 + 4	;RETF4 + excno + errcode
-	and byte ptr [esp].IRET32.rFL+1,not 1
+	add esp,sizeof IRET32 + 4 + 4	;RETF32 + excno + errcode
+	and byte ptr [esp].IRET32.rFL+1, not 1
 	iretd
 endif
 	align 4
@@ -3775,10 +3839,15 @@ _DATA32C ends
 
 emuspecregmove2:
 ife ?EMUMOVCR0REG
+ ife ?PMIOPL
+	test ss:[bEnvFlags2], ENVF2_CLRHIWORD	; allow "mov cr0, reg" (32RTM.EXE)
+	jnz @F
+ endif
 	mov al,[esi]
 	and al,0F8h
 	cmp al,0C0h		; mov cr0, reg?
 	jz done			; return and do a GPF
+@@:
 endif
 emuspecregmove:
 	lodsb
@@ -4909,20 +4978,20 @@ endif
 	pushfd
 	pop eax
 	mov ax, es:[edi].INITCLRM.wFlags
-	and ax, 8FFEh			;clear CF, IOPL, NT
+	and ax, 8FFEh			; clear CF, IOPL, NT
 if ?PMIOPL
-	or ah, ?PMIOPL shl 4	;set protected-mode IOPL
-elseif ?SETVIF
-	test dwFeatures, 2
+	or ah, ?PMIOPL shl 4	; set protected-mode IOPL
+else
+	test ah, 2				; IF set?
 	jz @F
-	test ah, 2
+	test dwFeatures, 2		; PVI supported?
 	jz @F
 	.586
 	mov ecx, cr4
 	.386
-	test cl, 2
+	test cl, 2				; PVI set?
 	jz @F
-	bts eax, 19		; set VIF if PVI is set
+	bts eax, 19				; set VIF
 @@:
 endif
 	mov [ebp].INITCLPM.rFL, eax
