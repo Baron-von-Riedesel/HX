@@ -28,6 +28,14 @@
 
  2. History
 
+ 04/2023: V2.7
+
+ þ optionally redirect stdout.
+
+ 02/16/2020: V2.6
+ 
+ þ initial upload to github; some formal changes.
+
  05/27/2011: V2.5
  
  þ "Maximize main window" added to menu.

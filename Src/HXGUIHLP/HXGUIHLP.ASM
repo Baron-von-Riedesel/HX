@@ -24,6 +24,7 @@
 
 ?USEVALLOC	equ 0	;1=use VirtualAlloc, 0=use LocalAlloc
 ?LOGSTDERR	equ 1	;1=log output to stderr to a file
+?LOGSTDOUT	equ 1	;1=log output to stdout to a file
 
 SAVESTATE	struct
 dwMode		DWORD ?
@@ -46,6 +47,10 @@ if ?LOGSTDERR
 g_hStdErr	DWORD -1
 g_hStdErrOld DWORD -1
 endif
+if ?LOGSTDOUT
+g_hStdOut	DWORD -1
+g_hStdOutOld DWORD -1
+endif
 
 g_bWait 	DWORD 0
 g_bSave 	DWORD 0
@@ -64,6 +69,9 @@ g_bCtrl		BYTE -1
 szIni		db MAX_PATH dup (?)
 if ?LOGSTDERR
 szStdErr	db MAX_PATH dup (?)
+endif
+if ?LOGSTDOUT
+szStdOut	db MAX_PATH dup (?)
 endif
 
 lp		LOGPALETTE {}
@@ -830,6 +838,21 @@ local	szFont[MAX_PATH]:byte
 		add esi, 4
 	.endw
 
+if ?LOGSTDOUT
+	invoke GetPrivateProfileString, offset szOptions, CStr("stdout"), CStr(""),\
+			addr szFont, sizeof szFont, addr szIni
+	.if (eax)
+		invoke ExpandEnvironmentStringsA, addr szFont, addr szStdOut, sizeof szStdOut
+		invoke CreateFile, addr szStdOut, GENERIC_WRITE, 0, 0, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, 0
+		.if (eax != -1)
+			mov g_hStdOut, eax
+			invoke GetStdHandle, STD_OUTPUT_HANDLE
+			mov g_hStdOutOld, eax
+			invoke SetStdHandle, STD_OUTPUT_HANDLE, g_hStdOut
+		.endif
+	.endif
+endif
+
 if ?LOGSTDERR
 	invoke GetPrivateProfileString, offset szOptions, CStr("stderr"), CStr(""),\
 			addr szFont, sizeof szFont, addr szIni
@@ -1049,6 +1072,14 @@ if ?LOGSTDERR
 				mov esp, dwEsp
 			.endif
 		.endif
+	.endif
+endif
+if ?LOGSTDOUT
+	.if (g_hStdOut != -1)
+		invoke GetFileSize, g_hStdOut, NULL
+		mov ebx, eax
+		invoke SetStdHandle, STD_OUTPUT_HANDLE, g_hStdOutOld
+		invoke CloseHandle, g_hStdOut
 	.endif
 endif
 	@strace <"HXGUIHlp Deinit exit">
