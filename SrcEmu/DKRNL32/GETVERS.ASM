@@ -8,6 +8,8 @@ endif
 	option casemap:none
 	option proc:private
 
+;--- versions set in NTPROCS.ASM may differ!
+
 ?MAJVER	equ 4h		;4=win NT/win9x, 5=2K/XP
 ?MINVER	equ 0h
 ?BUILD	equ 2222

@@ -830,9 +830,9 @@ if ?SBPRO
 ;--- set mixer mono/stereo
 
 		.if (g_dwChannels == 2)
-			mov cl, 11h+2
+			mov cl, 11h or 2	; bit 1: 1=stereo
 		.else
-			mov cl, 11h+0
+			mov cl, 11h			; bit 1: 0=mono
 		.endif
 
 		mov edx, g_dwSBBase
@@ -844,6 +844,7 @@ if ?SBPRO
 		out dx, al
 
 ;--- set DSP time constant
+;--- it's: 256 - 1000000 / ( channels * rate )
 
 		mov ecx, g_dwSamplesPerSec
 		mov edx, g_dwChannels
@@ -854,22 +855,22 @@ if ?SBPRO
 		cdq
 		div ecx
 		neg al
-		mov cl,al
+		push eax
 		WRITEDSP g_dwSBBase, DSP_SETTIMECONST
 		WAITWRITE
-		mov al,cl
-		out dx,al
+		pop eax
+		out dx, al
 
 ;--- set DSP DMA blocksize
 
 		WRITEDSP g_dwSBBase, DSP_SETDMABLOCKSIZE
 		WAITWRITE
 		mov ecx, g_dwDmaPart
-		dec ecx
-		mov al,cl		;first LOWER PART
+		dec ecx			; samples - 1
+		mov al,cl		;low byte first
 		out dx,al
 		WAITWRITE
-		mov al,ch		;then HIGHER PART
+		mov al,ch
 		out dx,al
 ;		WRITEDSP g_dwSBBase, DSP_ENABLESPEAKER
 	.endif
@@ -878,7 +879,7 @@ endif
 		WRITEDSP g_dwSBBase, DSP_SETOUTSAMPLERATE
 		mov ecx, g_dwSamplesPerSec
 		WAITWRITE
-		mov al,ch
+		mov al,ch	; high byte first
 		out dx,al
 		WAITWRITE
 		mov al,cl

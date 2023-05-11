@@ -14,6 +14,12 @@ endif
 	include winbase.inc
 	include macros.inc
 
+;--- versions set in GETVERS.ASM may differ!
+
+?MAJVER	equ 5		;4=win NT/win9x, 5=2K/XP
+?MINVER	equ 1
+?BUILD	equ 2222
+
 TIBSEG segment use16
 TIBSEG ends
 	assume fs:TIBSEG	;declare FS=TIB a 16 bit segment (saves space)
@@ -78,13 +84,21 @@ RtlExReAllocateHeap endp
 
 ;--- imported by MSVCRT.DLL of WinXP
 
-RtlGetNtVersionNumbers proc public p1:ptr DWORD, p2:ptr DWORD
-	mov ecx,p1
-	mov dword ptr [ecx],5
-	mov ecx,p2
-	mov dword ptr [ecx],1
+RtlGetNtVersionNumbers proc public pMajorVersion:ptr DWORD, pMinorVersion:ptr DWORD, pBuildNumber:ptr DWORD
+	mov ecx,pMajorVersion
+	jecxz @F
+	mov dword ptr [ecx], ?MAJVER
+@@:
+	mov ecx,pMinorVersion
+	jecxz @F
+	mov dword ptr [ecx], ?MINVER
+@@:
+	mov ecx,pBuildNumber
+	jecxz @F
+	mov dword ptr [ecx], ?BUILD
+@@:
 	@mov eax,1
-	@strace <"RtlGetNtVersionNumbers(", p1, ", ", p2, ")=", eax>
+	@strace <"RtlGetNtVersionNumbers(", pMajorVersion, ", ", pMinorVersion, ", ", pBuildNumber, ")=", eax>
 	ret
 	align 4
 RtlGetNtVersionNumbers endp        
