@@ -430,7 +430,7 @@ vds_05:
 	pushad
 	push byte ptr _FLATSEL_
 	pop ds
-	test dx,0FF3Fh
+	test dx,0FF3Fh	; 40h=return PTEs, 80h=???
 	jnz error10
 ;	test dl,40h
 ;	jz error0F

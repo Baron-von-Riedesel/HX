@@ -12,8 +12,6 @@
   þ HDPMIxxi.exe are now linked as PE binaries. As with the standard veriants,
     this ensures that 32-bit code and data won't share pages.
   þ HDPMIST: option -t added to display TSS infos.
-  þ HDPMIxxi: int 31h, ax=9xx functions will get/set the virtual flag (VIF) if
-    CR4.PVI is set.
   þ HDPMIxxi: new API function 9 to trap CLI/STI.
   þ cmdline option -x got an optional shift factor.
  

@@ -479,7 +479,9 @@ I3109FR ends
 ;--- ax=0900h: disable virtual interrupt state
 ;--- ax=0901h: enable virtual interrupt state
 ;--- ax=0902h: get virtual interrupt state
-;--- v3.21: if PVI is set in CR4, get/set the VIF
+
+;--- v3.21: VIRTIF added; if PVI is set in CR4, get/set the VIF.
+;--- setting VIRTIF to 1 will cause severe incompatibilities!
 
 ife ?PMIOPL 
 VIRTIF equ 0	;1=set/reset VIF instead of IF
