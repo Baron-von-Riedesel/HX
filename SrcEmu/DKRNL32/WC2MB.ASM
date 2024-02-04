@@ -1,4 +1,7 @@
 
+;--- implements MultiByteToWideChar() and WideCharToMultiByte();
+;--- also dummies: IsValidCodePage(), IsDBCSLeadByte(), IsDBCSLeadByteEx().
+
 	.386
 if ?FLAT
 	.MODEL FLAT, stdcall
@@ -15,6 +18,7 @@ endif
 	.CODE
 
 ;--- returns number of characters written to pMultByte
+;--- if cWideChar == -1, pWideChar is assumed to be zero-terminated.
 ;--- if nBuffSize == 0 pMultByte is not used
 ;--- and eax return the number of bytes required for the buffer
 
@@ -86,8 +90,10 @@ error1:
 WideCharToMultiByte endp
 
 ;--- returns number of characters written to pWideCharString
+;--- if nMultByte == -1, pMultiByteString is assumed to be zero terminated.
 ;--- if nBuffSize == 0 pWideCharString is not used
 ;--- and eax return the number of wide chars required for the buffer
+
 
 MultiByteToWideChar proc public uses esi edi codepage:dword,
 							flags:dword,

@@ -75,6 +75,7 @@ rmcb6   : test allocating and calling 2 rmcbs
 rmcb7   : client terminates inside rmcb with int 21h, ax=4c00h!
 rmcb8   : nested execution of rmcb until host stack is exhausted!
 rmcb9   : cause an exception 10h inside a rmcb, cure it and continue
+setcr0  : read CR0, then write CR0; in 3.20, works with hdpmi32i and HDPMI=2048 only (will crash with option -s)
 setcr4  : set CR4 to 200h (will crash with option -s)
 setmsr  : set MSR registers (will crash with option -s)
 waitkey : helper program for mouse event tests

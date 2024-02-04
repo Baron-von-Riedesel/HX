@@ -3838,8 +3838,8 @@ tmpCode dd ?
 _DATA32C ends
 
 emuspecregmove2:
-ife ?EMUMOVCR0REG
- ife ?PMIOPL
+ife ?EMUMOVCR0REG	; "mov cr0, reg" usually is rejected ( since v3.20 )
+ ife ?PMIOPL		; v3.21: optionally allow it for hdpmixxi - why?
 	test ss:[bEnvFlags2], ENVF2_CLRHIWORD	; allow "mov cr0, reg" (32RTM.EXE)
 	jnz @F
  endif

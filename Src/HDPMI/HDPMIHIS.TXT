@@ -1,7 +1,7 @@
  
  History HDPMI 
 
-  25.03.2023, version 3.21
+  04.02.2024, version 3.21
 
   þ fixed: reset PAE in CR4 only if ensured cpu is in real-mode - previously
     it caused a crash in Qemm if loaded with NOEMS.

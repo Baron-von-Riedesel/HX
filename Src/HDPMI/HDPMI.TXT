@@ -1,6 +1,6 @@
 //////////////////////////////////////////////////////////////////////////////
 /                                                                            /
-/               HDPMI - DPMI Server (Version 3.20)                           /
+/               HDPMI - DPMI Server (Version 3.21)                           /
 /                                                                            /
 //////////////////////////////////////////////////////////////////////////////
 
@@ -549,6 +549,9 @@
    - HLT (F4) 
    - MOV reg,CRx (0F 20 xx) - using ESP for <reg> will not work!
    - MOV CRx,reg (0F 22 xx) - using ESP for <reg> will not work!
+
+   However, trying to write to CR0 will cause a GPF, unless HDPMI=2048
+   option is set (32RTM.EXE compatibility) and client runs with IOPL=0.
 
 
  6.7 Vendor API
