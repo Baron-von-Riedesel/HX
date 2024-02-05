@@ -550,8 +550,8 @@
    - MOV reg,CRx (0F 20 xx) - using ESP for <reg> will not work!
    - MOV CRx,reg (0F 22 xx) - using ESP for <reg> will not work!
 
-   However, trying to write to CR0 will cause a GPF, unless HDPMI=2048
-   option is set (32RTM.EXE compatibility) and client runs with IOPL=0.
+   However, writes to CR0 are only allowed with register EAX as source
+   (32RTM.EXE compatibility) and bits 0 and 31 cannot be changed.
 
 
  6.7 Vendor API

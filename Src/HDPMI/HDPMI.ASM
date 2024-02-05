@@ -3691,7 +3691,7 @@ if ?EMUMOVREGCRX
 endif
 if ?EMUMOVCRXREG or ?EMUMOVCR0REG       
 	cmp al,22h		;mov crx,xxx?
-	jz emuspecregmove2
+	jz emumov2crxreg
 endif
 if ?EMUMOVREGDRX
 	cmp al,21h		;mov xxx,drx?
@@ -3699,7 +3699,7 @@ if ?EMUMOVREGDRX
 endif
 if ?EMUMOVDRXREG
 	cmp al,23h		;mov drx,xxx?
-	jz emuspecregmove2
+	jz emumov2drxreg
 endif
 	jmp done
 donespec:
@@ -3837,18 +3837,20 @@ tmpProc label near		; v3.20: now called "near"
 tmpCode dd ?
 _DATA32C ends
 
-emuspecregmove2:
-ife ?EMUMOVCR0REG	; "mov cr0, reg" usually is rejected ( since v3.20 )
- ife ?PMIOPL		; v3.21: optionally allow it for hdpmixxi - why?
-	test ss:[bEnvFlags2], ENVF2_CLRHIWORD	; allow "mov cr0, reg" (32RTM.EXE)
-	jnz @F
- endif
+emumov2crxreg:      ; "mov crx, reg"
+ife ?EMUMOVCR0REG	; v3.20: "mov cr0, reg" is rejected
 	mov al,[esi]
-	and al,0F8h
-	cmp al,0C0h		; mov cr0, reg?
-	jz done			; return and do a GPF
-@@:
+	test al,038h	; "mov cr0, reg"?
+	jnz emuspecregmove
+	cmp al,0C0h		; "mov cr0, eax"?
+	jnz done		; anything else causes a GPF
+	mov eax, [esp]
+	or eax, 80000001h; v3.21: "mov cr0, eax" is allowed, but bits 0 & 31 stay 1
+	mov cr0, eax
+	inc esi
+	jmp done_emuclisti
 endif
+emumov2drxreg:		; "mov drx, reg"
 emuspecregmove:
 	lodsb
 ;	mov ah,0CBh		;RETF v3.20: changed to near call
