@@ -24,7 +24,8 @@ AOPTD=
 LOPTD=
 !endif
 
-AOPT=-c -nologo -coff -Sg -Fl$* -Fo$* $(AOPTD) -I$(HXINST)\Include
+#AOPT=-c -nologo -coff -Sg -Fl$* -Fo$* $(AOPTD) -I$(HXINST)\Include
+AOPT=-c -nologo -coff -Sg -Fl$* -Fo$* $(AOPTD) -I$(INC32DIR)
 
 ALL: $(OUTDIR) $(OUTDIR)/$(name).EXE $(OUTDIR)\$(name2).EXE
 
