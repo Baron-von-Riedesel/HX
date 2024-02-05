@@ -1817,7 +1817,9 @@ step1:
 	jmp nextitem
 done:
 	mov ecx, ebp
+	jecxz @F		;v3.21: do nothing if pagecnt is zero
 	call updatetlb
+@@:
 	clc
 exit:
 	ret

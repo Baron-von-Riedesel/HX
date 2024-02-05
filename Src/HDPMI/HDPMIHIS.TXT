@@ -14,6 +14,8 @@
   þ HDPMIST: option -t added to display TSS infos.
   þ HDPMIxxi: new API function 9 to trap CLI/STI.
   þ cmdline option -x got an optional shift factor.
+  þ fixed: int 31h, ax=507h may have lasted rather long if 0 page attributes
+    were to set.
  
   28.01.2023, version 3.20
 
