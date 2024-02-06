@@ -24,7 +24,7 @@ $(OUTDIR):
 !if 1
 
 $(OUTDIR)\$(PGM).EXE: $*.obj makefile
-	@jwlink format win pe file $*.obj name $*.EXE libpath $(HXINST)\lib lib dkrnl32,libc32s op q,map=$*.MAP,stub=dpmist32.bin,start=_mainCRTStartup, stack=0x2000, heap=0x1000
+	@jwlink format win pe file $*.obj name $*.EXE libpath $(LIBCOFF) lib dkrnl32,libc32s op q,map=$*.MAP,stub=dpmist32.bin,start=_mainCRTStartup, stack=0x2000, heap=0x1000
 
 $(OUTDIR)\$(PGM).obj: $(PGM).asm makefile
 	@$(ASM) -c -coff -nologo -Sg -Fl$* -Fo$* -I$(INC32DIR) $(PGM).asm

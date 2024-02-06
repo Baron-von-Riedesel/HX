@@ -40,7 +40,7 @@ LOPTS= /NOLOGO /MAP /SUBSYSTEM:CONSOLE /DLL /NOD /ENTRY:DllMain
 NAME=VESA32
 LIBNAME=VESA32S
 !if $(DEBUG)
-LIBS=..\dkrnl32\release\dw2a.obj
+LIBS=..\..\srcemu\dkrnl32\release\dw2a.obj
 !else
 LIBS=
 !endif

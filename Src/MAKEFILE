@@ -65,7 +65,19 @@ ALL:
     @$(MAKE) DEBUG=$(DEBUG) 
     cd ..
 
-install: 
+install:
+	@if not exist $(HXINST)\NUL               mkdir $(HXINST)
+	@if not exist $(HXINST)\Bin\NUL           mkdir $(HXINST)\Bin
+	@if not exist $(HXINST)\Doc\NUL           mkdir $(HXINST)\Doc
+	@if not exist $(HXINST)\Include\NUL       mkdir $(HXINST)\Include
+	@if not exist $(HXINST)\Lib\NUL           mkdir $(HXINST)\Lib
+	@if not exist $(HXINST)\LibOMF\NUL        mkdir $(HXINST)\LibOMF
+	@if not exist $(HXINST)\Lib16\NUL         mkdir $(HXINST)\Lib16
+	@if not exist $(HXINST)\OWSupp\NUL        mkdir $(HXINST)\OWSupp
+	@if not exist $(HXINST)\OWSupp\WDSupp\NUL mkdir $(HXINST)\OWSupp\WDSupp
+	@if not exist $(HXINST)\OWSupp16\NUL      mkdir $(HXINST)\OWSupp16
+	@if not exist $(HXINST)\Unsupp\NUL        mkdir $(HXINST)\UnSupp
+
 	@copy HDPMI\STD16\HDPMI16.EXE   $(HXINST)\Bin
 	@copy HDPMI\STD32\HDPMI32.EXE   $(HXINST)\Bin
 	@copy HDPMI\IOPL016\HDPMI16i.EXE $(HXINST)\Bin

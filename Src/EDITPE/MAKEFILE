@@ -37,7 +37,7 @@ $(OUTDIR)/$(name).EXE: $*.obj makefile
 $(LOPTD) format win pe
 file $*.obj
 name $*.exe 
-libpath $(HXINST)\lib
+libpath $(LIBCOFF)
 lib { dkrnl32.lib libc32s.lib }
 op q,dosseg, m=$*.map, stub=dpmist32.bin $(LOPTD),start=_mainCRTStartup
 <<
@@ -50,7 +50,7 @@ $(OUTDIR)/$(name2).EXE: $*.obj makefile
 format win pe
 file $*.obj
 name $*.exe 
-libpath $(HXINST)\lib
+libpath $(LIBCOFF)
 lib { dkrnl32.lib libc32s.lib }
 op q,m=$*.map, stub=dpmist32.bin, start=_mainCRTStartup $(LOPTD)
 <<

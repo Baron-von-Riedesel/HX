@@ -13,7 +13,7 @@ $(OUTD):
 
 $(OUTD)\$(NAME).EXE: $(OUTD)\$(NAME).obj MAKEFILE
 	@jwlink.exe format win pe name $*.EXE file $*.obj @<<
-lib $(HXINST)\Lib\dkrnl32.lib, $(HXINST)\Lib\libc32s.lib
+lib $(LIBCOFF)\dkrnl32.lib, $(LIBCOFF)\libc32s.lib
 op MAP=$*, start=_mainCRTStartup
 <<
 
