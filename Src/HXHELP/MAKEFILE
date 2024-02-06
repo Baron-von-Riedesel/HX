@@ -50,7 +50,7 @@ $*.obj $(OUTDIR)\privprof.obj
 /out:$*.EXE 
 /subsystem:console
 /stack:0x2000
-/stub:$(HXINST)\bin\dpmild32.bin
+/stub:..\DPMILDR\STUB32\dpmild32.bin
 <<
 !else
 	@$(LINKBIN) format win pe hx ru console name $*.EXE @<<
@@ -66,6 +66,7 @@ ASMOPT=
 
 $(OUTDIR)\$(NAME).EXE: $(OUTDIR)\hxhelp.obj Makefile $(OUTDIR)\privprof.obj
 	@$(LINK16BIN) format dos file $(HXINST)\LibOMF\jmppm32.obj, $*.obj, $(OUTDIR)\privprof.obj name $*.exe op map=$*.map lib $(HXINST)\LibOMF\jmppm32.lib
+
 !endif
 
 $(OUTDIR)\$(NAME).obj: $(NAME).asm hxhelp.inc rmdbghlp.inc version.inc Makefile
