@@ -1708,7 +1708,7 @@ pm_makeregionreadonly endp
 
 updatetlb proc
 if ?USEINVLPG
-	cmp ecx,10	;it's faster to avoid INVLPG for 10+ pages
+	cmp ecx,10		;it's faster to avoid INVLPG for 10+ pages
 	jnc noinvlpg
 	test ss:[fMode2],FM2_NOINVLPG	;option -g or cpu=80386?
 	jnz noinvlpg
@@ -1817,7 +1817,7 @@ step1:
 	jmp nextitem
 done:
 	mov ecx, ebp
-	jecxz @F		;v3.21: do nothing if pagecnt is zero
+	jecxz @F		;v3.21 check added
 	call updatetlb
 @@:
 	clc

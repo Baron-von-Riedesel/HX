@@ -95,6 +95,7 @@
 
   4. History
 
+  08.02.2024, V2.21: -
   28.01.2023, V2.20: -
   30.03.2022, V2.19: VESAMTRR removed.
                      Source for Win32 emulation moved to SRCEMU.

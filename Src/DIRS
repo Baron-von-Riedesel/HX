@@ -1,9 +1,11 @@
 
 # HXINST:  location where to install HX binaries
 # LIBCOFF: location where COFF libraries will be read from
+# CRTLIB:  name of CRT library ( used by EditPE, PEStub, PatchPE )
 
 HXINST=\hx
 LIBCOFF=$(HXINST)\Lib
+CRTLIB=libc32s
 INC32DIR=..\..\Include
 INC16DIR=.
 

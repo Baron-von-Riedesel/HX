@@ -24,7 +24,7 @@ ASMOPT= -c -nologo -coff -Sg -Fl$* -Fo$* -D_ML -I$(INC32DIR) $(AOPTD)
 
 LOPTS= /SUBSYSTEM:CONSOLE /DLL /MAP /NOLOGO /NOD /LIBPATH:$(LIBCOFF)
 
-LIBS=dkrnl32.lib duser32.lib dgdi32.lib libc32s.lib vesa32.lib
+LIBS=dkrnl32.lib duser32.lib dgdi32.lib vesa32.lib
 
 ALL: $(OUTDIR) $(OUTDIR)\$(NAME).DLL
 
@@ -38,7 +38,7 @@ $(OUTDIR)\$(NAME).DLL: $*.obj Makefile
 	@$(LINKBIN) format win pe dll f $*.obj name $*.DLL libpath $(LIBCOFF) lib { $(LIBS) } op q, map=$*.MAP @$(NAME).rsp
 !endif
 
-$(OUTDIR)\$(NAME).obj: $(NAME).asm $(NAME).inc Makefile
+$(OUTDIR)\$(NAME).obj: $(NAME).asm $(NAME).inc vsprintf.inc Makefile
 	@$(ASM) $(ASMOPT) $(NAME).asm
 
 clean:

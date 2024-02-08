@@ -8,6 +8,9 @@
 # in fact is only available in binary format currently. But with this source
 # you may nevertheless get an idea how the implementation works.
 
+#directory where Open Watcom is installed
+OWDIR=\watcom
+
 # directory where WATT-32 is installed
 WATT32=\watt32
 

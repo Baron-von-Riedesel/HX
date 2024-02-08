@@ -2,9 +2,9 @@
 # adjust all paths for your enviroment before trying to create
 # a new DKRNL32.DLL, DUSER32.DLL, DADVAPI.DLL, OLE32.DLL, OLEAUT32.DLL
 # meaning is:
-# LIBCOFF: location where COFF libraries will be read from/copied to
-# LIBOMF:  location where OMF libraries will be read from/copied to
-# OWDIR: location of open watcom installation
+# HXINST:  location where the created binaries will be copied to
+# LIBCOFF: location where COFF libraries will be read from
+# LIBOMF:  location where OMF libraries will be read from
 
 # please note: the names of LIBCOFF and LIBOMF should be different
 # in any case, because files may have equal names

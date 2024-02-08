@@ -13,7 +13,10 @@
 	.386
 	.Model flat,stdcall
 	option casemap:none
+	option proc:private
 
+	.nolist
+	.nocref
 	include winbase.inc
 	include wincon.inc
 	include winuser.inc
@@ -21,6 +24,8 @@
 	include vesa32.inc
 	include macros.inc
 	include dpmi.inc
+	.list
+	.cref
 
 ?USEVALLOC	equ 0	;1=use VirtualAlloc, 0=use LocalAlloc
 ?LOGSTDERR	equ 1	;1=log output to stderr to a file
@@ -117,9 +122,69 @@ options label dword
 
 	.code
 
-printf	proto c :ptr byte, :VARARG
-sprintf	proto c :ptr byte, :ptr byte, :VARARG
-atol	proto c :ptr byte
+	include vsprintf.inc
+
+sprintf proc c pBuffer:ptr byte, pFmt:ptr byte, args:VARARG
+	invoke vsprintf, pBuffer, pFmt, addr args
+	ret
+	align 4
+sprintf endp
+
+printf proc c uses esi pFmt:ptr byte, args:VARARG
+local buffer[256]:byte
+	invoke vsprintf, addr buffer, pFmt, addr args
+	push eax
+	lea esi, buffer
+	.while byte ptr [esi]
+		lodsb
+		cmp al, 10
+		jnz @F
+		mov dl, 13
+		mov ah, 2
+		int 21h
+		mov al, 10
+@@:
+		mov dl, al
+		mov ah, 2
+		int 21h
+	.endw
+	pop eax
+	ret
+	align 4
+printf endp
+
+atol proc c uses esi pszInp:ptr sbyte
+
+	mov esi, pszInp
+	xor edx, edx
+	.while (byte ptr [esi] == ' ')
+		inc esi
+	.endw
+	mov al,[esi]
+	mov cl,0
+	.if (al == '-')
+		inc cl
+		inc esi
+	.elseif (al == '+')
+		inc esi
+	.endif
+	.while (1)
+		lodsb
+		.break .if ((al < '0') || (al > '9'))
+		sub al,'0'
+		movzx eax,al
+		add edx,edx
+		lea edx,[edx+4*edx]
+		add edx, eax
+	.endw
+	mov eax, edx
+	.if (cl)
+		neg eax
+	.endif
+	ret
+	align 4
+atol endp
+
 
 ;--- get an entry from hxguihlp.ini
 ;--- not used currently
@@ -889,9 +954,9 @@ endif
 		invoke EnumVesaModes, offset mycb, 0
 		.if (!eax)
 			.if (g_dwBpp)
-				invoke printf, CStr(<"video mode %ux%ux%u with LFB not supported",10>), g_dwWidth, g_dwHeight, g_dwBpp
+				invoke printf, CStr("video mode %ux%ux%u with LFB not supported",10), g_dwWidth, g_dwHeight, g_dwBpp
 			.else
-				invoke printf, CStr(<"video mode %ux%u with LFB not supported",10>), g_dwWidth, g_dwHeight
+				invoke printf, CStr("video mode %ux%u with LFB not supported",10), g_dwWidth, g_dwHeight
 			.endif
 			mov g_dwHeight, 0
 			invoke ExitProcess, -1
@@ -912,7 +977,7 @@ endif
 
 	invoke SetVesaMode, esi
 	.if (!eax)
-		invoke printf, CStr(<"setting video mode %X failed",10>), esi
+		invoke printf, CStr("setting video mode %X failed",10), esi
 		invoke ExitProcess, -1
 	.endif
 if 0
@@ -1061,7 +1126,7 @@ if ?LOGSTDERR
 				.else
 					sub esp, 256+32
 					mov edi, esp
-					invoke sprintf, edi, CStr(<"errors logged in %s!",13,10>), addr szStdErr
+					invoke sprintf, edi, CStr("errors logged in %s!",13,10), addr szStdErr
 				.endif
 				invoke CloseHandle, esi
 				invoke GetStdHandle, STD_OUTPUT_HANDLE
@@ -1087,13 +1152,11 @@ endif
 
 Deinit endp
 
-externdef c _ioinit:near
 ;--- dll entry
 
 DllMain proc public handle:dword,reason:dword, dwReserved:dword
 
 	.if (reason == DLL_PROCESS_ATTACH)
-		call _ioinit	;added v2.18, 16.2.2020
 		invoke Init
 		@mov eax,1
 	.elseif (reason == DLL_PROCESS_DETACH)

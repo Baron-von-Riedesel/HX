@@ -50,14 +50,12 @@ AOPT= -c -coff -nologo -Sg -Fl$* -Fo$* -D?FLAT=1 $(AOPTD) -I$(INC32DIR)
 
 !if $(USEDLL)
 CRTLIB=$(LIBCOFF)\crtdll.lib
-!else
-CRTLIB=$(LIBCOFF)\libc32s.lib
 !endif
 
-LIBS= $(LIBCOFF)\dkrnl32.lib $(LIBCOFF)\duser32s.lib $(CRTLIB)
+LIBS= dkrnl32.lib duser32s.lib $(CRTLIB)
 
 !if $(MSLINK)
-LOPT=/OUT:$*.EXE /NOLOGO /NODEFAULTLIB /MAP:$*.map /SUBSYSTEM:CONSOLE $(LOPTD) /FIXED:NO  /STUB:dpmist32.bin /MERGE:.rdata=.data /MERGE:.reloc=.text /OPT:NOWIN98 /STACK:0x4000
+LOPT=/OUT:$*.EXE /NOLOGO /NODEFAULTLIB /MAP:$*.map /SUBSYSTEM:CONSOLE $(LOPTD) /LIBPATH:$(LIBCOFF) /FIXED:NO  /STUB:dpmist32.bin /MERGE:.rdata=.data /MERGE:.reloc=.text /OPT:NOWIN98 /STACK:0x4000
 !endif
 
 !endif
@@ -78,7 +76,7 @@ $(OUTDIR)\$(name).EXE: $*.obj makefile
 !if $(MSLINK)
 	@$(LINKBIN) $* $(LIBS) $(LOPT)
 !else
-	@$(LINKBIN) format win pe file $* lib { $(LIBS) } op q, stub=dpmist32.bin, map=$*, stack=0x2000, heap=0x1000
+	@$(LINKBIN) format win pe file $* libpath $(LIBCOFF) lib { $(LIBS) } op q, stub=dpmist32.bin, map=$*, stack=0x2000, heap=0x1000
 !endif
 
 !endif

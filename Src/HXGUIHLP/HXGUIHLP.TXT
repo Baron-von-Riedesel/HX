@@ -28,9 +28,10 @@
 
  2. History
 
- 04/2023: V2.7
+ 08.02.2024: V2.7
 
  þ optionally redirect stdout.
+ þ removed usage of libc32s.
 
  02/16/2020: V2.6
  
