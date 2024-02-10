@@ -23,7 +23,6 @@ $(OUTDIR)\$(NAME).LIB: doscalls.def viocalls.def kbdcalls.def nls.def $(OUTDIR)\
 #	@$(IMPLIBBIN) /nowep $(NAME).lib ..\doscalls.def ..\viocalls.def ..\kbdcalls.def ..\nls.def
 	@$(LIB16BIN) -io -o$(NAME).lib $(SNAME).lib 
 	@cd ..
-	@copy $*.LIB $(HXINST)\Lib16\*.*
 
 # create the static library DOSXXXS.LIB
 
@@ -52,7 +51,10 @@ $(OUTDIR)\$(SNAME).LIB: DOSXXX.MAK doscalls.mod $(DOSOBJMODS) $(VIOOBJMODS) $(KB
 $(SNAME).LIB $(DOSOBJNAMES:.\=+) $(VIOOBJNAMES:.\=+) $(KBDOBJNAMES:.\=+) $(MODS4OBJNAMES:.\=+)
 <<
 	@cd ..
-	@copy $*.LIB $(HXINST)\Lib16\*.*
+
+install:
+	@copy $(OUTDIR)\$(NAME).LIB $(HXINST)\Lib16\*.*
+	@copy $(OUTDIR)\$(SNAME).LIB $(HXINST)\Lib16\*.*
 
 clean: $(DOSOBJMODS) $(VIOOBJMODS) $(KBDOBJMODS) $(MODS4OBJMODS) $(OUTDIR)\$(NAME).LIB $(OUTDIR)\$(SNAME).LIB
 	@del $**
