@@ -1,5 +1,5 @@
 
-  __.02.2024: version 3.9
+  08.02.2024: version 3.9
 
   þ fatal exit if dkrnl32's exception handler detects a 16-bit SS.
   þ fixed: added missing 3. argument for RtlGetNtVersionNumbers().
