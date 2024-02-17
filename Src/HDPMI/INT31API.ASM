@@ -370,18 +370,26 @@ HOSTCAPS equ DPMI10_PAGE_ACCDIRTY + \
 	DPMI10_DEVICEMAPPING + DPMI10_CONVMEMMAPPING + DPMI10_WRITEPROTCLIENT
 endif
 
-dpmi10str	db ?VERMAJOR,?VERMINOR,"HDPMI",0
-SIZEDPMI10	equ $ - dpmi10str
+;dpmi10str	db ?VERMAJOR,?VERMINOR,"HDPMI",0
+;SIZEDPMI10	equ $ - dpmi10str
+
+;--- ax=401h
+;--- in: es:e/di buffer for host string ( 128 byte )
+;--- out: cx, dx, ax
 
 func0401:
 	pushad
-	mov esi, offset dpmi10str
-	mov ecx, SIZEDPMI10
+;	mov esi, offset dpmi10str
+;	mov ecx, SIZEDPMI10
 ife ?32BIT
 	movzx edi, di
 endif
-	db 2Eh				;CS segment prefix
-	rep movsb
+;	db 2Eh				;CS segment prefix
+;	rep movsb
+	mov eax, ("DH" shl 16) or (?VERMINOR shl 8) or ?VERMAJOR
+	stosd
+	mov eax, "IMP"
+	stosd
 	popad
 	xor cx,cx
 	xor dx,dx

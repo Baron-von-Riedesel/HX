@@ -1138,17 +1138,17 @@ exit:
 	align 4
 noxmspage:
 if ?VCPIALLOC
-	test ah,_VCPIFLAG_		   ;is it a vcpi page? 
+	test ah,_VCPIFLAG_		;is it a vcpi page? 
 	jz novcpipage
 
 	@ResetTrace
 
 	pushad
 	mov edx,eax
-	and dx,0F000h			   ;nur VCPI pages sofort  zurueckgeben
-	mov ax,0DE05h			   ;1 page free VCPI
+	and dx,0F000h			;VCPI pages are freed instantly
+	mov ax,0DE05h			;1 page free VCPI
 	call [vcpicall]
-	and ah,ah				   ;ok?
+	and ah,ah				;ok?
 	jnz @F
 	dec [dwVCPIPages]
 @@:
@@ -1157,7 +1157,7 @@ if ?VCPIALLOC
 novcpipage:
 endif
 if 0
-	xor eax, eax			   ;return 0 (value of new page entry 
+	xor eax, eax			;return 0 (value of new page entry 
 else
 	mov eax, PTF_NORMAL
 endif
@@ -1737,6 +1737,15 @@ updatetlb endp
 ;--- out: NC = ok
 ;--- C = failure
 
+;--- valid attributes are:
+;--- bits 0-2: page type
+;--- 000b: change page to uncommitted
+;--- 001b: change page to committed
+;--- 011b: modify attributes without changing page type.
+;--- anything else is invalid and should terminate the function.
+;--- bit 3: 0=r/o, 1=r/w
+;--- bit 4: 0=don't modify acc/dirty bits, 1=modify acc/dirty bits
+
 	@ResetTrace
 
 pm_setpageattributes proc public
@@ -1757,24 +1766,31 @@ nextitem:
 	push ss
 	pop ds
 	mov ah,al
-	and ah,7		   ;001 = committed, 000=uncommitted
-	cmp ah,1			;should page be committed?
-	jnz @F
-	test dl,PTF_PRESENT
+	and ah,7			;000b=uncommitted, 001b=committed, 011b=modify bits 3-6 only
+	cmp ah,1			;should page set to "committed"?
+	jnz nocommit
+
+
+	test dh, _XMSFLAG_ or _VCPIFLAG_; v3.22: page "mapped"?
+	jz @F				; then change it to "committed"
+	test dl, PTF_PRESENT
 	jnz step1			;jmp if page is already committed
+@@:
 	push ecx
 	push eax
 	mov eax, edx
+	and al, not PTF_PRESENT	;v3.22 (clear bit in case it's a mapped page)
 	call getphyspagex	;expects in ECX a hint for XMS block size
 	mov edx, eax
 	pop eax
 	pop ecx
-	jc error		;error, out of physical pages!
+	jc error1			;error, out of physical pages!
 	@dprintf "setpageattr: page %lX [old=%lX] committed [pt=%lX]",eax, edx, edi
 	or dl, PTF_PRESENT or PTF_USER
 	jmp step1
-@@:
-	cmp ah,0			;should page be uncommitted?
+
+nocommit:
+	cmp ah,0			;should page set to "uncommitted"?
 	jnz nouncommit
 	test dl,PTF_PRESENT
 	jz nouncommit		;jump if it is already uncommitted
@@ -1796,7 +1812,11 @@ endif
 @@:
 	mov edx, eax
 	pop eax
+	jmp step1
+
 nouncommit:
+	cmp ah, 3	; v3.22: only 0,1,3 allowed
+	jnz error2
 step1:
 	and dl, not PTF_WRITEABLE
 	test al,08h
@@ -1823,9 +1843,14 @@ done:
 	clc
 exit:
 	ret
-error:
-	sub ebp,ecx
-	mov ecx,ebp		;return pages changed in ECX
+error1:
+	mov ax, 8013h
+	jmp @F
+error2:
+	mov ax, 8002h
+@@:
+	sub ebp, ecx
+	mov ecx, ebp	;return pages changed in ECX
 	stc
 	ret
 	align 4

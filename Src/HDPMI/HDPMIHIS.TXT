@@ -1,6 +1,10 @@
  
  History HDPMI 
 
+  __.__.2024, version 3.22
+  þ fixed: int 31h, ax=507h: reject all page types except 0, 1 and 3; OTOH,
+    allow page type 1 for mapped pages.
+
   04.02.2024, version 3.21
 
   þ fixed: reset PAE in CR4 only if ensured cpu is in real-mode - previously

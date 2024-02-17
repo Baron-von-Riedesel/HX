@@ -1103,6 +1103,7 @@ getpageattr endp		;fall throu
 ;--- es:edx=attributes
 ;--- out: NC = ok
 ;--- C = failure, ECX=pages which have been set
+;--- specific error code 8002h
 
 setpageattr proc public
 setpageattr endp		;fall throu
@@ -1127,7 +1128,7 @@ endif
 	shl edi, 12
 	mov ebx, [ebx].MEMITEM.dwBase
 	add ebx, edi
-	cmp [esp].PUSHADS._AL,07
+	cmp [esp].PUSHADS._AL,07	; ax=507h?
 	jz @F
 	call pm_getpageattributes	;es:edx -> word table, ebx=addr, ecx= size in pages
 	jmp exit
@@ -1135,7 +1136,7 @@ endif
 	call pm_setpageattributes	;es:edx -> word table, ebx=addr, ecx= size in pages
 	jnc exit
 	mov [esp].PUSHADS.rECX, ecx
-	mov [esp].PUSHADS.rAX, 8013h	;physical memory unavailable
+	mov [esp].PUSHADS.rAX, ax	;may be 8013h (out of phys mem) or 8002h (invalid page type)
 exit:
 if _LTRACE_
 	pushfd
