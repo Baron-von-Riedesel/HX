@@ -14,7 +14,7 @@
 	include dpmi.inc
 	.list
 
-?INT41		equ 1	;1=support int 41h debug interface
+?INT41		equ 1	;1=support int 41h debug interface (will crash cwsdpmi)
 ?MZMINSIZ	equ 40h	;size of MZ header to expect/read
 
 ifdef __JWASM__
@@ -345,19 +345,34 @@ endif
 	add esp,34h
 
 if ?INT41
+	push edx
+	sub esp, 128	; check host - int 41h wont work with cwsdpmi
+	mov edi, esp
+	mov ax, 401h
+	int 31h
+	jc @F
+	mov edi, [edi+2]
+@@:
+	add esp, 128
+	pop edx
+
+	cmp edi,"DSWC"
+	jz @F   
 	mov ecx, cs
 	mov ebx, edx
 	mov ax, 59h+100h
 	int 41h
 	mov edx, ebx
+@@:
 endif
 
 ;--- call app/dll entry point
 
-	mov ebx,rmSeg
+	mov ebx, rmSeg
 	shl ebx, 4
-	xor ebp,ebp
 if ?INT41
+	cmp edi,"DSWC"
+	jz @F   
 	mov ax, 4Fh
 	int 41h
 	cmp ax, 0f386h
@@ -365,6 +380,7 @@ if ?INT41
 	int 3
 @@:
 endif
+	xor ebp, ebp
 	call edx
 	mov ah,4Ch
 	int 21h
