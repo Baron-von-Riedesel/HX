@@ -2,8 +2,9 @@
  History HDPMI 
 
   __.__.2024, version 3.22
+  þ fixed regression in v3.21: int 25h/26h caused a GPF in ring 0.
   þ fixed: int 31h, ax=507h: reject all page types except 0, 1 and 3; OTOH,
-    allow page type 1 for mapped pages.
+    allow direct transition from "mapped" to "committed".
 
   04.02.2024, version 3.21
 

@@ -1418,6 +1418,7 @@ endm
 
 ;--- v3.21: simplified real-mode call
 ;--- either NEAR, FAR or IRET frame.
+;--- used by @simrmint - won't work anymore for int 25h/26h!
 
 @call_rm macro dest_rm, ?far, flags
 local rmhelp, pmret

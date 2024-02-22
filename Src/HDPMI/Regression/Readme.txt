@@ -40,6 +40,7 @@ I3103002: test int 31h, ax=0300h, more complex
 I3103011: test int 31h, ax=0301h (call real-mode far proc), 2 words on stack
 I3105032: test int 31h, ax=0503h (resize mem block)
 I310508 : test int 31h, ax=0508h (map phys. device/memory)
+I310508a: test int 31h, ax=0508h (change from mapped to committed)
 I310509 : test int 31h, ax=0509h (map DOS memory)
 I31050B : test int 31h, ax=050Bh (get mem info)
 I31090X : test virtual interrupt functions (int 31, ax=09xxh)

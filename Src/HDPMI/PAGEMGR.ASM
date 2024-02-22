@@ -1765,16 +1765,21 @@ nextitem:
 	mov edx,[edi]		;get PTE
 	push ss
 	pop ds
+
 	mov ah,al
-	and ah,7			;000b=uncommitted, 001b=committed, 011b=modify bits 3-6 only
-	cmp ah,1			;should page set to "committed"?
-	jnz nocommit
+;--- 0=uncommitted, 1=committed, 3=modify bits 3-6 only, 2|4|5|6|7=invalid
+	and al,7
+	jz uncommit
+	cmp al,3
+	jz step1
+	cmp al,1
+	jnz error8021
 
-
+commit:
 	test dh, _XMSFLAG_ or _VCPIFLAG_; v3.22: page "mapped"?
 	jz @F				; then change it to "committed"
 	test dl, PTF_PRESENT
-	jnz step1			;jmp if page is already committed
+	jnz step1			;else done if page is already committed
 @@:
 	push ecx
 	push eax
@@ -1784,16 +1789,14 @@ nextitem:
 	mov edx, eax
 	pop eax
 	pop ecx
-	jc error1			;error, out of physical pages!
+	jc error8013		;error, out of physical pages!
 	@dprintf "setpageattr: page %lX [old=%lX] committed [pt=%lX]",eax, edx, edi
 	or dl, PTF_PRESENT or PTF_USER
 	jmp step1
 
-nocommit:
-	cmp ah,0			;should page set to "uncommitted"?
-	jnz nouncommit
+uncommit:
 	test dl,PTF_PRESENT
-	jz nouncommit		;jump if it is already uncommitted
+	jz step1			;jump if it is already uncommitted
 	push eax
 if _LTRACE_
 	mov eax, edi
@@ -1812,14 +1815,11 @@ endif
 @@:
 	mov edx, eax
 	pop eax
-	jmp step1
 
-nouncommit:
-	cmp ah, 3	; v3.22: only 0,1,3 allowed
-	jnz error2
 step1:
+	mov al, ah
 	and dl, not PTF_WRITEABLE
-	test al,08h
+	test al, 8 
 	jz @F
 	or dl, PTF_WRITEABLE
 @@:
@@ -1843,12 +1843,13 @@ done:
 	clc
 exit:
 	ret
-error1:
-	mov ax, 8013h
+error8013:
+	mov al, 13h
 	jmp @F
-error2:
-	mov ax, 8002h
+error8021:
+	mov al, 21h
 @@:
+	mov ah, 80h
 	sub ebp, ecx
 	mov ecx, ebp	;return pages changed in ECX
 	stc

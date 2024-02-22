@@ -134,10 +134,11 @@ intr24 endp
 
 	@ResetTrace
 
-;--- copy the disk i/o packet to TLB:0
+;--- if ?DIO2RMS=0, copy disk i/o packet to TLB:0
+;--- if ?DIO2RMS=1 (default), copy disk i/o packet to rmstack
 ;--- returns sectors to read/write in AX
 
-copyDiskIo2Tlb proc public
+copyDiskIo2Tlb proc
 	push es
 	push ecx
 	push edx
@@ -202,12 +203,13 @@ error:
 	align 4
 copyDiskIo2Tlb endp
 
-;--- prepare for read: copy io packet to TLB:0 for FAT16/FAT32
+;--- prepare for read: copy I/O packet to TLB:0 for FAT16/FAT32
 ;--- all registers preserved
 ;--- used by int 25h and int 21h, ax=7305h, si=0
 ;--- restricted to TLBSIZE (8 kB)
 
 PrepareDiskIoRead proc public
+
 	cmp cx,-1		;FAT 16 (> 32 MB)?
 	jz isext
 	@dprintf "PrepareDiskIoRead: simple disk io format, cx=%X",cx
@@ -229,7 +231,7 @@ error:
 	align 4
 PrepareDiskIoRead endp
 
-;--- prepare for write: copy io packet to TLB:0 for FAT16/FAT32
+;--- prepare for write: copy i/o packet to TLB:0 for FAT16/FAT32
 ;--- copy data to TLB:0 / TLB:200 
 ;--- all registers preserved
 ;--- used by int 26h and int 21h, ax=7305h, si=1
@@ -294,8 +296,10 @@ error:
 
 PrepareDiskIoWrite endp
 
-;--- copies data from TLB:0 / TLB:200 to buffer address in DS:E/BX
-;--- no registers modified
+;--- copy read data from 
+;--- if ?DIO2RMS=0: TLB:0200
+;--- if ?DIO2RMS=1: TLB:0000
+;--- to buffer address in DS:E/BX; no registers modified
 
 AfterDiskIoRead proc public uses ds esi ecx ebx
 	mov si,ss:[wSegTLB]
@@ -324,6 +328,36 @@ endif
 	align 4
 AfterDiskIoRead endp
 
+;--- call real-mode int 25h/26h
+;--- rewritten for v3.22
+;--- since v3.21, macro @simrmint cannot be used anymore for int 25h/26h
+
+callrmint2526 proc
+	mov byte ptr ss:[int2526rm+1], bl
+ife ?DIO2RMS
+	mov bx, 0
+	call setdsreg2tlb
+else
+	mov ebx, ss:v86iret.rESP
+	push ebx
+	sub ebx, sizeof DISKIORM
+	mov ss:v86iret.rESP, ebx
+	push ss:v86iret.rSS
+	pop ss:v86iret.rDS
+endif
+	@jmp_rm int2526rm
+_TEXT16 segment
+int2526rm:
+	int 00h
+	@jmp_pm done
+_TEXT16 ends
+done:
+if ?DIO2RMS
+	pop ss:v86iret.rESP
+endif
+	ret
+callrmint2526 endp
+
 ;*** absolute disk read ***
 ;*** al=drive
 ;*** cx=sectors (or -1)
@@ -347,20 +381,8 @@ endif
 	call PrepareDiskIoRead
 	jc intr25_1
 	push ebx
-ife ?DIO2RMS
-	mov bx, 0
-	call setdsreg2tlb
-else
-	mov ebx, ss:v86iret.rESP
-	push ebx
-	sub ebx, sizeof DISKIORM
-	push ss:v86iret.rSS
-	pop ss:v86iret.rDS
-endif
-	@simrmint 25h
-if ?DIO2RMS
-	pop ss:v86iret.rESP
-endif
+	mov bl, 25h
+	call callrmint2526
 	pop ebx
 if _LTRACE_
 	pushf
@@ -414,20 +436,8 @@ endif
 	jc intr26_1
 
 	push ebx
-ife ?DIO2RMS
-	mov bx, 0
-	call setdsreg2tlb
-else
-	mov ebx, ss:v86iret.rESP
-	push ebx
-	sub ebx, sizeof DISKIORM
-	push ss:v86iret.rSS
-	pop ss:v86iret.rDS
-endif
-	@simrmint 26h
-if ?DIO2RMS
-	pop ss:v86iret.rESP
-endif
+	mov bl, 26h
+	call callrmint2526
 	pop ebx
 if _LTRACE_
 	pushf

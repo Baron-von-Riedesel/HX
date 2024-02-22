@@ -3507,7 +3507,8 @@ callrmprocintern endp
 ;--- esp+0 : return address
 ;--- esp+4 : int#
 ;--- flags must be preserved ( see int21api.asm, rmdoswithcarry )
-;--- used by macro @simrmint 
+;--- used by macro @simrmint
+;--- simplified in v3.21 - but caused a regression for INT 25h/26h calls (Exc 0Dh)
 
 callrmintintern proc public
 

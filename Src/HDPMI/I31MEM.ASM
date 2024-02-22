@@ -1103,7 +1103,7 @@ getpageattr endp		;fall throu
 ;--- es:edx=attributes
 ;--- out: NC = ok
 ;--- C = failure, ECX=pages which have been set
-;--- specific error code 8002h
+;--- error codes 8023h, 8025h, 8013h, 8021h
 
 setpageattr proc public
 setpageattr endp		;fall throu
@@ -1136,7 +1136,7 @@ endif
 	call pm_setpageattributes	;es:edx -> word table, ebx=addr, ecx= size in pages
 	jnc exit
 	mov [esp].PUSHADS.rECX, ecx
-	mov [esp].PUSHADS.rAX, ax	;may be 8013h (out of phys mem) or 8002h (invalid page type)
+	mov [esp].PUSHADS.rAX, ax	;may be 8013h (out of phys mem) or 8021h (invalid page type)
 exit:
 if _LTRACE_
 	pushfd
