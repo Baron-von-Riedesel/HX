@@ -20,9 +20,9 @@ endif
 	.cref
 	.list
 
-?WOPT equ 0
-?XOPT equ 0
-?ZOPT equ 0
+?WOPT equ 0	; option -w make code sections writable
+?XOPT equ 0	; option -x patch PE to PX
+?ZOPT equ 0	; option -z don't replace stub
 
 LPSTR	typedef ptr BYTE
 lf		equ 0Ah

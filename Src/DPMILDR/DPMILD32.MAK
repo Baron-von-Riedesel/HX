@@ -110,8 +110,8 @@ $(ODIR3)\trace.OBJ: trace.asm dpmildr.inc trace.inc
 $(ODIR4)\HDLD32.BIN: $(MODS4) $(NAME).mak
 	@$(LINK16BIN) format dos file {$(MODS4)} name $*.BIN op q, map=$*.MAP, knoweas 
 
-$(ODIR4)\dpmildr.obj: dpmildr.asm dpmildr.inc peload.inc version.inc ..\HDPMI\STUB32\HDPMI32.INC $(INCTR)
-	@$(ASM) $(AOPT) -D?STUB=1 -D?KERNEL16=0 -D?SERVER=0 -D?HDPMI=1 -D?NEAPPS=0 -I..\HDPMI\STUB32 dpmildr.asm
+$(ODIR4)\dpmildr.obj: dpmildr.asm dpmildr.inc peload.inc version.inc ..\HDPMI\$(ODIR2)\HDPMI32.INC $(INCTR)
+	@$(ASM) $(AOPT) -D?STUB=1 -D?KERNEL16=0 -D?SERVER=0 -D?HDPMI=1 -D?NEAPPS=0 -I..\HDPMI\$(ODIR2) dpmildr.asm
 
 $(ODIR4)\peload.obj: peload.asm dpmildr.inc peload.inc mzhdr32.inc $(INCTR)
 	@$(ASM) $(AOPT) -D?STUB=1 -D?KERNEL16=0 peload.asm

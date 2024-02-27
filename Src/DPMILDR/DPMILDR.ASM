@@ -354,7 +354,7 @@ versionstring textequ @CatStr(!",%?VERMAJOR,.,%?VERMINOR,!")
  endif
 szHello    db lf
 		   db 'DPMI loader v',versionstring,lf
-		   db 'Copyright 1993-2022 Japheth',lf,lf,00
+		   db 'Copyright 1993-2024 Japheth',lf,lf,00
 endif           
 szInitErr  db 'Error in initialization, loading aborted',lf,00
 szShrkErr  db 'memory shrink Error',lf,00
@@ -7835,11 +7835,16 @@ else
 	call inithdpmi
 	mov ax,bp
 	jc error0
+	mov ax, 1687h		; fixed regression in v3.12
+	int 2Fh
   else
 	jmp error0
   endif
 endif
-JumpToPM_3:					; host exists and supports 16/32 bit
+JumpToPM_3:
+;--- host exists and supports 16/32 bit
+;--- es:di = entry protected-mode
+;--- si = paragraphs to supply for dpmi host
 	push es
 	push di
 	test si,si

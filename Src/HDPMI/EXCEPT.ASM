@@ -109,7 +109,7 @@ error:
 	ret
 mygetbase endp
 
-if ?FORCETEXTMODE
+if ?FORCETEXTMODE or (?DOSOUTPUT eq 0)
 forcetextmode proc public
 	test ss:fMode2, FM2_FORCETEXT
 	jz exit

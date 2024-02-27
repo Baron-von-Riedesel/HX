@@ -473,6 +473,10 @@
 
 14.  History
 
+ __.__.2024: version 3.12
+
+ þ regression in v3.10-v3.11: stub version with HDPMI causes a crash.
+
  28.01.2023: version 3.11
 
  þ bugfix: the last few bytes of DPMILD32's exit code was executed as 32-bit,

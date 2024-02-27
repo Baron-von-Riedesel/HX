@@ -78,7 +78,7 @@ _heapalloc        proto near
 ;--- output routines
 
 _stroutx proto near
-if ?FORCETEXTMODE
+if ?FORCETEXTMODE or (?DOSOUTPUT eq 0)
 IsTextMode    proto near
 forcetextmode proto near
 endif
