@@ -10,16 +10,42 @@ OWDIR=\watcom
 OUTOW13=rel_13
 OUTOW14=rel_14
 OUTOW17=rel_17
+OUTOW19=rel_19
+OUTOW20=rel_20
 INPOW13=src_13
 INPOW14=src_14
 INPOW17=src_17
+INPOW19=src_19
+INPOW20=src_20
 
 #ASMOPT= -c -nologo -Sg -Fl$* -Fo$* -D?FLAT=0
 WASMOPT= -q -bt=DOS -ms -3r -fo=$*.OBJ 
 
-ALL: $(OUTOW17)\CSTRTDHX.OBJ $(OUTOW17)\CSTRTWHX.OBJ $(OUTOW17)\SPAWN386.OBJ \
+ALL: $(OUTOW20) $(OUTOW19) $(OUTOW17) $(OUTOW14) $(OUTOW13) \
+	$(OUTOW20)\CSTRTDHX.OBJ \
+	$(OUTOW19)\CSTRTDHX.OBJ \
+	$(OUTOW17)\CSTRTDHX.OBJ $(OUTOW17)\CSTRTWHX.OBJ $(OUTOW17)\SPAWN386.OBJ \
 	$(OUTOW14)\CSTRT386.OBJ $(OUTOW14)\SPAWN386.OBJ \
 	$(OUTOW13)\CSTRT386.OBJ $(OUTOW13)\CSTRT16X.OBJ $(OUTOW13)\CSTRT16Z.OBJ
+
+#-------------------------------------------------------------------------
+
+$(OUTOW20):
+	@mkdir $(OUTOW20)
+
+$(OUTOW20)\CSTRTDHX.OBJ: $(INPOW20)\cstrtdhx.asm Makefile
+	@jwasm -q -DNOUS -Fo$* -Fl$* $(INPOW20)\cstrtdhx.asm
+	@jwasm -q -zf1 -Fo$(OUTOW20)\CSTRTDHXr.OBJ $(INPOW20)\cstrtdhx.asm
+
+#-------------------------------------------------------------------------
+
+$(OUTOW19):
+	@mkdir $(OUTOW19)
+
+$(OUTOW19)\CSTRTDHX.OBJ: $(INPOW19)\cstrtdhx.asm Makefile
+	@jwasm -q -DNOUS -Fo$* -Fl$* $(INPOW19)\cstrtdhx.asm
+
+#-------------------------------------------------------------------------
 
 $(OUTOW17):
 	@mkdir $(OUTOW17)
@@ -47,7 +73,7 @@ $(OUTOW14)\CSTRT386.OBJ: $(INPOW14)\cstrt386.asm Makefile
 
 # the spawn command must be modified for HX (no environment pointer)
 
-$(OUTOW14)\SPAWN386.OBJ: $(INPOW14)\spawn386.asm owmzhlp.inc Makefile
+$(OUTOW14)\SPAWN386.OBJ: $(INPOW14)\spawn386.asm mzsupp\owmzhlp.inc Makefile
 	@$(OWDIR)\BINNT\wasm $(WASMOPT) $(INPOW14)\spawn386.asm
 
 #-------------------------------------------------------------------------
@@ -65,14 +91,16 @@ $(OUTOW13)\CSTRT16Z.OBJ: $(INPOW13)\cstrto16.asm Makefile
 	@$(OWDIR)\BINNT\wasm -q -bt=OS2 -ms -d?MZ=1 -fo=$*.OBJ $(INPOW13)\cstrto16.asm
 
 clean:
+	@del $(OUTOW20)\*.obj
+	@del $(OUTOW19)\*.obj
 	@del $(OUTOW17)\*.obj
 	@del $(OUTOW17)\*.lib
 	@del $(OUTOW14)\*.obj
 	@del $(OUTOW13)\*.obj
 
 install:
-	@copy $(OUTOW17)\CSTRTDHX.OBJ  $(HXINST)\OWSUPP\DOS
-	@copy $(OUTOW17)\CSTRTDHX.OBJ  $(OWDIR)\lib386\dos
+	@copy $(OUTOW19)\CSTRTDHX.OBJ  $(HXINST)\OWSUPP\DOS
+	@copy $(OUTOW19)\CSTRTDHX.OBJ  $(OWDIR)\lib386\dos
 	@copy $(OUTOW17)\CSTRTWHX.OBJ  $(HXINST)\OWSUPP\NT
 	@copy $(OUTOW17)\CSTRTWHX.OBJ  $(OWDIR)\lib386\nt
 	@copy $(OUTOW17)\hxow.lib      $(HXINST)\OWSUPP\DOS

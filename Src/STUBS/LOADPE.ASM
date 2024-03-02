@@ -16,6 +16,7 @@
 
 ?INT41		equ 1	;1=support int 41h debug interface (will crash cwsdpmi)
 ?MZMINSIZ	equ 40h	;size of MZ header to expect/read
+?HANDLELOW	equ 0	;1=handle 16-bit base relocs
 
 ifdef __JWASM__
 	option MZ:?MZMINSIZ	;min size of MZ header if jwasm's -mz option is used
@@ -282,8 +283,12 @@ endif
 	xor eax, eax
 nextreloc:
 	lodsw
-	test ah,0F0h
+	test ah,0F0h	; bits 12-15 are type (3=highlow, 2=low)
 	jz ignreloc
+if ?HANDLELOW
+	test ah,0D0h	; just bit 13 set?
+	jz is16reloc
+endif
 	and ah,0Fh
 	add [eax+ebx], edx
 ignreloc:
@@ -291,6 +296,12 @@ ignreloc:
 	jb nextreloc
 	pop ecx
 	jmp nextpage
+if ?HANDLELOW
+is16reloc:
+	and ah,0fh
+	add [eax+ebx], dx
+	jmp ignreloc
+endif
 reloc_done:
 
 endif	;?NORELOCS

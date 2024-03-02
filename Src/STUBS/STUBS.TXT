@@ -50,7 +50,7 @@
 
  5. History
 
- 02/2024: no int 41h debug support if cwsdpmi is detected.
+ 02/2024: no int 41h debug support if cwsdpmi is detected;
  07/2022: added int 41h debug support to loadpe.
           handle gracefully an installed 16-bit only host.
  05/2018: added another version of LOADPE: LOADPXNR.BIN.
