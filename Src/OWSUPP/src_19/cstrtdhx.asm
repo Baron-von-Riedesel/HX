@@ -71,6 +71,10 @@ endm
 
 include xinit.inc
 
+FLG_NO87        equ     1
+FLG_LFN         equ     1
+
+HX      equ 1
 DOS4G   equ 0
 PHARLAP equ 0
 
@@ -92,7 +96,7 @@ PHARLAP equ 0
         @cextrn   _STACKLOW          , dword
         @cextrn   _STACKTOP          , dword
         @cextrn   _child             , dword
-        extrn    __no87              : word
+        extrn    __no87              : byte
         @cextrn   __uselfn           , byte
         @cextrn   _Extender          , byte
         @cextrn   _ExtenderSubtype   , byte
@@ -232,21 +236,23 @@ around: sti                             ; enable interrupts
 
         assume  ds:DGROUP
 
+if PHARLAP
 PSP_SEG equ     24h
 ENV_SEG equ     2ch
+endif
 
         and     esp,0fffffffch          ; make sure stack is on a 4 byte bdry
         mov     ebx,esp                 ; get sp
         mov     _STACKTOP,ebx           ; set stack top
         mov     _curbrk,ebx             ; set first available memory location
-;--- start HX
-        mov		eax,[esi+3Ch]
-        add		eax,esi
-		add		ebx,4096-1
-        and		bx,0F000h
-        sub		ebx,[eax+4+20+72]		;get PE reserved stack size
-		mov		_STACKLOW,ebx
-;--- end HX
+if HX
+        mov     eax,[esi+3Ch]
+        add     eax,esi
+        add     ebx,4096-1
+        and     bx,0F000h
+        sub     ebx,[eax+4+20+72]       ;get PE reserved stack size
+        mov     _STACKLOW,ebx
+endif
 if PHARLAP
         mov     ax,PSP_SEG              ; get segment address of PSP
         mov     _psp,ax                 ; save segment address of PSP
@@ -254,8 +260,8 @@ endif
 ;
 ;       get DOS & Extender version number
 ;
-        ;mov    ebx,'PHAR'              ; set ebx to "PHAR"
 if PHARLAP
+        ;mov    ebx,'PHAR'              ; set ebx to "PHAR"
         mov     ebx,50484152h           ; set ebx to "PHAR"
 endif
         sub     eax,eax                 ; set eax to 0
@@ -280,12 +286,12 @@ if PHARLAP
         and     ebx,0FFFFF000h          ; - ...
         mov     _curbrk,ebx             ; - set first available memory locn
         shr     ebx,12                  ; - calc. # of 4k pages
-        mov     ax,ds                   ; - set ES=data segment
-        mov     es,ax                   ; - ...
+        mov     eax,ds                  ; - set ES=data segment
+        mov     es,eax                  ; - ...
         mov     ah,4Ah                  ; - shrink block to minimum amount
         int     21h                     ; - ...
         pop     eax                     ; - restore version number
-        mov     bx,ds                   ; - get value of Phar Lap data segment
+        mov     ebx,ds                  ; - get value of Phar Lap data segment
         mov     cx,ENV_SEG              ; - PharLap environment segment
         jmp     short know_extender     ; else
 not_pharlap:                            ; - assume DOS/4G or compatible
@@ -297,7 +303,7 @@ if DOS4G
         cmp     al,0                    ; - ...
 ;        je      short know_extender    ; - quit if not Rational DOS/4G
         je      short not_DOS4G         ; - jmp to non-DOS/4G
-        mov     ax,gs                   ; - get segment address of kernel
+        mov     eax,gs                  ; - get segment address of kernel
         cmp     ax,0                    ; - if not zero
         je      short rat9              ; - then
         mov     __D16Infoseg,ax         ; - - remember it
@@ -317,15 +323,40 @@ rat10:                                  ; - endif
 ;--- added for non-DOS4G support
 not_DOS4G:
 endif
+if HX
+ if 0
         mov     ah,51h                  ; assume we get the PSP selector
-        int     21h                     ; by a simple DOS call
+        int     21h                     ; by a simple DOS call (HDPMI/DPMIONE/Windows only)
+ else
+        push edi
+        xor ecx, ecx
+        push ecx
+        sub esp, 2Eh
+        mov edi, esp
+        mov byte ptr [edi+1Dh], 51h
+        mov [edi+20h], ecx
+        mov bx, 21h
+        mov ax, 300h
+        int 31h
+        mov bx, [edi+10h]
+        add esp, 32h
+        pop edi
+        mov ax, 2
+        int 31h
+        mov ebx, eax
+ endif
         mov     _psp,bx
-        mov		es,ebx
-        mov		cx,es:[2Ch]
-        mov		ebx,ds
+        mov     es,ebx
+        mov     cx,es:[2Ch]
+        mov     ebx,ds
         mov     al,X_RATIONAL
-        mov		ah,XS_NONE              ; default is zerobased FLAT
-;--- end of additions
+        mov     ah,XS_NONE              ; default is zerobased FLAT
+else
+        xor eax, eax
+endif
+
+;--- ax=extender type, bx=code alias, cx=env seg, esi=env ofs, edi=cmdline ofs in PSP
+
 know_extender:                          ; endif
         mov     _Extender,al            ; record extender type
         mov     _ExtenderSubtype,ah     ; record extender subtype
@@ -348,10 +379,10 @@ know_extender:                          ; endif
         repe    scasb
         lea     esi,[edi-1]
         mov     edi,edx
-        mov     bx,es
-        mov     dx,ds
-        mov     ds,bx
-        mov     es,dx                   ; es:edi is destination
+        mov     ebx,es
+        mov     edx,ds
+        mov     ds,ebx
+        mov     es,edx                  ; es:edi is destination
         je      noparm
         inc     ecx
         rep     movsb
@@ -367,7 +398,7 @@ noparm: sub     al,al
         db      26h                     ; force ES segment override
         mov     ds,_Envseg              ; get segment addr of environment area
         ;fixme-end
-        sub     ebp,ebp                 ; assume "no87" env. var. not present
+        mov     bx,FLG_LFN*256          ; assume 'lfn=n' env. var. not present / assume 'no87=' env. var. not present
 L1:     mov     eax,[esi]               ; get first 4 characters
         or      eax,20202020h           ; map to lower case
         ;cmp    eax,'78on'              ; check for "no87"
@@ -375,10 +406,19 @@ L1:     mov     eax,[esi]               ; get first 4 characters
         jne     short L2                ; skip if not "no87"
         cmp     byte ptr 4[esi],'='     ; make sure next char is "="
         jne     short L2                ; no
-        inc     ebp                     ; - indicate "no87" was present
-L2:     cmp     byte ptr [esi],0        ; end of string ?
+        or      bl,FLG_NO87             ; - indicate 'no87' was present
+L2:
+        cmp     eax,3d6e666ch           ; check for 'lfn='
+        jne     short L4                ; skip if not 'lfn='
+        mov     al,byte ptr 4[esi]      ; get next character
+        or      al,20h                  ; map to lower case
+        cmp     al,'n'                  ; make sure next char is 'n'
+        jne     short L4                ; no
+        and     bh,not FLG_LFN          ; indicate no 'lfn=n' present
+L4:
+        cmp     byte ptr [esi],0        ; end of string ?
         lodsb
-        jne     L2                      ; until end of string
+        jne     L4                      ; until end of string
         cmp     byte ptr [esi],0        ; end of all strings ?
         jne     L1                      ; if not, then skip next string
         lodsb
@@ -387,16 +427,19 @@ L2:     cmp     byte ptr [esi],0        ; end of string ?
 ;
 ;       copy the program name into bottom of stack
 ;
-L3:     cmp     byte ptr [esi],0        ; end of pgm name ?
+L5:     cmp     byte ptr [esi],0        ; end of pgm name ?
         movsb                           ; copy a byte
-        jne     L3                      ; until end of pgm name
+        jne     L5                      ; until end of pgm name
         pop     ds                      ; restore ds
         pop     esi                     ; restore address of pgm name
-        mov     ebx,esp                 ; end of stack in data segment
 
         assume  ds:DGROUP
-        mov     __no87,bp               ; set state of "no87" enironment var
-;       mov     _STACKLOW,edi           ; save low address of stack
+        mov     __no87,bl               ; set state of "no87" enironment var
+        and     __uselfn,bh             ; set "LFN" support status
+ife HX
+        mov     _STACKLOW,edi           ; save low address of stack
+endif
+        mov     ebx,esp                 ; end of stack in data segment
         mov     _dynend,ebx             ; set top of dynamic memory area
 
         mov     ecx,offset DGROUP:_end  ; end of _BSS segment (start of STACK)
@@ -431,8 +474,14 @@ _cstart_ endp
 
 ;       don't touch AL in __exit, it has the return code
 
-__exit  proc near
-        @cpublic  __exit
+ifdef FC
+EXITCC equ <fastcall>
+else
+EXITCC equ <>
+endif
+        public  EXITCC __exit
+
+__exit  proc near EXITCC
 ifdef __STACK__
         pop     eax                     ; get return code into eax
 endif
@@ -484,9 +533,13 @@ __GETDSStart_ label near
         mov     ds,cs:__saved_DS        ; load saved DS value
         ret                             ; return
 
-_DATA segment	;HX
+if HX
+_DATA segment
+endif
 __saved_DS  dw  0                       ; DS save area for interrupt routines
-_DATA ends		;HX end
+if HX
+_DATA ends
+endif
 
 @cpublic __GETDSEnd_
 

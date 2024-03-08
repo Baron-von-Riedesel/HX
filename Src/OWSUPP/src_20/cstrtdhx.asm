@@ -169,8 +169,8 @@ _DATA    ends
 DATA    segment word public 'DATA'
 DATA    ends
 
-_BSS          segment word public 'BSS'
-_BSS          ends
+_BSS    segment word public 'BSS'
+_BSS    ends
 
 STACK_SIZE      equ     10000h
 
@@ -185,7 +185,7 @@ STACK   ends
         assume  cs:_TEXT
 
 _cstart_ proc near
-        jmp     short around
+        jmp   short around
 
 ;
 ; copyright message (special - see comment at top)
@@ -386,7 +386,8 @@ L1:     mov     eax,[esi]               ; get first 4 characters
         jne     short L4                ; no
         or      bl,FLG_NO87             ; - indicate 'no87' was present
         jmp     L4
-L2:     cmp     eax,3d6e666ch           ; check for 'lfn='
+L2:
+        cmp     eax,3d6e666ch           ; check for 'lfn='
         jne     short L4                ; skip if not 'lfn='
         mov     al,byte ptr 4[esi]      ; get next character
         or      al,20h                  ; map to lower case
@@ -448,9 +449,14 @@ _cstart_ endp
 
 ;       don't touch AL in __exit, it has the return code
 
-__exit  proc near
+ifdef FC
+EXITCC equ <fastcall>
+else
+EXITCC equ <>
+endif
+        public  EXITCC __exit
 
-        @cpublic  __exit
+__exit  proc near EXITCC
 
 ifndef __STACK__
         push    eax                     ; get return code into eax

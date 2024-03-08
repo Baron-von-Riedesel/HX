@@ -1960,9 +1960,11 @@ endif
 	mov [edi].DPMI10EXC.rPTE, eax
 noexc0e:
 	mov eax, [ebp+4].LCEFR.f.rErr
-	cmp esi,1
+	cmp esi,1		; debug exception?
 	jnz @F
-	mov eax, dr6
+;--- todo: BS (bp single step) should be bit 15, in dr6 it's bit 14
+;--- bits 4-14 should be 0.
+	mov eax, dr6	; then error code contains a "virtual dr6"
 @@:
 	mov edx, [ebp+4].LCEFR.f.rIP
 	mov esi, [ebp+4].LCEFR.f.rCSd

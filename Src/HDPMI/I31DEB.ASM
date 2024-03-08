@@ -18,7 +18,7 @@ _TEXT32 segment
 ;--- BX:CX=linear address
 ;--- dl=size (1,2,4)
 ;--- dh=type (0=execute,1=write,2=read or write)
-;--- out: watchpoint handle in BX
+;--- out: BX=handle
 
 allocwatchp proc public
 	@dprintf "allocwatchp: bx:cx(linadd)=%X:%X, dx=%X (dl=size,dh=type)",bx,cx,dx
@@ -28,28 +28,38 @@ if ?ENABLEWP
 	push bx
 	push cx		;save linear address on stack
 
-	mov eax,edx
-	dec al		;size watchpoint: 4->3,2->1,1->0
-	cmp al,3
+;--- size watchpoint, accepted 1,2 or 4
+;--- translated to: 1->0, 2->1, 4->3
+;--- translation of 3->2 is "undefined"
+	mov eax, edx
+	dec al
+	cmp al, 3
 	ja error
-	cmp ah,2	;watchpoint type: 0,1 or 2
+
+;--- type: 2 must be translated to 3;
+;--- I/O watchpoints have the "new" type 2, this isn't
+;--- covered by DPMI specs. Also, bit DE in CR4 must be enabled for
+;--- I/O watchpoints.
+	cmp ah, 2	;watchpoint type: 0,1 or 2
 	ja error
 	jnz @F
 	inc ah		;transform 2 to 3
 @@:
-	shl al,2
-	or al,ah 	;mask now in AL [0-3]
-	mov dl,al
+	shl al, 2
+	or al, ah 	;mask now in AL [0-3]
+	mov dl, al
 @@:
-	mov eax,dr7
-	mov ebx,eax
-	shr ebx,16
-	mov cl,4
+
+;--- use dr7 to see if watchpoint is free to use
+
+	mov eax, dr7
+	shld ebx, eax, 16	; upper 16-bits into bx
+	mov cl, 4
 @@:
-	test al,3	;watchpoint free?
+	test al, 11b;watchpoint free?
 	jz found
-	ror al,2
-	ror bx,4
+	ror al, 2
+	ror bx, 4
 	dec cl 
 	jnz @B
 error:
@@ -58,49 +68,46 @@ error:
 	stc
 	ret
 found:
-	mov ch,cl 	;save count in CH
-	mov dh,cl
-	or al,1		;set local bit only
-	and bl,0F0h
-	or bl,dl
-nextitem:
-	ror al,2
-	ror bx,4
+	mov ch, 4
+	sub ch, cl	; CH = no of DRx reg
+
+	or al, 1	; set "local bp enable" bit only
+	and bl, 0F0h; reset type
+	or bl, dl	; set type
+
+;--- shift everything back to the right position
+@@:
+	ror al, 2
+	ror bx, 4
 	dec cl
-	jnz nextitem
-	push bx
+	jnz @B
+
+	push bx		; move upper 16-bits back to eax
 	push ax
 	pop eax
-	or ah,1		;activate LE
-	mov dr7,eax
+	or ah, 1	; activate LE ("exact breakpoints", legacy)
+	mov dr7, eax
 
-	pop eax		;get linear address of watchpoint
-	dec ch
-	jz use_dr3
-	dec ch
-	jz use_dr2
-	dec ch
-	jz use_dr1
-	mov dr0,eax
-	jmp exit
-use_dr1:
-	mov dr1,eax
-	jmp exit
-use_dr2:
-	mov dr2,eax
-	jmp exit
-use_dr3:
-	mov dr3,eax
-exit:
-	movzx ax,dh
-	sub al,4
-	neg al
-	mov [esp].PUSHADS.rBX, ax
+	pop eax		; get linear address of watchpoint
+	movzx ecx, ch
+	mov [esp].PUSHADS.rBX, cx
+	shl ecx, 2
+	add ecx, offset use_drx
+	call ecx
 	popad
 	clc
 	ret
+use_drx:
+	mov dr0, eax
+	retn
+	mov dr1, eax
+	retn
+	mov dr2, eax
+	retn
+	mov dr3, eax
+	retn
 else
-	mov ax,8001h
+	mov ax, 8001h
 	stc
 	ret
 endif
@@ -108,30 +115,34 @@ endif
 allocwatchp endp
 
 ;--- int 31h, ax=0B01h
-;--- BX=handle
+;--- in: BX=handle (0-3)
+;--- out: -
+;--- modifies bits 0-7 ( and LE/GE ) in DR7 only, type of bp isn't "cleared"
         
 clearwatchp proc public
 	@dprintf "clearwatchp: bx=%X",bx
 if ?ENABLEWP
-	cmp bx,4
+	cmp bx, 4
 	jnb clearwatchp_err
 	push eax
 	push ecx
-	mov eax,dr7
-	mov cl,bl
-	mov ch,3
-	shl ch,cl
-	shl ch,cl
+	mov eax, dr7
+	mov cl, bl
+	mov ch, 11b		; 2 bits for each watchpoint in dr7
+	shl ch, cl
+	shl ch, cl
+	test al, ch
+	stc
+	jz invalid		; v3.22: if watchpoint isn't active
 	not ch
-	and al,ch
-	cmp al,0
+	and al, ch
 	jnz @F
-	and ah,0FCh 	;LE und GE reset
+	and ah, 0FCh 	; else also reset LE and GE
 @@:
-	mov dr7,eax
+	mov dr7, eax
+invalid:
 	pop ecx
 	pop eax
-	clc
 	ret
 else
 	stc
@@ -147,24 +158,23 @@ resetwatchpstate_err:
 	ret
 
 ;--- int 31h, ax=0B02h
-;--- BX=handle
+;--- in: BX=handle (0-3)
+;--- out: AX=1 if wp triggered, else 0
         
 getwatchpstate proc public
 	@dprintf "getwatchpstate: bx=%X",bx
 if ?ENABLEWP
-	cmp bx,4
+	cmp bx, 4
 	jnb getwatchpstate_err
-	push ecx
 	push eax
-	mov eax,dr6
-	mov cl,bl
-	shr al,cl
-	and al,1
-	mov cl,al
+	mov eax, dr6	; state in bits 0-3 of dr6
+	bt ax, bx
+	setc al
+	xor ah, ah		; also clears CF
+	inc esp
+	inc esp
+	push ax
 	pop eax
-	mov al,cl
-	mov ah,00
-	pop ecx
 	ret
 else
 	stc
@@ -174,24 +184,20 @@ endif
 getwatchpstate endp
 
 ;--- int 31h, ax=0B03h
-;--- BX=handle
+;--- in: BX=handle (0-3)
+;--- out: -
 
 resetwatchpstate proc public
 	@dprintf "resetwatchpstate: bx=%X",bx
 if ?ENABLEWP
-	cmp bx,4
+	cmp bx, 4
 	jnb resetwatchpstate_err
 	push eax
-	push ecx
-	mov ch,1
-	mov cl,bl
-	mov eax,dr6
-	shl ch,cl
-	not ch
-	and al,ch
-	mov dr6,eax
-	pop ecx
+	mov eax, dr6
+	btr ax, bx
+	mov dr6, eax
 	pop eax
+	clc
 	ret
 else
 	stc

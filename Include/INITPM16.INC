@@ -1,6 +1,8 @@
 
 ;*** startup code to run a 16-bit small model program as DPMI client
 ;*** will try to load HDPMI if no DPMI host is active
+;--- requires: DS & SS setup for small model
+;--- DOS memory freed already
 
 ?LIMITCS equ 1  ; 1=limit CS to real code size 
 ifndef ?32BIT
@@ -150,7 +152,7 @@ error:
 
 ;*** search HDPMIxx in current directory and directories of PATH
 ;*** Input: SI=address of PATH Variable or NULL (no PATH defined)
-;***      : DI=name of executable (=hdpmixx.exe)
+;***      : DI=name/path of executable
 
 searchpgm:
     push si
@@ -166,7 +168,7 @@ nxtc:
     stosb
     cmp al, '\'
     jnz @F
-    mov dx, di
+    mov dx, di      ; remember last '\'
 @@:
     cmp al, 0
     jnz nxtc
@@ -174,7 +176,7 @@ nxtc:
     mov di, dx
     pop si
     mov bl, 0
-nexttry:                             ; <----
+nexttry:                       ; <----
     push si
     mov si, offset szHDPMI
     mov cx, LHDPMI
@@ -203,7 +205,7 @@ nexttry:                             ; <----
     jz @f
     cmp al, 00
     jnz @b
-    xor si, si
+    xor si, si		; done with PATH
 @@:
     pop ds
     dec di
