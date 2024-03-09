@@ -241,17 +241,50 @@ PSP_SEG equ     24h
 ENV_SEG equ     2ch
 endif
 
+if HX
+
+PEHDR struct
+sig                 dd ?
+fhdr                dd 5 dup (?)
+                    dd ?    ; magic, linker version
+codesize            dd ?
+initdatasize        dd ?
+bsssize             dd ?
+entry               dd ?
+codebaserva         dd ?
+databaserva         dd ?
+imagebaserva        dd ?
+SectionAlignment    dd ?
+alignment           dd ?
+                    dd ?,?,?,?
+imagesize           dd ?
+headersize          dd ?
+                    dd ?
+                    dd ?
+stacksize_rsvd      dd ?
+stacksize_commit    dd ?
+PEHDR ends
+
+;--- hx: esi=linear address module
+;---     ebx=linear address psp (loadpe only!)
+;--- make code section r/o - if DPMILD32 has been used to load the binary,
+;--- this may have been done already.
+;--- One problem with DPMILD32 is that the stack is allocated separately,
+;--- meaning that it won't be located necessarily "behind" _BSS data.
+
+        add esi,[esi+3Ch]
+        mov eax, esp
+        add eax, 4096-1
+        and ax, 0f000h
+        mov _STACKTOP, eax
+        mov _curbrk, eax                ; set first available memory location
+        sub eax,[esi].PEHDR.stacksize_rsvd
+        mov _STACKLOW,eax
+else
         and     esp,0fffffffch          ; make sure stack is on a 4 byte bdry
         mov     ebx,esp                 ; get sp
         mov     _STACKTOP,ebx           ; set stack top
         mov     _curbrk,ebx             ; set first available memory location
-if HX
-        mov     eax,[esi+3Ch]
-        add     eax,esi
-        add     ebx,4096-1
-        and     bx,0F000h
-        sub     ebx,[eax+4+20+72]       ;get PE reserved stack size
-        mov     _STACKLOW,ebx
 endif
 if PHARLAP
         mov     ax,PSP_SEG              ; get segment address of PSP
@@ -369,9 +402,13 @@ know_extender:                          ; endif
 ;       copy command line into bottom of stack
 ;
         mov     es,_psp                 ; point to PSP
+if HX
+        mov     edx, _STACKLOW
+else
         mov     edx,offset DGROUP:_end
         add     edx,0FH
         and     dl,0F0H
+endif
         sub     ecx,ecx
         mov     cl,es:[edi-1]           ; get length of command
         cld                             ; set direction forward
@@ -436,7 +473,9 @@ L5:     cmp     byte ptr [esi],0        ; end of pgm name ?
         assume  ds:DGROUP
         mov     __no87,bl               ; set state of "no87" enironment var
         and     __uselfn,bh             ; set "LFN" support status
-ife HX
+if HX
+        push edi
+else
         mov     _STACKLOW,edi           ; save low address of stack
 endif
         mov     ebx,esp                 ; end of stack in data segment
@@ -461,9 +500,14 @@ zerobss:mov     dl,cl                   ; save bottom 2 bits of count in edx
         and     cl,3                    ; ...
         rep     stosb                   ; ...
 
+if HX
+        pop eax
+        xchg eax, _STACKLOW
+else
         mov     eax,offset DGROUP:_end  ; cmd buffer pointed at by EAX
         add     eax,0FH
         and     al,0F0H
+endif
         mov     _LpCmdLine,eax          ; save command line address
         mov     _LpPgmName,esi          ; save program name address
         mov     eax,0FFH                ; run all initalizers

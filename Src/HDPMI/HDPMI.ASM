@@ -1458,7 +1458,7 @@ ife ?PMIOPL
 	or ah, 2
 @@:
  endif
-	btr eax, 19
+	btr eax, 19		; reset VIF
 endif
 	mov [esp].EXC2INT.n.rFL, eax
 
@@ -1623,7 +1623,7 @@ ife ?PMIOPL
 	or ah, 2
 @@:
  endif
-	btr eax, 19
+	btr eax, 19	; reset VIF
 endif
 	mov [esp].IRQFRAME.new.rFL, eax
 if 0;_LTRACE_	;this might be called quite frequently, spoiling any useful log file
@@ -1676,7 +1676,7 @@ if ?32BIT
 else
 	mov [edi].IRETSPM.rFL, ax
 endif
-	and ah, not 1+2		;reset TF + IF
+	and ah, not 1+2		;reset TF + IF (+ also RF?)
 ife ?PMIOPL
  if ?IFALWAYSON
 	test byte ptr ss:[dwFeatures], 2
@@ -1689,7 +1689,7 @@ ife ?PMIOPL
 	or ah, 2
 @@:
  endif
-	btr eax, 19
+	btr eax, 19	; reset VIF
 endif
 	mov [esp].IRQFRAME.new.rFL, eax
 
@@ -1822,6 +1822,9 @@ RPMIFR ends
 
 	@ResetTrace
 
+;--- v3.22: EFL is now copied from LPMS; copying it from r0stack
+;--- looses RF because "breakpoint" INT 30h will clear it.
+
 rpmstacki proc
 	push ds
 	mov ss:bLPMSused,0
@@ -1830,7 +1833,8 @@ ife ?CSIPFROMTOP
 	lds ebx,[esp].RPMIFR.rSSSP		;get the LPMS
 	push dword ptr ss:spPMS+4		;SS
 	push dword ptr ss:spPMS+0		;ESP
-	push [esp+8].RPMIFR.rFL			;EFL
+;	push [esp+8].RPMIFR.rFL			;EFL src r0stack
+	push [ebx-4].RPMIFR.rFL			;v3.22: EFL src LPMS
 	push dword ptr [ebx+4]			;CS
 	push dword ptr [ebx+0]			;EIP
 	lds ebx,[esp+sizeof IRET32]		;restore DS,EBX
@@ -1839,8 +1843,11 @@ else
 	pop ds
 	push dword ptr ss:spPMS+4		;SS
 	push dword ptr ss:spPMS+0		;ESP
-	push [esp+8].RPMIFR.rFL			;EFL
+
 	assume ds:GROUP16
+;	push [esp+8].RPMIFR.rFL			;EFL src r0stack
+	push dword ptr ds:[?LPMSSIZE-12];v3.22: EFL src LPMS   
+
 	push dword ptr ds:[?LPMSSIZE-4]	;CS
 	push dword ptr ds:[?LPMSSIZE-8]	;EIP
 	mov ds,[esp+sizeof IRET32]
@@ -2036,7 +2043,7 @@ ife ?PMIOPL
 	or ah, 2
 @@:
  endif
-	btr eax, 19
+	btr eax, 19		; reset VIF
 endif
 	mov [ebp+4].LCEFR.r.rFL, eax
 
@@ -2710,8 +2717,8 @@ intr00 endp
 
 ;--- exc 01: test if it is a hw break
 ;--- register dr6: bits 0-3: hw break
-;--- bit 14: trace int ( must be reset by software! )
-;--- bit 15: 
+;--- bit 14: BS, "single-step" ( must be reset by software! )
+;--- bit 15: BT, "task switch"
 
 intr01 proc
 if ?TESTEXC01
@@ -2720,7 +2727,7 @@ if ?TESTEXC01
 	test ax, 0C00Fh
 	jz @F
 	@dprintf "intr01: debug exception occured, dr6=%lX", eax
-	mov ah,0		; reset DR6 bits 12-15
+	mov ah,0		; reset DR6 bits 12-15 - why?
 	mov dr6, eax
 	pop eax
 	jmp isdebugexc

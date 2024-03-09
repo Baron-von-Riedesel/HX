@@ -505,13 +505,13 @@ if VIRTIF
 	mov ebx, cr4
 	.386
 	test bl, 2
-	mov bx, 19
+	mov bx, 19		; VIF
 	jnz vifbitset
 @@:
-	mov bx, 9
+	mov bx, 9		; IF
 vifbitset:
 else
-	mov bx, 9
+	mov bx, 9		; IF
 endif
 	and byte ptr [esp + sizeof I3109FR].IRET32.rFL,not 1	;clear carry
 	cmp al,1
