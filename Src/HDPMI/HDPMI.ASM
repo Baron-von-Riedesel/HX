@@ -1693,10 +1693,14 @@ ife ?PMIOPL
 endif
 	mov [esp].IRQFRAME.new.rFL, eax
 
-	mov eax, [esp].IRQFRAME.old.rIP
-	mov edx, [esp].IRQFRAME.old.rCSd
-	mov [edi+sizeof IRETSPM+0], eax
-	mov [edi+sizeof IRETSPM+4], edx
+	mov edx, [esp].IRQFRAME.old.rIP
+if ?32BIT
+	mov eax, [esp].IRQFRAME.old.rCSd
+else
+	mov ax, word ptr [esp].IRQFRAME.old.rCSd	; in 16bit, save hiword(efl) on LPMS
+endif
+	mov [edi+sizeof IRETSPM+0], edx
+	mov [edi+sizeof IRETSPM+4], eax
 
 if 0;_LTRACE_	;this might be called quite frequently, spoiling any useful log file
 	push ebp
@@ -1817,13 +1821,10 @@ ife ?CSIPFROMTOP
 rEbx	dd ?
 endif
 rDs		dd ?
-	IRET32 <>
+	IRET32 <>	; CS:EIP in this frame is 5B:2xx
 RPMIFR ends
 
 	@ResetTrace
-
-;--- v3.22: EFL is now copied from LPMS; copying it from r0stack
-;--- looses RF because "breakpoint" INT 30h will clear it.
 
 rpmstacki proc
 	push ds
@@ -1833,8 +1834,12 @@ ife ?CSIPFROMTOP
 	lds ebx,[esp].RPMIFR.rSSSP		;get the LPMS
 	push dword ptr ss:spPMS+4		;SS
 	push dword ptr ss:spPMS+0		;ESP
-;	push [esp+8].RPMIFR.rFL			;EFL src r0stack
-	push [ebx-4].RPMIFR.rFL			;v3.22: EFL src LPMS
+ if ?32BIT
+	push dword ptr [ebx-4]			;v3.22: EFL src LPMS
+ else
+	push word ptr [ebx+6]			;v3.22: hiword efl (in hiword(cs))
+	push word ptr [ebx-4]			;v3.22: loword efl
+ endif
 	push dword ptr [ebx+4]			;CS
 	push dword ptr [ebx+0]			;EIP
 	lds ebx,[esp+sizeof IRET32]		;restore DS,EBX
@@ -1844,11 +1849,24 @@ else
 	push dword ptr ss:spPMS+4		;SS
 	push dword ptr ss:spPMS+0		;ESP
 
-	assume ds:GROUP16
-;	push [esp+8].RPMIFR.rFL			;EFL src r0stack
-	push dword ptr ds:[?LPMSSIZE-12];v3.22: EFL src LPMS   
+;--- v3.22: problem with RF, which is lost.
+;--- using the value from r0stack definitely will set RF=0.
+;--- using the value from LPMS won't work with 16-bit.
+;--- So the fix currently is: for 32-bit, use flags from LPMS
+;--- for 16-bit, RF is saved in lpms_call_int in hiword(cs)
+;--- and restored here.
 
+	assume ds:GROUP16
+if ?32BIT
+	push dword ptr ds:[?LPMSSIZE-12];v3.22: EFL src LPMS; 32-bit only
 	push dword ptr ds:[?LPMSSIZE-4]	;CS
+else
+	push word ptr ds:[?LPMSSIZE-2]		; hiword(EFL) on LPMS
+	push word ptr [esp+8+2].RPMIFR.rFL	; EFL src r0stack
+	pushw 0
+	push word ptr ds:[?LPMSSIZE-4]		; CS
+endif
+
 	push dword ptr ds:[?LPMSSIZE-8]	;EIP
 	mov ds,[esp+sizeof IRET32]
 endif

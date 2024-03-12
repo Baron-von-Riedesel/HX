@@ -157,14 +157,14 @@ CONST   segment word public 'DATA'
 CONST   ends
 
 _DATA    segment dword public 'DATA'
-
+if DOS4G
 __D16Infoseg   dw       0020h   ; DOS/4G kernel segment
-__x386_zero_base_selector dw 0  ; base 0 selector for X-32VM
-
         public  __D16Infoseg
+endif
+;--- this is referenced in inirmsel.c!
+__x386_zero_base_selector dw 0  ; base 0 selector for X-32VM
         public  __x386_zero_base_selector
 _DATA    ends
-
 
 DATA    segment word public 'DATA'
 DATA    ends
@@ -187,11 +187,12 @@ STACK   ends
 _cstart_ proc near
         jmp   short around
 
+if DOS4G
 ;
 ; copyright message (special - see comment at top)
 ;
         db      "WATCOM",0
-
+endif
 ;
 ; miscellaneous code-segment messages
 ;
@@ -201,7 +202,7 @@ NewLine         db      0Dh,0Ah
         align   4
         dd      ___begtext              ; make sure dead code elimination
 
-around: sti                             ; enable interrupts
+around:
 
         assume  ds:DGROUP
 
@@ -236,11 +237,14 @@ PEHDR ends
 ;--- One problem with DPMILD32 is that the stack is allocated separately,
 ;--- meaning that it won't be located necessarily "behind" _BSS data.
 
+		push esi
 		add esi, [esi+3ch]		; skip MZ header
 		mov ecx, [esi].PEHDR.codesize
 		add ecx, 1000h-1
 		shr ecx, 12
 		mov ebx, [esi].PEHDR.codebaserva
+		mov ebp, [esi].PEHDR.stacksize_rsvd
+		pop esi
 		mov edi, ecx
 		mov ax, 11b				; set pages to r/o
 @@:
@@ -258,10 +262,11 @@ PEHDR ends
 		and ax, 0f000h
 		mov _STACKTOP, eax
 		mov _curbrk, eax
-		sub eax, [esi].PEHDR.stacksize_rsvd
+		sub eax, ebp
 		mov _STACKLOW, eax
-
+		xor ebp, ebp
 else
+        sti                             ; enable interrupts
         and     esp,0fffffffch          ; make sure stack is on a 4 byte bdry
         mov     ebx,esp                 ; get sp
         mov     _STACKTOP,ebx           ; set stack top
@@ -525,7 +530,7 @@ endif
         mov     edx,offset ConsoleName
         mov     ax,03d01h               ; write-only access to screen
         int     021h
-        mov     bx,ax                   ; get file handle
+        mov     ebx,eax                 ; get file handle
         pop     edx                     ; restore address of msg
         mov     esi,edx                 ; get address of msg
         cld                             ; make sure direction forward
