@@ -58,17 +58,9 @@ DOS_PSP_ENV_SEG equ 2Ch
 FLG_NO87        equ     1
 FLG_LFN         equ     1
 
-ifdef __JWASM__
-ifndef NOUS
-PREFIX textequ <c>
-else
-PREFIX textequ <>
-endif
-endif
-
 @cextrn macro x,y
 ifdef __JWASM__
-extern PREFIX x:y
+extern c x:y
 else
 extrn "C",x:y
 endif
@@ -76,7 +68,7 @@ endm
 
 @cpublic macro x
 ifdef __JWASM__
-public PREFIX x
+public c x
 else
 public "C",x
 endif
@@ -459,13 +451,13 @@ L5:     cmp     byte ptr [esi],0        ; end of pgm name ?
         assume  ds:DGROUP
         mov     __no87,bl               ; set state of "no87" enironment var
         and     __uselfn,bh             ; set "LFN" support status
+        mov     ebx,esp                 ; end of stack in data segment
+        mov     _dynend,ebx             ; set top of dynamic memory area
 if HX
         push edi
 else
         mov     _STACKLOW,edi           ; save low address of stack
 endif
-        mov     ebx,esp                 ; end of stack in data segment
-        mov     _dynend,ebx             ; set top of dynamic memory area
 
         mov     ecx,offset DGROUP:_end  ; end of _BSS segment (start of STACK)
         mov     edi,offset DGROUP:_edata; start of _BSS segment

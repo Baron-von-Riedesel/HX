@@ -6,6 +6,7 @@
   þ fixed: int 31h, ax=507h: reject all page types except 0, 1 and 3; OTOH,
     allow direct transition from "mapped" to "committed".
   þ fixed:RF was lost when an IRQ returned and a stack switch was to happen.
+  þ kernel debugger API ah=45h, int 68h, called if kd detected. 
 
   04.02.2024, version 3.21
 

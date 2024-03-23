@@ -415,8 +415,9 @@ endif
 
 ;------------------------ flags in fDebug
 
-FDEBUG_KDPRESENT	equ 1	;is kernel debugger present?
+FDEBUG_KDPRESENT	equ 1	;is any kernel debugger present?
 FDEBUG_OUTPFORKD	equ 2	;outputs to kernel debugger if present?
+FDEBUG_WDEB386		equ 4	;wdeb386 active ( int 68h real-mode ok )
 
 ;------------------------ flags in fHost
 

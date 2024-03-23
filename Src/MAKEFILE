@@ -98,6 +98,7 @@ install:
 	@copy DPMILDR\NOLFN32\DPMILD32.EXE $(HXINST)\UnSupp
 	@copy DPMILDR\DPMILD16.TXT         $(HXINST)\Doc
 	@copy DPMILDR\DPMILD32.TXT         $(HXINST)\Doc
+	@copy DPMILDR\DPMILDHS.TXT         $(HXINST)\Doc
 
 	@copy STUBS\Release\DPMIST16.BIN  $(HXINST)\Bin
 	@copy STUBS\Release\DPMIST32.BIN  $(HXINST)\Bin

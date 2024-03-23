@@ -269,6 +269,8 @@ exit:
 __growseg endp
 
 ;--- sets Win16 Local Heap start at DS:[0006]
+;--- uSegment: segment/selector to init.
+;--- uEnd: heap size?
 
 LocalInit proc far pascal uSegment:word, uStart:word, uEnd:word
 
@@ -283,21 +285,21 @@ LocalInit proc far pascal uSegment:word, uStart:word, uEnd:word
 	jb LocalInit_err
 	lar bx,ax
 	jnz LocalInit_err
-	jcxz LocalInit_1
-	cmp dx,cx
+	jcxz LocalInit_1	; no start given
+	cmp dx,cx			; end >= start?
 	jb LocalInit_err
 	jmp LocalInit_2
 LocalInit_1:
 	lsl bx,ax
-	inc bx
-	mov cx,dx
-	mov dx,bx
-	sub bx,cx
-	mov cx,bx
-LocalInit_2:
+	inc bx		; bx=segment size
+	mov cx,dx	; cx=heap size
+	mov dx,bx	; dx=segment size
+	sub bx,cx	; bx=segment size - heap size
+	mov cx,bx	; cx=segment size - heap size
+LocalInit_2:	;<- cx=start, dx=end
 	push ds
 	mov ds,ax
-	mov ds:[0006],cx
+	mov ds:[0006],cx   ; heap start
 	add word ptr ds:[0006],2
 	mov bx,cx
 	sub dx,2
@@ -1590,7 +1592,7 @@ endif
 ;*** SI: 
 ;*** ES: PSP
 ;*** DS: DGROUP or PSP (if RTM compatible)
-;*** SS: DGROUP
+;*** SS: initial segment of SS:SP in NE header (not necessarily DGROUP!)
 ;*** SP: top of Stack
 ;*** Out: CX=stack limit
 ;*** SI=0 (previous instance)
@@ -1603,11 +1605,16 @@ ife ?32BIT
 InitTask proc far pascal uses ds
 
 	@trace_s <"InitTask enter",lf>
+
+if 0; v3.12
 	mov ax,ss		;RTM compatibles may have DS == PSP
 	mov ds,ax
+endif
 	mov ax,sp
 	add ax,2*3		;account for DS,IP,CS
 	mov dx,ax
+	and bx, bx		; v3.12: skip if stack size is zero
+	jz @F
 	sub dx,bx
 	add dx,60h
 	cmp word ptr ds:[0004],5
@@ -1619,9 +1626,16 @@ InitTask proc far pascal uses ds
 	push dx
 if ?LOCALHEAP
 	jcxz @F
-	push ds			;data segment
+	push ds			;segment to setup local heap
+ if 1
 	push 0			;start
-	push cx			;end
+	push cx			;end (heapsize)
+ else
+; added v3.12 03/2024, but not activated
+	push ax			;start ( valid only if heap is in the same segment as stack )
+	add ax, cx
+	push ax			;end
+ endif
 	push cs
 	call near ptr LocalInit	;preserves ES
 @@:

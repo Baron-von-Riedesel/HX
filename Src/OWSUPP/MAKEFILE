@@ -34,7 +34,7 @@ $(OUTOW20):
 	@mkdir $(OUTOW20)
 
 $(OUTOW20)\CSTRTDHX.OBJ: $(INPOW20)\cstrtdhx.asm Makefile
-	@jwasm -q -DNOUS -Fo$* -Fl$* $(INPOW20)\cstrtdhx.asm
+	@jwasm -q -zcw -Fo$* -Fl$* $(INPOW20)\cstrtdhx.asm
 	@jwasm -q -DFC -zf1 -Fl$(OUTOW20)\CSTRTDHR -Fo$(OUTOW20)\CSTRTDHR.OBJ $(INPOW20)\cstrtdhx.asm
 
 #-------------------------------------------------------------------------
@@ -43,7 +43,7 @@ $(OUTOW19):
 	@mkdir $(OUTOW19)
 
 $(OUTOW19)\CSTRTDHX.OBJ: $(INPOW19)\cstrtdhx.asm Makefile
-	@jwasm -q -DNOUS -Fo$* -Fl$* $(INPOW19)\cstrtdhx.asm
+	@jwasm -q -zcw -Fo$* -Fl$* $(INPOW19)\cstrtdhx.asm
 	@jwasm -q -DFC -zf1 -Fl$(OUTOW19)\CSTRTDHR -Fo$(OUTOW19)\CSTRTDHR.OBJ $(INPOW19)\cstrtdhx.asm
 
 #-------------------------------------------------------------------------

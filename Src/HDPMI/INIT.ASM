@@ -314,6 +314,7 @@ endif
 	mov pdGDT.dwBase,eax
 
 if ?KDSUPP
+;--- wdeb386 wants a GDT selector
 	mov bx,_GDTSEL_
 	mov [curGDT+bx].A0015,ax
 	shr eax,16
@@ -490,6 +491,8 @@ if ?USEDEBUGOUTPUT
 else
 	or fDebug,FDEBUG_KDPRESENT
 endif
+externdef patchkd: word
+	mov patchkd, 68CDh	; v3.22: call kd on exit
 if ?INTRM2PM
 	mov word ptr _jmp_pmX, 90FAh	;deactivate RM2PM int
 endif

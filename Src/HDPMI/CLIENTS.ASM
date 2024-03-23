@@ -19,7 +19,8 @@ endif
 ifndef ?SAVEIVT
 ?SAVEIVT	equ 0	;std=0, 1=save/restore IVT
 endif
-?SAVEDR7	equ 1	;std=1, 1=save DR7 register
+?SAVEDR7	equ 1	;std=1, 1=save/restore DR7 register
+?NODR7RSTIFKD equ 1	;std=?, 1=don't restore DR7 if kernel debugger detected (v3.22)
 
 SIZEINTRMCB	equ 19	;must match value in hdpmi.asm!
 
@@ -373,7 +374,12 @@ endif
 	@dprintf "restoreclientstate: restored taskseg._Esp0=%lX", ss:taskseg._Esp0
 if ?SAVEDR7
 	lodsd
+ if ?NODR7RSTIFKD and ?KDSUPP
+	test ss:[fDebug], FDEBUG_KDPRESENT
+	jnz @F
+ endif
 	mov dr7,eax
+@@:
 endif
 
 	push byte ptr _CSALIAS_

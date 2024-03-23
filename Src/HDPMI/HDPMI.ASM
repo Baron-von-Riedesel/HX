@@ -5642,6 +5642,13 @@ _exitserver_rm:
 	pop ds
 	push word ptr taskseg._Esi	;push the final real-mode dest
 	push ax
+if ?WDEB386 ; v3.22: tell kd that we are finished
+	mov ah, D386_Real_Mode_Init
+	public patchkd
+patchkd::
+	nop	; will be patched with "int 68h" if kd was detected
+	nop
+endif
 if ?SAVEMSW
 	smsw ax
 	test al,1		;VM86?

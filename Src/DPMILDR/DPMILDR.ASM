@@ -1876,7 +1876,15 @@ if ?32BIT
 	shl ebx,12				; pages instead of bytes for 32bit
 	shl ecx,12
 endif
+
+if 0; v3.12: ss is NOT necessarily DGROUP!
+	; also changed InitTask ( where SS is moved to DS )
 	mov di,ss				; DI=hInstance
+else
+	mov di,es:[NEHDR.DGROFS]
+	mov di,es:[di].SEGITEM.wSel
+endif
+
 ife ?32BIT
 	xor si,si				; for 16 bit init SI here 
 	test es:[NEHDR.APPFLGS], AF_BIT4	;RTM compatible?
