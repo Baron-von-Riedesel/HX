@@ -224,19 +224,23 @@ PEHDR ends
 
 ;--- hx: esi=linear address module
 ;---     ebx=linear address psp (loadpe only!)
-;--- make code section r/o - if DPMILD32 has been used to load the binary,
-;--- this may have been done already.
-;--- One problem with DPMILD32 is that the stack is allocated separately,
+;--- TEXTRO=1: make code section r/o - this may have been done already;
+;--- DPMILD32: problem with this loader is that the stack is allocated separately,
 ;--- meaning that it won't be located necessarily "behind" _BSS data.
+
+TEXTRO equ 0
 
 		push esi
 		add esi, [esi+3ch]		; skip MZ header
+		mov ebp, [esi].PEHDR.stacksize_rsvd
+if TEXTRO
+		mov ebx, [esi].PEHDR.codebaserva
 		mov ecx, [esi].PEHDR.codesize
+endif
+		pop esi
+if TEXTRO
 		add ecx, 1000h-1
 		shr ecx, 12
-		mov ebx, [esi].PEHDR.codebaserva
-		mov ebp, [esi].PEHDR.stacksize_rsvd
-		pop esi
 		mov edi, ecx
 		mov ax, 11b				; set pages to r/o
 @@:
@@ -248,6 +252,7 @@ PEHDR ends
 		int 31h
 		shl ecx, 1
 		add esp, ecx
+endif
 
 		mov eax, esp
 		add eax, 4096-1

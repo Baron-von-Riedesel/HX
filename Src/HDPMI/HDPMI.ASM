@@ -1347,6 +1347,27 @@ _DATA32C ends
 
 _TEXT32 segment
 
+;--- macro for IOPL==0 and PVI=1
+;--- eax is supposed to contain EFL
+
+@iopl0vif macro reg
+local xxx
+ife ?PMIOPL
+ if ?IFALWAYSON
+	test byte ptr ss:[dwFeatures], 2
+	jz xxx
+	.586p
+	mov reg, cr4
+	.486p
+	bt reg, 1
+	jnc xxx
+	or ah, 2
+xxx:
+ endif
+	btr eax, 19		; reset VIF?
+endif
+endm
+
 ;--- exc2int()
 ;--- default exception handler for exceptions 0,1,2,3,4,5,7
 
@@ -1446,20 +1467,7 @@ else
 endif
 
 	and ah, not (1+2)		;reset IF & TF
-ife ?PMIOPL
- if ?IFALWAYSON
-	test byte ptr ss:[dwFeatures], 2
-	jz @F
-	.586p
-	mov ebx, cr4
-	.486p
-	test bl, 2
-	jz @F
-	or ah, 2
-@@:
- endif
-	btr eax, 19		; reset VIF
-endif
+	@iopl0vif ebx
 	mov [esp].EXC2INT.n.rFL, eax
 
 	pop edi
@@ -1537,8 +1545,8 @@ pms_call_int endp
 ;*** esp+4  : IRET32
 ;***   IRET32.E/SP+SS only valid for ring3 irq
 ;*** ----------------------------------------------------
-;*** a RET32 stack frame is generated onto the host stack
-;*** jump to ring 3 is then done with a RETF, Interrupts disabled
+;*** a IRET32 stack frame is generated onto the host stack
+;*** jump to ring 3 is then done with a IRETD, Interrupts disabled
 ;*** ----------------------------------------------------
 ;*** another frame (IRETS) is created onto the LPMS:
 ;*** format:
@@ -1551,6 +1559,11 @@ pms_call_int endp
 ;---
 ;--- if LPMS is in use already, use current PMS instead
 ;--- and don't create the backswitching frame
+
+;--- v3.22: if IOPL==0, there's now a change if LPMS is in use:
+;--- in this case, there will also be a switch back to ring 0
+;--- after the ring3 interrupt proc has finished, not to switch stacks
+;--- back, but to ensure that IF is 1.
 
 	@ResetTrace
 
@@ -1590,13 +1603,12 @@ endif
 	jz lpms_ci_21
 
 	lds edi, [esp].IRQFRAME.old.rSSSP
-	sub edi,sizeof IRETSPM
+	sub edi, sizeof IRETSPM
 	mov [esp].IRQFRAME.new.rSP, edi
 	mov [esp].IRQFRAME.new.rSS, ds
 ife ?32BIT
 	@checkssattr ds,di
 endif
-
 	mov eax, [esp].IRQFRAME.old.rIP
 	mov edx, [esp].IRQFRAME.old.rCSd
 if ?32BIT
@@ -1611,20 +1623,7 @@ else
 	mov [edi].IRETSPM.rFL, ax
 endif
 	and ah, not 1+2		;reset TF + IF
-ife ?PMIOPL
- if ?IFALWAYSON
-	test byte ptr ss:[dwFeatures], 2
-	jz @F
-	.586p
-	mov edx, cr4
-	.486p
-	test dl, 2
-	jz @F
-	or ah, 2
-@@:
- endif
-	btr eax, 19	; reset VIF
-endif
+	@iopl0vif edx
 	mov [esp].IRQFRAME.new.rFL, eax
 if 0;_LTRACE_	;this might be called quite frequently, spoiling any useful log file
 	push ebp
@@ -1646,9 +1645,11 @@ endif
 	@ResetTrace
 
 ;*** LPMS is free
-;--- build a frame:
-;--- + IRETS {_RTINT_, _INTSEL_, E/FL}
-;--- + client EIP, CS
+;--- 1. save client SS:ESP in spPMS
+;--- 2. mark LPMS as used
+;--- 3. set LPMS ss:esp in new.IRET32 for return to ring3
+;--- 4. build a frame onto LPMS (ds:[EDI]):
+;---    IRETS {_RTINT_, _INTSEL_, E/FL}, client EIP, CS
 
 lpms_ci_21:
 	mov eax, [esp].IRQFRAME.old.rSP
@@ -1677,20 +1678,7 @@ else
 	mov [edi].IRETSPM.rFL, ax
 endif
 	and ah, not 1+2		;reset TF + IF (+ also RF?)
-ife ?PMIOPL
- if ?IFALWAYSON
-	test byte ptr ss:[dwFeatures], 2
-	jz @F
-	.586p
-	mov edx, cr4
-	.486p
-	test dl, 2
-	jz @F
-	or ah, 2
-@@:
- endif
-	btr eax, 19	; reset VIF
-endif
+	@iopl0vif edx
 	mov [esp].IRQFRAME.new.rFL, eax
 
 	mov edx, [esp].IRQFRAME.old.rIP
@@ -2050,19 +2038,7 @@ else
 	mov [edi].DPMIEXC.rSS, si
 endif
 	and ah, not 1+2
-ife ?PMIOPL
- if ?IFALWAYSON
-	test byte ptr ss:[dwFeatures], 2
-	jz @F
-	.586p
-	mov ecx, cr4
-	test cl, 2
-	jz @F
-	or ah, 2
-@@:
- endif
-	btr eax, 19		; reset VIF
-endif
+	@iopl0vif ecx
 	mov [ebp+4].LCEFR.r.rFL, eax
 
 	mov edi, [ebp+4].LCEFR.dwExc
@@ -3052,7 +3028,7 @@ defint75:
 ;--- send EOI to FPU and PICs
 	push eax
 	mov al,0
-	out 0F0h,al
+	out 0F0h,al	; it's actually a "clear busy latch"
 	mov al,20h
 	out 0a0h,al
 	out 20h,al

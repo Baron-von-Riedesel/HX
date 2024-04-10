@@ -1735,14 +1735,14 @@ updatetlb endp
 ;--- es:edx -> table of WORDS with attributes for each page
 ;--- all std registers + DS, but not ES may be modified here
 ;--- out: NC = ok
-;--- C = failure
+;--- C = failure, AX=error code (8013: out of mem, 8021: wrong page type)
 
 ;--- valid attributes are:
 ;--- bits 0-2: page type
-;--- 000b: change page to uncommitted
-;--- 001b: change page to committed
-;--- 011b: modify attributes without changing page type.
-;--- anything else is invalid and should terminate the function.
+;---  000b: change page to uncommitted
+;---  001b: change page to committed
+;---  011b: modify attributes without changing page type;
+;---  anything else is invalid and should terminate the function.
 ;--- bit 3: 0=r/o, 1=r/w
 ;--- bit 4: 0=don't modify acc/dirty bits, 1=modify acc/dirty bits
 

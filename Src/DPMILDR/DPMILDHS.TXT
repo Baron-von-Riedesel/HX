@@ -533,6 +533,8 @@
 
  __.__.2024: version 3.12
 
+ þ fix: garbage error msg if 32-bit host installed, but 16-bit host
+   failed to load.
  þ fix: the loader always assumed that the stack is in the automatic data
    segment.
 

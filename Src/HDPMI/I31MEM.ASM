@@ -1102,7 +1102,7 @@ getpageattr endp		;fall throu
 ;--- ecx=pages
 ;--- es:edx=attributes
 ;--- out: NC = ok
-;--- C = failure, ECX=pages which have been set
+;--- C = failure, ECX=pages which have been set (8013,8021 only)
 ;--- error codes 8023h, 8025h, 8013h, 8021h
 
 setpageattr proc public

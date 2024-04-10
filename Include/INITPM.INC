@@ -4,7 +4,7 @@
 ;--- switches to protected-mode, then jumps to label start32.
 
 ?LOADSERVER	equ 1	;try to find HDPMI if no DPMI host has been found
-?TEST386	equ 1		;1=test for 386 cpu (needed?)
+?TEST386	equ 1	;1=test for 386 cpu
 
 ifndef ?INT41
 ?INT41 equ 0
@@ -16,8 +16,8 @@ _TEXT16 segment use16 word public 'CODE'
 ;--- 1. check if DPMI is there
 ;--- 2. if not, try to load HDPMI32 (in UMBs if available)
 ;--- 3. switch to PM as 32bit dpmi client
-;--- 4. set segment registers CS,SS,DS to FLAT, ES=PSP
-;--- 5. jump to label _start32.
+;--- 4. set segment registers CS,SS,DS to DGROUP (model tiny), ES=PSP
+;--- 5. jump to label start32.
 
 start:
 
@@ -57,7 +57,9 @@ endif
 
 	mov bp,sp
 
-	mov ax,seg _TEXT
+	mov ax,es
+	add ax,10h
+	mov ds,ax
 	sub si,ax
 	push si				;store size DGROUP (paragraphs)
 
@@ -101,8 +103,7 @@ endif
 	mov es,ax
 nomemneeded:
 	call restoreumbstatus
-	mov si,seg _TEXT
-	mov ds,si
+	mov si,ds
 	mov ax,0001 			;32 bit application
 	call dword ptr [lpproc]	;jump to PM
 	jc initfailed			;error: jmp to pm didnt work
@@ -161,8 +162,7 @@ if ?INT41
 	int 3
 @@:
 endif
-	db 66h
-	retf
+	retd
 
 restoreumbstatus:
 	mov cx,status1

@@ -25,7 +25,7 @@ OUTDIR=Release
 
 #LOPT=/NOLOGO/NON/MAP:FULL/KNOWEAS/ST:1024
 
-ALL: $(OUTDIR) $(OUTDIR)\$(NAME32).BIN $(OUTDIR)\$(NAME16).BIN $(OUTDIR)\LOADPE.BIN $(OUTDIR)\LOADPEX.BIN $(OUTDIR)\LOADPXNR.BIN
+ALL: $(OUTDIR) $(OUTDIR)\$(NAME32).BIN $(OUTDIR)\$(NAME16).BIN $(OUTDIR)\LOADPE.BIN $(OUTDIR)\LOADPEX.BIN $(OUTDIR)\LOADPXNR.BIN $(OUTDIR)\LOADPERO.BIN
 
 $(OUTDIR):
 	@mkdir $(OUTDIR)
@@ -50,15 +50,20 @@ LOPT2=/NOLOGO/NON/MAP:FULL/KNOWEAS
 $(OUTDIR)\LOADPE.BIN: LoadPE.asm Makefile
 	@$(ASM) -c -nologo -mz -Fl$* -Fo$*.BIN -I$(INC32DIR) -I..\MZSUPP LoadPE.asm
     
-#--- LOADPEX.BIN
+#--- LOADPEX.BIN: includes hdpmi32
 
 $(OUTDIR)\LOADPEX.BIN: LoadPE.asm Makefile ..\HDPMI\STUB32\HDPMI32.INC
 	@$(ASM) -c -nologo -mz -D?HDPMI=1 -Fl$* -Fo$*.BIN -I$(INC32DIR) -I..\HDPMI\STUB32 -I..\MZSUPP LoadPE.asm
     
-#--- LOADPXNR.BIN
+#--- LOADPXNR.BIN: no base relocs, has to be loaded at preferred load address
 
 $(OUTDIR)\LOADPXNR.BIN: LoadPE.asm Makefile
 	@$(ASM) -c -nologo -mz -D?NORELOCS=1 -Fl$* -Fo$*.BIN -I$(INC32DIR) -I..\MZSUPP LoadPE.asm
+    
+#--- LOADPERO.BIN: .text and .rdata sections will be changed to readonly.
+
+$(OUTDIR)\LOADPERO.BIN: LoadPE.asm Makefile
+	@$(ASM) -c -nologo -mz -D?SETPGRO=1 -Fl$* -Fo$*.BIN -I$(INC32DIR) -I..\MZSUPP LoadPE.asm
     
 clean:
 	@del $(OUTDIR)\*.bin

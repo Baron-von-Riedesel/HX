@@ -259,9 +259,8 @@ PEHDR ends
 
 ;--- hx: esi=linear address module
 ;---     ebx=linear address psp (loadpe only!)
-;--- make code section r/o - if DPMILD32 has been used to load the binary,
-;--- this may have been done already.
-;--- One problem with DPMILD32 is that the stack is allocated separately,
+
+;--- DPMILD32: this loader allocates the stack separately,
 ;--- meaning that it won't be located necessarily "behind" _BSS data.
 
         add esi,[esi+3Ch]

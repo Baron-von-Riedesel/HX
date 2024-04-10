@@ -1047,7 +1047,7 @@ endif
 if ?PMIOPL
 	or ah, ?PMIOPL shl 4
 else
-	test byte ptr ss:[dwFeatures], 2
+	test byte ptr ss:[dwFeatures], 2	;VME feature?
 	jz @F
 	.586p
 	mov ecx, cr4
@@ -1059,13 +1059,12 @@ else
 	bts eax, 9			; set IF
 	jnc @F
 	bts eax, 19			; set VIF if IF was 1
-@@:
  else
 	test ah, 2
 	jz @F
 	bts eax, 19			; set VIF if IF is 1
-@@:
  endif
+@@:
 endif
 	mov [esp].IRET32.rFL, eax
 	mov [esp].IRET32.rSP, ebx

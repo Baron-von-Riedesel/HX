@@ -29,6 +29,9 @@ endif
 ifndef ?NORELOCS
 ?NORELOCS equ 0
 endif
+ifndef ?SETPGRO
+?SETPGRO equ 0		;1=set .text and .rdata pages readonly
+endif
 
 ife ?HDPMI
 ?LOADSERVER	equ 1	;try to find HDPMI if no DPMI host has been found
@@ -37,7 +40,7 @@ ife ?HDPMI
 else
 ?LOADSERVER	equ 1
 ?SHRINKHDR	equ 0	;0 or 1? 
-?LOADHDR	equ 1	;must be 0 if ?SHINKHDR=1
+?LOADHDR	equ 1	;must be 0 if ?SHRINKHDR=1
 endif
 
 ?ADDSTACK	equ 2000h	;amount to add to reserved stack
@@ -164,6 +167,10 @@ else
 	mov ax,501h
 	int 31h
 	jc memerror
+ if ?SETPGRO
+	mov word ptr pehdr.OptionalHeader.CheckSum+0, di	; save loword(handle)
+	mov word ptr pehdr.OptionalHeader.CheckSum+2, si	; save hiword(handle)
+ endif
 	push bx		;linear address into EDI
 	push cx
 	pop edi
@@ -181,6 +188,7 @@ endif
 	pop edi
 
 ;--- load section table
+;--- allocate space for section table onto the stack
 
 	movzx ecx, pehdr.FileHeader.NumberOfSections
 	mov eax,sizeof IMAGE_SECTION_HEADER
@@ -241,7 +249,10 @@ nextsection:
 	add esi, sizeof IMAGE_SECTION_HEADER
 	loop nextsection
 sectiondone:
-	mov esp, esi
+
+ife ?SETPGRO
+	mov esp, esi	; free space for section table
+endif
 
 ;--- close image file
 
@@ -259,9 +270,9 @@ ife ?NORELOCS
 
 	mov ecx, pehdr.OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_BASERELOC*8].Size_
 	mov esi, pehdr.OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_BASERELOC*8].VirtualAddress
-if ?SHRINKHDR
+ if ?SHRINKHDR
 	sub esi, dwPos
-endif
+ endif
 	mov edx, edi
 	sub edx, pehdr.OptionalHeader.ImageBase
 
@@ -275,9 +286,9 @@ nextpage:
 	lodsd				;get RVA of page
 	mov ebx, eax
 	add ebx, edi		;convert RVA to linear address
-if ?SHRINKHDR
+ if ?SHRINKHDR
 	sub ebx, dwPos
-endif
+ endif
 	lodsd
 	lea ecx, [esi+eax-8];ecx=end of relocs for this page
 	xor eax, eax
@@ -285,10 +296,10 @@ nextreloc:
 	lodsw
 	test ah,0F0h	; bits 12-15 are type (3=highlow, 2=low)
 	jz ignreloc
-if ?HANDLELOW
+ if ?HANDLELOW
 	test ah,0D0h	; just bit 13 set?
 	jz is16reloc
-endif
+ endif
 	and ah,0Fh
 	add [eax+ebx], edx
 ignreloc:
@@ -296,15 +307,55 @@ ignreloc:
 	jb nextreloc
 	pop ecx
 	jmp nextpage
-if ?HANDLELOW
+ if ?HANDLELOW
 is16reloc:
 	and ah,0fh
 	add [eax+ebx], dx
 	jmp ignreloc
-endif
+ endif
 reloc_done:
 
 endif	;?NORELOCS
+
+;--- edi=MZ
+
+if ?SETPGRO
+	movzx ecx, pehdr.FileHeader.NumberOfSections
+ if ?LOADHDR
+	lea esi, [esp+sizeof IMAGE_SECTION_HEADER]
+ else
+	mov esi, esp
+ endif
+nextsection2:
+	test [esi].IMAGE_SECTION_HEADER.Characteristics, IMAGE_SCN_MEM_WRITE or IMAGE_SCN_MEM_DISCARDABLE
+	jnz noro
+	mov edx, [esi].IMAGE_SECTION_HEADER.Misc.VirtualSize
+	add edx, 4096-1
+	shr edx, 12
+	jz noro
+	push esi
+	push ecx
+	movzx ecx, dl
+	mov ax, 11b
+@@:
+	push ax
+	loop @B
+	mov cl, dl
+	mov edx, esp
+	push ecx
+	mov ebx, [esi].IMAGE_SECTION_HEADER.VirtualAddress
+	mov esi, pehdr.OptionalHeader.CheckSum
+	mov ax, 507h	; ecx=pages, es:edx=attr, ebx=offset, esi=handle
+	int 31h
+	pop ecx
+	lea esp, [esp+2*ecx]
+	pop ecx
+	pop esi
+noro:
+	add esi, sizeof IMAGE_SECTION_HEADER
+	loop nextsection2
+	mov esp, esi
+endif
 
 ;--- search EIP, store it in EDX
 ;--- store dll/exe flag in CL

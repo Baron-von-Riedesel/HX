@@ -105,6 +105,7 @@ install:
 	@copy STUBS\Release\LOADPE.BIN    $(HXINST)\Bin
 	@copy STUBS\Release\LOADPEX.BIN   $(HXINST)\Bin
 	@copy STUBS\Release\LOADPXNR.BIN  $(HXINST)\Bin
+	@copy STUBS\Release\LOADPERO.BIN  $(HXINST)\Bin
 	@copy STUBS\STUBS.TXT             $(HXINST)\Doc
 
 	@copy HXLDR32\Release\HXLDR32.EXE $(HXINST)\Bin

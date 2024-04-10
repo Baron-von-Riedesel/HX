@@ -434,6 +434,8 @@ allocxsel endp
 	@ResetTrace
 
 ;*** DPMI function 0002 (alloc real mode sel)
+;--- in: BX=segment
+;--- out: AX=selector
 
 allocrmsel proc public
 	mov ax,-1
@@ -447,7 +449,8 @@ allocrmsel proc public
 	align 4
 allocrmsel endp
 
-;*** function 0003 ***
+;*** function 0003
+;--- descriptor increment
 
 getincvalue proc public
 	mov ax,0008h

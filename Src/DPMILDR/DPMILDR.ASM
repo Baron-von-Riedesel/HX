@@ -7911,6 +7911,7 @@ if ( ?32BIT eq 0 ) and ?SERVER
 	int 21
 	call loadserver	; try to load HDPMI16
 	jnc JumpToPM	; and try again ( hopefully not entering an infinite loop ... )
+	mov ax, offset errstr3		; v3.12: added; cannot switch to prot-mode
 	jmp error0
 else
 	mov ax,offset errstr3		; cannot switch to prot-mode

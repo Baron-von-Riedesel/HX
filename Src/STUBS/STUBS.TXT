@@ -35,22 +35,26 @@
  for more details.
 
 
- 4. LOADPE.BIN, LOADPEX.BIN and LOADPXNR.BIN
+ 4. The LOADPE Variants
 
- These stubs contain a simplified PE loader by itself. So - unlike 
+ All those stubs contain a simplified PE loader by itself. So - unlike 
  DPMIST32.BIN - no external binary is needed to load the application.
  However, the application must be a DOS binary and must NOT contain 
- references to other PE modules (no imports). LOADPE.BIN will load
- HDPMI32 if no DPMI host is installed, LOADPEX.BIN contains HDPMI32
- already and will activate it if no host is active. LOADPXNR.BIN is
- like LOADPE.BIN, but lacks the ability to relocate the binary - it
- must be loaded at its preferred address. Hence this version needs a
- host that supports int 31h, ax=504h.
+ references to other PE modules (no imports).
+
+ - LOADPE.BIN will load HDPMI32 if no DPMI host is installed.
+ - LOADPEX.BIN contains HDPMI32 and will activate it if no host is active.
+ - LOADPXNR.BIN lacks the ability to relocate the binary - it must be loaded
+   at its preferred address. Hence this version needs a host that supports
+   int 31h, ax=504h.
+ - LOADPERO.BIN makes all sections readonly that aren't declared as
+   writeable.
 
 
  5. History
 
- 02/2024: no int 41h debug support if cwsdpmi is detected;
+ 04/2024: LOADPERO variant added.
+ 02/2024: no int 41h debug support if cwsdpmi is detected.
  07/2022: added int 41h debug support to loadpe.
           handle gracefully an installed 16-bit only host.
  05/2018: added another version of LOADPE: LOADPXNR.BIN.
