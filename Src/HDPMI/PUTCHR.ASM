@@ -261,30 +261,32 @@ _putchrx proc public
 
 	pushad
 ifdef _DEBUG
-	mov edx,ss
-	cmp dx,byte ptr _SSSEL_		;ring 0 with SS==GROUP16?
- ife ?VIODIROUT
-	jnz exit2
- else
-	jnz @F
- endif
-	test ss:fMode2,FM2_LOG
+	push ds
+	push byte ptr _SSSEL_
+	pop ds
+	assume ds:GROUP16
+	test [fMode2],FM2_LOG
+	pop ds
+	assume ds:SEG16
 	jz exit2
-@@:
 endif
-	push es
-if ?USEDEBUGOUTPUT and ?I41SUPPORT	;?USEDEBUGOUTPUT active only if ?WDEB386==1
-	mov edx,ss
-	cmp dx,byte ptr _SSSEL_		;ring 0 with SS==GROUP16?
-	jnz @F
-	test ss:[fDebug],FDEBUG_OUTPFORKD
+if ?USEDEBUGOUTPUT ;?USEDEBUGOUTPUT active only if ?WDEB386==1
+	push ds
+	push byte ptr _SSSEL_
+	pop ds
+	assume ds:GROUP16
+	test [fDebug],FDEBUG_OUTPFORKD
+	pop ds
+	assume ds:SEG16
 	jz @F
 	mov dl,al
 	mov ax,DS_Out_Char
 	int Debug_Serv_Int
-	jmp exit
+	popad
+	ret
 @@:
 endif
+	push es
 if ?VIODIROUT
   if ?CHECKTEXTMODE
 	call IsTextMode
@@ -357,6 +359,7 @@ putchr2:
 	@slowdown
 	jmp putchrex
 endif		;?VIODIROUT
+
 if ?DOSOUTPUT
 	push byte ptr _FLATSEL_
 	pop es
@@ -373,13 +376,14 @@ if ?DOSOUTPUT
 	mov dl,al
 	mov ah,2
 	@simrmint 21h
-ifdef _DEBUG
+ ifdef _DEBUG
 	test ss:[bStdout],80h	;no slowdown if stdout is a file
 	jz putchrex
-endif
+ endif
 	@slowdown
 	jmp putchrex
 endif
+
 if ?BIOSOUT
 usebios:
 ;	push ds
@@ -488,8 +492,12 @@ _stroutx proc public
 	push edx
 	push esi
 ifdef _DEBUG
+ if ?USEDEBUGOUTPUT
+	test ss:[fDebug],FDEBUG_OUTPFORKD
+	jnz usekdout
+ endif
  if ?DOSOUTPUT and ?USEHOSTPSP
-	push 0
+	push 0		; room for DOSSDA.wPSP
 	push es
 	push byte ptr _FLATSEL_
 	pop es
@@ -506,16 +514,20 @@ ifdef _DEBUG
 @@:
 	pop es
  endif
+usekdout:
 endif
 	mov esi,[ebp+4]
 	movzx esi,word ptr cs:[esi]
 	add dword ptr [ebp+4],2
 nextitem:
-	db 2Eh		;CS
-	lodsb
+	lodsb cs:[esi]
 	and al,al
 	jnz ischar
 ifdef _DEBUG
+ if ?USEDEBUGOUTPUT
+	test ss:[fDebug],FDEBUG_OUTPFORKD
+	jnz @F
+ endif
  if ?DOSOUTPUT and ?USEHOSTPSP
 	pop eax
 	and eax,eax
@@ -540,8 +552,7 @@ ischar:
 	cmp al,'%'
 	jnz _putchrx		;just display the char
 	mov dl,00
-	db 2Eh
-	lodsb
+	lodsb cs:[esi]
 	cmp al,'X'
 	jz stroutx_X
 	cmp al,'b'
@@ -551,8 +562,7 @@ ischar:
 	cmp al,'l'
 	jnz @F
 	mov dl,al
-	db 2Eh
-	lodsb
+	lodsb cs:[esi]
 	cmp al,'X'
 	jz stroutx_lX
 @@:

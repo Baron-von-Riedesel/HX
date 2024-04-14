@@ -1840,14 +1840,17 @@ else
 ;--- v3.22: problem with RF, which is lost.
 ;--- using the value from r0stack definitely will set RF=0.
 ;--- using the value from LPMS won't work with 16-bit.
-;--- So the fix currently is: for 32-bit, use flags from LPMS
+;--- So the fix currently is: for 32-bit, use hiword(efl) from LPMS;
 ;--- for 16-bit, RF is saved in lpms_call_int in hiword(cs)
-;--- and restored here.
+;--- and restored here. loword(efl) is copied from r0stack, since
+;--- this will have TF preserved.
 
 	assume ds:GROUP16
 if ?32BIT
-	push dword ptr ds:[?LPMSSIZE-12];v3.22: EFL src LPMS; 32-bit only
-	push dword ptr ds:[?LPMSSIZE-4]	;CS
+;	push dword ptr ds:[?LPMSSIZE-12];v3.22: EFL src LPMS; 32-bit only
+	push word ptr ds:[?LPMSSIZE-10]		;v3.22: hiword(EFL) src LPMS;
+	push word ptr [esp+8+2].RPMIFR.rFL	;v3.22: hiword(EFL) src r0stack
+	push dword ptr ds:[?LPMSSIZE-4]		;CS
 else
 	push word ptr ds:[?LPMSSIZE-2]		; hiword(EFL) on LPMS
 	push word ptr [esp+8+2].RPMIFR.rFL	; EFL src r0stack
@@ -2598,14 +2601,51 @@ if ?WINDBG
 
 ;--- int 22h in PL0 protected-mode is an API that
 ;--- the Win3x/9x VMM supplies for the debugger ( WDeb386 ).
-;--- it is called with a function # in AX (or AH?)
-;--- function 0 is query ( must return AX=F386h if service available )
+;--- it's called with a function # in AX (or AH?)
+;---  0: is installed?; must return AX=F386h if service available
+;---  1: query Win386 state; ds:[esi]=cmd string, ds:[edi]=client struct
+;---  2: phys2linear; esi=phys addr, cx=bytes, returns ax=0/1, esi=linaddr
+;---  3: addr valid?; esi=linear addr, cx=bytes, returns ax=0/1
+
+;--- assumes ss==GROUP16!!!
 
 	@ResetTrace
-intr22:
+intr22 proc
 	@dprintf "intr22: Win386 debug API called, ax=%X", ax
+ if 0
+	test ss:[fDebug], FDEBUG_KDPRESENT
+	jz exit
+	cmp ax, 0
+	jz is0
+	cmp ax, 2
+	jz is2
+exit:
+	iretd
+is0:
+	mov ax, 0F386h
+	iretd
+is2:
+	pushad
+	@dprintf "intr22: ax=2, esi=%lX, cx=%X", esi, cx
+	mov word ptr [esp].PUSHADS.rEAX, 0
+	jcxz @F
+	mov edx, esi
+	movzx eax, cx
+	add eax, 1000h-1
+	shr eax, 12
+	call pm_searchphysregion
+	jc @F
+	and dx, 0FFFh
+	or ax, dx
+	@dprintf "intr22: ax=2 ok, esi=%lX", eax
+	mov [esp].PUSHADS.rESI, eax
+	mov word ptr [esp].PUSHADS.rEAX, 1
+@@:
+	popad
+ endif
 	iretd
 	align 4
+intr22 endp
 endif
 
 
@@ -4510,7 +4550,25 @@ rDS	dd ?
 	IRET32	<>
 INITCLPM ends
 
+;--- @makeinitclpmframe is invoked when esp==[dwHostStack]
+;--- it first pushes the current segment register values of pmstate.
+;--- however, macro @store_ssesp expects [dwHostStack] to point ABOVE
+;--- an IRET32 struct.
+;--- that's a problem when the host is reentered during initialization due to
+;--- callouts for debug displays, and a rmcb/irq is then routed to pm.
+;--- v3.22: as a fix, ?SAVESSESPONINIT has been introduced.
+
+ifdef _DEBUG
+?SAVESSESPONINIT equ 1
+else
+?SAVESSESPONINIT equ 0
+endif
+
 @makeinitclpmframe macro
+if ?SAVESSESPONINIT
+	push pmstate.rSSd
+	push pmstate.rESP
+endif
 	push pmstate.rFSGS
 	push pmstate.rESDS
 	mov dwHSsaved,esp
@@ -4907,6 +4965,10 @@ _initclient_pm proc
 	mov v86iret.rSP, ?RMSTKSIZE
 	mov v86iret.rSS, ax
 
+;--- before calling out ( to DOS/BIOS, anything that enables interrupts ), it has
+;--- to be ensured that [dwHostStack] points ABOVE an IRET32 struct, because that is
+;--- what macro @store_ssesp assumes.
+
 	@dprintf "initclient: instance=%X, pmst.DS/ES=%X/%X RMS=%X:%X tss.esp0=%lX, esp=%lX",\
 		wHostSeg, pmstate.rDS, pmstate.rES, v86iret.rSS, v86iret.rSP, taskseg._Esp0, esp
 
@@ -5126,7 +5188,7 @@ if ?DBGSUPP
 	or byte ptr [ebp].INITCLPM.rFL+1,1	;set TF
 @@:
 endif
-	lea eax,[esp + sizeof INITCLPM]
+	lea eax,[ebp + sizeof INITCLPM]
 	mov ds:taskseg._Esp0, eax
 	@dprintf "initclient: client status ok, ebp=%lX, ss:esp=%lX:%lX", ebp, ss, esp
 	@dprintf "initclient: client: CS:IP=%X:%lX, SS:SP=%X:%lX, DS=%lX",[ebp].INITCLPM.rCS, [ebp].INITCLPM.rIP, [ebp].INITCLPM.rSS, [ebp].INITCLPM.rSP,[ebp].INITCLPM.rDS
@@ -5214,6 +5276,9 @@ termclient2:
 	lea esp, [esp+ sizeof IRET32 + 4]
 	pop pmstate.rESDS
 	pop pmstate.rFSGS
+if ?SAVESSESPONINIT
+	add esp, 2*4
+endif
 	@rawjmp_rm _initclienterr_rm
 
 ;--- no client running as of yet;
@@ -5326,7 +5391,10 @@ _exitclient_pm proc public
 	push ss
 	pop ds
 	assume DS:GROUP16
+ifndef _DEBUG
+;--- don't skip the IRET32 frame if callouts will happen and the host may be reentered!
 	mov esp, taskseg._Esp0	;skip the IRET32 from ring3 entry
+endif
 
 ;--- don't save anything onto the stack, it is modified inside the proc
 	mov ds:taskseg._GS, eax
@@ -5379,7 +5447,9 @@ endif
 ;--- these can't be restored earlier because any DOS/BIOS output will destroy pmstate
 	pop pmstate.rESDS
 	pop pmstate.rFSGS
-
+if ?SAVESSESPONINIT
+	add esp, 2*4
+endif
 	@rawjmp_rm _exitclient_rm
         
 ;--- either last client terminates

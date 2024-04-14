@@ -671,10 +671,14 @@ rESP	dd ?
 
 PMSTATE ends
 
-;--- store current client ss:esp into pmstate
-;--- done at switches to real-mode
+;--- store current client ss:esp into pmstate, used by:
+;--- _pm2rm in i31swt.asm ( raw mode switch to real-mode )
+;--- _jmp_rm in switch.asm ( std jump to real-mode )
+;--- assumes:
+;--- [dwHostStack]: esp -> ABOVE an IRET32 struct
 
 @store_ssesp macro
+if 1
 	push ebp
 	mov ebp,ss:[dwHostStack]
 	push [ebp-sizeof IRET32].IRET32.rSP
@@ -682,6 +686,17 @@ PMSTATE ends
 	pop ss:pmstate.rESP
 	mov ss:pmstate.rSSd, ebp
 	pop ebp
+else
+;--- 1 push less, 1 pop more
+	push ebp
+	mov ebp, ss:[dwHostStack]
+	lea ebp, [ebp-2*4] 
+	xchg esp, ebp
+	pop ss:pmstate.rESP
+	pop ss:pmstate.rSSd
+	mov esp, ebp
+	pop ebp
+endif
 endm
 
 ;--- structure for VCPI function DE0C (switch to protected mode)
@@ -1231,8 +1246,8 @@ endm
 ;--- this macro should be followed by @pushstate in protected-mode
 
 @savermstk macro
-	mov word ptr cs:dwrmSSSPtmp+0,sp
-	mov word ptr cs:dwrmSSSPtmp+2,ss
+	mov cs:wrmSPtmp,sp
+	mov cs:wrmSStmp,ss
 endm
 
 ;--- restore value of real-mode stack

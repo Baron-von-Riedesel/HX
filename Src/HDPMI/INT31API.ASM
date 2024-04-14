@@ -27,7 +27,7 @@ _TEXT32 segment
 	@ResetTrace
 
 ;*** INT 31h API dispatcher
-;--- intr31: this is the address in the IDT if ?FASTINT31
+;--- intr31: address in IDT if ?FASTINT31=0
 
 intr31  proc public
 ife ?FASTINT31
@@ -41,10 +41,15 @@ else
 endif
 intr31 endp
 
-intr31_ proc public
-	@dprintf "i31 enter a-d=%X %lX %lX %lX esi=%lX edi=%lX hs=%lX",ax,ebx,ecx,edx,esi,edi,esp
-;	@waitesckey
+;--- intr31_: address in IDT if ?FASTINT31=1
 
+intr31_ proc public
+if _LTRACE_
+	cmp ah,9
+	jz @F
+endif
+	@dprintf "i31 enter a-d=%X %lX %lX %lX esi=%lX edi=%lX hs=%lX",ax,ebx,ecx,edx,esi,edi,esp
+@@:
 if ?LOGINT31
 	mov ss:[i31func],ax
 endif
@@ -62,14 +67,6 @@ intr31ex_1:
 endif
 if ?FASTINT31
 	jmp iret_with_CF_mod
-  if 0
-	jc @F
-	and byte ptr [esp].IRET32.rFL, not 1	;reset carry
-	iretd
-@@:
-	or byte ptr [esp].IRET32.rFL, 1 	;set carry
-	iretd
-  endif
 else
 	ret
 endif
