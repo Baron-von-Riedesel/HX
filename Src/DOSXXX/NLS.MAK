@@ -28,3 +28,4 @@ $(OUTDIR)\$(NAME).obj: $(NAME).asm
 	@jwasm.exe -c -nologo -Fl$* -Fo$* $(NAME).asm
 
 clean:
+	@del $(OUTDIR)\$(NAME).dll

@@ -129,8 +129,8 @@ copy_far32_2_tlbxx proto near ;copy xx bytes from far32 to tlb:xx
 copyz_far32_2_tlbxx proto near 
 copyz_tlbxx_2_far32 proto near 
 
-copy_far32_2_flat proto near
-copy_flat_2_far32 proto near
+copy_far32_2_flat proto near stdcall :dword, :fword
+copy_flat_2_far32 proto near stdcall :dword, :fword
 
 copy_dta_2_tlbdta proto near  ;function 4F (get next dir entry)
 copy_tlbdta_2_dta proto near  ;functions 11,12,13,4E,4F

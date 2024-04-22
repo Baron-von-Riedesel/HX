@@ -8,10 +8,12 @@
 
 	option proc:private
 
+;--- ?CHECKDATA temporarily may modify an LDT descriptor to data in copy_flat_2_far32()
+;--- todo: describe why this is considered necessary.
 if ?32BIT
-?CHECKWRITE	equ 1	;std=?, when copying from TLB make sure dst isnt r/o
+?CHECKDATA	equ 0	;std=0, v3.22: 0 is "std" now (because switch lacks documentation)
 else
-?CHECKWRITE	equ 1	;std=1, when copying from TLB make sure dst isnt r/o
+?CHECKDATA	equ 1	;std=1, when copying from TLB make sure dst isnt code
 endif
 
 _TEXT32 segment
@@ -29,8 +31,8 @@ copy_tlb_2_dsdx 	;copy cx bytes src tlb:0   dst ds:dx
 copy_esdi_2_tlb 	;copy cx bytes src es:di   dst tlb:0,v86-es=TLB
 copy_tlb_2_esdi 	;copy cx bytes src tlb:0   dst es:di
 
-copy_far32_2_flat	;copy cx bytes src FAR32   dst SEGM
-copy_flat_2_far32	;copy cx bytes src SEGM    dst FAR32
+copy_far32_2_flat	;copy cx bytes src FAR16/32 dst SEGM
+copy_flat_2_far32	;copy cx bytes src SEGM     dst FAR16/32
 
 copyz_far32_2_tlbxx	;copy asciiz   src FAR32   dst tlb:xx
 copyz_tlbxx_2_far32	;copy asciiz   src tlb:xx  dst FAR32
@@ -248,65 +250,55 @@ endif
 	align 4
 copyz_tlb_2_dsdx endp
 
-;*** - set v86-es to TLB
-;*** - copy cx bytes src ES:E/DI dst TLB:0
+;*** 1. copy cx bytes src ES:E/DI dst TLB:0
+;*** 2. set v86-es to TLB
 
 copy_esdi_2_tlb proc public
-	push es
-if ?32BIT
-	push edi
-else
-	push word ptr 0
-	push di
-endif
+	invoke copy_far32_2_flat, ss:[dwSegTLB], es::edi
 	call setesreg2tlb
-	push ss:[dwSegTLB]
-	call copy_far32_2_flat
 	ret
 	align 4
 copy_esdi_2_tlb endp
 
-;*** - set v86-ds to TLB
-;*** - copy cx bytes src DS:E/DX dst TLB:0
+;*** 1. copy cx bytes src DS:E/DX dst TLB:0
+;*** 2. set v86-ds to TLB
 
 copy_dsdx_2_tlb proc public
-	push ds
-if ?32BIT
-	push edx
-else
-	push word ptr 0
-	push dx
-endif
+	invoke copy_far32_2_flat, ss:[dwSegTLB], ds::edx
 	call setdsreg2tlb
-	push ss:[dwSegTLB]
-	call copy_far32_2_flat
 	ret
 	align 4
 copy_dsdx_2_tlb endp
 
-;--- copy cx bytes from FAR32 to segment
+;--- copy cx bytes from FAR16/32 to segment
 
 COPYXX2FL struct
 	dd ?	;ds
 	dd ?	;es
 	PUSHADS <>
 	dd ?	;return
-wDest dw ?	;destination segment
+wDst dw ?	;destination segment
 	dw ?
 dfSrc df ?
 	dw ?
 COPYXX2FL ends
 
-copy_far32_2_flat proc public
+copy_far32_2_flat proc stdcall public a1:dword, a2:fword
+copy_far32_2_flat endp
+
+_copy_far32_2_flat proc
 
 	pushad
 	push es
 	push ds
-	movzx edi,[esp].COPYXX2FL.wDest
+	movzx edi,[esp].COPYXX2FL.wDst
 	lds esi,[esp].COPYXX2FL.dfSrc
 	mov ax,_FLATSEL_
 	mov es,eax
 	shl edi,4
+ife ?32BIT
+	lea esi, [si]
+endif
 
 	mov al,cl
 	movzx ecx,cx
@@ -321,7 +313,7 @@ copy_far32_2_flat proc public
 	retn 3*4
 	align 4
 
-copy_far32_2_flat endp
+_copy_far32_2_flat endp
 
 ;--- copy xx bytes from FAR32 to TLB:xx
 
@@ -366,15 +358,7 @@ copy_far32_2_tlbxx endp
 ;*** copy cx bytes src TLB:0, dst ES:(E)DI
 
 copy_tlb_2_esdi proc public
-	push es
-if ?32BIT
-	push edi
-else
-	push word ptr 0
-	push di
-endif
-	push ss:[dwSegTLB]
-	call copy_flat_2_far32
+	invoke copy_flat_2_far32, ss:[dwSegTLB], es::edi
 	ret
 	align 4
 copy_tlb_2_esdi endp
@@ -383,15 +367,7 @@ copy_tlb_2_esdi endp
 
 copy_tlb_2_dsdx proc public
 
-	push ds
-if ?32BIT
-	push edx
-else
-	push word ptr 0
-	push dx
-endif
-	push ss:[dwSegTLB]
-	call copy_flat_2_far32
+	invoke copy_flat_2_far32, ss:[dwSegTLB], ds::edx
 	ret
 	align 4
 copy_tlb_2_dsdx endp
@@ -427,7 +403,7 @@ endif
 copy_tlbxx_2_esdi endp
 
 
-;*** copy cx bytes src SEGM, dst FAR32
+;*** copy cx bytes: wSrc=SEGM, dfDst=FAR32
 
 COPYFL2XX struct
 	dd ?	;es
@@ -436,25 +412,32 @@ COPYFL2XX struct
 	dd ?	;return
 wSrc dw ?	;src segment
 	dw ?
-dfDest df ?
+dfDst df ?
 	dw ?
 COPYFL2XX ends
 
-copy_flat_2_far32 proc public
+;--- define an empty function - we don't want ebp as frame ptr.
+copy_flat_2_far32 proc stdcall public a1:dword, a2:fword
+copy_flat_2_far32 endp
+
+_copy_flat_2_far32 proc
 	pushad
 	push ds
 	push es
 
 	movzx esi, [esp].COPYFL2XX.wSrc
 	shl esi,4
-	les edi, [esp].COPYFL2XX.dfDest
+	les edi, [esp].COPYFL2XX.dfDst
+ife ?32BIT
+	lea edi, [di]
+endif
 
-if ?CHECKWRITE
+if ?CHECKDATA
 	mov ebx, es
 	and bl,0F8h
 	mov ds,ss:[selLDT]
 	mov dl,[bx.DESCRPTR.attrib]
-	and byte ptr [bx.DESCRPTR.attrib],0F7h	;reset r/o
+	and byte ptr [bx.DESCRPTR.attrib],0F7h	;reset bit 3 (1=code)
 	push es
 	pop es
 endif
@@ -468,7 +451,7 @@ endif
 	mov cl,al
 	and cl,3
 	rep movsb
-if ?CHECKWRITE
+if ?CHECKDATA
 	mov ds,ss:[selLDT]
 	mov [bx.DESCRPTR.attrib],dl
 endif
@@ -478,7 +461,7 @@ endif
 	retn 3*4
 	align 4
 
-copy_flat_2_far32 endp
+_copy_flat_2_far32 endp
 
 ;*** copy asciiz, src ds:(e)dx, dst tlb:0000
 ;--- set v86-ds to tlb

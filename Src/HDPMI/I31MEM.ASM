@@ -13,6 +13,7 @@
 
 ?ADDRISHANDLE	equ 1		;std=1, 1=handle is address of block
 ?USESTDALLOC	equ 0		;std=0, 1=use std allocation functions for IDT/LDT
+?DISPLAYHDLTAB	equ 0		;std=0, 1=display mem hdl tab when client exits
 
 if ?RESTRICTMEM
 ?MAXFREEPAGES	equ 65536	;65536 * 4k pages = 256 MB
@@ -406,11 +407,11 @@ _AllocMemory endp
 
 	@ResetTrace
 
-;*** search handle in handle list, used by freemem + resizemem
-;*** in: handle in ebx
-;*** out: NC, handle in ebx, previous handle in eax
+;--- search handle in handle list.
+;--- in: "external handle" in ebx ( the linear base address, usually ).
+;--- out: NC, "internal handle" in ebx, previous handle in eax
 ;--- C if handle not found, ebx=0.
-;*** changes eax, ds=GROUP16
+;--- changes eax, ds=GROUP16
 ;--- used by freememint, resizememint, getsetpageattr, mapx, getmemsize
 
 searchhandle proc uses ecx
@@ -441,7 +442,7 @@ searchhandle endp
 
 	@ResetTrace
 
-;--- internal function: free EBX internal handle
+;--- internal function: free EBX "internal handle"
 ;--- it has to be done this way, since _FreeMemory
 ;--- needs previous handle in EAX.
 
@@ -1484,10 +1485,11 @@ _freeclientmemory proc public
 	pushad
 	mov cl,[cApps]
 	@dprintf "freeclientmemory enter, client=%X", cx
-if 0;_LTRACE_
-	@dprintf "freeclientmemory: hdltab before freeing blocks"
-?DISPLAYHDLTAB equ 1
+if ?DISPLAYHDLTAB
+_LTRACE_ = _LTRACE_ + 1
+	@dprintf "freeclientmemory: hdltab before freeing client mem"
 	call displayhdltab
+_LTRACE_ = _LTRACE_ - 1
 endif
 nextscan:
 	mov ebx,offset pMemItems
@@ -1525,8 +1527,7 @@ if 1
  endif
 @@:
 endif
-if _LTRACE_
-?DISPLAYHDLTAB equ 1
+if ?DISPLAYHDLTAB
 	call displayhdltab
 endif
 	@dprintf "freeclientmemory exit"
@@ -1536,9 +1537,9 @@ endif
 
 _freeclientmemory endp
 
-ifdef ?DISPLAYHDLTAB 
+if ?DISPLAYHDLTAB 
 
-_LTRACE_ = 1	;this should always be 1
+_LTRACE_ = 1	;this should always be 1 here
 
 ;--- assumes DS:GROUP16
 

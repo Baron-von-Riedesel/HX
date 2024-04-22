@@ -267,19 +267,19 @@ if ?32BIT
 	lds edx,fword ptr [ebx].DISKIO.buffofs
 else
 	lds dx,dword ptr [bx].DISKIO.buffofs
-	movzx edx,dx
 endif
-	push ds					;1. parameter QWORD
-	push edx				; parameter for copy_xx_2_flat
-	mov cx,ss:[wSegTLB]
+	mov ecx, eax
+	shl ecx, 9			;sectors -> bytes (only CX matters)
+
 ife ?DIO2RMS
-	add cx,0020h
-endif
-	push ecx				;2. parameter for copy_xx_2_flat DWORD
-	mov ecx,eax
-	shl ecx,9			;sectors -> bytes (only CX counts)
+	mov eax, ss:[dwSegTLB]
+	add ax,0020h
 	@dprintf "PrepareDiskIoWrite: copy %X bytes from %lX:%lX to TLB:200",cx,ds,edx
-	call copy_far32_2_flat
+	invoke copy_far32_2_flat, eax, ds::edx
+else
+	@dprintf "PrepareDiskIoWrite: copy %X bytes from %lX:%lX to TLB",cx,ds,edx
+	invoke copy_far32_2_flat, ss:[dwSegTLB], ds::edx
+endif
 	pop ecx
 	pop edx
 	pop ds
@@ -320,10 +320,7 @@ ife ?DIO2RMS
 endif
 @@:
 	shl cx,9
-	push ds
-	push ebx
-	push esi				;src segment
-	call copy_flat_2_far32	;copy CX bytes from SEGM to far32
+	invoke copy_flat_2_far32, esi, ds::ebx
 	ret
 	align 4
 AfterDiskIoRead endp

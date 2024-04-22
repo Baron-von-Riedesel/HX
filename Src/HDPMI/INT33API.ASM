@@ -72,15 +72,9 @@ intr3316::				;save state to es:E/DX
 	push ecx
 	mov ecx,ebx			;bx=size of buffer
 	and ch,1Fh			;just make sure that CX is < 2000h
-	push es
-if ?32BIT
-	push edx
-else
-	push word ptr 0
-	push dx
-endif
-	push ss:[dwSegTLB]
-	call copy_flat_2_far32
+
+	invoke copy_flat_2_far32, ss:[dwSegTLB], es::edx
+
 	pop ecx
 ;	jmp retf2exit
 	iretd
@@ -109,15 +103,7 @@ intr3309::				;graphic cursor (copy 20h bytes ES:E/DX)
 	push ecx			;but it costs only 5 bytes
 	mov cx,20h*2		;20h words!!!
 docopy33:
-	push es
-if ?32BIT
-	push edx
-else
-	push word ptr 0
-	push dx
-endif
-	push ss:[dwSegTLB]
-	call copy_far32_2_flat
+	invoke copy_far32_2_flat, ss:[dwSegTLB], es::edx
 	call setesreg2tlb
 	pop ecx
 	xor edx,edx

@@ -1237,10 +1237,7 @@ nextblock:
 
 	@dprintf "  copying from %X to %lX:%lX %X bytes",si,ds,edx,cx
 
-	push ds
-	push edx
-	push esi
-	call copy_flat_2_far32
+	invoke copy_flat_2_far32, esi, ds::edx
 
 	add edx,ecx 	 ;now update  ^ buffer pointer
 
@@ -1314,10 +1311,7 @@ intr2140A:				 ;<----
 
 	push edx
 
-	push ds
-	push edx
-	push esi
-	call copy_far32_2_flat
+	invoke copy_far32_2_flat, esi, ds::edx
 
 	xor edx,edx
 	mov ss:v86iret.rDSd,esi

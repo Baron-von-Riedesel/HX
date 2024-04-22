@@ -4,6 +4,7 @@
 .\dosbufr.ASM     \
 .\doschdir.ASM    \
 .\dosclose.ASM    \
+.\doscsal.ASM     \
 .\dosdbcs.ASM     \
 .\dosdel.ASM      \
 .\dosdev.ASM      \

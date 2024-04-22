@@ -469,22 +469,24 @@ endif
 	align 4
 _restoreclientstate endp
 
-;--- adjust committed memory for LDT to wLDTLimit
+;--- adjust committed memory for LDT to wLDTLimit;
+;--- called by _restoreclientstate();
 ;--- this may invalidate descriptors of current segment registers (FS, GS)
 
 ResizeLDT proc near
 	call setldtinfos		;reloads LDTR
 	xor eax, eax
 	mov ecx, fs
-	lar ecx, ecx
+	lar ecx, ecx			;if ZR is set, selector is ok
 	jz @F
-	mov fs, eax
+	mov fs, eax				;clear FS register
 @@:
 	mov ecx, gs
 	lar ecx, ecx
 	jz @F
-	mov gs, eax
+	mov gs, eax				;clear GS register
 @@:
+	mov ecx, eax			;v3.22: ensure hiword(ecx) is zero!
 	movzx eax,wLDTLimit		;FFF,1FFF,...,FFFF
 	inc ax 					;ax=1000,2000,...,0000
 	sub cx,ax				;ecx=F000,E000,...,0000

@@ -487,7 +487,7 @@ checksel proc
 	clc
 	ret
 error:
-	add esp,4
+	add esp,4	; skip return address
 	stc
 	ret
 	align 4
@@ -601,8 +601,8 @@ endif
 allocspecific endp
 
 ;--- int 31h, ax=000A - get cs alias of selector in BX
-;--- BX should contain a code selector, but this isn't checked
-;--- (isn't checked by other popular DPMI hosts as well)
+;--- BX "should" contain a code selector, but this isn't checked
+;--- ( and, according to DPMI v1.0, was a documentation mistake )
 ;--- might also cause troubles if the Expand Down or Conforming
 ;--- flags are set.
 

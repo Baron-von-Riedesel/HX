@@ -56,6 +56,6 @@ install:
 	@copy $(OUTDIR)\$(NAME).LIB $(HXINST)\Lib16\*.*
 	@copy $(OUTDIR)\$(SNAME).LIB $(HXINST)\Lib16\*.*
 
-clean: $(DOSOBJMODS) $(VIOOBJMODS) $(KBDOBJMODS) $(MODS4OBJMODS) $(OUTDIR)\$(NAME).LIB $(OUTDIR)\$(SNAME).LIB
-	@del $**
+clean:
+	@del $(OUTDIR)\*.obj
 

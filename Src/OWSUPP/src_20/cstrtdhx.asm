@@ -258,6 +258,7 @@ endif
 		add eax, 4096-1
 		and ax, 0f000h
 		mov _STACKTOP, eax
+		mov esp, eax
 		mov _curbrk, eax
 		sub eax, ebp
 		mov _STACKLOW, eax
@@ -347,17 +348,17 @@ if HX
         int 21h
  else
         push edi
-        xor ecx, ecx
-        push ecx
-        sub esp, 2Eh
+        sub esp, 34h
         mov edi, esp
+        xor ecx, ecx
         mov byte ptr [edi+1Dh], 51h
+        mov [edi+2Eh], ecx
         mov [edi+20h], ecx
         mov bx, 21h
         mov ax, 300h
         int 31h
         mov bx, [edi+10h]
-        add esp, 32h
+        add esp, 34h
         pop edi
         mov ax, 2
         int 31h
@@ -370,10 +371,12 @@ if HX
 ;        mov al,X_HX
         mov al,X_RATIONAL
         mov ah,0          ; meaning "zero-based"
-        jmp know_extender
+;        jmp know_extender
 endif
+if 0
 unknown_extender:
         xor eax, eax
+endif
 
 ;--- here: esi=0 (start env), ebx=ds, ax=extender version, cx=environment selector
 ;---       edi=offset start cmdline (rel to [_psp])

@@ -73,14 +73,10 @@ endif
 	@dprintf "i13: ax=%X,cx=%X,dx=%X call",ax,cx,dx
 	sub esp,4
 	pushad
-	@getdrvparms		 ;get drive structure
+	@getdrvparms		;get drive structure
 	popad
-if ?32BIT
 	mov edi,[ebp.PUSHADS.rEBX]
-else
-	movzx edi,[ebp.PUSHADS.rBX]
-endif
-intr1302_0:				;<----
+intr1302_0:				;<---- next sectors to read
 	push eax
 	cmp al,?TLBSECS
 	jbe @F
@@ -99,11 +95,8 @@ intr1302_0:				;<----
 
 	@dprintf "i13: copy to %lX:%lX from %X %X bytes",es,edi,ss:[wSegTLB],cx
 
-	push es
-	push edi
+	invoke copy_flat_2_far32, ss:[dwSegTLB], es::edi
 	add edi,ecx
-	push ss:[dwSegTLB]
-	call copy_flat_2_far32
 
 	pop ecx
 
@@ -148,16 +141,11 @@ intr1303_0:				;<----
 	mov al,?TLBSECS
 @@:
 	push ecx
-
-	push es
-	push edi
-	push ss:[dwSegTLB]
 	movzx ecx,al
 	shl ecx,9		 ;transform sectors to bytes (*512)
 	@dprintf "i13: copy from %lX:%lX to %X %X bytes",es,edi,ss:[wSegTLB],cx
+	invoke copy_far32_2_flat, ss:[dwSegTLB], es::edi
 	add edi,ecx
-	call copy_far32_2_flat
-
 	pop ecx
 
 	call setesreg2tlb

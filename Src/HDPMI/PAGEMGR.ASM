@@ -1578,12 +1578,13 @@ if ?DPMI10
 
 ;--- get page entry attributes to es:edx
 ;--- ebx = linear address
-;--- ecx = size in pages
+;--- ecx = size in pages (may be 0)
 ;--- attributes (WORD):
 ;--- bit 0+1: 00=uncommitted, 01=committed, 02=mapped
 ;--- bit 3: writable
 ;--- bit 4: bit 5+6 valid (accessed+dirty)
 ;--- it's ensured by the caller that the region is valid.
+;--- DS modified to flat.
 
 pm_getpageattributes proc public
 	@dprintf "getpageattributes: lin addr %lX - copy %lX attr to %lX:%lX",ebx, ecx, es, edx
@@ -1594,6 +1595,7 @@ pm_getpageattributes proc public
 	mov esi, edi
 	mov edi, edx
 	jecxz done
+	cld
 nextitem:
 	lodsd
 	mov edx, eax
