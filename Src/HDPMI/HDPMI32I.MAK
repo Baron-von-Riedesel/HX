@@ -40,7 +40,7 @@ AOPT   = -nologo -c -Cp -Sg -D?32BIT=1 -D?PMIOPL=0 $(AOPTD) -I$(INC32DIR) -Fl$* 
 
 SRC   = hdpmi
 
-DEPS0 = hdpmi.inc external.inc version.inc $(NAME).mak
+DEPS0 = hdpmi.inc external.inc version.inc $(NAME)i.mak
 
 .SUFFIXES: .asm .obj
 
@@ -68,7 +68,7 @@ $(OUTD)\$(NAME)i.EXE: $(OUTD)\$(NAME).TMP
 	@EditPE -q d 3    $*.EXE $*.EXE
 	@PEstub -q -n     $*.EXE $(OUTD)\stub.bin
 
-$(OUTD)\$(NAME).TMP: $(OUTD)\$(SRC).obj $(OUTD)\$(NAME).lib $(NAME).mak 
+$(OUTD)\$(NAME).TMP: $(OUTD)\$(SRC).obj $(OUTD)\$(NAME).lib $(NAME)i.mak 
 	@$(LINK) format win pe hx ru native f $(OUTD)\$(SRC) n $*.TMP lib $(OUTD)\$(NAME).lib op q, map=$*.MAP, nodosseg, stack=0, offset=0, align=0x100
 #	link /subsystem:native $(OUTD)\$(SRC).obj $(OUTD)\$(NAME).lib /OUT:$*.TMP /MAP:$*.map /STACK:0,0 /BASE:0 /FILEALIGN:0x100
 

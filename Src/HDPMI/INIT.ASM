@@ -705,6 +705,21 @@ endif
 	mov bx,0	;no of pages, may be 0
 	int 67h
 	mov wEMShandle,dx
+
+if ?JHDPMI
+	push es
+	mov bx, 4858h	;device ID of JHDPMI
+	mov ax, 1684h
+	int 2Fh
+	cmp al, 0
+	jnz @F
+	mov word ptr [dwJHdpmi+0], di
+	mov word ptr [dwJHdpmi+2], es
+	or [fMode], FM_NOIVTHK
+@@:
+	pop es
+endif
+
 ife ?CR0COPY
 	mov ax,0DE07h	;get CR0
 	int 67h

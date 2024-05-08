@@ -287,6 +287,8 @@ readldtbitfield endp
 
 ;*** called on _exitclient (AH=4CH)
 ;*** DS=GROUP16
+;--- restores IDT/LDT, remove invalid entries in rmsel list.
+;--- restores _DATA16C, that contains INTRMCBs
 ;--- no return value!
                 
 	@ResetTrace
@@ -368,6 +370,7 @@ endif
 
 if _LTRACE_
 	push ss:[wIntRmCb]  ; wIntRmCb has just been restored, but prevent any reentrance
+;--- todo: clearing wIntRmCB is NOT a good idea - better mask all interrupts
 	mov ss:[wIntRmCb], 0; until all data has been copied back
 endif
 
@@ -486,7 +489,7 @@ ResizeLDT proc near
 	jz @F
 	mov gs, eax				;clear GS register
 @@:
-	mov ecx, eax			;v3.22: ensure hiword(ecx) is zero!
+	mov ecx, eax			;v3.22: ensure ecx is zero!
 	movzx eax,wLDTLimit		;FFF,1FFF,...,FFFF
 	inc ax 					;ax=1000,2000,...,0000
 	sub cx,ax				;ecx=F000,E000,...,0000

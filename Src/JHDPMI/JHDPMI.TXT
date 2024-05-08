@@ -1,0 +1,72 @@
+
+ 1. About
+
+  JHDPMI is a JLM that allows to hook into the v86-mode interrupt chain,
+ without modifying the IVT. This ensures the client will be the very first
+ to be called when an IRQ is triggered, no matter what the corresponding
+ vector in the IVT is telling.
+  There are 2 variants of the hook API: the first and simplest method
+ expects a v86-mode vector that will be called if the interrupt occurs.
+ The second method is for VCPI clients only; they may be notified directly
+ by the VCPI host, without making a detour through v86-mode.
+
+
+ 2. Install/Uninstall JHDPMI
+
+ JHDPMI can be installed either as a device driver in CONFIG.SYS:
+
+   DEVICE=JLOAD.EXE JHDPMI.DLL
+
+ or as a TSR from the command line:
+
+   JLOAD JHDPMI.DLL
+
+ To uninstall, use JLOAD's -u option:
+
+   JLOAD -u JHDPMI.DLL
+
+
+ 3. Using JHDPMI
+
+ The intended usage is for HDPMI to ensure it's the first to get interrupts
+ that occur in v86-mode, without the ugly ( and not really well functioning )
+ need to hook into the IVT for all IRQs. But JHDPMI may be useful for other
+ purposes as well.
+
+
+ 4. Technical Details
+
+ JHDPMI supplies a real-mode interface.
+ Device ID is 4858h, functions are:
+ AX=0000h: Get Version
+      out: AX=version (0x100 currently)
+ AX=0001h: Hook Interrupt for v86 program
+       in: BL=interrupt to hook
+           CX:DX=real-mode CS:IP to call
+ AX=0002h: Hook Interrupt for VCPI client
+       in: BL=interrupt to hook
+           ESI=linear address of a VCPI_V86ToPM mode switch struct;
+           must be located in first MB. The contents will be copied
+           to an internal data region.
+ AX=0003h: Unhook Interrupt
+       in: BL=interrupt to unhook
+
+  The protected-mode hook proc that's supplied with function AX=0002 will
+ be entered with EDI=linear address of a Client_Reg_Struc that contains the
+ V86 register status.
+
+ Currently BL is restricted to:
+ - 08h-0Fh (IRQ0-IRQ7)
+ - 1Ch
+ - 70h-77h (IRQ8-IRQ15)
+
+ If an interrupt is already hooked, any further attempts will fail until the
+ interrupt has been unhooked. Jemm v5.85+ is required. 
+
+
+ 5. License
+
+ JHDPMI is Public Domain.
+
+ Japheth
+

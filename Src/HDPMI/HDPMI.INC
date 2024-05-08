@@ -131,6 +131,9 @@ endif
 ?CHECKLPMS		equ 1	;std 1: 1=detect LPMS exhaustion; v3.19
 ?RESTRICTMEM	equ 1	;std 1: 1=support -x option to restrict reported free mem
 ?EARLYIVTSAVE	equ 0	;std 0: 1=save IVT vecs in host init phase
+ifndef ?JHDPMI
+?JHDPMI			equ 0	;std 0; 1=support jhdpmi JLM in vcpi mode
+endif
 
 if ?DPMI10EXX
 ?EXCRESTART		equ 1	;std 1: 1=support exception restartability
@@ -370,6 +373,7 @@ if ?CANTEXIT
 FM_CANTEXIT	equ 10h		;cannot exit (rm vecs not restorable)
 endif
 FM_CLONE    equ 20h		;this instance is a clone
+FM_NOIVTHK  equ 40h		;1=no IVT hooks, using JHDPMI
 FM_INIT 	equ 80h		;1=server initialized
 
 ;--- fMode2 flags

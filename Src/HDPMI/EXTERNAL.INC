@@ -450,6 +450,11 @@ endif
 ifdef ?PE
 externdef dwVSize:dword
 endif
+
+if ?JHDPMI
+externdef dwJHdpmi:PF16
+endif
+
 _DATA16 ends
 
 ;--- _DATA32C publics

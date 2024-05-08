@@ -1,5 +1,8 @@
 
-# nmake makefile, creates HDPMI16i.EXE, linked as a PE binary.
+# nmake makefile, creates HDPMI32i.EXE, linked as a PE binary.
+
+# activates JHDPMI switch
+
 # This variant runs clients with IOPL=0.
 # tools used:
 #  - JWasm | Masm
@@ -15,28 +18,28 @@
 DEBUG = 0
 !endif
 
-NAME = HDPMI16
+NAME = HDPMI32
 
 SRCMODS = \
 !include modules.inc
 OBJNAMES = $(SRCMODS:.ASM=.OBJ)
 
 !if $(DEBUG)
-OBJMODS = $(OBJNAMES:.\=IOPL016D\)
-AOPTD=-D_DEBUG
-#AOPTD=-D_DEBUG -D?DOSOUTPUT=0 -D?VIODIROUT=1 -D?SLOWDOWN=200
-OUTD=IOPL016D
+OBJMODS = $(OBJNAMES:.\=IOPL032D\)
+#AOPTD=-D_DEBUG
+AOPTD=-D_DEBUG -D?DOSOUTPUT=1 -D?VIODIROUT=0 -D?SLOWDOWN=0 -D?JHDPMI=1
+OUTD=IOPL032D
 !else
-OBJMODS = $(OBJNAMES:.\=IOPL016\)
-OUTD=IOPL016
-AOPTD=
+OBJMODS = $(OBJNAMES:.\=IOPL032\)
+OUTD=IOPL032
+AOPTD=-D?JHDPMI=1
 !endif
 
 LINK  = jwlink.exe
 
-# for 3.20, add "wdeb386" support ( for "deb386" )
-#AOPT   = -nologo -c -Cp -Sg -D?32BIT=0 -D?PMIOPL=0 $(AOPTD) -I$(INC32DIR) -Fl$* -Fo$* -D?PE
-AOPT   = -nologo -c -Cp -Sg -D?32BIT=0 -D?PMIOPL=0 $(AOPTD) -I$(INC32DIR) -Fl$* -Fo$* -D?PE -D?WDEB386=1
+# for v3.20, add "wdeb386" support ( for "deb386" )
+#AOPT   = -nologo -c -Cp -Sg -D?32BIT=1 $(AOPTD) -I$(INC32DIR) -Fl$* -Fo$* -D?PE
+AOPT   = -nologo -c -Cp -Sg -D?32BIT=1 -D?PMIOPL=0 $(AOPTD) -I$(INC32DIR) -Fl$* -Fo$* -D?PE -D?WDEB386=1
 
 SRC   = hdpmi
 
@@ -72,7 +75,7 @@ $(OUTD)\$(NAME).TMP: $(OUTD)\$(SRC).obj $(OUTD)\$(NAME).lib $(NAME)i.mak
 	@$(LINK) format win pe hx ru native f $(OUTD)\$(SRC) n $*.TMP lib $(OUTD)\$(NAME).lib op q, map=$*.MAP, nodosseg, stack=0, offset=0, align=0x100
 #	link /subsystem:native $(OUTD)\$(SRC).obj $(OUTD)\$(NAME).lib /OUT:$*.TMP /MAP:$*.map /STACK:0,0 /BASE:0 /FILEALIGN:0x100
 
-$(OUTD)\$(NAME).lib: $(OBJMODS) $(NAME).mak
+$(OUTD)\$(NAME).lib: $(OBJMODS)
 	@cd $(OUTD)
 	@$(LIB16BIN) $(NAME).lib $(OBJNAMES:.\=+)
 	@jwlib -q -b $(NAME).lib -$(SRC).OBJ

@@ -11,7 +11,6 @@
 
 	option proc:private
 
-?DUMP			= 0	;std 0, 1=call internal debugger (not implemented)
 ?POLLKBD		= 0	;std 0, 1=poll keyboard, 0=use int 16h real-mode
 ?SETCLIENTPSP	= 1 ;std 1, 1=set original client psp before server exits
 ?DISPCLSP		= 0	;std 0, 1=display client stack if ring 0 exception
@@ -44,6 +43,7 @@ endm
 
 _DATA16 segment
 bExcMode	db 0		;0=normal,1=suppress [EIP],2=suppress [ESP]
+bPICMask	db 0
 ifdef _DEBUG
 savedfDebug db 0
 endif
@@ -312,6 +312,11 @@ endif
 
 	inc bExcEntry
 	jnz except_2x		;this is fatal
+	in al, 21h
+	mov bPICMask, al
+	mov al,-1
+	out 21h, al
+
 if ?SAFERMSTACK
 	push [wHostPSP]
 	pop v86iret.rSS
@@ -324,10 +329,10 @@ endif
 ;	test [fDebug],FDEBUG_KDPRESENT
 ;	jnz @F
 ifdef _DEBUG
-if ?KDSUPP
+ if ?KDSUPP
 	mov al, fDebug
 	mov savedfDebug, al
-endif
+ endif
 	or fMode2, FM2_LOG	;enable displays in case they were suppressed
 endif
 ;--- dump exception number
@@ -586,10 +591,9 @@ endif
 
 ;--- dump is done
 
-if ?DUMP
-	call __debug			;call internal debugger
-endif
 	dec bExcEntry
+	mov al, bPICMask
+	out 21h, al
 if ?KDSUPP and ?CALLDBG
 	test [fDebug],FDEBUG_KDPRESENT
 	jnz calldebugger

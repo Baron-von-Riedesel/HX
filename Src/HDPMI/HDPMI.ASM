@@ -932,6 +932,10 @@ endif
 		dq 0			;space for VCPI, since it is called with CALL FAR
 v86iret		V86IRET <<offset rawjmp_rm_all>>
 
+if ?JHDPMI
+dwJHdpmi PF16 0
+endif
+
 ;--- v3.20: pmstate moved to client-specific region
 ;--- if pmstate doesn't follow v86iret, ?NOPMSTATECONSEC=1 in i31swt.asm.srtask must be set
 ;pmstate	PMSTATE <>	; protected mode segment register values
@@ -3162,8 +3166,8 @@ wPatchGrp163 dw 0	;will be patched with GROUP16
 	bt cs:wIntRmCb,bp
 	jc callbackisactive
 irqrm2pm_3:
+
 	shl bp,2				;sizeof INTRMCBr == 4!
-irqrm2pm_31:
 if 0;_LTRACE_
 ;--- dont display int 08h/1Ch, this spoils the log
 	cmp bp,00h*sizeof INTRMCBr	;int 8?
@@ -3176,6 +3180,7 @@ if 0;_LTRACE_
 		word ptr cs:[wIntRmCb+2], word ptr cs:[wIntRmCb+0]
 @@:
 endif
+
 	pushd cs:[bp+intrmcbrs].INTRMCBr.rm_vec
 	mov bp,sp
 	mov bp,[bp+4]
@@ -3188,8 +3193,9 @@ ife ?HIDEIVTHOOKS
 	jc irqrm2pm_3
 endif
 
-	cmp cs:[bExcEntry],-1	;host entry possible?
-	jnz irqrm2pm_3			;if no, jump to previous handler
+;--- no longer needed, exception handler masks interrupts
+;	cmp cs:[bExcEntry],-1	;host entry possible?
+;	jnz irqrm2pm_3			;if no, jump to previous handler
 
 	shl bp,3				;sizeof INTRMCB == 8!
 
@@ -3457,12 +3463,19 @@ dormint endp
 
 callrmproc_iretframe proc
 	xchg ebx, [esp]
+
+if ?JHDPMI
+	test ss:[fMode],FM_NOIVTHK
+	jnz @F
+endif
+
 ife ?HIDEIVTHOOKS
 	bt dword ptr ss:[wIrqOrgRm], ebx	; interrupt origin rm?
 else
 	bt dword ptr ss:[wIntRmCb], ebx		; interrupt hooked by protected-mode app?
 endif
 	jc usestoredproc
+@@:
 	mov bl, cs:[ebx*8][intrmcbs.bIntNo]
 callrmproc_1::
 	@getrmintvec
@@ -4017,6 +4030,11 @@ if _LTRACE_
 endif
 	push eax
 	push ebx
+	push ds
+	movzx ebx,bl
+	push ss
+	pop ds
+	assume ds:GROUP16
 	cmp bl,1Ch
 	jz iirq1c
 	cmp bl,23h
@@ -4024,13 +4042,13 @@ endif
 	cmp bl,24h
 	jz iirq2324
 	cmp bl,?MPICBASE
-	jb exit
+	jb done
 	cmp bl,?MPICBASE+8
 	jb mpicirq
 	cmp bl,?SPICBASE
-	jb exit
+	jb done
 	cmp bl,?SPICBASE+8
-	jnb exit
+	jnb done
 	sub bl,?SPICBASE-8		;70-77 -> 08-0F
 	jmp iirqxx
 iirq1c:
@@ -4038,61 +4056,96 @@ iirq1c:
 	jmp iirqxx
 iirq2324:
 	sub bl,12h			;23h->11h, 24h->12h
-	jmp iirqxx
+	jmp iirqxxx
 mpicirq:
 	sub bl,?MPICBASE	;08-0F -> 00-07
 iirqxx:
-	push ds
-	push ss
-	pop ds
-	assume ds:GROUP16
-	movzx ebx,bl
-	mov ax,bx
+if ?JHDPMI
+	test [fMode], FM_NOIVTHK
+	jnz handle_jhdpmi
+endif
+iirqxxx:
 	test cs:[ebx*8+offset intrmcbs].INTRMCB.bFlags,RMVFL_IGN;don't route this IRQ?
 	jnz done
-	test cs:[ebx*8+offset intrmcbs].INTRMCB.bFlags,RMVFL_IDT;if INTRMCB.pm_vec is IDT offset,
-															;then no restauration is possible
-	jnz @F
+
+;--- if INTRMCB.pm_vec is IDT offset,
+;--- then no restauration is possible.
+	test cs:[ebx*8+offset intrmcbs].INTRMCB.bFlags,RMVFL_IDT
+	jnz setvector
 	test cl,4						;is it a LDT selector?
-	jnz @F
-	btr [wIntRmCb],bx
+	jnz setvector
+
+	btr [wIntRmCb], bx
 	mov eax,cs:[ebx*8+offset intrmcbs].INTRMCB.orgvec		;then restore rm-vector
 	mov [ebx*4+offset intrmcbrs].INTRMCBr.rm_vec, eax		;as well
 	@dprintf "internal callback %X deactivated, restored to %lX, cx:edx=%X:%lX",ss:iirq,eax,cx,edx
 	jmp done
-@@: 									;pm-vector will be set
+
+;--- pm-vector will be set
+
+setvector: 
 	@dprintf "internal callback %X activated, cx:edx=%X:%lX",ss:iirq, cx, edx
-	bts [wIntRmCb],ax
+	bts [wIntRmCb], bx
+
 	test cs:[ebx*8+offset intrmcbs].INTRMCB.bFlags, RMVFL_SETALWAYS
 	jz done
-
-;--- there's just one entry for all internal callbacks
-;--- they are distinguished by the segment value of the far call
-
-	push ecx
-
-	mov cx, ax
-	add ax, wHostSeg				;GROUP16
-	shl cx, 4
-	shl eax, 16
-	mov ax, offset intrmcb_rm
-	sub ax, cx
-
-	pop ecx
-
+	call getivtcsip
 	movzx ebx,cs:[ebx*8+offset intrmcbs].INTRMCB.bIntNo
 	push byte ptr _FLATSEL_
 	pop ds
 	mov [ebx*4], eax		;set value in IVT
-
 done:
 	pop ds
-	assume ds:nothing
-exit:
 	pop ebx
 	pop eax
 endif
 	ret
+
+if ?IRQMAPPING
+ if ?JHDPMI
+handle_jhdpmi:
+	test cl,4						;is it a LDT selector?
+	jnz setvector_jhdpmi
+	btr [wIntRmCb],bx
+	jnc done
+	mov bl, cs:[ebx*8+offset intrmcbs].INTRMCB.bIntNo
+	mov ax, 3
+	@call_rm cs:[dwJHdpmi],1
+	jmp done
+setvector_jhdpmi:
+	bts [wIntRmCb],bx
+	jc done
+	push ecx
+	push edx
+	call getivtcsip
+	push eax
+	pop dx
+	pop cx
+	mov bl, cs:[ebx*8+offset intrmcbs].INTRMCB.bIntNo
+	mov ax, 1
+	@call_rm cs:[dwJHdpmi],1
+	pop edx
+	pop ecx
+	jmp done
+ endif
+
+;--- there's just one entry for all internal callbacks
+;--- they are distinguished by the segment value of the far call
+;--- in: AX=IRQ
+getivtcsip:
+	push ecx
+	mov eax, ebx
+	mov ecx, eax
+	add ax, [wHostSeg]				;GROUP16
+	shl ecx, 4
+	shl eax, 16
+	mov ax, offset intrmcb_rm
+	sub ax, cx
+	pop ecx
+	ret
+endif
+	assume ds:nothing
+
 	align 4
 
 installirqhandler endp
@@ -5407,20 +5460,55 @@ endif
 	jz exitclient_1
 if 1
 ;--- make sure host is not reentered now (VCPI free memory)
+;--- todo: bad idea to clear wIntRmCb - better mask all interrupts
 	push dword ptr wIntRmCb
-	mov dword ptr wIntRmCb,0
+	in al, 21h
+	push eax
+	mov al, -1
+	out 21h, al
 endif
 	@dprintf "exitclient: call freeclientmemory"
 	call _freeclientmemory	;no register modified
 	@dprintf "exitclient: call pm_exitclient"
 	call pm_exitclient		;no register modified
 if 1
-	pop dword ptr wIntRmCb
+	pop eax
+	out 21h, al
+	pop ecx		;get old wIntRmCb
 endif
 if ?ALWAYSRESTORE
 	@dprintf "exitclient: call restoreclientstate, taskseg._Esp0=%lX, dwHoststack=%lX", taskseg._Esp0, dwHostStack
 	call _restoreclientstate	;no register modified
 	mov esp, dwHSsaved
+
+ if 0;?JHDPMI
+;--- the client may not have restored all IRQs
+	test [fMode], FM_NOIVTHK
+	jz donehook
+	xor ecx, dword ptr ss:[wIntRmCb]	; get all bits that have been changed from 1 to 0
+	mov bl,8
+nexthook:
+	shr ecx, 1
+	jnc skiphook
+	mov ax, 3
+	@call_rm cs:[dwJHdpmi], 1
+skiphook:
+	inc bl
+	cmp bl, 10h
+	jnz @F
+	mov bl, 70h
+@@:
+	cmp bl, 78h
+	jnz @F
+	mov bl, 1Ch
+@@:
+	cmp bl, 1Dh
+	jz donehook
+	and ecx, ecx
+	jnz nexthook
+donehook:
+ endif
+
 endif
 	@dprintf "exitclient: last task check, taskseg._Esp0=%lX, esp=%lX", taskseg._Esp0, esp
 
@@ -5529,6 +5617,7 @@ resettlb_pm endp
 endif
 
 	@ResetTrace
+
         
 ;*** modify all irq IVT vectors to our handler
 ;--- this proc is called by initclient_pm & CreateVM
@@ -5545,11 +5634,13 @@ endif
 	jnz exit
 	or fMode, FM_IVTVECS
 	push ds
+
+	xor ecx, ecx
+	mov ebx,offset intrmcbs
 	push byte ptr _CSALIAS_
 	pop ds
 	assume ds:GROUP32
-	xor ecx, ecx
-	mov ebx,offset intrmcbs
+
 nextvec:
 	test [ebx].INTRMCB.bFlags, RMVFL_IGN or RMVFL_FARPROC
 	jnz @F
@@ -5565,6 +5656,15 @@ nextvec:
 	shl dx, 4
 	mov ax, offset intrmcb_rm
 	sub ax, dx
+
+if ?JHDPMI
+	test [ebx].INTRMCB.bFlags, RMVFL_SETALWAYS	; not for int 23h/24h
+	jnz nojhdpmi2
+	test ss:[fMode], FM_NOIVTHK
+	jnz @F
+nojhdpmi2:
+endif
+
 	mov es:[esi*4],eax				;set CS:IP in IVT
 @@:
 	add ebx,sizeof INTRMCB
@@ -5595,6 +5695,7 @@ restoreivtvecs proc
 	test fMode, FM_IVTVECS			;IRQ vectors modified by HDPMI?
 	jz exit
 	mov di, wHostSeg				;GROUP16
+
 	mov cl,TESTINTRMCB				;check IRQs and i1c
 
 	test fMode, FM_CLONE
@@ -5622,6 +5723,7 @@ nextvec:
 									;if there is another client
 	movzx ebx,cs:[esi].INTRMCB.bIntNo
 	@dprintf "restoreivtvecs: ivt-vector %X=%lX orgvec=%lX", bx, dword ptr es:[ebx*4], edx
+
 	test ah,01h						;test mode?
 	jnz @F
 	cmp es:[ebx*4+2], di			;there might be the case
@@ -5629,10 +5731,30 @@ nextvec:
 									;the IVT vector
 	cmp edx,es:[ebx*4]
 	jz l1
+
+if ?JHDPMI
+	test [fMode], FM_NOIVTHK
+	jnz l1
+endif
+
 	@dprintf "restoreivtvecs: rm int %X cannot be restored", bx
 	or ah,2							;save this in AH
 	jmp l1
 @@:
+
+if ?JHDPMI
+	test [fMode], FM_NOIVTHK
+	jz nojhdpmi
+	test cs:[esi].INTRMCB.bFlags, RMVFL_SETALWAYS	; not for int 23h/24h
+	jnz nojhdpmi
+	push eax
+	mov ax, 3
+	@call_rm cs:[dwJHdpmi],1
+	pop eax
+	jmp l1
+nojhdpmi:
+endif
+
 	mov es:[ebx*4],edx
 l1:
 	inc di

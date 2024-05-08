@@ -1537,13 +1537,14 @@ endif
 
 _freeclientmemory endp
 
-if ?DISPLAYHDLTAB 
-
-_LTRACE_ = 1	;this should always be 1 here
 
 ;--- assumes DS:GROUP16
 
 displayhdltab proc public
+if ?DISPLAYHDLTAB 
+
+_LTRACE_ = 1	;this should always be 1 here
+
 	pushad
 	@dprintf "addr              size     flgs owner"
 	@dprintf "--------------------------------------"
@@ -1568,12 +1569,12 @@ check:
 ;	call pm_GetNumPhysPages  ;get free pages
 ;	@dprintf "pages free phys=%lX, total phys=%lX, res=%lX", eax, edx, ecx
 	popad
+endif
+
 	ret
 	align 4
 
 displayhdltab endp
-
-endif
 
 _TEXT32  ends
 

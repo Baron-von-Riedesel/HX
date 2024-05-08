@@ -29,12 +29,17 @@ if ?CHECKIRQRM
 checkirqrm proc public
 
 	movzx ebx,bl
-	cmp bl,1Ch
-	jz cirq1c
 	cmp bl,23h
 	jz cirq23
 	cmp bl,24h
 	jz cirq24
+
+if ?JHDPMI
+	test ss:[fMode],FM_NOIVTHK	;jhdpmi installed?
+	jnz exit
+endif
+	cmp bl,1Ch
+	jz cirq1c
 	cmp bl,?MPICBASE+0
 	jb exit
 	cmp bl,?MPICBASE+8
