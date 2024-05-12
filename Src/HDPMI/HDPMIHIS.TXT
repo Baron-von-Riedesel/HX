@@ -9,6 +9,9 @@
   þ fixed: hiword(ecx) may have been != 0 in ResizeLDT(), resulting in a severe
     host crash.
   þ kernel debugger API ah=45h, int 68h, called if kd detected. 
+  þ optional support for jhdpmi JLM. For the variants hdpmi16i/hdpmi32i, this
+    support is enabled. If jhdpmi is found, cmdline option -a will be
+    deactivated!
 
   04.02.2024, version 3.21
 

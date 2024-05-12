@@ -36,22 +36,31 @@
 
  4. Technical Details
 
- JHDPMI supplies a real-mode interface.
+ JHDPMI supplies a real-mode interface. The Carry flag indicates an error.
  Device ID is 4858h, functions are:
+
  AX=0000h: Get Version
       out: AX=version (0x100 currently)
  AX=0001h: Hook Interrupt for v86 program
-       in: BL=interrupt to hook
+       in: BL=interrupt# to hook
            CX:DX=real-mode CS:IP to call
- AX=0002h: Hook Interrupt for VCPI client
-       in: BL=interrupt to hook
+       C if interrupt is already hooked.    
+ AX=0002h: exchange current hook vector
+       in: BL=interrupt#
+           CX:DX=real-mode CS:IP to call
+      out: CX:DX=previous real-mode CS:IP
+       C if interrupt is not hooked or hooked in VCPI mode.
+ AX=0003h: Unhook Interrupt
+       in: BL=interrupt# to unhook
+       C if interrupt is not hooked.    
+ AX=0011h: Hook Interrupt in VCPI mode.
+       in: BL=interrupt# to hook
            ESI=linear address of a VCPI_V86ToPM mode switch struct;
            must be located in first MB. The contents will be copied
            to an internal data region.
- AX=0003h: Unhook Interrupt
-       in: BL=interrupt to unhook
+       C if interrupt is already hooked.    
 
-  The protected-mode hook proc that's supplied with function AX=0002 will
+  The protected-mode hook proc that's supplied with function AX=0011 will
  be entered with EDI=linear address of a Client_Reg_Struc that contains the
  V86 register status.
 
@@ -60,8 +69,8 @@
  - 1Ch
  - 70h-77h (IRQ8-IRQ15)
 
- If an interrupt is already hooked, any further attempts will fail until the
- interrupt has been unhooked. Jemm v5.85+ is required. 
+ If an interrupt is already hooked, any further attempts to hook it will fail
+ until the interrupt has been unhooked. Jemm v5.84+ is required. 
 
 
  5. License

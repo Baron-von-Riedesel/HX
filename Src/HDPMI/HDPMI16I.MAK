@@ -1,6 +1,8 @@
 
 # nmake makefile, creates HDPMI16i.EXE, linked as a PE binary.
 # This variant runs clients with IOPL=0.
+# Since v3.22, it's aware of JLM jhdpmi.
+
 # tools used:
 #  - JWasm | Masm
 #  - JWLib | WLib (Open Watcom) | MS OMF LIB (lib16.exe)
@@ -23,8 +25,8 @@ OBJNAMES = $(SRCMODS:.ASM=.OBJ)
 
 !if $(DEBUG)
 OBJMODS = $(OBJNAMES:.\=IOPL016D\)
-AOPTD=-D_DEBUG
 #AOPTD=-D_DEBUG -D?DOSOUTPUT=0 -D?VIODIROUT=1 -D?SLOWDOWN=200
+AOPTD=-D_DEBUG
 OUTD=IOPL016D
 !else
 OBJMODS = $(OBJNAMES:.\=IOPL016\)
@@ -35,8 +37,9 @@ AOPTD=
 LINK  = jwlink.exe
 
 # for 3.20, add "wdeb386" support ( for "deb386" )
+# for 3.22, add "jhdpmi" support
 #AOPT   = -nologo -c -Cp -Sg -D?32BIT=0 -D?PMIOPL=0 $(AOPTD) -I$(INC32DIR) -Fl$* -Fo$* -D?PE
-AOPT   = -nologo -c -Cp -Sg -D?32BIT=0 -D?PMIOPL=0 $(AOPTD) -I$(INC32DIR) -Fl$* -Fo$* -D?PE -D?WDEB386=1
+AOPT   = -nologo -c -Cp -Sg -D?32BIT=0 -D?PMIOPL=0 $(AOPTD) -I$(INC32DIR) -Fl$* -Fo$* -D?PE -D?WDEB386=1 -D?JHDPMI=1
 
 SRC   = hdpmi
 

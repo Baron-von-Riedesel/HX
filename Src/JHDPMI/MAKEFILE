@@ -11,8 +11,8 @@
 
 NAME = JHDPMI
 OUTDIR=Release
-DBGOPT=-D_DEBUG
-AOPT=-c -coff -nologo -Fl$*.lst -Fo$*.obj -I\projects\jemm\include
+DBGOPT=
+AOPT=-c -coff -nologo -Fl$*.lst -Sg -Fo$*.obj -I\projects\jemm\include
 ASM=jwasm.exe
 #LINK=link.exe /NOLOGO /SUBSYSTEM:NATIVE /DLL $*.obj /OUT:$*.DLL /MAP:$*.MAP /EXPORT:ddb /Entry:DllMain /OPT:NOWIN98
 LINK=jwlink format win nt hx dll ru native file $*.obj name $*.DLL op q,MAP=$*.MAP export _ddb.1

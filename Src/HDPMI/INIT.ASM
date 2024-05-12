@@ -716,6 +716,9 @@ if ?JHDPMI
 	mov word ptr [dwJHdpmi+0], di
 	mov word ptr [dwJHdpmi+2], es
 	or [fMode], FM_NOIVTHK
+	; -a option (vm): currently not compatible with that
+	; -i option (hideivthooks): useless with jhdpmi
+	and [bEnvFlags], not (ENVF_VM or ENVF_HIDEIVTHOOKS)
 @@:
 	pop es
 endif

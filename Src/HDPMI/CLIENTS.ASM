@@ -106,17 +106,24 @@ endif
 ;*** a new client is starting, save current state
 ;*** inp: DS=GROUP16, ES=FLAT
 ;*** in detail:
-;*** 1a. vmdata in _DATA16C segment
-;*** 1b. clientdata in _DATA16C segment
-;*** 2. taskseg._Esp0 in TSS (?X1), DR7 (?X3)
-;*** 3. clientdata in _DATA32C segment
-;*** 4. IDT (800h)
-;*** 5. LDT (last used page) (?X4)
-;*** 6. IVT (optionally) (?X2)
+;*** 1a. VMData (_DATA16V segment)
+;*** 1b. ClientData (_DATA16C segment)
+;*** 2a. taskseg._Esp0 (=dwHostStack) in TSS (?X1)
+;--- 2b. DR7 (?X3)
+;*** 3.  clientdata in _DATA32C segment
+;*** 4.  IDT (800h)
+;*** 5.  LDT (last used page) (?X4)
+;*** 6.  IVT (optionally) (?X2)
 ;--- out: C = error ( out of phys mem, addr space )
 ;--- saveclientstate is called whenever a client starts, even the first one.
 ;--- the exception is when a clone is started ( HDPMI=32, option -a )
 ;--- then CreateVM is called instead of saveclientstate.
+
+;--- in the binary, GROUP16 starts with
+;--- + BEGDATA16
+;--- + _DATA16
+;--- + _DATA16V
+;--- + _DATA16C
 
 	@ResetTrace
 
@@ -306,6 +313,14 @@ if ?MOU15RESET
 	push cs:[mouse15_rmcb]
 endif
 	mov esi,[ltaskaddr]	;is last client?
+
+if ?JHDPMI
+	test [fMode], FM_NOIVTHK
+	jz @F
+	call restoreV86Hooks
+@@:
+endif
+
 	@dprintf "restoreclientstate: enter. ltaskaddr=%lX", esi
 	and esi,esi
 	jz exit

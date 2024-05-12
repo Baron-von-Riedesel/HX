@@ -46,10 +46,17 @@ intr31 endp
 intr31_ proc public
 if _LTRACE_
 	cmp ah,9
-	jz @F
+	jz skiplog
+ if ?32BIT
+	cmp ax,302h
+	jnz @F
+	@dprintf "i31 enter ax=302 rmcs(ax=%X cs:ip=%X:%X) edi=%lX hs=%lX", es:[edi].RMCS.rAX, es:[edi].RMCS.rCS, es:[edi].RMCS.rIP, edi, esp
+	jmp skiplog
+@@:
+ endif
 endif
 	@dprintf "i31 enter a-d=%X %lX %lX %lX esi=%lX edi=%lX hs=%lX",ax,ebx,ecx,edx,esi,edi,esp
-@@:
+skiplog:
 if ?LOGINT31
 	mov ss:[i31func],ax
 endif

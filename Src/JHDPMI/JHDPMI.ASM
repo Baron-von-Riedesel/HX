@@ -4,12 +4,16 @@
 
 	.386
 	.model flat, stdcall
+	option casemap:none
 
 	.nolist
 	include jlm.inc
 	.list
 
 DEVICE_ID equ 4858h
+
+STATUS equ 1
+LOG equ 1	;add count
 
 NUMHOOKS equ 16+1
 
@@ -43,6 +47,9 @@ ddb VxD_Desc_Block <0,0,DEVICE_ID,1,0,0,"JHDPMI",0,0, dispatch >
 
 HOOKSTR struct
 	VCPI_V862PM <>
+if LOG
+dwCnt dd ?
+endif
 HOOKSTR ends
 
 hooks HOOKSTR NUMHOOKS dup (<<0>>)
@@ -62,6 +69,9 @@ callout proc
 
 	pop edx
 	add edx, offset hooks
+if LOG
+	inc [edx].HOOKSTR.dwCnt
+endif
 	cmp [edx].HOOKSTR._cr3, 0
 	jnz isvcpi
 	movzx ecx, word ptr [ebp].Client_Reg_Struc.Client_SS
@@ -107,10 +117,12 @@ dispatch proc
 	cmp ax, 1
 	jz hookivtV86
 	cmp ax, 2
-	jz hookivtVCPI
+	jz xchgivtV86
 	cmp ax, 3
 	jz unhookivt
-ifdef _DEBUG 
+	cmp ax, 11h
+	jz hookivtVCPI
+if STATUS
 	cmp ax, 4
 	jz dispstatus
 endif
@@ -132,30 +144,35 @@ getversion endp
 ;--- in: AL=INT
 ;--- out: AH=index for HOOKSTR table (0-15 are for IRQs)
 
-GetIndex proc
+setupregs proc
+	movzx eax, byte ptr [ebp].Client_Reg_Struc.Client_EBX
 	mov ah, al
 	sub ah, 8
 	cmp al, 8
-	jb err
+	jb fail
 	cmp al, 10h
-	jb @F
+	jb ok
 	cmp al, 1Ch
 	jz is1C
 	cmp al, 70h
-	jb err
+	jb fail
 	cmp al, 78h
-	jnb err
+	jnb fail
 	sub ah, 60h
-@@:
-	clc
-	ret
+	jmp ok
 is1C:
 	mov ah, 16
+ok:
+;--- AL=int#, AH=index for hooks array
+	movzx edx, ah
+	mov ecx, sizeof HOOKSTR
+	imul edx, ecx
+	add edx, offset hooks
 	ret
-err:
-	stc
-	ret
-GetIndex endp
+fail:
+	pop eax		; skip return address
+	jmp error
+setupregs endp
 
 ;--- hook a v86 int chain
 ;--- in: BL=vector#
@@ -168,14 +185,7 @@ hookivtVCPI proc
 
 	mov bh,0
 hookivtBoth::
-	movzx eax, byte ptr [ebp].Client_Reg_Struc.Client_EBX
-	call GetIndex
-	jc error
-;--- AL=int#, AH=index for hooks array
-	movzx edx, ah
-	mov ecx, sizeof HOOKSTR
-	imul edx, ecx
-	add edx, offset hooks
+	call setupregs
 	cmp [edx].HOOKSTR._Cs, 0	; INT already hooked?
 	jnz error
 	push edx
@@ -185,6 +195,9 @@ hookivtBoth::
 	@VMMCall Hook_V86_Int_Chain
 	pop edx
 	jc error
+if LOG
+	mov [edx].HOOKSTR.dwCnt, 0
+endif
 	cmp bh,1
 	jz isv86
 	pushad
@@ -195,9 +208,9 @@ hookivtBoth::
 	popad
 	ret
 isv86:
-	movzx ecx, word ptr [ebp].Client_reg_Struc.Client_EDX
+	movzx ecx, word ptr [ebp].Client_Reg_Struc.Client_EDX
 	mov [edx].HOOKSTR._Eip, ecx
-	movzx ecx, word ptr [ebp].Client_reg_Struc.Client_ECX
+	movzx ecx, word ptr [ebp].Client_Reg_Struc.Client_ECX
 	mov [edx].HOOKSTR._Cs, ecx
 	xor ecx, ecx
 	mov [edx].HOOKSTR._cr3, ecx
@@ -216,16 +229,24 @@ hookivtV86 proc
 
 hookivtV86 endp
 
+xchgivtV86 proc
+	call setupregs
+	cmp [edx].HOOKSTR._Cs, 0	; is the INT hooked?
+	jz error
+	cmp [edx].HOOKSTR._cr3, 0	; VCPI hook?
+	jnz error
+	movzx ecx, word ptr [ebp].Client_Reg_Struc.Client_EDX
+	xchg [edx].HOOKSTR._Eip, ecx
+	mov word ptr [ebp].Client_Reg_Struc.Client_EDX, cx
+	movzx ecx, word ptr [ebp].Client_Reg_Struc.Client_ECX
+	xchg [edx].HOOKSTR._Cs, ecx
+	mov word ptr [ebp].Client_Reg_Struc.Client_ECX, cx
+	ret
+xchgivtV86 endp
+
 unhookivt proc
 
-	movzx eax, byte ptr [ebp].Client_Reg_Struc.Client_EBX
-	call GetIndex
-	jc error
-;--- AL=int#, AH=index for hooks array
-	movzx edx, ah
-	mov ecx, sizeof HOOKSTR
-	imul edx, ecx
-	add edx, offset hooks
+	call setupregs
 	cmp [edx].HOOKSTR._Cs, 0	; is the INT hooked?
 	jz error
 	push edx
@@ -240,7 +261,7 @@ unhookivt proc
 
 unhookivt endp
 
-ifdef _DEBUG
+if STATUS
 
 	include printf.inc
 
@@ -262,7 +283,11 @@ nextitem:
 	mov eax, ecx
 	sub eax, NUMHOOKS
 	neg eax
+ if LOG
+	invoke printf, CStr("#%u: cs:ip=%X:%X cnt=%u",13,10), eax, [esi].HOOKSTR._Cs, [esi].HOOKSTR._Eip, [esi].HOOKSTR.dwCnt
+ else
 	invoke printf, CStr("#%u: cs:ip=%X:%X",13,10), eax, [esi].HOOKSTR._Cs, [esi].HOOKSTR._Eip
+ endif
 @@:
 	add esi, sizeof HOOKSTR
 	loop nextitem

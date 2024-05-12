@@ -292,18 +292,18 @@ externdef endof32bit:near
 ENDGRP32 ends
 endif
 
-_DATA16C segment
-externdef wEnvFlags:word
-_DATA16C ends
-
 _TEXT32 segment
 ;externdef intr09:near
 externdef simint09:near
 externdef rawjmp_rm_novcpi:near
 externdef rawjmp_rm_vcpi:near
+if ?JHDPMI
+externdef restoreV86Hooks:near
+endif
 _TEXT32 ends
 
 _TEXT16 segment
+externdef _EndOfClientData:byte
 externdef meventr:near16			;real-mode mouse event proc
 externdef linadvs:dword
 externdef unhookIVTvecs:near
@@ -317,6 +317,9 @@ externdef rawjmp_pm_patch:near
 externdef intrrm2pm:far
 ;externdef load_rmsegs:near
 externdef rawjmp_rm_all:near
+if ?JHDPMI
+externdef jhdpmicall:near
+endif
 _TEXT16 ends
 
 BEGGRP16 segment
@@ -355,8 +358,6 @@ externdef selLDTsafe:word
 endif
 
 externdef _StartOfVMData:byte
-externdef _StartOfClientData:byte
-externdef _EndOfClientData:byte
 externdef _cpu:byte
 if ?MOVEGDT
 externdef endofgdtseg:near16
@@ -382,8 +383,6 @@ externdef wLDTLimit:word		;limit LDT
 ;externdef tmpBXReg:word
 externdef tmpFLReg:word			;temp storage for flags register
 externdef tmpFLRegD:dword		;same address, but DWORD type
-externdef bEnvFlags:byte		;value HDPMI environment variable
-externdef bEnvFlags2:byte		;high byte of HDPMI environment variable
 externdef bExcEntry:byte		;exception mutex
 externdef bTrap:byte			;serial input Ctrl-D received
 externdef bFPUAnd:byte
@@ -426,7 +425,6 @@ externdef xmsaddr:PF16			;XMS entry (RM)
 ;externdef rmpsp:word			;current real-mode PSP of active client
 externdef wPSPSegm:word			;initial real-mode PSP of active client
 externdef wRmDest:word
-externdef wIntRmCb:word
 externdef wHostPSP:word
 if ?DTAINHOSTPSP
 externdef dwHostDTA:dword
@@ -452,10 +450,18 @@ externdef dwVSize:dword
 endif
 
 if ?JHDPMI
-externdef dwJHdpmi:PF16
+externdef dwJHdpmi:dword
 endif
 
 _DATA16 ends
+
+_DATA16C segment
+externdef _StartOfClientData:byte
+externdef wEnvFlags:word
+externdef bEnvFlags:byte		;value HDPMI environment variable
+externdef bEnvFlags2:byte		;high byte of HDPMI environment variable
+externdef wIntRmCb:word
+_DATA16C ends
 
 ;--- _DATA32C publics
 

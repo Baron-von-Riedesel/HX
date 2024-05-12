@@ -167,6 +167,9 @@ install:
 	@copy ..\Include\INITPM.INC       $(HXINST)\Include
 	@copy ..\Include\INITPM16.INC     $(HXINST)\Include
 
+	@copy JHDPMI\Release\JHDPMI.DLL   $(HXINST)\Bin
+	@copy JHDPMI\JHDPMI.TXT           $(HXINST)\Doc
+
 clean: 
     cd    HDPMI
     @$(MAKE) DEBUG=$(DEBUG) clean

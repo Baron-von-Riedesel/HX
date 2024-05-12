@@ -923,7 +923,7 @@ _DATA16 segment
 
 ;--- VCPI jump to v86 mode (DE0Ch) expects SS:ESP pointing to a V86IRET
 ;--- structure (which must be located in 1. MB)
-;--- EIP,CS,0,EFL,ESP,SS,0,ES,0,DS,0,FS,0,GS,0
+;--- EIP,CS,EFL,ESP,SS,ES,DS,FS,GS (all dwords)
 
 		dq 0,0			;16 bytes stack space below v86iret for VCPI-Host
 ifdef ?QEMMSUPPORT
@@ -931,10 +931,6 @@ ifdef ?QEMMSUPPORT
 endif
 		dq 0			;space for VCPI, since it is called with CALL FAR
 v86iret		V86IRET <<offset rawjmp_rm_all>>
-
-if ?JHDPMI
-dwJHdpmi PF16 0
-endif
 
 ;--- v3.20: pmstate moved to client-specific region
 ;--- if pmstate doesn't follow v86iret, ?NOPMSTATECONSEC=1 in i31swt.asm.srtask must be set
@@ -1200,10 +1196,11 @@ _DATA16C segment
 pmstate		PMSTATE <>	; protected mode segment register values
 
 if 1
-dwrmSSSPsave	dd 0
+dwrmSSSPsave	dd 0	; v86iret SS:SP saved when a client starts (used for restore in case of errors).
 endif
 
-dwHSsaved		dd 0	; todo: explain the purpose of this variable
+dwHSsaved		dd 0	; this is the host stack value saved when the client starts; see @makeinitclpmframe
+						; allows to safely terminate the app even if it's in a rmcb.
 if ?HSINEXTMEM
 dwStackTop		dd 0	; todo: explain the purpose of this variable
 endif
@@ -3236,8 +3233,9 @@ endif
 
 	@savermstk	;save real-mode SS+SP 
 
-;--- raw jump in pm, ss:sp=hoststack
-;--- ds,es,fs,gs undefined 
+;--- raw jump in pm, ss:sp=hoststack;
+;--- real-mode segments stored in v86iret;
+;--- ds,es,fs,gs undefined.
 
 	@rawjmp_pm_savesegm intrmcb_pm
 
@@ -3770,7 +3768,7 @@ done:
 
 ife ?PMIOPL
 emucli:
-	@dprintf "emulate cli"
+	@dprintf "emulate cli eip=%lX", [esp].EMUINSFR.rIP
 	and byte ptr [esp].EMUINSFR.rFL+1, not 2	; reset IF
  if ?TRAPCLISTI
 	cmp [clihdlr._Cs], 0
@@ -3822,7 +3820,7 @@ clitrapped:
  endif
 	align 4
 emusti:
-	@dprintf "emulate sti"
+	@dprintf "emulate sti eip=%lX", [esp].EMUINSFR.rIP
 	or byte ptr [esp].EMUINSFR.rFL+1, 2	; set IF
  if ?TRAPCLISTI
 	cmp [stihdlr._Cs], 0
@@ -4011,6 +4009,15 @@ endif
 
 emuprivinstr endp
 
+if ?JHDPMI
+_TEXT16 segment
+jhdpmicall:
+	db 9ah
+dwJHdpmi dd 0
+	ret
+_TEXT16 ends
+endif
+
 ;*** check if interrupt to modify is a IRQ (or 1Ch,23h,24h)
 ;*** if yes, provide for interrupts in real-mode to be routed to
 ;*** protected-mode
@@ -4110,7 +4117,8 @@ handle_jhdpmi:
 	jnc done
 	mov bl, cs:[ebx*8+offset intrmcbs].INTRMCB.bIntNo
 	mov ax, 3
-	@call_rm cs:[dwJHdpmi],1
+	pushd offset jhdpmicall
+	call callrmprocintern
 	jmp done
 setvector_jhdpmi:
 	bts [wIntRmCb],bx
@@ -4123,7 +4131,8 @@ setvector_jhdpmi:
 	pop cx
 	mov bl, cs:[ebx*8+offset intrmcbs].INTRMCB.bIntNo
 	mov ax, 1
-	@call_rm cs:[dwJHdpmi],1
+	pushd offset jhdpmicall
+	call callrmprocintern
 	pop edx
 	pop ecx
 	jmp done
@@ -4973,6 +4982,57 @@ updateclonesize endp
 
 endif
 
+
+if ?JHDPMI
+
+;--- called by _restoreclientstate
+;--- ( must be here because subtraction of 2 external offsets can't be done )
+
+restoreV86Hooks proc public
+
+;--- the client may not have restored all IRQs
+
+	xor ebp, ebp
+	cmp esi, 0
+	jz @F
+	mov edi, offset _StartOfClientData
+	sub edi, offset _StartOfVMData
+	add edi, esi
+	sub edi, [dwSSBase]
+	add edi, offset wIntRmCb - offset _StartOfClientData
+	mov ebp, [edi]		; get the old value of wIntRmCb
+@@:
+	mov ecx, dword ptr [wIntRmCb]
+	and ecx, 1ffffh		; skip int 23/24, just IRQs and int 1Ch
+	xor edx, edx		; start with bit 0
+nexthook:
+	btr ecx, edx		; client has hooked IRQ?
+	jnc skiphook
+	bt ebp,edx			; IRQ was hooked?
+	jc skiphook
+	lea ebx, [edx+8]
+	cmp dl, 8
+	jb @F
+	lea ebx, [edx+68h]
+	cmp dl, 16
+	jb @F
+	mov bl, 1Ch
+@@:
+	mov ax, 3
+	pushd offset jhdpmicall
+	call callrmprocintern
+skiphook:
+	inc edx
+	and ecx, ecx
+	jnz nexthook
+donehook:
+	ret
+restoreV86Hooks endp
+
+endif
+
+
+
 _initclientstate proc
 if ?MOU33RESET
 	cmp word ptr cs:mevntvec._Cs, 0
@@ -5444,8 +5504,13 @@ _exitclient_pm proc public
 	push ss
 	pop ds
 	assume DS:GROUP16
-ifndef _DEBUG
+
 ;--- don't skip the IRET32 frame if callouts will happen and the host may be reentered!
+;--- v3.22: for callouts it is important that a IRET32 frame is "below" the value
+;--- of dwHostStack - the current value of ESP isn't relevant.
+;--- since "taskseg._Esp0" is an alias for dwHostStack, any "push" will actually destroy the contents
+;--- of that IRET32 frame!. So the next line has been deactivated generally.
+if 0;ndef _DEBUG
 	mov esp, taskseg._Esp0	;skip the IRET32 from ring3 entry
 endif
 
@@ -5458,10 +5523,8 @@ endif
 	call closeinterrupts
 	cmp [cApps],0			;fatal error on host initialization?
 	jz exitclient_1
-if 1
+if ?ALWAYSRESTORE
 ;--- make sure host is not reentered now (VCPI free memory)
-;--- todo: bad idea to clear wIntRmCb - better mask all interrupts
-	push dword ptr wIntRmCb
 	in al, 21h
 	push eax
 	mov al, -1
@@ -5471,45 +5534,26 @@ endif
 	call _freeclientmemory	;no register modified
 	@dprintf "exitclient: call pm_exitclient"
 	call pm_exitclient		;no register modified
-if 1
-	pop eax
-	out 21h, al
-	pop ecx		;get old wIntRmCb
-endif
+	mov ecx, dword ptr wIntRmCb
 if ?ALWAYSRESTORE
 	@dprintf "exitclient: call restoreclientstate, taskseg._Esp0=%lX, dwHoststack=%lX", taskseg._Esp0, dwHostStack
 	call _restoreclientstate	;no register modified
+	pop eax
+	out 21h, al
+
+;--- 3.22: esp is set to dwHSsaved (which has been set during initclient()!), the IRET32 frame gets lost!
+;--- however, the old IRET32 frame "below" dwHostStack is no longer reliable since the segment parts 
+;--- may not contain valid selectors anymore after _restoreclientstate.
+;--- When ESP is set to dwHSsaved, it points to the frame setup by @makeinitclpmframe.
+;--- That's why the "pop pmstate.xxx" below work.
+
 	mov esp, dwHSsaved
 
- if 0;?JHDPMI
-;--- the client may not have restored all IRQs
-	test [fMode], FM_NOIVTHK
-	jz donehook
-	xor ecx, dword ptr ss:[wIntRmCb]	; get all bits that have been changed from 1 to 0
-	mov bl,8
-nexthook:
-	shr ecx, 1
-	jnc skiphook
-	mov ax, 3
-	@call_rm cs:[dwJHdpmi], 1
-skiphook:
-	inc bl
-	cmp bl, 10h
-	jnz @F
-	mov bl, 70h
-@@:
-	cmp bl, 78h
-	jnz @F
-	mov bl, 1Ch
-@@:
-	cmp bl, 1Dh
-	jz donehook
-	and ecx, ecx
-	jnz nexthook
-donehook:
- endif
+;--- callouts after esp has been set to dwHSsaved
+;--- can only be made if _DEBUG is active ( see @makeinitclpmframe ).
 
 endif
+
 	@dprintf "exitclient: last task check, taskseg._Esp0=%lX, esp=%lX", taskseg._Esp0, esp
 
 if ?ALWAYSRESTORE
@@ -5536,7 +5580,7 @@ endif
 	pop pmstate.rESDS
 	pop pmstate.rFSGS
 if ?SAVESSESPONINIT
-	add esp, 2*4
+	add esp, 2*4	; skip pm esp/ss saved by @makeinitclpmframe
 endif
 	@rawjmp_rm _exitclient_rm
         
@@ -5571,7 +5615,7 @@ if ?RESIDENT
 	test fMode, FM_RESIDENT
 	jnz exitclient_2
 endif
-	@dprintf "server *will* terminate"
+	@dprintf "server about to terminate"
 
 	mov eax,taskseg._GS			;get return code
 
@@ -5689,6 +5733,9 @@ restoreivtvecs proc
 
 	assume DS:GROUP16
 
+;--- AH: bit0: 0=test mode, 1=restore mode
+;---     bit1: 1=error occured
+
 	pushad
 	@dprintf "restoreivtvecs: try to restore ivt vectors, fMode=%X", word ptr fMode
 	mov ah, 00
@@ -5696,7 +5743,7 @@ restoreivtvecs proc
 	jz exit
 	mov di, wHostSeg				;GROUP16
 
-	mov cl,TESTINTRMCB				;check IRQs and i1c
+	mov cl,TESTINTRMCB				;check IRQs and int 1C
 
 	test fMode, FM_CLONE
 	jnz l2
@@ -5705,8 +5752,8 @@ restoreivtvecs proc
 	@dprintf "restoreivtvecs: rm int 2Fh cannot be restored"
 	mov ah,2
 	jmp exit
-truereset:
-	@dprintf "restoreivtvecs: label truereset reached"
+restorestart:
+	@dprintf "restoreivtvecs: label restorestart reached"
 	mov cl,SIZEINTRMCB
 	mov ah,01
 	and fMode, not FM_IVTVECS
@@ -5716,7 +5763,7 @@ l2:
 	mov ebp,offset intrmcbrs
 nextvec:
 	test cs:[esi].INTRMCB.bFlags,RMVFL_IGN or RMVFL_FARPROC
-	jnz l1
+	jnz skipvec
 	mov edx,cs:[esi].INTRMCB.orgvec		;restore rm vectors in table
 	mov ds:[ebp].INTRMCBr.rm_vec, edx	;that's harmless, since table
 									;will be restored immediately
@@ -5726,44 +5773,38 @@ nextvec:
 
 	test ah,01h						;test mode?
 	jnz @F
-	cmp es:[ebx*4+2], di			;there might be the case
-	jz l1							;that the app itself has restored
-									;the IVT vector
-	cmp edx,es:[ebx*4]
-	jz l1
+	cmp es:[ebx*4+2], di			;there might be the case that the app 
+	jz skipvec						;itself has restored the IVT vector
+	cmp edx,es:[ebx*4]				;cmp with IVT vector
+	jz skipvec
 
 if ?JHDPMI
-	test [fMode], FM_NOIVTHK
-	jnz l1
+	test [fMode], FM_NOIVTHK		; don't abort, since we won't restore IRQs and INT 1Ch
+	jnz skipvec
 endif
 
 	@dprintf "restoreivtvecs: rm int %X cannot be restored", bx
 	or ah,2							;save this in AH
-	jmp l1
+	jmp skipvec
 @@:
 
 if ?JHDPMI
 	test [fMode], FM_NOIVTHK
-	jz nojhdpmi
-	test cs:[esi].INTRMCB.bFlags, RMVFL_SETALWAYS	; not for int 23h/24h
-	jnz nojhdpmi
-	push eax
-	mov ax, 3
-	@call_rm cs:[dwJHdpmi],1
-	pop eax
-	jmp l1
-nojhdpmi:
+	jz @F
+;--- if jhdpmi is loaded, just int 23h/24h may be restored
+	test cs:[esi].INTRMCB.bFlags, RMVFL_SETALWAYS
+	jz skipvec
+@@:
 endif
-
-	mov es:[ebx*4],edx
-l1:
+	mov es:[ebx*4],edx				; restore IVT vector
+skipvec:
 	inc di
 	add esi,sizeof INTRMCB
 	add ebp,sizeof INTRMCBr
 	dec cl
 	jnz nextvec
 	cmp ah, cl
-	jz truereset
+	jz restorestart
 exit:
 	shr ah,2						;return with C if not ok
 	popad
