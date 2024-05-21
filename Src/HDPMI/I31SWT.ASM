@@ -444,33 +444,30 @@ endif
 	@dprintfx ?LOG_RMCALL,"call rm RMS=%X:%X rmcs: a-d=%X %X %X %X, d-e=%X %X, stk=%X:%X", ss:v86iret.rSS, ss:v86iret.rSP,\
 		es:[edi].RMCS.rAX, es:[edi].RMCS.rBX, es:[edi].RMCS.rCX, es:[edi].RMCS.rDX,\
 		es:[edi].RMCS.rDS, es:[edi].RMCS.rES, es:[edi].RMCS.rSS, es:[edi].RMCS.rSP
-	mov ebp,esp
+	mov ebp, esp
 	push ss:v86iret.rSS
 	push ss:v86iret.rSP
 
 ;--- 1. set CS:IP and SS:SP
 
 	mov eax, es:[edi].RMCS.rCSIP
-	test [ebp].RMCALLS.rAX,3	;is address to copy from IVT (ax=0300h)?
-	jnz @F
+	mov edx, es:[edi].RMCS.rSSSP
+
 	push byte ptr _FLATSEL_
-	pop ds
-if ?CHECKIRQRM
-	call checkirqrm		;modifies ds,ebx if int is routed to pm
-else
-	movzx ebx,bl
-	shl ebx,2
-endif
-	mov eax, ds:[ebx]
-@@:
+	pop es
+
+	test [ebp].RMCALLS.rAX,3	;is address to copy from IVT (ax=0300h)?
+	jnz havecsip
+	movzx ebx, bl
+	mov eax, es:[ebx*4]
+havecsip:
 	mov ss:MyRMCS.rCSIP,eax
 
-	mov eax, es:[edi].RMCS.rSSSP
-	and eax,eax
+	and edx,edx
 	jz @F
-	mov ss:v86iret.rSP, ax
-	shr eax, 16
-	mov ss:v86iret.rSS, ax
+	mov ss:v86iret.rSP, dx
+	shr edx, 16
+	mov ss:v86iret.rSS, dx
 @@:
 	movzx eax,ss:v86iret.rSP
 	movzx edx,ss:v86iret.rSS
@@ -478,8 +475,6 @@ endif
 
 ;--- 2 copy words to real-mode stack
 
-	push byte ptr _FLATSEL_
-	pop es
 	jcxz @F						;no stack params
 	movzx ecx,cx
 	shl ecx,1					;2*, since WORDS

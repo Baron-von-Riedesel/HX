@@ -314,12 +314,7 @@ if ?MOU15RESET
 endif
 	mov esi,[ltaskaddr]	;is last client?
 
-if ?JHDPMI
-	test [fMode], FM_NOIVTHK
-	jz @F
 	call restoreV86Hooks
-@@:
-endif
 
 	@dprintf "restoreclientstate: enter. ltaskaddr=%lX", esi
 	and esi,esi

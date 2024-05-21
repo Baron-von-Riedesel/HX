@@ -41,36 +41,48 @@
 
  AX=0000h: Get Version
       out: AX=version (0x100 currently)
- AX=0001h: Hook Interrupt for v86 program
+ AX=0001h: connect
+       in: -
+      out: -
+ AX=0002h: disconnect
+       in: -
+      out: -
+ AX=0003h: Hook Interrupt for v86 program
        in: BL=interrupt# to hook
            CX:DX=real-mode CS:IP to call
        C if interrupt is already hooked.    
- AX=0002h: exchange current hook vector
+ AX=0004h: Unhook Interrupt
+       in: BL=interrupt# to unhook
+       C if interrupt is not hooked.    
+ AX=0005h: exchange current hook vector
        in: BL=interrupt#
            CX:DX=real-mode CS:IP to call
       out: CX:DX=previous real-mode CS:IP
        C if interrupt is not hooked or hooked in VCPI mode.
- AX=0003h: Unhook Interrupt
-       in: BL=interrupt# to unhook
-       C if interrupt is not hooked.    
  AX=0011h: Hook Interrupt in VCPI mode.
        in: BL=interrupt# to hook
-           ESI=linear address of a VCPI_V86ToPM mode switch struct;
-           must be located in first MB. The contents will be copied
-           to an internal data region.
+           CX:DX=linear address of a VCPI_V86ToPM mode switch struct;
+           must be located in first MB.
        C if interrupt is already hooked.    
+ AX=0012h: Display status
+       in: -
+      out: -
 
   The protected-mode hook proc that's supplied with function AX=0011 will
  be entered with EDI=linear address of a Client_Reg_Struc that contains the
- V86 register status.
+ V86 register status. JHDPMI will refuse to unload if
+   a) a connection is still active or
+   b) an interrupt is still hooked.
 
  Currently BL is restricted to:
  - 08h-0Fh (IRQ0-IRQ7)
  - 1Ch
  - 70h-77h (IRQ8-IRQ15)
 
- If an interrupt is already hooked, any further attempts to hook it will fail
- until the interrupt has been unhooked. Jemm v5.84+ is required. 
+ An interrupt may be hooked multiple times, there's a stack implemented, that
+ is, the unhook function will restore the previous value. The total number of
+ hooks, however, is limited to 255.
+ Jemm v5.84+ is required. 
 
 
  5. License

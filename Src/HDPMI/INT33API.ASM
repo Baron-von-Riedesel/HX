@@ -195,12 +195,16 @@ if ?32BIT
 else
 	or ax, dx
 endif
-	mov ax, ?RMCBMOUSE
+	mov ax, ?RMCBMOUSE	; index internal rmcbs for mouse event 
 	jz resetrm
 	bts [wIntRmCb], ax
-	add ax, wHostSeg
 	mov dx, offset intrmcb_rm_retf
+
+;--- translate ax:dx to an alias; CS=wHostSeg + index, IP=intrmcb - ( index * 16 )
+
+	add ax, wHostSeg
 	sub dx, ?RMCBMOUSE shl 4
+
 	@dprintf "mouse_setrmcb: internal callback addr=%X:%X, true ofs=%X", ax, dx, offset intrmcb_rm_retf
 	mov v86iret.rES, ax
 	jmp setresetproc

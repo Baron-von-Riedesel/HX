@@ -151,6 +151,11 @@ _TF	equ 1	;trace flag in HIBYTE(flags)
 _IF	equ 2	;interrupt flag in HIBYTE(flags)	
 _NT	equ 40h	;NT flag in HIBYTE(flags)
 
+JHD_CONNECT    equ 1
+JHD_DISCONNECT equ 2
+JHD_HOOKIRQ    equ 3
+JHD_UNHOOKIRQ  equ 4
+
 ;------------ macros --------------
 
 ;--- get IVT vector (ebx is modified inside this macro!)
@@ -1070,13 +1075,6 @@ dwTSSdesc	dd offset tssdesc	;normalized address TSS descriptor in GDT
 pRMSel		dd 0				;normalized start "conv. memory selector" list (int 31h, ax=2)
 _DATA16V ends
 
-if ?GUARDPAGE0
-lastcr2	dd 0
-dwAddr	dd 0					;address INTRMCB which owns the Int
-dwOrgFL	dd 0
-myint01 GATE <LOWWORD offset backtonormal,_CSSEL_,?IVAL, 0>	;to be adjusted for ?PE
-endif
-
 ;*** temporary variables
         
 calladdr1	dd 0		;used to store a IVT vector value
@@ -1141,26 +1139,26 @@ _DATA32C segment
 endif
 
 intrmcbs label INTRMCB
-	INTRMCB <0,@defvec(08),?IRQ00VAL,?MPICBASE+0>
-	INTRMCB <0,@defvec(09),0,        ?MPICBASE+1>
-	INTRMCB <0,@defvec(0A),0,        ?MPICBASE+2>
-	INTRMCB <0,@defvec(0B),0,        ?MPICBASE+3>
-	INTRMCB <0,@defvec(0C),0,        ?MPICBASE+4>
-	INTRMCB <0,@defvec(0D),?IRQ05VAL,?MPICBASE+5>
-	INTRMCB <0,@defvec(0E),?IRQ06VAL,?MPICBASE+6>
-	INTRMCB <0,@defvec(0F),0,        ?MPICBASE+7>
-	INTRMCB <0,@defvec(70),0,        ?SPICBASE+0>
-	INTRMCB <0,@defvec(71),0,        ?SPICBASE+1>
-	INTRMCB <0,@defvec(72),0,        ?SPICBASE+2>
-	INTRMCB <0,@defvec(73),0,        ?SPICBASE+3>
-	INTRMCB <0,@defvec(74),0,        ?SPICBASE+4>
-	INTRMCB <0,@defvec(75),0,        ?SPICBASE+5>
-	INTRMCB <0,@defvec(76),?IRQ14VAL,?SPICBASE+6>
-	INTRMCB <0,@defvec(77),?IRQ15VAL,?SPICBASE+7>
-	INTRMCB <0,1Ch*8      ,?INT1CVAL,1Ch>
-	INTRMCB <0,23h*8      ,?INT23VAL,23h>
-	INTRMCB <0,24h*8      ,?INT24VAL,24h>
-	INTRMCB <0,LOWWORD offset mevntvec,?MEVNTVAL,0>
+	INTRMCB <0+?MPICBASE, ?IRQ00VAL, @defvec(08)>
+	INTRMCB <1+?MPICBASE,         0, @defvec(09)>
+	INTRMCB <2+?MPICBASE,         0, @defvec(0A)>
+	INTRMCB <3+?MPICBASE,         0, @defvec(0B)>
+	INTRMCB <4+?MPICBASE,         0, @defvec(0C)>
+	INTRMCB <5+?MPICBASE, ?IRQ05VAL, @defvec(0D)>
+	INTRMCB <6+?MPICBASE, ?IRQ06VAL, @defvec(0E)>
+	INTRMCB <7+?MPICBASE,         0, @defvec(0F)>
+	INTRMCB <0+?SPICBASE,         0, @defvec(70)>
+	INTRMCB <1+?SPICBASE,         0, @defvec(71)>
+	INTRMCB <2+?SPICBASE,         0, @defvec(72)>
+	INTRMCB <3+?SPICBASE,         0, @defvec(73)>
+	INTRMCB <4+?SPICBASE,         0, @defvec(74)>
+	INTRMCB <5+?SPICBASE,         0, @defvec(75)>
+	INTRMCB <6+?SPICBASE, ?IRQ14VAL, @defvec(76)>
+	INTRMCB <7+?SPICBASE, ?IRQ15VAL, @defvec(77)>
+	INTRMCB <        1Ch, ?INT1CVAL, 1Ch*sizeof GATE>
+	INTRMCB <        23h, ?INT23VAL, 23h*sizeof GATE>
+	INTRMCB <        24h, ?INT24VAL, 24h*sizeof GATE>
+	INTRMCB <         0h, ?MEVNTVAL, LOWWORD offset mevntvec>
 SIZEINTRMCB equ ($ - offset intrmcbs) / sizeof INTRMCB
 
 TESTINTRMCB equ 17	;test IRQs + Int 1Ch
@@ -1176,10 +1174,6 @@ _DATA16C segment
 intrmcbrs INTRMCBr 16+4 dup (<?>)
 _DATA16C ends
 
-endif
-
-if _LTRACE_
-iirq dw 0		;helper for better int trace msgs
 endif
 
 _DATA16 ends
@@ -1228,10 +1222,8 @@ if ?SAVEPSP
 wPSPSegm	dw 0		;initial psp segment of client
 endif
 
-wIntRmCb	dw 2 dup (0);flags for up to 32 intrmcbs
-ife ?HIDEIVTHOOKS
+wIntRmCb	dw 2 dup (0); flags for up to 32 intrmcbs
 wIrqOrgRm	dw 2 dup (0); flags that IRQ originated in RM
-endif
 
 if ?DPMI10EXX
 wExcHdlr	dw 2 dup (0);32 bits for exception handler type
@@ -2649,90 +2641,6 @@ is2:
 intr22 endp
 endif
 
-
-if ?GUARDPAGE0
-
-?PG0PTE equ 0FFC02000h
-
-	assume ds:nothing
-
-;*** run 1 client instruction 
-
-	@ResetTrace
-
-execclientinstr proc
-	add esp,4		  ;skip error code
-	push eax
-
-	mov eax,?PG0PTE
-	sub eax,ss:[dwSSBase]
-	or byte ptr ss:[eax],?GPBIT  ;set page 0 to "user"
-
-	mov eax, [esp+4].IRET32.rFL
-	mov ss:[dwOrgFL], eax
-	and ah,0FDh		;reset IF
-	or ah,1			;set TF
-	mov [esp+4].IRET32.rFL,eax
-	push esi
-	call xchgint01
-	call checkivtread			;before client instruction
-if 0;_LTRACE_
-;--- output now is critical if DOS or BIOS is used!
- if ?VIODIROUT
-	mov si,[esp+2*4].IRET32.rCS
-	mov eax,[esp+2*4].IRET32.rIP
-	@dprintf "execclientinstr: now executing client code at %X:%lX",si,eax
- endif
-endif
-	pop esi
-	pop eax
-	iretd
-	align 4
-execclientinstr endp
-
-backtonormal proc
-	push eax
-	push esi
-	mov eax,ss:[dwOrgFL]
-	and ah,03
-	and byte ptr [esp+2*4].IRET32.rFL+1,0FCh
-	or byte ptr [esp+2*4].IRET32.rFL+1,ah ;restore TF + IF
-
-	mov eax,?PG0PTE
-	sub eax,ss:[dwSSBase]
-	and byte ptr ss:[eax], not ?GPBIT ;set page 0 to "system"
-
-	call xchgint01
-	cmp ss:[dwAddr],0			;address irrelevant, exit
-	jz @F
-	call checkivtwrite			;after client instruction
-@@:
-	mov eax,ss:[dwSSBase] 		;base of host SS
-	neg eax
-	invlpg ss:[eax]				;works on 80486+ only!
-	mov eax,ss:[lastcr2]
-	mov cr2,eax
-	pop esi
-	pop eax
-	iretd
-	align 4
-backtonormal endp
-
-xchgint01 proc near
-	mov esi,ss:[pdIDT.dwBase]
-	sub esi,ss:[dwSSBase]
-	mov eax,dword ptr ss:[myint01+0]
-	xchg eax,ss:[esi+0+8]
-	mov dword ptr ss:[myint01+0],eax
-	mov eax,dword ptr ss:[myint01+4]
-	xchg eax,ss:[esi+4+8]
-	mov dword ptr ss:[myint01+4],eax
-	ret
-	align 4
-xchgint01 endp
-
-endif
-
 	@ResetTrace
 
 ;--- default exception handler for exc 02-05 + 07 routes the exceptions
@@ -2909,20 +2817,6 @@ intr0E proc
 	@testexception exc0E
 	@simintlpms 0E
 exc0E:
-if ?GUARDPAGE0
-	test ss:bEnvFlags, ENVF_HIDEIVTHOOKS
-	jz intr0e_1
-	push eax
-	mov eax,cr2
-	cmp eax,1000h
-	jnb @F
-	pop eax
-	jmp execclientinstr
-@@:
-	mov ss:[lastcr2],eax
-	pop eax
-intr0e_1:
-endif
 	@exception 0E, TRUE
 	@defaultexc 0E,1 
 intr0E endp
@@ -3161,47 +3055,17 @@ wPatchGrp163 dw 0	;will be patched with GROUP16
 	sub bp,cs:wHostSeg
 
 	bt cs:wIntRmCb,bp
-	jc callbackisactive
-irqrm2pm_3:
+	jnc jmpprev
 
-	shl bp,2				;sizeof INTRMCBr == 4!
-if 0;_LTRACE_
-;--- dont display int 08h/1Ch, this spoils the log
-	cmp bp,00h*sizeof INTRMCBr	;int 8?
-	jz @F
-	cmp bp,10h*sizeof INTRMCBr	;int 1C?
-	jz @F
-	@drprintf "intrmcb %X: calling old rm handler %X:%X [bits=%X.%X]", bp,\
-		word ptr cs:[bp+offset intrmcbrs].INTRMCBr.rm_vec+2,\
-		word ptr cs:[bp+offset intrmcbrs].INTRMCBr.rm_vec+0,\
-		word ptr cs:[wIntRmCb+2], word ptr cs:[wIntRmCb+0]
-@@:
-endif
-
-	pushd cs:[bp+intrmcbrs].INTRMCBr.rm_vec
-	mov bp,sp
-	mov bp,[bp+4]
-	retf 2	;skip bp on stack
-
-callbackisactive:
-
-ife ?HIDEIVTHOOKS
-	bt cs:[wIrqOrgRm],bp	; IRQ origin in rm?
-	jc irqrm2pm_3
-endif
-
-;--- no longer needed, exception handler masks interrupts
+;--- v3.22: no longer needed, exception handler masks interrupts
 ;	cmp cs:[bExcEntry],-1	;host entry possible?
-;	jnz irqrm2pm_3			;if no, jump to previous handler
-
-	shl bp,3				;sizeof INTRMCB == 8!
+;	jnz jmpprev				;if no, jump to previous handler
 
 	@rm2pmbreak
 	mov cs:[wTmpRegBX],bx
 	mov cs:[wTmpRegAX],ax
 	mov bx,bp
 	mov bp,sp
-	add bx, lowword offset intrmcbs
 	mov ax,[bp+2].IRETSRM.rFL
 	pop bp
 
@@ -3219,14 +3083,12 @@ endif
 if _LTRACE_ and IRQLOG
 	push bp
 	mov bp,sp
-	cmp bx,lowword offset intrmcbs	 ;int 8?
+	cmp bx,0	 ;int 8?
 	jz @F
-	cmp bx,lowword offset RMCB1C	 ;int 1C?
+	cmp bx,10h	 ;int 1C?
 	jz @F
-	mov ax,bx
-	sub ax,lowword offset intrmcbs
 	@drprintf "intrmcb_rm: #=%X cs:ip=%X:%X fl=%X ds=%X es=%X ss:sp=%X:%X",\
-		ax, [bp+2].IRETSRM.rCS, [bp+2].IRETSRM.rIP, [bp+2].IRETSRM.rFL, ds, es, ss, sp
+		bx, [bp+2].IRETSRM.rCS, [bp+2].IRETSRM.rIP, [bp+2].IRETSRM.rFL, ds, es, ss, sp
 @@:
 	pop bp
 endif
@@ -3239,9 +3101,24 @@ endif
 
 	@rawjmp_pm_savesegm intrmcb_pm
 
-if _LTRACE_
-_irq	dw 0
+;--- internal callback is inactive
+;--- jump to vector stored in intrmcvrs[].
+;--- v3.22: this shouldn't happen anymore, since
+;--- the callback is released as soon as the protected-mode
+;--- vector has been reset.
+
+jmpprev:
+	shl bp,2		;sizeof INTRMCBr == 4!
+if 0;_LTRACE_
+	@drprintf "intrmcb %X: calling old rm handler %X:%X [wIntRmCb=%lX]", bp,\
+		word ptr cs:[bp+intrmcbrs].rm_vec+2, word ptr cs:[bp+intrmcbrs].rm_vec+0,\
+		dword ptr cs:[wIntRmCb]
 endif
+	pushd cs:[bp+intrmcbrs].INTRMCBr.rm_vec
+	mov bp,sp
+	mov bp,[bp+4]
+	retf 2	;skip bp on stack
+
 	align 4
 
 intrmcb_rm endp
@@ -3253,6 +3130,11 @@ _TEXT32 segment
 	@ResetTrace
 
 intrmcb_pm proc
+
+;--- internal real-mode callback - protected-mode entry.
+;--- bx=IRQ
+
+	push dword ptr ss:[wIrqOrgRm]
 
 	@pushstate 1	;save client state, including realmode segm DS/ES/FS/GS
 
@@ -3296,23 +3178,20 @@ endif
 
 	inc ss:[cIntRMCB]
 
-ife ?HIDEIVTHOOKS
-	push ebx
-	sub bx, lowword offset intrmcbs
-	shr bx, 3
-	bts ss:[wIrqOrgRm], bx
-	pop ebx
-endif
+	bts ss:[wIrqOrgRm], bx		;v3.22: source of IRQ is real-mode
 
-	mov ax,cs:[bx].INTRMCB.pmvec
-	test cs:[bx].INTRMCB.bFlags,RMVFL_IDT	;is pmvec a IDT offset?
+	push ebx
+	movzx ebx, bx
+
+	mov ax, cs:[ebx*sizeof INTRMCB][intrmcbs].pmvec
+	test cs:[ebx*sizeof INTRMCB][intrmcbs].bFlags,RMVFL_IDT	;is pmvec a IDT offset?
 	jz irqrm2pm_1
-	cmp bx, LOWWORD offset RMCB23
+	cmp bx, 11h		; int 23h?
 	jnz @F
-	mov [esp+4].IRET32.rIP, _FRTIN2_		;int 23h returns C flag!
+	mov [esp+2*4].IRET32.rIP, _FRTIN2_		;int 23h returns C flag!
 @@:
-	cmp bx,LOWWORD offset RMCB24	;for Int 24 BP holds a segment, must be translated
-	mov bx,ax
+	cmp bx, 12h		; int 24h? for Int 24h BP holds a segment, must be translated
+	mov bx, ax
 	jnz @F
 	@dprintf "intrmcb: int 24, translation of bp=%X", bp
 	push ebp
@@ -3322,28 +3201,25 @@ endif
 	push byte ptr _FLATSEL_
 	pop ds
 
-	push ebx
-;;	movzx ebx,word ptr ss:[bx+0]	;offset in IDT
-	movzx ebx, bx
 	add ebx,ss:[pdIDT.dwBase]
 if ?32BIT
-	mov ax,[ebx+6]
+	mov ax, [ebx+6]			; hiword(EIP)
 endif
-	mov ebx, [ebx+0]
+	mov ebx, [ebx+0]		; loword(EIP) + CS
 	push byte ptr _CSALIAS_
 	pop ds
 	assume ds:GROUP32
 if ?32BIT
-	mov word ptr ds:[r3vectmp+0],bx
+	mov word ptr ds:[r3vectmp+0],bx		; CS:EIP
 	mov word ptr ds:[r3vectmp+2],ax
 	shr ebx,16
 	mov word ptr ds:[r3vectmp+4],bx
 else
-	mov dword ptr ds:[r3vectmp+0],ebx
+	mov dword ptr ds:[r3vectmp+0],ebx	; CS:IP
 endif
-	pop ebx
 	mov ax,LOWWORD offset r3vectmp
 irqrm2pm_1:
+	pop ebx
 	mov [esp], ax			;set lowword of 32-bit offset of R3PROC
 	mov es, ss:pmstate.rES
 	mov ds, ss:pmstate.rDS
@@ -3362,11 +3238,11 @@ endif
 if _LTRACE_ and IRQLOG
 	push eax
 	movzx eax,ax
-if ?32BIT
+ if ?32BIT
 	@dprintf "intrmcb enter: call=%lX:%lX", cs:[eax].R3PROC._Cs, cs:[eax].R3PROC._Eip
-else
+ else
 	@dprintf "intrmcb enter: call=%X:%X", cs:[eax].R3PROC._Cs, cs:[eax].R3PROC._Eip
-endif
+ endif
 	pop eax
 endif
 
@@ -3413,6 +3289,9 @@ if _LTRACE_ and IRQLOG
 	@dprintf "rpmstackr: rms=%X:%X, _Esp0=%lX, esp=%lX", ss:v86iret.rSS, ss:v86iret.rSP, ss:taskseg._Esp0, esp
 endif
 	@popstate 1					;restore client state
+
+	pop dword ptr ss:[wIrqOrgRm]
+
 	@rawjmp_rm rpmstackr_rm
 	align 4
 _TEXT16 segment
@@ -3448,6 +3327,7 @@ rpmstackr endp
 
 dormint proc
 	xchg ebx, [esp]
+	push dword ptr ss:[wIntRmCb]
 	jmp callrmproc_1
 	align 4
 dormint endp
@@ -3459,38 +3339,41 @@ dormint endp
 ;--- r3 flags not modified.
 ;--- used by macro @callrmirq.
 
+CRFRAME struct
+dwOldIntRmCb dd ?
+_ebx         dd ?
+             IRET32 <>
+CRFRAME ends
+
 callrmproc_iretframe proc
 	xchg ebx, [esp]
-
+	push dword ptr ss:[wIntRmCb]
 if ?JHDPMI
-	test ss:[fMode],FM_NOIVTHK
+	test ss:[fMode], FM_NOIVTHK			; skip tests if jhdpmi is loaded (member rm_vec is 0000:0000 then)
 	jnz @F
 endif
-
-ife ?HIDEIVTHOOKS
-	bt dword ptr ss:[wIrqOrgRm], ebx	; interrupt origin rm?
-else
-	bt dword ptr ss:[wIntRmCb], ebx		; interrupt hooked by protected-mode app?
-endif
-	jc usestoredproc
+	btr dword ptr ss:[wIntRmCb], ebx	; ensure that IRQ won't be routed back to pm
+	bt  dword ptr ss:[wIrqOrgRm], ebx	; was IRQ routed from rm? Then route to previous rm vector
+	jnc @F
+	mov ebx, ss:[ebx*4][intrmcbrs.rm_vec]
+	jmp crp1
 @@:
-	mov bl, cs:[ebx*8][intrmcbs.bIntNo]
+	mov bl, cs:[ebx*sizeof INTRMCB][intrmcbs.bIntNo]
 callrmproc_1::
 	@getrmintvec
-	jmp callrmproc_2
-usestoredproc:
-	mov ebx, ss:[ebx*4][intrmcbrs.rm_vec]
-callrmproc_2:
+crp1:
 	mov ss:[calladdr1], ebx
-	mov ebx, [esp+4].IRET32.rFL
+	mov ebx, [esp].CRFRAME.rFL
 	and bh, not _TF		;reset TF
 if ?SETRMIOPL	;is 0 by default
 	and bh, 0CFh
 	or bh, ?RMIOPL shl 4
 endif
 	mov ss:[tmpFLReg], bx
-	pop ebx
+	mov ebx, [esp].CRFRAME._ebx
 	@call_rm cs:[calladdr1], 1, cs:[tmpFLReg]
+	pop dword ptr ss:[wIntRmCb]
+	add esp, 4
 	iretd
 	align 4
 callrmproc_iretframe endp
@@ -4019,12 +3902,11 @@ _TEXT16 ends
 endif
 
 ;*** check if interrupt to modify is a IRQ (or 1Ch,23h,24h)
-;*** if yes, provide for interrupts in real-mode to be routed to
-;*** protected-mode
+;*** if yes, activate internal real-mode callback for this INT.
 ;*** this routine is called with new PM-IRQ vector in CX:(E)DX
-;*** from functions 31h,0205 (set pm vector), BL=int.
-;--- dont change any register here
-;--- DS=FLAT
+;*** by DPMI func ax=205h (set pm vector).
+;--- in: BL=int.
+;--- all registers must be preserved.
 
 installirqhandler proc near public
 
@@ -4032,16 +3914,16 @@ installirqhandler proc near public
 
 if ?IRQMAPPING
 
-if _LTRACE_
-	mov byte ptr ss:iirq,bl
-endif
 	push eax
 	push ebx
+	push edi
 	push ds
 	movzx ebx,bl
+
 	push ss
 	pop ds
 	assume ds:GROUP16
+
 	cmp bl,1Ch
 	jz iirq1c
 	cmp bl,23h
@@ -4067,42 +3949,48 @@ iirq2324:
 mpicirq:
 	sub bl,?MPICBASE	;08-0F -> 00-07
 iirqxx:
-if ?JHDPMI
+ if ?JHDPMI
 	test [fMode], FM_NOIVTHK
 	jnz handle_jhdpmi
-endif
+ endif
 iirqxxx:
-	test cs:[ebx*8+offset intrmcbs].INTRMCB.bFlags,RMVFL_IGN;don't route this IRQ?
-	jnz done
 
-;--- if INTRMCB.pm_vec is IDT offset,
-;--- then no restauration is possible.
-	test cs:[ebx*8+offset intrmcbs].INTRMCB.bFlags,RMVFL_IDT
-	jnz setvector
+;--- if INTRMCB.pm_vec is IDT offset, no restauration is possible.
+;--- todo: explain why this should be the case.
+
+;--- v3.22: check removed.
+;	test cs:[ebx*sizeof INTRMCB+intrmcbs].bFlags,RMVFL_IDT
+;	jnz setvector
+
 	test cl,4						;is it a LDT selector?
 	jnz setvector
 
 	btr [wIntRmCb], bx
-	mov eax,cs:[ebx*8+offset intrmcbs].INTRMCB.orgvec		;then restore rm-vector
-	mov [ebx*4+offset intrmcbrs].INTRMCBr.rm_vec, eax		;as well
-	@dprintf "internal callback %X deactivated, restored to %lX, cx:edx=%X:%lX",ss:iirq,eax,cx,edx
+	jnc done
+	movzx edi,cs:[ebx*sizeof INTRMCB+intrmcbs].bIntNo
+	shl edi, 2
+	sub edi, [dwSSBase]
+	mov eax, [ebx*4+intrmcbrs].rm_vec
+	mov [edi], eax
+	@dprintf "internal callback irq=%X deactivated, cx:edx=%X:%lX", bx, cx, edx
 	jmp done
 
 ;--- pm-vector will be set
 
 setvector: 
-	@dprintf "internal callback %X activated, cx:edx=%X:%lX",ss:iirq, cx, edx
 	bts [wIntRmCb], bx
+	jc done
+	@dprintf "internal callback irq=%X activated, cx:edx=%X:%lX", bx, cx, edx
 
-	test cs:[ebx*8+offset intrmcbs].INTRMCB.bFlags, RMVFL_SETALWAYS
-	jz done
 	call getivtcsip
-	movzx ebx,cs:[ebx*8+offset intrmcbs].INTRMCB.bIntNo
-	push byte ptr _FLATSEL_
-	pop ds
-	mov [ebx*4], eax		;set value in IVT
+	movzx edi,cs:[ebx*sizeof INTRMCB+intrmcbs].bIntNo
+	shl edi, 2
+	sub edi, [dwSSBase]
+	xchg eax,[edi]		;set value in IVT
+	mov [ebx*4+intrmcbrs].rm_vec, eax
 done:
 	pop ds
+	pop edi
 	pop ebx
 	pop eax
 endif
@@ -4115,8 +4003,8 @@ handle_jhdpmi:
 	jnz setvector_jhdpmi
 	btr [wIntRmCb],bx
 	jnc done
-	mov bl, cs:[ebx*8+offset intrmcbs].INTRMCB.bIntNo
-	mov ax, 3
+	mov bl, cs:[ebx*sizeof INTRMCB+intrmcbs].bIntNo
+	mov ax, JHD_UNHOOKIRQ
 	pushd offset jhdpmicall
 	call callrmprocintern
 	jmp done
@@ -4129,8 +4017,8 @@ setvector_jhdpmi:
 	push eax
 	pop dx
 	pop cx
-	mov bl, cs:[ebx*8+offset intrmcbs].INTRMCB.bIntNo
-	mov ax, 1
+	mov bl, cs:[ebx*sizeof INTRMCB+intrmcbs].bIntNo
+	mov ax, JHD_HOOKIRQ
 	pushd offset jhdpmicall
 	call callrmprocintern
 	pop edx
@@ -4158,114 +4046,6 @@ endif
 	align 4
 
 installirqhandler endp
-
-if ?GUARDPAGE0
-
-	@ResetTrace
-
-@watchentry macro wAddr, wSize, wIdx
-	dw wAddr, wAddr+wSize, wIdx
-endm
-
-watchtab label word
-	@watchentry ?SPICBASE*4, 8*4,  8h
-	@watchentry 23h*4,       2*4, 11h
-	@watchentry 1Ch*4,       1*4, 10h
-	@watchentry ?MPICBASE*4, 8*4,  0h
-watchtab_end label byte
-
-;*** client wants to read RM-IVT directly (address in CR2)
-;--- in: CR2
-;--- out: actual intrmcb in dwAddr?
-
-checkivtread proc
-	push edi
-	push edx
-	mov eax,cr2
-	and al,0FCh
-	mov esi, offset watchtab
-	xor edi, edi
-	xor edx, edx
-nextitem:
-	mov dx, cs:[esi+0]	;get offset in ivt, may be 70h*4, 23h*4, 1ch*4, 8*4
-	mov di, cs:[esi+2]	;get end offset
-	cmp eax, edi
-	jnb exit
-	cmp eax, edx
-	jnb found
-	add esi, 2*3	;size of watchentry
-	cmp esi, offset watchtab_end
-	jnz nextitem
-exit:
-	pop edx
-	pop edi
-	ret
-found:
-if 0;?VIODIROUT
-;--- output is critical if DOS or BIOS is used!
-	@dprintf "checkivtread: direct ivt read at %X trapped",ax
-endif
-	sub eax,edx	;0,4,8,...
-	shr eax,2	;0,1,2,3,4
-	add ax, word ptr cs:[esi+4]	;add start offset within intrmcbs table
-	;now eax =  0 ..  7 for mpic
-	;           8 .. 15 for spic
-	;          16,17,18 for 1Ch,23h,24h
-	lea esi,[eax*8 + intrmcbs]
-	test cs:[esi].INTRMCB.bFlags,RMVFL_IGN
-	jnz @F
-	push ds
-	mov ss:[dwAddr],esi
-	push byte ptr _FLATSEL_
-	pop ds
-	mov eax,ss:[eax*4 + intrmcbrs].INTRMCBr.rm_vec
-	movzx edi,cs:[esi].INTRMCB.bIntNo
-	mov ds:[edi*4],eax	;store value in IVT
-	pop ds
-@@:
-	pop edx
-	pop edi
-	ret
-	align 4
-checkivtread endp
-
-;*** client has modified RM-IVT (address in CR2)
-;--- dwAddr=ptr INTRMCB
-
-checkivtwrite proc
-	push ebx					;determine if it was a read or write
-	push ecx
-	push ds
-	mov eax,cr2
-	and al,0FCh
-	mov ebx, eax
-	push byte ptr _FLATSEL_
-	pop ds
-	mov ecx, ds:[ebx]		;get modified CS:IP in IVT
-
-	mov esi, ss:[dwAddr]		;get pointer to INTRMCB
-	mov ss:[dwAddr],0
-
-	sub esi, offset intrmcbs	;esi now 0,8,16,24,32,...
-	mov eax, esi
-	shr eax, 3					;eax now 0,1,2,3,...
-	add ax, ss:[wHostSeg]		;GROUP16
-	shl eax,16
-	mov ax, offset intrmcb_rm
-	sub ax, si					;subtract 2* idx*8
-	sub ax, si
-	mov ds:[ebx+0],eax		;store our value in IVT
-	shr esi,1
-	mov ss:[esi+intrmcbrs].INTRMCBr.rm_vec,ecx	;store modified CS:IP
-	@dprintf "checkivtwrite: ivt write access trapped at %X",bx
-	pop ds
-	pop ecx
-	pop ebx
-	ret
-	align 4
-checkivtwrite endp
-
-endif
 
 	@ResetTrace
 
@@ -4823,7 +4603,7 @@ endif
 ;--- also, don't assume the real-mode vectors have been saved!
 ;--- they must be resaved. 
 
-	and fMode, not (FM_IVTVECS or FM_RESIDENT or FM_TLBMCB)
+	and fMode, not (FM_RESIDENT or FM_TLBMCB)
 	or fMode, FM_CLONE
 
 ;--- some functions of filldesc must be reexecuted here
@@ -4945,9 +4725,6 @@ endif
 	call _initfirstclient		;host initialization on first client
 	jc error
 	@dprintf "CreateVM: initfirstclient called, ltaskaddr=%lX", ltaskaddr
-
-	call saveivtvecs			;clears CF
-	@dprintf "CreateVM: real-mode vectors saved for internal rmcbs"
 	mov ltaskaddr, 0		;avoid to restore task state
 	@dprintf "CreateVM exit"
 	ret
@@ -4983,14 +4760,12 @@ updateclonesize endp
 endif
 
 
-if ?JHDPMI
-
 ;--- called by _restoreclientstate
 ;--- ( must be here because subtraction of 2 external offsets can't be done )
+;--- the current client has terminated, but may not have restored all IRQs.
+;--- in: ESI=saved state of previous client
 
 restoreV86Hooks proc public
-
-;--- the client may not have restored all IRQs
 
 	xor ebp, ebp
 	cmp esi, 0
@@ -5010,17 +4785,22 @@ nexthook:
 	jnc skiphook
 	bt ebp,edx			; IRQ was hooked?
 	jc skiphook
-	lea ebx, [edx+8]
-	cmp dl, 8
-	jb @F
-	lea ebx, [edx+68h]
-	cmp dl, 16
-	jb @F
-	mov bl, 1Ch
-@@:
-	mov ax, 3
+	movzx ebx, cs:[edx*sizeof INTRMCB][intrmcbs].bIntNo
+if ?JHDPMI
+	test [fMode], FM_NOIVTHK
+	jnz jhdpmi_type
+endif
+	mov eax, ss:[edx*4][intrmcbrs].rm_vec
+	shl ebx, 2
+	sub ebx, [dwSSBase]
+	mov [ebx], eax
+	jmp skiphook
+if ?JHDPMI
+jhdpmi_type:
+	mov ax, JHD_UNHOOKIRQ
 	pushd offset jhdpmicall
 	call callrmprocintern
+endif
 skiphook:
 	inc edx
 	and ecx, ecx
@@ -5028,9 +4808,6 @@ skiphook:
 donehook:
 	ret
 restoreV86Hooks endp
-
-endif
-
 
 
 _initclientstate proc
@@ -5092,7 +4869,6 @@ _initclient_pm proc
 	@dprintf "initclient: initfirstclient returned"
 	or fMode, FM_INIT
 @@:
-	call saveivtvecs	;save all rm IRQ vectors to intrmcbs
 
 if ?VM
 	test bEnvFlags, ENVF_VM
@@ -5205,14 +4981,6 @@ if 0
 	mov ah,02h
 	mov dl,'#'
 	call rmdosintern
-endif
-
-if ?GUARDPAGE0
-	test [bEnvFlags], ENVF_HIDEIVTHOOKS	; hide IVT hooks (IRQs) from client?
-	jz @F
-;	mov v86topm._Eip, offset vcpi_pmentry2
-	and byte ptr es:[?PG0PTE],not ?GPBIT;set page 0 to "system"
-@@:
 endif
 
 if ?SAVEPSP
@@ -5662,69 +5430,12 @@ endif
 
 	@ResetTrace
 
-        
-;*** modify all irq IVT vectors to our handler
-;--- this proc is called by initclient_pm & CreateVM
-;--- DS=GROUP16, ES=FLAT!
-;--- preserve EDI, EBP!
-
-if ?EARLYIVTSAVE
-saveivtvecs proc public
-else
-saveivtvecs proc
-endif
-
-	test fMode, FM_IVTVECS
-	jnz exit
-	or fMode, FM_IVTVECS
-	push ds
-
-	xor ecx, ecx
-	mov ebx,offset intrmcbs
-	push byte ptr _CSALIAS_
-	pop ds
-	assume ds:GROUP32
-
-nextvec:
-	test [ebx].INTRMCB.bFlags, RMVFL_IGN or RMVFL_FARPROC
-	jnz @F
-	movzx esi, [ebx].INTRMCB.bIntNo
-	mov eax,es:[esi*4]
-	mov ss:[ecx*4 + intrmcbrs].INTRMCBr.rm_vec, eax
-	mov [ebx].INTRMCB.orgvec, eax
-
-	mov ax, cx
-	add ax, ss:wHostSeg				;GROUP16
-	shl eax, 16
-	mov dx, cx
-	shl dx, 4
-	mov ax, offset intrmcb_rm
-	sub ax, dx
-
-if ?JHDPMI
-	test [ebx].INTRMCB.bFlags, RMVFL_SETALWAYS	; not for int 23h/24h
-	jnz nojhdpmi2
-	test ss:[fMode], FM_NOIVTHK
-	jnz @F
-nojhdpmi2:
-endif
-
-	mov es:[esi*4],eax				;set CS:IP in IVT
-@@:
-	add ebx,sizeof INTRMCB
-	inc ecx
-	cmp ecx,SIZEINTRMCB
-	jnz nextvec
-	pop ds
-exit:
-	ret
-	align 4
-saveivtvecs endp
-
 ;--- this proc will first check all vectors if they can be restored
 ;--- if yes, they will be restored
 ;--- in: DS=GROUP16, ES=FLAT
 ;--- out: C if vectors cannot be restored
+;--- v3.22: all IRQ vectors are already restored when this proc is called
+;--- (either by client itself or by restoreV86Hooks().
 
 	@ResetTrace
 ;_LTRACE_ = 1
@@ -5738,9 +5449,8 @@ restoreivtvecs proc
 
 	pushad
 	@dprintf "restoreivtvecs: try to restore ivt vectors, fMode=%X", word ptr fMode
+
 	mov ah, 00
-	test fMode, FM_IVTVECS			;IRQ vectors modified by HDPMI?
-	jz exit
 	mov di, wHostSeg				;GROUP16
 
 	mov cl,TESTINTRMCB				;check IRQs and int 1C
@@ -5756,26 +5466,26 @@ restorestart:
 	@dprintf "restoreivtvecs: label restorestart reached"
 	mov cl,SIZEINTRMCB
 	mov ah,01
-	and fMode, not FM_IVTVECS
 l2:
 	mov di, wHostSeg				;GROUP16
-	mov esi,offset intrmcbs
-	mov ebp,offset intrmcbrs
+	mov esi, offset intrmcbs
+	mov ebp, offset intrmcbrs
+	mov ebx, dword ptr [wIntRmCb]
 nextvec:
-	test cs:[esi].INTRMCB.bFlags,RMVFL_IGN or RMVFL_FARPROC
-	jnz skipvec
-	mov edx,cs:[esi].INTRMCB.orgvec		;restore rm vectors in table
-	mov ds:[ebp].INTRMCBr.rm_vec, edx	;that's harmless, since table
-									;will be restored immediately
-									;if there is another client
-	movzx ebx,cs:[esi].INTRMCB.bIntNo
-	@dprintf "restoreivtvecs: ivt-vector %X=%lX orgvec=%lX", bx, dword ptr es:[ebx*4], edx
+	shr ebx, 1
+	jnc skipvec
+
+	movzx edx,cs:[esi].INTRMCB.bIntNo
+	@dprintf "restoreivtvecs: ivt-vector %X=%lX", dx, dword ptr es:[edx*4]
 
 	test ah,01h						;test mode?
 	jnz @F
-	cmp es:[ebx*4+2], di			;there might be the case that the app 
+	cmp es:[edx*4+2], di			;there might be the case that the app 
 	jz skipvec						;itself has restored the IVT vector
-	cmp edx,es:[ebx*4]				;cmp with IVT vector
+	push eax
+	mov eax, ds:[ebp].INTRMCBr.rm_vec
+	cmp eax,es:[edx*4]				;cmp with IVT vector
+	pop eax
 	jz skipvec
 
 if ?JHDPMI
@@ -5783,7 +5493,7 @@ if ?JHDPMI
 	jnz skipvec
 endif
 
-	@dprintf "restoreivtvecs: rm int %X cannot be restored", bx
+	@dprintf "restoreivtvecs: rm int %X cannot be restored", dx
 	or ah,2							;save this in AH
 	jmp skipvec
 @@:
@@ -5796,7 +5506,8 @@ if ?JHDPMI
 	jz skipvec
 @@:
 endif
-	mov es:[ebx*4],edx				; restore IVT vector
+	push ds:[ebp].INTRMCBr.rm_vec
+	pop dword ptr es:[edx*4]		; restore IVT vector
 skipvec:
 	inc di
 	add esi,sizeof INTRMCB
@@ -5805,6 +5516,21 @@ skipvec:
 	jnz nextvec
 	cmp ah, cl
 	jz restorestart
+if ?JHDPMI
+ if ?VM
+	test [fMode], FM_CLONE
+	jnz @F
+ endif
+	mov al, [fMode]
+	and al, FM_NOIVTHK or FM_RESIDENT
+	cmp al, FM_NOIVTHK
+	jnz @F
+	mov ax, JHD_DISCONNECT
+	pushd offset jhdpmicall
+	call callrmprocintern
+	mov ah, 0
+@@:
+endif
 exit:
 	shr ah,2						;return with C if not ok
 	popad
@@ -5955,6 +5681,13 @@ endif
 	popa
 	ret
 unlinkserver endp
+
+;--- unhook IVT vectors
+;--- 96    ?INTRM2PM=1    (usually 1)
+;--- 06    ?TRAPINT06RM=1 (usually 0)
+;--- 21    ?TRAPINT21RM=1 (usually 0)
+;--- 2f                   ( always 1)
+;--- 15    ?CATCHREBOOT=1 (usually 1)
 
 unhookIVTvecs proc public
 	pusha
@@ -6421,67 +6154,8 @@ if ?TRAPINT21RM
 	@ResetTrace
 
 int21rm proc far
-	push ax
-if ?CHECKIRQRM
-	cmp ah,25h
-	jz @F
-	cmp ah,35h
-	jz @F
-endif
-normint21:
-	pop ax
 	@jmpoldvec 21
 ;	jmp  dword ptr cs:[int21hk.dwOldVec]
-
-
-if ?CHECKIRQRM
-@@:
-	cmp al,?MPICBASE+0
-	jb normint21
-	cmp al,?MPICBASE+8
-	jb specialint21_1
-	mov ah,10h
-	cmp al,1Ch
-	jz specialint21_2
-	inc ah
-	cmp al,23h
-	jz specialint21_2
-	inc ah
-	cmp al,24h
-	jz specialint21_2
-	cmp al,?SPICBASE+0
-	jb normint21
-	cmp al,?SPICBASE+8
-	jnb normint21
-	sub al,?SPICBASE-8
-	jmp specialint21_3
-specialint21_1:
-	sub al,8
-	jmp specialint21_3
-specialint21_2:
-	mov al,ah
-specialint21_3:
-	mov ah,00
-	shl ax,2		;size INTRMCBr == 4!
-	add ax,offset intrmcbs
-	movzx esp,sp
-	xchg ax,[esp]
-	cmp ah,25h
-	jz setint
-	pop bx
-	@drprintf "rm get int %X %X %X",ax,cs:[bx],cs:[bx+2]
-	push dword ptr cs:[bx]
-	pop bx
-	pop es
-	iret			;real-mode int ret!
-setint:
-	xchg bx,[esp]
-	@drprintf "rm set int %X %X %X %X",ax,bx,ds,dx
-	mov cs:[bx+0],dx
-	mov cs:[bx+2],ds
-	pop bx
-	iret			;real-mode int ret!
-endif
 
 int21rm endp
 

@@ -11,8 +11,9 @@
 
 NAME = JHDPMI
 OUTDIR=Release
-DBGOPT=
 AOPT=-c -coff -nologo -Fl$*.lst -Sg -Fo$*.obj -I\projects\jemm\include
+#AOPTD=-D_DEBUG
+AOPTD=
 ASM=jwasm.exe
 #LINK=link.exe /NOLOGO /SUBSYSTEM:NATIVE /DLL $*.obj /OUT:$*.DLL /MAP:$*.MAP /EXPORT:ddb /Entry:DllMain /OPT:NOWIN98
 LINK=jwlink format win nt hx dll ru native file $*.obj name $*.DLL op q,MAP=$*.MAP export _ddb.1
@@ -27,5 +28,9 @@ $(OUTDIR)\$(NAME).DLL: $(OUTDIR)\$(NAME).obj Makefile
 #	@..\patchpe $*.DLL
 
 $(OUTDIR)\$(NAME).obj: $(NAME).asm
-	@$(ASM) $(AOPT) $(DBGOPT) $(NAME).asm
+	@$(ASM) $(AOPT) $(AOPTD) $(NAME).asm
 
+clean:
+	@if exist $(OUTDIR)\*.dll erase $(OUTDIR)\*.dll
+	@if exist $(OUTDIR)\*.obj erase $(OUTDIR)\*.obj
+	@if exist $(OUTDIR)\*.map erase $(OUTDIR)\*.map

@@ -67,13 +67,6 @@ if ?INTRM2PM
 ?XRM2PM 		equ 96h	;std=96h, real-mode to prot-mode int no
 endif
 
-ifndef ?HIDEIVTHOOKS
-?HIDEIVTHOOKS	equ 1	;std=1 1=hide IVT hooks from client (enables HDPMI=1 and -i option);
-endif
-?GUARDPAGE0		equ ?HIDEIVTHOOKS	; optionally guard page 0 access
-?CHECKIRQRM		equ ?HIDEIVTHOOKS	; 1=get/set the fake real-mode ints with
-									; functions 31h, ax=0200/0201 for internal rm cbs
-
 ?DYNTLBALLOC	equ 1	;std=1, 1=alloc a temp 64 kB TLB for int 21, ah=3f/40
 ?SETRMIOPL		equ 0	;std=0, 1=set IOPL for real mode (not needed)
 ?SCRATCHSEL		equ 0	;std=0, scratch selector required?
@@ -130,7 +123,6 @@ endif
 ?CHECKHOSTSTACK	equ 1	;std 1: 1=detect host stack exhaustion (in host reentries)
 ?CHECKLPMS		equ 1	;std 1: 1=detect LPMS exhaustion; v3.19
 ?RESTRICTMEM	equ 1	;std 1: 1=support -x option to restrict reported free mem
-?EARLYIVTSAVE	equ 0	;std 0: 1=save IVT vecs in host init phase
 ifndef ?JHDPMI
 ?JHDPMI			equ 0	;std 0; 1=support jhdpmi JLM in vcpi mode
 endif
@@ -367,7 +359,6 @@ lf		equ 10
 
 FM_TLBMCB	equ 1		;TLB is extra dos memory block
 FM_RESIDENT	equ 2		;-r: HDPMI is resident
-FM_IVTVECS	equ 4		;real-mode IVT vectors are set
 FM_DISABLED equ 8		;server disabled
 if ?CANTEXIT
 FM_CANTEXIT	equ 10h		;cannot exit (rm vecs not restorable)
@@ -391,9 +382,6 @@ endif
 
 ;--- flags in bEnvFlags (low byte of environment variable HDPMI)
 
-if ?HIDEIVTHOOKS
-ENVF_HIDEIVTHOOKS equ 01h ; hide true rm IRQ vectors from client (for DOS4G extender)
-endif
 ENVF_INCLDOSMEM equ 02h ; include dos memory in page pool
 ENVF_DPMI10		equ 04h	; report DPMI 1.0 version
 ENVF_TLBLOW		equ 08h	; TLB is in low dow memory
@@ -548,8 +536,8 @@ PDESCR	ends
 
 ;--- gates
 
-;*** 4G 16-Bit-Code-Segment -> <0ffffh,0,0,9fh,08fh,0>
-;*** 4G 32-Bit-Code-Segment -> <0ffffh,0,0,9fh,0cfh,0>
+;*** 4G 16-Bit-Code-Segment -> <0ffffh,0,0,9bh,08fh,0>
+;*** 4G 32-Bit-Code-Segment -> <0ffffh,0,0,9bh,0cfh,0>
 ;*** 4G 16-Bit-Data-Segment -> <0ffffh,0,0,93h,08fh,0>
 
 GATE    struct
@@ -608,10 +596,9 @@ rm_vec	 dd ?	; rm cs:ip routed to from pm INTs ( IRQs, 1C, 23, 24 )
 INTRMCBr ends
 
 INTRMCB struct
-orgvec	dd ?	;saved (original) real mode vector, access in protmode only
-pmvec	dw ?	;either near16 to a R3PROC or IDT ofs, r/o, access in protmode only 
+bIntNo	db ?	;Int#, r/o
 bFlags	db ?	;see RMVFL_xxx, r/o
-bIntNo	db ?	;Int number, r/o, access in protmode only
+pmvec	dw ?	;either near16 to a R3PROC or IDT ofs, r/o
 INTRMCB ends
 
 ?RMCBMOUSE	equ 13h		;index of internal rmcb for int 33h mouse event proc
@@ -619,7 +606,6 @@ INTRMCB ends
 ;--- values of flags in INTRMCB.flags (global, not client specific)
 ;--- all flags are read-only
 
-RMVFL_IGN		equ 01h		;don't touch this INT's vector in IVT
 RMVFL_IDT		equ 02h		;field pmvec is an IDT offset
 RMVFL_FARPROC   equ 04h		;is a far proc, not an int ( mouse event )
 RMVFL_SETALWAYS equ 08h		;init RM vector for each client (int 23/24)
@@ -1269,7 +1255,7 @@ endm
 
 @pushstate macro bRMSegs
 ifnb <bRMSegs>
- ife ?HIDEIVTHOOKS
+ if 0;e ?HIDEIVTHOOKS
 	push dword ptr ss:[wIrqOrgRm]
  endif
 	push ss:v86iret.rESd
@@ -1308,7 +1294,7 @@ ifnb <bRMSegs>
 	pop ss:v86iret.rFSd
 	pop ss:v86iret.rDSd
 	pop ss:v86iret.rESd
- ife ?HIDEIVTHOOKS
+ if 0;e ?HIDEIVTHOOKS
 	pop dword ptr ss:[wIrqOrgRm]
  endif
 endif

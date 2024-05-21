@@ -75,7 +75,7 @@ $(OUTD)\$(NAME).TMP: $(OUTD)\$(SRC).obj $(OUTD)\$(NAME).lib $(NAME)i.mak
 	@$(LINK) format win pe hx ru native f $(OUTD)\$(SRC) n $*.TMP lib $(OUTD)\$(NAME).lib op q, map=$*.MAP, nodosseg, stack=0, offset=0, align=0x100
 #	link /subsystem:native $(OUTD)\$(SRC).obj $(OUTD)\$(NAME).lib /OUT:$*.TMP /MAP:$*.map /STACK:0,0 /BASE:0 /FILEALIGN:0x100
 
-$(OUTD)\$(NAME).lib: $(OBJMODS) $(NAME).mak
+$(OUTD)\$(NAME).lib: $(OBJMODS) $(NAME)i.mak
 	@cd $(OUTD)
 	@$(LIB16BIN) $(NAME).lib $(OBJNAMES:.\=+)
 	@jwlib -q -b $(NAME).lib -$(SRC).OBJ

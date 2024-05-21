@@ -227,9 +227,6 @@ iret_with_CF_mod proto near	;adjust CF, then perform IRETD
 if ?HSINEXTMEM
 setuphoststack   proto near
 endif
-if ?EARLYIVTSAVE
-saveivtvecs      proto near
-endif
 if ?VM
 updateclonesize  proto near
 endif
@@ -297,9 +294,7 @@ _TEXT32 segment
 externdef simint09:near
 externdef rawjmp_rm_novcpi:near
 externdef rawjmp_rm_vcpi:near
-if ?JHDPMI
 externdef restoreV86Hooks:near
-endif
 _TEXT32 ends
 
 _TEXT16 segment

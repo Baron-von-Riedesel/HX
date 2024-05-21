@@ -37,7 +37,7 @@ LINK  = jwlink.exe
 
 # for v3.20, add "wdeb386" support ( for "deb386" )
 #AOPT   = -nologo -c -Cp -Sg -D?32BIT=1 $(AOPTD) -I$(INC32DIR) -Fl$* -Fo$* -D?PE
-AOPT   = -nologo -c -Cp -Sg -D?32BIT=1 $(AOPTD) -I$(INC32DIR) -Fl$* -Fo$* -D?PE -D?WDEB386=1
+AOPT   = -nologo -c -Cp -Sg -D?32BIT=1 $(AOPTD) -I$(INC32DIR) -Fl$* -Fo$* -D?PE -D?WDEB386=1 -D?JHDPMI=1
 
 SRC   = hdpmi
 

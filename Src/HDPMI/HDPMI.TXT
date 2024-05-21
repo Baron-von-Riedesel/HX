@@ -1,6 +1,6 @@
 //////////////////////////////////////////////////////////////////////////////
 /                                                                            /
-/               HDPMI - DPMI Server (Version 3.21)                           /
+/               HDPMI - DPMI Server (Version 3.22)                           /
 /                                                                            /
 //////////////////////////////////////////////////////////////////////////////
 
@@ -109,9 +109,6 @@
          instance will automatically put it back into the enabled state.
      -e: reenable a disabled instance of HDPMI.
      -h: display help only; HDPMI will not install.
-     -i: trap direct access to the IVT to ensure hardware interrupts are
-         always routed to protected mode. This is similar to environment
-         switch HDPMI=1.
      -k: abandoned since v3.18. ( in previous versions, this option was
          used to ensure that the screen is in text mode if a register dump
          was to be displayed ).
@@ -146,14 +143,18 @@
          be set (some security checks are implemented, but it isn't
          fool-proved). If in doubt run tool DPMI.EXE to see if the value
          is reasonable.
-
-    [-t: removed since v3.19! Previously, it told HDPMI not to set the 
+[removed:
+     -t: removed since v3.19! Previously, it told HDPMI not to set the 
          CR0.NE and thus make the cpu generate an Irq 0Dh instead of a
          numeric exception on FP errors. Since v3.19, HDPMI will not touch
          CR0.NE and the default handler for Irq 0Dh will trigger an 
          exception 10h, which is supposed to be more compatible. However,
          Irq 0Dh is not called if interrupts are disabled or Irq 0Dh has
-         been masked, so the behavior of HDPMI has slightly changed.]
+         been masked, so the behavior of HDPMI has slightly changed.
+     -i: removed since v3.22! Was: trap direct access to the IVT to ensure
+         hardware interrupts are always routed to protected mode. This is
+         similar to environment switch HDPMI=1.
+]
    
    (*) Please note: Since HDPMI modifies some real mode interrupt vectors,
        it cannot terminate if any other application (it needn't be a
@@ -173,12 +174,6 @@
    this variable one may modify HDPMI's behavior. It is interpreted as bit
    values, so one may set any combination of the following values:
 
-   HDPMI=1:  this option makes the host trap direct IVT access
-             (read/writes to linear address range 0-3FFh) in protected mode.
-             Thus it can ensure that IRQs are always handled in protected mode 
-             first. If the option is set, opcode INVLPG is used, which is
-             implemented on 80486 or better cpus only. Same effect as
-             command line option -i.
    HDPMI=2:  DOS memory is included in standard memory page pool.
              This option should be set only on machines with very
              little physical ram.
@@ -223,12 +218,19 @@
              marked as read-only. Same effect as command line option -s.
    HDPMI=8192: stop in debugger after client's initial switch to protected
              mode.
-   HDPMI=16384: obsolete since HDPMI v3.18. Previously, it caused HDPMI not
+[removed:
+   HDPMI=16384: obsolete since v3.18. Previously, it caused HDPMI not
              to respond to int 2Fh, ax=160Ah. This allowed to start Windows
              3.1 WIN.COM while HDPMI was loaded resident.
-   HDPMI=32768: obsolete since HDPMI v3.19. Previously, it prevented HDPMI
+   HDPMI=32768: obsolete since v3.19. Previously, it prevented HDPMI
              from modifying CR0 NE bit; same effect as command line option -t.
-
+   HDPMI=1:  removed since v3.22. Previously, this option made the host trap
+             direct IVT access (read/writes to linear address range 0-3FFh) in
+             protected mode. Thus it was ensured that IRQs are always handled
+             in protected mode first. If the option was set, opcode INVLPG was
+             used, which is implemented on 80486 or better cpus only. Same
+             effect as command line option -i.
+]
 
  5. Returncodes and Messages
 
@@ -371,12 +373,11 @@
    There exist some DPMI clients which get in the way, however. Most 
    likely this is because some hosts had difficulties with the IRQ
    routing to protected-mode. So these clients try to do this routing
-   on their own - which may cause problems with HDPMI. For this reason,
-   HDPMI has an option to catch all direct accesses to the IVT in protected
-   mode (this feature is activated by setting environment variable HDPMI=1
-   or command line option -i). This will slow down any access to page 0,
-   however, so it should be set only if it becomes obvious that the client
-   will need it to run.
+   on their own - which may interfere with HDPMI's routing. To avoid
+   problems, HDPMI may tell the v86-monitor program to always notify
+   it first if IRQs happen. However, this requires to load JLM jhdpmi.dll
+   before running HDPMI - and this works with Jemm only, since that's the
+   only v86 monitor that supports JLMs.
 
    Besides the hardware interrupts there are 3 software interrupts which
    will be routed to protected-mode as well: Int 1Ch, Int 23h and Int 24h.

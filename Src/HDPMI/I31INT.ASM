@@ -18,74 +18,13 @@ endif
 
 _TEXT32  segment
 
-;*** get/set interrupt vectors RM
-;*** this proc is called on several occations
-;*** int 31h,ax=200h,201h
-;--- in: DS=flat, bl=int no
-;--- out: ds:[ebx] -> rm int vector to get/set
-
-if ?CHECKIRQRM
-
-checkirqrm proc public
-
-	movzx ebx,bl
-	cmp bl,23h
-	jz cirq23
-	cmp bl,24h
-	jz cirq24
-
-if ?JHDPMI
-	test ss:[fMode],FM_NOIVTHK	;jhdpmi installed?
-	jnz exit
-endif
-	cmp bl,1Ch
-	jz cirq1c
-	cmp bl,?MPICBASE+0
-	jb exit
-	cmp bl,?MPICBASE+8
-	jb int080f
-	cmp bl,?SPICBASE+0
-	jb exit
-	cmp bl,?SPICBASE+8
-	jnb exit
-	sub bl,?SPICBASE-8
-	jmp cirqxx
-cirq1c:
-	mov bl,10h
-	jmp cirqxx
-cirq23:
-	mov bl,11h
-	jmp cirqxx
-cirq24:
-	mov bl,12h
-	jmp cirqxx
-int080f:
-	sub bl,?MPICBASE
-cirqxx:
-	shl ebx,3		   ;* 8 (assume size INTRMCB == 8)
-	add ebx,offset intrmcbs
-	push byte ptr _CSALIAS_
-	pop ds
-	ret
-exit:
-	shl ebx,2
-	ret
-	align 4
-checkirqrm endp
-
-endif
-
 ;*** ax=0x200 (get rm vector) ***
 
 _LTRACE_ = 0
 
 getrmivec proc public
-if ?CHECKIRQRM
-	call checkirqrm
-else
 	movzx ebx,bl
 	shl ebx,2
-endif
 	mov dx,[ebx+0]
 	mov cx,[ebx+2]
 ;	clc
@@ -98,12 +37,8 @@ getrmivec endp
 _LTRACE_ = 0
 
 setrmivec proc public
-if ?CHECKIRQRM
-	call checkirqrm
-else
 	movzx ebx,bl
 	shl ebx,2
-endif
 	mov [ebx+0],dx
 	mov [ebx+2],cx
 ;	clc
@@ -316,7 +251,6 @@ else
 	@dprintf "setpmintvec: int %X with %X:%X",bx,cx,dx
 endif
 	call installirqhandler
-	@dprintf "setpmintvec: return from installirqhandler %X:%lX", cx, edx
 	call getpmptr
 	jc setpmivec_1
 	mov [ebx].GATE.ofs,dx

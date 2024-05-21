@@ -424,10 +424,6 @@ printmode proc
 	jz @F
 	@rprintf " resident"
 @@:
-	test si, FM_IVTVECS
-	jz @F
-	@rprintf " modIRQs"
-@@:
 	test si, FM_DISABLED
 	jz @F
 	@rprintf " disabled"

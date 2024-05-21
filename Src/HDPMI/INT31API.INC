@@ -63,10 +63,6 @@ seteexcp proto near
 seteexcr proto near 
 endif
 
-if ?CHECKIRQRM
-checkirqrm proto near
-endif
-
 ;--- ah=03
 
 ;simrmint proto near

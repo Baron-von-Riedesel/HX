@@ -34,9 +34,6 @@ endif
 _ITEXT16 segment
 
 wHostSeg32 dw 0		;GROUP32 segment on startup
-if ?EARLYIVTSAVE
-bTmpFlgs db 0
-endif
 
 	@ResetTrace
 
@@ -675,12 +672,15 @@ nodpmi:
 	or ax,bx
 	jz vcpidone
 
-if 1;this code avoids a message in a win9x dos box
-	;caused by the following VCPI query
+if 1
+;--- this code avoids a message in a win9x dos box
+;--- caused by the following VCPI query.
+;--- v3.22: restricted to Win3.0, since a simple TSR responding to int 2F, ax=1600h
+;---        causes hdpmi to abort then.
 	mov ax,1600h
 	int 2fh
-	cmp al,00
-	jnz vcpidone
+	cmp ax,0003			;Win 3.0 running?
+	jz vcpidone
 endif
 	mov ax,0DE00h		;check for VCPI host
 	int 67h
@@ -716,9 +716,9 @@ if ?JHDPMI
 	mov word ptr [dwJHdpmi+0], di
 	mov word ptr [dwJHdpmi+2], es
 	or [fMode], FM_NOIVTHK
-	; -a option (vm): currently not compatible with that
-	; -i option (hideivthooks): useless with jhdpmi
-	and [bEnvFlags], not (ENVF_VM or ENVF_HIDEIVTHOOKS)
+JHD_CONNECT equ 1
+	mov ax, JHD_CONNECT
+	call [dwJHdpmi]
 @@:
 	pop es
 endif
@@ -946,15 +946,6 @@ ifdef ?PE
 endif
 endif
 
-if ?EARLYIVTSAVE
-	push ss
-	pop ds
-	test bTmpFlgs, 1
-	jz @F
-	call saveivtvecs	;ES must be FLAT, ds=GROUP16
-@@:
-endif
-
 ;--- this log msg will cause a GPF, since limit CS is now too low
 ;	@dprintf "initsvr_pm: exit, esp=%lX", esp
 	jmp initsvr_pm_done
@@ -1131,9 +1122,6 @@ if ?RESIDENT
 endif
 if ?NOINVLPG
 	db "  -g: don't use INVLPG opcode",lf
-endif
-if ?HIDEIVTHOOKS
-	db "  -i: hide host's IVT hooks for IRQ 0-15 [1]",lf
 endif
 if ?FORCETEXTMODE
 	db "  -k: ensure a text mode is set for host displays",lf
@@ -1687,10 +1675,6 @@ else
 	cmp al,'g'
 	jz noinvlpg
  endif
- if ?HIDEIVTHOOKS
-	cmp al,'i'
-	jz hideivthooks
- endif
 	cmp al,'m'
 	jz ismem10disable
 	cmp al,'l'
@@ -1732,10 +1716,6 @@ else
  if ?CR0_EM
 	cmp al,'w'
 	jz disableem
- endif
- if ?EARLYIVTSAVE
-	cmp al,'q'
-	jz earlyivtsave
  endif
  if ?RESTRICTMEM
 	cmp al,'x'
@@ -1789,9 +1769,6 @@ endif
 if ?NOINVLPG
 	@OPTENTRY 'g', noinvlpg
 endif
-if ?HIDEIVTHOOKS
-	@OPTENTRY 'i', hideivthooks
-endif
 if ?FORCETEXTMODE        
 	@OPTENTRY 'k', setforcetext
 endif
@@ -1833,11 +1810,6 @@ setforcetext:
 	or fMode2, FM2_FORCETEXT
 	retn
 endif
-if ?HIDEIVTHOOKS
-hideivthooks:
-	or bEnvFlags, ENVF_HIDEIVTHOOKS
-	retn
-endif
 if ?NOINVLPG
 noinvlpg:
 	or fMode2, FM2_NOINVLPG
@@ -1870,11 +1842,6 @@ restrictmem:
 	dec cl
 @@:
  endif
-	retn
-endif
-if ?EARLYIVTSAVE
-earlyivtsave:
-	or bTmpFlgs, 1
 	retn
 endif
 if ?INT15XMS
