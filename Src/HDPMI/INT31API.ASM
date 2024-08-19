@@ -15,13 +15,6 @@
 
 	@seg CONST32
 
-if ?LOGINT31
-_DATA16 segment
-		public i31func
-i31func dw 0
-_DATA16 ends
-endif
-
 _TEXT32 segment
 
 	@ResetTrace
@@ -44,33 +37,23 @@ intr31 endp
 ;--- intr31_: address in IDT if ?FASTINT31=1
 
 intr31_ proc public
-if _LTRACE_
+if 0;_LTRACE_
 	cmp ah,9
-	jz skiplog
- if ?32BIT
-	cmp ax,302h
-	jnz @F
-	@dprintf "i31 enter ax=302 rmcs(ax=%X cs:ip=%X:%X) edi=%lX hs=%lX", es:[edi].RMCS.rAX, es:[edi].RMCS.rCS, es:[edi].RMCS.rIP, edi, esp
-	jmp skiplog
-@@:
- endif
-endif
+	jz @F
 	@dprintf "i31 enter a-d=%X %lX %lX %lX esi=%lX edi=%lX hs=%lX",ax,ebx,ecx,edx,esi,edi,esp
-skiplog:
-if ?LOGINT31
-	mov ss:[i31func],ax
+@@:
 endif
 	push ds
 	call _i31srvr
 	pop ds
-if _LTRACE_
+if 0;_LTRACE_
 	jc @F
-	@printf "#i31 exit NC "
+	@dprintf "#i31 exit NC "
 	jmp intr31ex_1
 @@:
-	@printf "#i31 exit C  "
+	@dprintf "#i31 exit C  "
 intr31ex_1:
-	@printf <"a-d=%X %lX %lX %lX esi=%lX edi=%lX",lf>,ax,ebx,ecx,edx,esi,edi
+	@dprintf <"a-d=%X %lX %lX %lX esi=%lX edi=%lX">,ax,ebx,ecx,edx,esi,edi
 endif
 if ?FASTINT31
 	jmp iret_with_CF_mod

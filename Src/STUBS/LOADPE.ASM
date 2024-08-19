@@ -14,12 +14,18 @@
 	include dpmi.inc
 	.list
 
-?INT41		equ 1	;1=support int 41h debug interface (will crash cwsdpmi)
+?INT41		equ 1	;1=support int 41h debug interface
 ?MZMINSIZ	equ 40h	;size of MZ header to expect/read
 ?HANDLELOW	equ 0	;1=handle 16-bit base relocs
 
 ifdef __JWASM__
 	option MZ:?MZMINSIZ	;min size of MZ header if jwasm's -mz option is used
+endif
+
+if ?INT41
+DS_DebLoaded	equ 4Fh	; check to see if the debugger is installed
+DS_DebPresent	equ 0F386h
+DS_StartTask	equ 59h
 endif
 
 ifndef ?HDPMI
@@ -33,6 +39,8 @@ ifndef ?SETPGRO
 ?SETPGRO equ 0		;1=set .text and .rdata pages readonly
 endif
 
+?STACKCHK	equ ?SETPGRO	;1=uncommit page below stack
+
 ife ?HDPMI
 ?LOADSERVER	equ 1	;try to find HDPMI if no DPMI host has been found
 ?SHRINKHDR	equ 0
@@ -43,7 +51,7 @@ else
 ?LOADHDR	equ 1	;must be 0 if ?SHRINKHDR=1
 endif
 
-?ADDSTACK	equ 2000h	;amount to add to reserved stack
+?ADDSTACK	equ 1000h	;amount to add to reserved stack
 ?TEST386	equ 1		;1=test for 386 cpu (needed?)
 ?RESTPE		equ 1		;1=restore "PE" (some code checks this)
 ?BUFSIZE	equ 8192
@@ -112,11 +120,11 @@ endif
 	call dosint		;load MZ header
 	jc error
 if ?SHRINKHDR
-	mov eax,[edi+3Ch]	;position of PE header in binary
+	mov eax,[edi].IMAGE_DOS_HEADER.e_lfanew	;position of PE header in binary
 	mov dwPos, eax
 endif
-	mov dx,word ptr [edi+3Ch]
-	mov cx,word ptr [edi+3Eh]
+	mov dx,word ptr [edi].IMAGE_DOS_HEADER.e_lfanew+0
+	mov cx,word ptr [edi].IMAGE_DOS_HEADER.e_lfanew+2
 	mov ax,4200h
 	int 21h
 	jc error
@@ -146,7 +154,7 @@ endif
 ;	 jnz @F
 	add eax, [edi].IMAGE_NT_HEADERS.OptionalHeader.SizeOfStackReserve
 	add eax, ?ADDSTACK
-@@:
+;@@:
 if ?NORELOCS
 	push ebx
 	mov ebx, [edi.IMAGE_NT_HEADERS.OptionalHeader.ImageBase]
@@ -319,6 +327,8 @@ endif	;?NORELOCS
 
 ;--- edi=MZ
 
+;--- make code & const sections r/o
+
 if ?SETPGRO
 	movzx ecx, pehdr.FileHeader.NumberOfSections
  if ?LOADHDR
@@ -355,6 +365,17 @@ noro:
 	add esi, sizeof IMAGE_SECTION_HEADER
 	loop nextsection2
 	mov esp, esi
+ if ?STACKCHK
+	push 0
+	mov edx, esp
+	mov ecx, 1
+	mov ebx, pehdr.OptionalHeader.SizeOfImage
+	mov esi, pehdr.OptionalHeader.CheckSum
+	mov ax, 507h
+	int 31h
+	pop edx
+ endif
+
 endif
 
 ;--- search EIP, store it in EDX
@@ -364,6 +385,8 @@ endif
 	mov edx,pehdr.OptionalHeader.AddressOfEntryPoint
 	add edx,esi
 	mov cl, byte ptr pehdr.FileHeader.Characteristics+1
+
+;--- set ESP to top of mem block
     
 ;	test cl,IMAGE_FILE_DLL shr 8
 ;	jnz @F
@@ -418,30 +441,31 @@ if ?INT41
 	add esp, 128
 	pop edx
 
-	cmp edi,"DSWC"
+	cmp edi,"DSWC"	; CWSDPMI?
 	jz @F   
 	mov ecx, cs
 	mov ebx, edx
-	mov ax, 59h+100h
+	mov ax, DS_StartTask+100h; start "32-bit task", CX:EBX=CS:EIP
 	int 41h
 	mov edx, ebx
 @@:
 endif
 
-;--- call app/dll entry point
-
 	mov ebx, rmSeg
 	shl ebx, 4
 if ?INT41
-	cmp edi,"DSWC"
+	cmp edi,"DSWC"	; CWSDPMI?
 	jz @F   
-	mov ax, 4Fh
+	mov ax, DS_DebLoaded	; debugger present?
 	int 41h
-	cmp ax, 0f386h
+	cmp ax, DS_DebPresent
 	jnz @F
 	int 3
 @@:
 endif
+
+;--- call app/dll entry point
+
 	xor ebp, ebp
 	call edx
 	mov ah,4Ch

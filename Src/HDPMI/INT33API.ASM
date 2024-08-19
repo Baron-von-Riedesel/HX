@@ -195,9 +195,9 @@ if ?32BIT
 else
 	or ax, dx
 endif
-	mov ax, ?RMCBMOUSE	; index internal rmcbs for mouse event 
+	mov eax, ?RMCBMOUSE	; index internal rmcbs for mouse event 
 	jz resetrm
-	bts [wIntRmCb], ax
+	bts [dwIntRmCb], eax
 	mov dx, offset intrmcb_rm_retf
 
 ;--- translate ax:dx to an alias; CS=wHostSeg + index, IP=intrmcb - ( index * 16 )
@@ -209,11 +209,11 @@ endif
 	mov v86iret.rES, ax
 	jmp setresetproc
 resetrm:
-	btr [wIntRmCb], ax
+	btr [dwIntRmCb], eax
 	xor edx, edx
 	mov v86iret.rES, dx
 setresetproc:
-	@dprintf "mouse_setrmcb: set real mode event proc to %X:%X, mask=%X [wIntRmCb=%lX]",v86iret.rES, dx, cx, dword ptr wIntRmCb
+	@dprintf "mouse_setrmcb: set real mode event proc to %X:%X, mask=%X [dwIntRmCb=%lX]",v86iret.rES, dx, cx, dwIntRmCb
 	mov ax,0014h			;instead of set -> xchg
 	@simrmint 33h
 	@dprintf "mouse_setrmcb: previous values es:dx=%X:%X, cx=%X",v86iret.rES,dx,cx

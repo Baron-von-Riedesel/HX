@@ -11,11 +11,13 @@
 
 	option proc:private
 
-?POLLKBD		= 0	;std 0, 1=poll keyboard, 0=use int 16h real-mode
 ?SETCLIENTPSP	= 1 ;std 1, 1=set original client psp before server exits
-?DISPCLSP		= 0	;std 0, 1=display client stack if ring 0 exception
-?RESETMOUSE		= 0 ;std 1, 1=reset mouse before getting a key
+?DISPCLSP		= 0 ;std 0, 1=display client stack if ring 0 exception
 ?SAFERMSTACK	= 0 ;std 0, 1=ensure real-mode stack is usable
+
+;--- switches used if ?FORCETEXTMODE==1 or ?DOSOUTPUT ==0
+?POLLKBD		= 0 ;std 0, 1=poll keyboard, 0=use int 16h real-mode
+?RESETMOUSE		= 0 ;std 0, 1=reset mouse before getting a key
 
 ?CALLDBG equ 1	; 1=call kernel debugger after exception dump
 
@@ -312,10 +314,14 @@ endif
 
 	inc bExcEntry
 	jnz except_2x		;this is fatal
+
+;--- prevent reentry thru internal rmcbs
 	in al, 21h
 	mov bPICMask, al
 	mov al,-1
 	out 21h, al
+;--- prevent reentry thru std rmcbs
+	mov [bNoRMCBEntry], 1
 
 if ?SAFERMSTACK
 	push [wHostPSP]
@@ -500,18 +506,14 @@ endif
 ;--- clear dr7 to avoid I/O watchpoints                
 	xor eax, eax
 	mov dr7, eax
-	call closeinterrupts	;returns ISR in AX
 
 ;--- dump some host variables (LPMS, RMS, RMCB, ...)
 
-	@printf <"LPMS Sel=%X(%b) RMS=%X:%X open RMCBs=%X/%X ISR=%X",lf>,\
-		word ptr _LPMSSEL_, word ptr [bLPMSused],\
-		v86iret.rSS, v86iret.rSP, [cIntRMCB], [cRMCB], ax
+	call closeinterrupts	;returns ISR in AX
 
-if ?LOGINT31
-externdef i31func:word
-	@dprintf "last i31 call: %X",i31func
-endif
+	@printf <"LPMS=%X(%b) RMS=%X:%X cRMCB=%X IRQ=%b%X ISR=%X",lf>,\
+		word ptr _LPMSSEL_, word ptr [bLPMSused],\
+		v86iret.rSS, v86iret.rSP, [cRMCB], word ptr [dwIrqRouted+2], word ptr [dwIrqRouted], ax
 
 ;--- now try to display memory contents [EIP] + [ESP]
 ;--- this may fail, in which case just display some ??? and continue
@@ -578,15 +580,10 @@ if ?LOGINT30
 endif
 
 ifdef _DEBUG
-if ?KDSUPP
+ if ?KDSUPP
 	mov al,[savedfDebug]
 	mov [fDebug], al
-endif
-endif
-
-if 0;?PMIOPL eq 0
-_LTRACE_ = 1
-	@waitesckey
+ endif
 endif
 
 ;--- dump is done
@@ -594,6 +591,8 @@ endif
 	dec bExcEntry
 	mov al, bPICMask
 	out 21h, al
+	mov [bNoRMCBEntry], 0
+
 if ?KDSUPP and ?CALLDBG
 	test [fDebug],FDEBUG_KDPRESENT
 	jnz calldebugger
@@ -632,8 +631,20 @@ else
 	call _stroutesi
 tryagain:
 	inc bExcEntry
+if ?POLLKBD
+@@:
+	in al,64h		;key from keyboard arrived?
+	test al,1
+	jz @B
+	mov ah,al
+	in al,60h		;get data (ack interrupt)
+	test ah,20h		;input from PS/2 device?
+	jnz @B
+	mov dl,al
+else
 	pushd offset getakey
 	call callrmprocintern
+endif
 	dec bExcEntry
 endif ;?DOSOUTPUT
 	cmp cApps,0
@@ -803,33 +814,10 @@ _TEXT16 segment
 
 getakey proc near
 
-if ?POLLKBD
-	in al,21h
-	mov ah,al
-	mov al,0FEh		;enable timer, disable keyboard
-	out 21h,al
-	sti
-@@:
-	in al,64h		;key from keyboard arrived?
-	test al,1
-	jz @B
-	mov ah,al
-	in al,60h		;get data (ack interrupt)
-	test ah,20h		;input from PS/2 device?
-	jnz @B
-	mov dl,al
-	mov al,20h
-	out 20h,al
-	cli
-	mov al,ah
-	out 21h,al
-else
-  if 0
-	in al,21h
+	in al, 21h
 	push ax
-	mov al,0FCh		;disable all devices except PIT and kbd
-	out 21h,al
-  endif
+	mov al, 0FDh
+	out 21h, al
   if ?RESETMOUSE
 	xor ax,ax		;reset mouse. since the host (hopefully) isn't reentered
 	int 33h			;during exception handling, this isn't needed.
@@ -838,11 +826,8 @@ else
 	int 16h
 	or al,20h
 	mov dl,al
-  if 0
 	pop ax
-	out 21h,al
-  endif
-endif
+	out 21h, al
 	ret
 getakey endp
 

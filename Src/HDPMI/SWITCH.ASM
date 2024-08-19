@@ -232,7 +232,7 @@ else
 	mov esp,offset v86iret
 endif
 	mov ds,eax
-	clts				;clear task switched flag
+	clts				;clear CR0.TS flag? hdpmi does no task switching, so probably useless...
 	mov ax,0DE0Ch
 	call ss:[vcpicall]	;modifies eax
 	int 3				;should never return

@@ -3,7 +3,9 @@
 ;--- loads hdpmi if no host found.
 ;--- switches to protected-mode, then jumps to label start32.
 
+ifndef ?LOADSERVER
 ?LOADSERVER	equ 1	;try to find HDPMI if no DPMI host has been found
+endif
 ?TEST386	equ 1	;1=test for 386 cpu
 
 ifndef ?INT41
@@ -162,6 +164,7 @@ if ?INT41
 	int 3
 @@:
 endif
+	mov ax, cs
 	retd
 
 restoreumbstatus:

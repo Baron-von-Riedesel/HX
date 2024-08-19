@@ -55,7 +55,7 @@ dwCSIP dd ?	; it's either v86 CS:IP or linear address of a VCPI_V862PM struct
 HOOKSTR ends
 
 hookarray HOOKSTR 255 dup (<?>)
-hooktype dd 8 dup (?)
+hooktype dd 8 dup (?)		;this is a bitfield (255 bits): 0=V86 callout, 1=VCPI callout
 hookchain db 255 dup (?)	;-1 = last item in chain
 if LOG
 dwCnt dd 255 dup (?)
@@ -69,9 +69,10 @@ else
 @dprintf textequ <;>
 endif
 
-;--- callout handles both
-;--- hooks for VCPI clients and v86 code.
-;--- [ESP+0]: hook index
+;--- callout() handles both types of hooks (V86/VCPI).
+;--- [ESP+0]: hook index (0-16)
+;--- EBP->client data
+;--- return NC if handled.
 
 callout proc
 
@@ -100,6 +101,7 @@ endif
 isvcpi:
 	mov esi, [edx*4+hookarray].dwCSIP
 	VMMJmp V86ToPM
+	align 4
 
 callout endp
 
@@ -109,6 +111,7 @@ repeat NUMHOOKS
 HookProc @CatStr(irq_,%IRQ)_hook_proc, @CatStr(oldhook,%IRQ)
 	push IRQ
 	jmp callout
+	align 4
 @CatStr(irq_,%IRQ)_hook_proc endp
 	IRQ=IRQ+1
 endm
@@ -128,13 +131,13 @@ dispatch proc
 	cmp ax, 2
 	jz disconnect
 	cmp ax, 3
-	jz hookivtV86
+	jz hookivt
 	cmp ax, 4
 	jz unhookivt
 	cmp ax, 5
 	jz xchgivtV86
 	cmp ax, 11h
-	jz hookivtVCPI
+	jz hookivt
 if STATUS
 	cmp ax, 12h
 	jz dispstatus
@@ -193,17 +196,16 @@ fail:
 	jmp error
 setupregs endp
 
-;--- hook a v86 int chain
+;--- func 3 & 11h
+;--- hook an int chain
 ;--- in: BL=vector#
-;--- CX:EDX: CS:EIP to call (will be copied to VCPIRM2PM)
-;--- ESI: linear address VCPIRM2PM struct in 1. MB for callout
-;--- EDI: linear address Client_Reg_Struc struct in 1. MB
+;--- if al=3: CX:DX = CS:IP to call
+;--- if al=11h: CX:DX = linear address of an VCPIRM2PM struct
 ;--- INTs supported are 08h-0Fh, 1Ch, 70h-77h
 
-hookivtVCPI proc
+hookivt proc
 
-	mov bh,0
-hookivtBoth::
+	mov bh, al
 	call setupregs
 
 ;	cmp [edx+hooks], -1	; INT already hooked?
@@ -252,45 +254,18 @@ if LOG
 	mov [edi*4+dwCnt], 0
 endif
 	btr [hooktype], edi
-	cmp bh,1
+	cmp bh, 3	; V86 hook?
 	jz @F
-	bts [hooktype], edi
+	bts [hooktype], edi	; mark as VCPI hook
 @@:
 	mov cx, word ptr [ebp].Client_Reg_Struc.Client_ECX
 	shl ecx, 16
 	mov cx, word ptr [ebp].Client_Reg_Struc.Client_EDX
 	mov [edi*4+hookarray].HOOKSTR.dwCSIP, ecx
 	ret
-hookivtVCPI endp
+hookivt endp
 
-;--- hook a v86 int chain
-;--- in:  BL=vector#
-;---   CX:DX=CS:IP to call
-;--- INTs supported are 08h-0Fh, 1Ch, 70h-77h
-
-hookivtV86 proc
-
-	mov bh,1
-	jmp hookivtBoth
-
-hookivtV86 endp
-
-xchgivtV86 proc
-	call setupregs
-	cmp [edx+hooks], -1	; INT hooked?
-	jz error
-	movzx eax, [edx+hooks]
-	bt [hooktype], eax	; VCPI hook?
-	jc error
-	mov cx, word ptr [ebp].Client_Reg_Struc.Client_ECX
-	shl ecx, 16
-	mov cx, word ptr [ebp].Client_Reg_Struc.Client_EDX
-	xchg ecx, [eax*4+hookarray].HOOKSTR.dwCSIP
-	mov word ptr [ebp].Client_Reg_Struc.Client_EDX, cx
-	shr ecx, 16
-	mov word ptr [ebp].Client_Reg_Struc.Client_ECX, cx
-	ret
-xchgivtV86 endp
+;--- func 4
 
 unhookivt proc
 
@@ -330,6 +305,25 @@ unhookivt proc
 	ret
 
 unhookivt endp
+
+;--- func 5
+
+xchgivtV86 proc
+	call setupregs
+	cmp [edx+hooks], -1	; INT hooked?
+	jz error
+	movzx eax, [edx+hooks]
+	bt [hooktype], eax	; VCPI hook?
+	jc error
+	mov cx, word ptr [ebp].Client_Reg_Struc.Client_ECX
+	shl ecx, 16
+	mov cx, word ptr [ebp].Client_Reg_Struc.Client_EDX
+	xchg ecx, [eax*4+hookarray].HOOKSTR.dwCSIP
+	mov word ptr [ebp].Client_Reg_Struc.Client_EDX, cx
+	shr ecx, 16
+	mov word ptr [ebp].Client_Reg_Struc.Client_ECX, cx
+	ret
+xchgivtV86 endp
 
 if STATUS
 

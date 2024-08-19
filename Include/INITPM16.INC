@@ -1,15 +1,20 @@
 
-;*** startup code to run a 16-bit small model program as DPMI client
-;*** will try to load HDPMI if no DPMI host is active
-;--- requires: DS & SS setup for small model
+;*** startup code to run a 16-bit program as DPMI client;
+;*** will try to load HDPMI if no DPMI host is active.
+;--- requires: DS & SS setup for tiny/small model,
 ;--- DOS memory freed already
 
-?LIMITCS equ 1  ; 1=limit CS to real code size 
+ifndef ?LIMITCS
+?LIMITCS equ 1  ; 1=limit CS to real code size (small model)
+endif
+ifndef ?LOADSERVER
+?LOADSERVER equ 1 ; 1=load HDPMI if no DPMI host detected
+endif
 ifndef ?32BIT
-?32BIT   equ 0  ; 1=run as 32-bit client
+?32BIT equ 0    ; 1=run as 32-bit client
 endif
 ifndef ?INT41
-?INT41 equ 0
+?INT41 equ 0    ; 1=use int 41h debug API
 endif
 
 EXECRM struct
@@ -25,12 +30,14 @@ EXECRM ends
 
 szPath db 'PATH='
 
-if ?32BIT
+if ?LOADSERVER
+ if ?32BIT
 szHDPMI db 'HDPMI32.EXE',00
-else
+ else
 szHDPMI db 'HDPMI16.EXE',00
-endif
+ endif
 LHDPMI  equ $ - szHDPMI
+endif
 
 errNoHost db "no DPMI host found",13,10,'$'
 errInit   db "DPMI initialization failed",13,10,'$'
@@ -43,11 +50,13 @@ initpm proc
 
     mov ax, 1687h           ; DPMI host installed?
     int 2fh
+if ?LOADSERVER
     and ax, ax
     jz @F
     call loadserver
     mov ax, 1687h           ; try again
     int 2fh
+endif
     and ax, ax
     jnz nodpmi              ; still no host, exit
 @@:        
@@ -62,13 +71,15 @@ initpm proc
     jc memerr
     mov es, ax
 @@:
-if ?LIMITCS
+if @Model ne 1              ; not for tiny model
+ if ?LIMITCS
     mov dx, ds
     inc dx                  ; one paragraph more since start of DGROUP may be within code
     mov cx, cs
     sub dx, cx
     shl dx, 4
     dec dx
+ endif
 endif
     mov bp, sp
 if ?32BIT
@@ -78,11 +89,13 @@ else
 endif
     call dword ptr [bp]
     jc initerr
-if ?LIMITCS
+if @Model ne 1              ; not for tiny model
+ if ?LIMITCS
     mov bx, cs
     xor cx, cx
     mov ax, 8
     int 31h
+ endif
 endif
     add sp, 4
 if ?INT41
@@ -107,6 +120,8 @@ errexit:
     mov ax, 4CFFh
     int 21h
 initpm endp
+
+if ?LOADSERVER
 
 ;*** search and load hdpmixx.exe
 
@@ -251,3 +266,4 @@ nextvar:
 
 loadserver endp
 
+endif

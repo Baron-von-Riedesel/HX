@@ -394,7 +394,7 @@ notfound:
 	push sizeof RMSEL
 	call _heapalloc
 	jc error
-	@dprintf "new entry %lX for rm sel allocated",eax
+	@dprintf "new heap entry %lX for rm sel allocated",eax
 	mov [esi].RMSEL.pNext,eax
 	mov esi,eax
 	xor eax,eax
@@ -403,7 +403,7 @@ notfound:
 	mov ds,ss:[selLDT]
 	call alloc1sel			;alloc new selector
 	jc error
-	@dprintf "new selector %X for rm sel allocated",ax
+	@dprintf "new selector %X as rm sel allocated",ax
 	movzx ebx,ax
 	mov dx,ax
 	and bl,0F8h
@@ -562,6 +562,7 @@ setlimit endp
 ;--- bx=selector, cx=new access rights
 
 setaccrights proc public
+	@dprintf "setdescaccrights(ax=9): sel=%X accrights=%X",bx,cx
 	call checksel
 	test byte ptr [ebx].DESCRPTR.attrib,10h ;memory segment?
 	jz @F
@@ -584,6 +585,7 @@ setaccrights endp
 ;--- put this function here so carryexit can be reached by a short jump
 
 allocspecific proc public
+	@dprintf "allocspecdesc(ax=D): sel=%X",bx
 	test bl,4
 	jz carryexit
 if 0
@@ -607,6 +609,7 @@ allocspecific endp
 ;--- flags are set.
 
 getcsalias proc public
+	@dprintf "getcsalias(ax=A): sel=%X",bx
 	call checksel
 	pushad
 	call alloc1sel
@@ -628,6 +631,7 @@ getcsalias endp
 ;--- int 31h, ax=000B - get descriptor
 
 getdesc proc public
+	@dprintf "getdescriptor(ax=B): sel=%X",bx
 	call checksel
 	push eax
 if ?32BIT
@@ -649,6 +653,7 @@ getdesc endp
 ;*** function 000C - set descriptor bx ***
 
 setdesc proc public
+	@dprintf "setdescriptor(ax=C): sel=%X",bx
 	call checksel
 	push eax
 if ?32BIT

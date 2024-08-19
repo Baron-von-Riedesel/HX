@@ -25,10 +25,14 @@ endif
 ;--- (ascii=0, VK=0) (console applications)
 ?CREATE61SC			equ 1	;must match value in kbdqueue.asm!
 ?FKEYS				equ 1	;F1-F10 special handling
-?HOOKINT15			equ 0	;hook int 15 real-mode
 ?HANDLEE0E1			equ 0	;handle E0+E1 internally
 ?SETBREAK			equ 0	;std=0, 1=disable ctrl-c checking in DOS
 ?DISABLEKBD			equ 0	;1=support for disable kbd before reading port 60h
+
+;--- hook int 15h, ah=4Fh
+;--- idea: do NOT read port 60h ( problem with emulators );
+;--- instead trap IRQ 1 + int 15h and use the code supplied by int 15h
+?HOOKINT15			equ 0	;1=hook int 15 real-mode (not functional!)
 
 if ?CREATE61SC
 ?EXTENDED	equ <2>
@@ -98,8 +102,8 @@ endif
 if ?DISABLEKBD
 	test byte ptr [g_dwFlags],DKF_DISABLEKBD
 	jz @F
-	mov al,0ADh
-	out 64h, al
+	mov ah,0ADh
+	call SendByte
 @@:
 endif
 	in al,60h
@@ -302,9 +306,20 @@ if ?DISABLEKBD
 ReenableKbd:
 	test byte ptr [g_dwFlags],DKF_DISABLEKBD
 	jz @F
-	mov al,0AEh
-	out 64h, al
+	mov ah,0AEh
+	call SendByte
 @@:
+	retn
+SendByte:
+	push ecx
+	xor cx, cx
+@@:
+	in al, 64h
+	test al, 2	; wait till ready
+	loopnzw @B
+	mov al, ah
+	out 64h, al
+	pop ecx
 	retn
 endif
 	align 4
@@ -318,7 +333,7 @@ myirq1 endp
 
 install proc uses ebx
 
-	mov bl,byte ptr g_wPics+1
+	mov bl,byte ptr g_wPics+1	; get master PIC base
 	inc bl
 	mov ax,0204h
 	int 31h
@@ -337,13 +352,26 @@ if ?HOOKINT15
 	mov bl,15h
 	mov ax,0200h
 	int 31h
-	mov dword ptr @flat:[5F0h+0],754FFC80h;cmp ah,4F; jnz $+5
-	mov dword ptr @flat:[5F0h+4],0FA22E03h;mov cs:[000F],al 	
-	mov word  ptr @flat:[5F0h+8],0EA00h	;jmp xxxx:xxxx
-	mov word ptr  @flat:[5F0h+10],dx
-	mov word ptr  @flat:[5F0h+12],cx
+
+;--- store code at 3Eh:0000
+;--- todo: use the PSP for that!
+;--- pushf              9C
+;--- cmp ah,4Fh         80 FC 4F
+;--- jnz $+6            75 04
+;--- mov cs:[0011], al  2E A2 11 00
+;--- popf               9D
+;--- jmp SSSS:OOOO      EA OOOO SSSS
+;--- issues: 1. flags should be saved!
+;---         2. jnz should be $+6, since next instruction is 4 bytes!
+;---         3. region 5Fh:0000 belongs to DOS
+
+	mov dword ptr @flat:[3E0h+0],4FFC809Ch;pushf cmp ah,4F
+	mov dword ptr @flat:[3E0h+4],0A22E0475h;jnz $+6 mov cs:[0011],al
+	mov word  ptr @flat:[3E0h+8],0EA9D1100h	;popf jmp xxxx:xxxx
+	mov word ptr  @flat:[3E0h+12],dx
+	mov word ptr  @flat:[3E0h+14],cx
 	mov dx,0
-	mov cx,5Fh
+	mov cx,3Eh
 	mov bl,15h
 	mov ax,0201h
 	int 31h
@@ -389,14 +417,14 @@ else
 endif
 	jcxz @F
 	mov edx, dword ptr g_oldirq1+0
-	mov bl,byte ptr g_wPics+1
+	mov bl,byte ptr g_wPics+1	; get master PIC base
 	inc bl
 	mov ax,0205h
 	int 31h
 @@:
 if ?HOOKINT15
-	mov dx,word ptr ds:[5F0h+10]
-	mov cx,word ptr ds:[5F0h+12]
+	mov dx,word ptr @flat:[3E0h+12]
+	mov cx,word ptr @flat:[3E0h+14]
 	mov bl,15h
 	mov ax,0201h
 	int 31h

@@ -602,6 +602,8 @@ nextitem:
 	jz queue_empty
 	cmp edx,0
 	jz @F
+	cmp edx,-1  ; 4.8.2024
+	jz @F
 	cmp edx,[ecx].MSG.hwnd
 	jz @F
 	cmp [ecx].MSG.hwnd,0

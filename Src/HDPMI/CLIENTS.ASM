@@ -325,13 +325,11 @@ endif
 	pop es					;ES=GROUP16
 
 if 0;_LTRACE_
-	mov bx,offset intrmcbrs
-	mov cx,0
+	xor ebx, ebx
 @@:
-	@dprintf "restoreclientstate: rmcb %X rmvec:%lX", cx, ss:[bx].INTRMCBr.rm_vec
-	add bx,sizeof INTRMCBr
-	inc cl
-	cmp cl,SIZEINTRMCB
+	@dprintf "restoreclientstate: rmcb %X rmvec:%lX", bx, ss:[ebx*4][intrmcbrs].rm_vec
+	inc ebx
+	cmp bx,SIZEINTRMCB
 	jnz @B
 endif
 
@@ -377,12 +375,6 @@ endif
 ;--- v3.20: if a client terminates, reenable host
 ;--- (so only idle host can be disabled permanently)
 	and ss:[fMode], not FM_DISABLED
-
-if _LTRACE_
-	push ss:[wIntRmCb]  ; wIntRmCb has just been restored, but prevent any reentrance
-;--- todo: clearing wIntRmCB is NOT a good idea - better mask all interrupts
-	mov ss:[wIntRmCb], 0; until all data has been copied back
-endif
 
 	@dprintf "restoreclientstate: restored taskseg._Esp0=%lX", ss:taskseg._Esp0
 if ?SAVEDR7
@@ -435,10 +427,6 @@ endif
 	assume ds:GROUP16
 
 	call ResizeLDT
-
-if _LTRACE_
-	pop [wIntRmCb]
-endif
 
 ife ?USESYSSPACE2
 	pop di 					;get task handle

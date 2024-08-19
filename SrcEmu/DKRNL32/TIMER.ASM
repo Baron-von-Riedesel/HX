@@ -222,7 +222,7 @@ myirq08 endp
 
 InitRTCTimer proc public uses ebx
 
-	mov bl,byte ptr g_wPics+0
+	mov bl,byte ptr g_wPics+0	; get slave PIC base
 	mov ax,204h
 	int 31h
 	mov word ptr g_OldIrq08+4,cx
@@ -246,7 +246,7 @@ DeinitRTCTimer proc public uses ebx
 		xor ecx, ecx
 		xchg cx, word ptr g_OldIrq08+4
 		mov edx, dword ptr g_OldIrq08+0
-		mov bl,byte ptr g_wPics+0
+		mov bl,byte ptr g_wPics+0	; get slave PIC base
 		mov ax,205h
 		int 31h
 	.endif

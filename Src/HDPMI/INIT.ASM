@@ -33,7 +33,7 @@ endif
 
 _ITEXT16 segment
 
-wHostSeg32 dw 0		;GROUP32 segment on startup
+wSegGrp32 dw 0		;GROUP32 segment on startup
 
 	@ResetTrace
 
@@ -265,7 +265,7 @@ if ?MOVEHIGHHLP
 	mov [curGDT+di].A1623,al
 endif
 	xor eax,eax
-	mov ax, wHostSeg32		;GROUP32
+	mov ax, wSegGrp32		;GROUP32
 	shl eax,4
 ifdef ?PE
 	sub eax,1000h
@@ -715,7 +715,7 @@ if ?JHDPMI
 	jnz @F
 	mov word ptr [dwJHdpmi+0], di
 	mov word ptr [dwJHdpmi+2], es
-	or [fMode], FM_NOIVTHK
+	mov [dwExtHook], 1ffffh	; IRQs to be handled by jhdpmi
 JHD_CONNECT equ 1
 	mov ax, JHD_CONNECT
 	call [dwJHdpmi]
@@ -1265,7 +1265,7 @@ endif
 
 disablemem10 proc
 	push ds
-	mov ds, wHostSeg32	;GROUP32
+	mov ds, wSegGrp32	;GROUP32
 	assume ds:GROUP32
 	mov dpmi5functions, 4	;allow int 31h, ax=0500-503 only
 	pop ds
@@ -1383,7 +1383,7 @@ else
 	int 21h
 	pop bx
 	jc error_2
-	mov cs:wHostSeg32, ax
+	mov cs:wSegGrp32, ax
 	@drprintf "load32bit: allocated DOS memory block %X", ax
 	mov ds,ax
 	mov cx,20h	;read the header
@@ -1429,7 +1429,7 @@ ifdef ?PE
 	int 21h
 	pop bx
 	jc error_2
-	mov cs:wHostSeg32, ax
+	mov cs:wSegGrp32, ax
 	@drprintf "load32bit: allocated DOS memory block %X", ax
 	mov es,ax
 	mov cx,dx
@@ -1440,7 +1440,7 @@ ifdef ?PE
 
 ;--- now read 3 sections
 
-	mov ds, cs:wHostSeg32
+	mov ds, cs:wSegGrp32
 nextsection:
 	mov di,sp
 	mov dx, word ptr ss:[di].IMAGE_SECTION_HEADER.PointerToRawData+0
@@ -1461,7 +1461,7 @@ nextsection:
 	jnz nextsection
 else
 	mov cx,LOWWORD offset endof32bit
-	@drprintf "load32bit: loading GROUP32 part of hdpmi at %X, size=%X", cs:wHostSeg32, cx
+	@drprintf "load32bit: loading GROUP32 part of hdpmi at %X, size=%X", cs:wSegGrp32, cx
 	xor dx,dx
 	mov ah,3Fh
 	int 21h
@@ -1628,7 +1628,7 @@ ife ?DELAYLOAD
 	mov dx, offset endof16bit
 	shr dx, 4
 	add ax, dx
-	mov wHostSeg32, ax
+	mov wSegGrp32, ax
 endif
 
 ife ?STUB
@@ -2010,7 +2010,7 @@ else
 @@:
 
   if ?DELAYLOAD
-	mov es, wHostSeg32
+	mov es, wSegGrp32
 	mov ah,49h
 	int 21h
   endif

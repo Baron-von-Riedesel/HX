@@ -1132,7 +1132,7 @@ freephyspage proc
 	jz noxmspage	        ;no (VCPI or mapped)
 	inc dwPagePool			;XMS/I15/DOS will be put in page pool
 	and al, not PTF_PRESENT
-	@dprintfx ?LOG_PMGREXT,"freephyspage: PTE=%lX, dwPagePool=%lX, caller=%lX", eax, dwPagePool, dword ptr [esp]
+	@dprintfxx ?LOG_PMGREXT,"freephyspage: PTE=%lX, dwPagePool=%lX, caller=%lX", eax, dwPagePool, dword ptr [esp]
 exit:
 	ret
 	align 4

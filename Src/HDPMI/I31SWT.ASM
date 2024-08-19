@@ -98,10 +98,10 @@ wPatchGrp162 dw 0		;will contain GROUP16
 @@:
 
 if ?NOREENTRY        
-	cmp cs:[bExcEntry],-1	;host entry allowed?
+	cmp cs:[bNoRMCBEntry],0	;host entry allowed?
 	jnz noentry
 endif
-	pop cs:[MyRMCS.rCS]	;now CS can be used as prefix!
+	pop cs:[MyRMCS.rCS]
 	pop cs:[MyRMCS.rFlags]
 
 ;--- build a RMCBSF frame         
@@ -171,26 +171,25 @@ endif
 
 	inc ss:[cRMCB]
 
+	.errnz sizeof RMCB - 16
+
 	push edi
 	mov fs, ss:pmstate.rFS
 	movzx edi, ss:[MyRMCS.rCS]
 	mov gs, ss:pmstate.rGS
 	sub di, ss:[wHostSeg]		;seg RMSwitch
 	shl edi, 4					;RMCB size is 16!
-	.errnz sizeof RMCB - 16
-;--- Masm silently ignores second override, JWasm gives a warning.
-;--- Since Masm v6 prefers to use the GROUP for fixup calculation,
-;--- the second override isn't necessary anyway.
-;	les edi, fword ptr cs:[edi+offset clrmcbs].RMCB.rmcs
+
 if _LTRACE_
 	push 0
 	pop ds
 	push ds
 	pop es
-	@dprintf "rmcb, callerCS=%X, wHostSeg=%X, edi=%lX, rmcs=%X:%lX", \
-		ss:[MyRMCS.rCS], ss:[wHostSeg], edi, word ptr cs:[edi+offset clrmcbs].RMCB.rmcs+4, dword ptr cs:[edi+offset clrmcbs].RMCB.rmcs
+	@dprintf "rmcb, callerCS=%X, rmcb#*16=%X, rmcs=%X:%lX", \
+		ss:[MyRMCS.rCS], di, word ptr cs:[edi+clrmcbs].rmcs+4, dword ptr cs:[edi+clrmcbs].rmcs+0
 endif
-	les edi, fword ptr cs:[edi+offset clrmcbs].RMCB.rmcs
+
+	les edi, cs:[edi+clrmcbs].rmcs
 	pop es:[edi].RMCS.rEDI
 	mov es:[edi].RMCS.rESI, esi
 	mov es:[edi].RMCS.rEBP, ebp
@@ -230,9 +229,7 @@ if ?RMCBSTATICSS
 	shl ebx, 4                  ;*16 (sizeof RMCB)
 	mov es:[edi].RMCS.rSS, dx
 	shl edx, 4					;edx = linear address of real-mode SS
-;--- Masm silently ignores second override, JWasm gives a warning
-;	movzx ebx, cs:[ebx+offset clrmcbs].RMCB.wSS
-	movzx ebx, cs:[ebx+offset clrmcbs].RMCB.wSS
+	movzx ebx, cs:[ebx+clrmcbs].wSS
 	push ebx
 	and bl, 0F8h
 	mov [ebx].DESCRPTR.A0015, dx
@@ -273,7 +270,8 @@ endif
 
 	@checkhoststack
 
-;--- set RMCS IP
+;--- calculate real-mode CS:IP of rmcb
+;--- this is also done in 0x303/0x304.
 	mov ax, es:[edi].RMCS.rCS
 	sub ax, ss:[wHostSeg]			;seg RMSwitch
 	shl eax, 4						;RMCS size is 16!
@@ -481,7 +479,7 @@ havecsip:
 	sub eax,ecx
 	jc error1
 	mov esi,ss:taskseg._Esp0		 ;client stack -> ds:si
-	@dprintf "copy stack parms, %X words src=%X:%lX", cx,\
+	@dprintfx ?LOG_RMCALL, "copy stack parms, %X words src=%X:%lX", cx,\
 		[esi-sizeof IRET32].IRET32.rSS, [esi-sizeof IRET32].IRET32.rSP
 	lds esi,ss:[esi-sizeof IRET32].IRET32.rSSSP
 	shr ecx,1	;byte to words
@@ -613,19 +611,21 @@ _callrmproc endp
 allocrmcb proc public
 
 	pushad
+
 	@dprintf "allocrmcb: enter ds:esi=%lX:%lX es:edi=%lX:%lX",ds,esi,es,edi
+
 	mov eax,ds
 ;	push ss
 	push byte ptr _CSALIAS_
 	pop ds
 ;	assume ds:GROUP16
 	assume ds:GROUP32
-	mov ebx,offset clrmcbs
+	mov ebx, offset clrmcbs
 	mov cx,?RMCBMAX		;ch == 0
 alloccb2:
 	cmp [ebx].RMCB._Cs,0000
 	jz @F
-	add ebx,size RMCB
+	add ebx,sizeof RMCB
 	dec cl
 	jnz alloccb2
 	popad
@@ -646,8 +646,8 @@ endif
 ;	@dprintf "allocrmcb: rmcb allocated: %X:%lX %lX:%lX", ax,esi,es,edi
 	mov esi, ecx
 if ?RMCBSTATICSS
-	mov cx,1
-	xor eax,eax
+	mov cx, 1
+	xor eax, eax	; alloc 1 descriptor
 	@int_31
 	jnc @F
 	@dprintf "allocrmcb: error, no free descriptor for rmSS"
@@ -658,22 +658,25 @@ if ?RMCBSTATICSS
 @@:
 	@dprintf "allocrmcb: allocated selector for rmSS=%X", ax
 	mov [ebx].RMCB.wSS, ax
-	mov bx, ax
-	mov dx,-1
-	mov cx, 0
-	mov ax, 8
+	xchg eax, ebx	; mov bx, ax
+	mov dx, -1
+	xor ecx, ecx
+	mov ax, 8	; set limit
 	@int_31
 endif
+
+;--- calculate real-mode CS:IP of rmcb
 	mov eax,esi
 	mov cx, ss:[wHostSeg]			;seg RMSwitch
 	sub ax,?RMCBMAX
 	neg ax
 	add cx,ax
 	mov [esp].PUSHADS.rCX, cx
-	mov dx,offset RMSwitch
-	shl ax,4
-	sub dx,ax
+	mov dx, offset RMSwitch
+	shl ax, 4
+	sub dx, ax
 	mov [esp].PUSHADS.rDX, dx
+
 	@dprintf "allocrmcb: returned callback=%X:%X",cx,dx
 	popad
 	clc
@@ -691,6 +694,8 @@ freermcb proc public
 	push byte ptr _CSALIAS_
 	pop ds
 	assume ds:GROUP32
+
+;--- calculate real-mode CS:IP of rmcb
 	movzx eax,cx
 	sub ax, ss:[wHostSeg]	;seg RMSwitch
 	cmp eax,?RMCBMAX
@@ -698,19 +703,20 @@ freermcb proc public
 	shl eax,4
 	mov ecx,eax
 	neg ax
-	add ax,offset RMSwitch
-	cmp ax,dx
+	add ax, offset RMSwitch
+
+	cmp ax, dx
 	jnz freecberr
-	mov eax,ecx
-	add eax,offset clrmcbs
-	mov ebx,eax
+	mov eax, ecx
+	add eax, offset clrmcbs
+	mov ebx, eax
 	cmp [ebx].RMCB._Cs, 0	;is it already free?
 	jz freecberr
 	mov [ebx].RMCB._Cs, 0
 if ?RMCBSTATICSS
 	mov bx, [ebx].RMCB.wSS
-	mov ax, 1
-	@int_31	;ignore errors here
+	mov ax, 1				;free static descriptor for real-mode SS
+	@int_31					;ignore errors here
 endif
 	@dprintf "freermcb: ok"
 	popad

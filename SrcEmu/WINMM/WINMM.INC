@@ -24,13 +24,13 @@ atexit	proto c :DWORD
 protoTimeProc typedef proto :DWORD, :DWORD, :DWORD, :DWORD, :DWORD
 LPTIMEPROC typedef ptr protoTimeProc
 
-TIMEOBJ	struct
-pNext	dd ?	;must be first!
+TIMEOBJ struct
+pNext   dd ?    ;must be first!
 hTimer  dd ?
-uDelay	dd ?
+uDelay  dd ?
 uResolution dd ?
-lpProc	LPTIMEPROC ?
-dwUser	dd ?
+lpProc  LPTIMEPROC ?
+dwUser  dd ?
 fuEvent dd ?
 TIMEOBJ ends
 
@@ -39,17 +39,17 @@ TIMEOBJ ends
 protowaveOutProc typedef proto :dword, :dword, :dword, :dword, :dword
 LPWAVEOUTPROC typedef ptr protowaveOutProc
 
-WAVEOBJ	struct
-dwType				dd ?
-pWaveHdr			dd ?
-wf					WAVEFORMATEX <>
-					align 4
-dwWriteCsr			dd ?		;write position
-dwPlayCsr			dd ?		;play position
-dwBytesToPlay		dd ?		;bytes still to play
-fdwOpen				dd ?
+WAVEOBJ struct
+dwType              dd ?
+pWaveHdr            dd ?
+wf                  WAVEFORMATEX <>
+                    align 4
+dwWriteCsr          dd ?        ;write position
+dwPlayCsr           dd ?        ;play position
+dwBytesToPlay       dd ?        ;bytes still to play
+fdwOpen             dd ?
 union 
-lpfnCallback		LPWAVEOUTPROC ?
+lpfnCallback        LPWAVEOUTPROC ?
 hwnd                DWORD ?
 threadid            DWORD ?
 hEvent              DWORD ?
@@ -62,13 +62,13 @@ WAVEOBJ ends
 protomidiOutProc typedef proto :dword, :dword, :dword, :dword, :dword
 LPMIDIOUTPROC typedef ptr protomidiOutProc
 
-MIDIOBJ	struct
-dwType				dd ?
-pMidiHdr			dd ?
-dwFlags				dd ?
-uDeviceId			dd ?
+MIDIOBJ struct
+dwType              dd ?
+pMidiHdr            dd ?
+dwFlags             dd ?
+uDeviceId           dd ?
 union 
-lpfnCallback		LPMIDIOUTPROC ?
+lpfnCallback        LPMIDIOUTPROC ?
 hwnd                DWORD ?
 threadid            DWORD ?
 hEvent              DWORD ?
@@ -77,10 +77,10 @@ dwCallbackInstance 	dd ?
 MIDIOBJ ends
 
 
-WHDR_PRIMARY	equ 80000000h
+WHDR_PRIMARY equ 80000000h
 
-StartMMThread	proto
-StopMMThread	proto
+StartMMThread proto
+StopMMThread  proto
 
 protoResetMidi typedef proto
 LPFNRESETMIDI typedef ptr protoResetMidi

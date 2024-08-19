@@ -9,97 +9,97 @@
 ;--- best viewed with TABSIZE 4
 
 if ?DEBUG
-?EXTLOAD		 = 0	;0 dont move loader in extended memory
+?EXTLOAD		= 0	;0 dont move loader in extended memory
 else
-?EXTLOAD		 = 1	;1 move loader in extended memory
+?EXTLOAD		= 1	;1 move loader in extended memory
 endif
 
 ifndef ?HDPMI
 ?HDPMI			= 0		;0 1=assume HDPMI is included (stand-alone MZ stub)
 endif
 
-?RMSEGMENTS		 = 0	;0 1=support realmode segments (doesn't work!)
-?DOSAPI			 = 1	;1 1=activate DOS API translation, required for OS/2
+?RMSEGMENTS		= 0	;0 1=support realmode segments (doesn't work!)
+?DOSAPI			= 1	;1 1=activate DOS API translation, required for OS/2
 ifndef ?LOADDBGDLL
 ;---v3.11: deactivated for dpmild32
-;?LOADDBGDLL		 = 1	;1 load DEBUGOUT.DLL on startup if DPMILDR=256
-?LOADDBGDLL		 = 1 - ?32BIT	;1=load DEBUGOUT.DLL on startup if DPMILDR=256
+;?LOADDBGDLL	= 1	;1 load DEBUGOUT.DLL on startup if DPMILDR=256
+?LOADDBGDLL		= 1 - ?32BIT	;1=load DEBUGOUT.DLL on startup if DPMILDR=256
 endif
 ifndef ?SERVER
-?SERVER			 = 1	;1 1=load DPMI host HDPMIXX.EXE if no DPMI installed
+?SERVER			= 1	;1 1=load DPMI host HDPMIXX.EXE if no DPMI installed
 endif
-?CLOSEALLFILES	 = 0	;0 1=close all files before fatal exit
-_CLEARENV_		 = 0	;0 if ?MULTPSP=1: clear PSP:[002C] on exit task
-_LOADERPARENT_	 = 1	;1 if ?MULTPSP=1: set PSP:[0016] to ldr PSP on exit task
-_SETPSP_		 = 1	;1 if ?MULTPSP=1: set owner in MCB to current PSP
-?USELOADERPSP	 = 0	;1 1=switch to ldr PSP for segment loads.
-						;  0=for DOS MCB's, set PSP manually to the loader's	
-_SUPRESDOSERR_	 = 1	;1 if _RESIZEPSP_: suppress error msg
-_WIN87EMWAIT_	 = 0	;0 1=for WIN87EM.DLL always resolve fixup 6
-_LINKWORKAROUND_ = 1	;1 1=fix bug in old linkers (caps/small)
-_UNDEFDYNLINK_	 = 0	;0 1=resolve missing imports with UndefDynLink()
-_SETCSLIM_		 = 0	;0 1=adjust CS limit of loader (if ?EXTLOAD=0)
-_SETDSLIM_		 = 0	;0 1=adjust DS limit of loader (if ?EXTLOAD=0)
-?MAXSEG			 = 255	;255 max number of segments for a module (8 Bit!)
-_MAXTASK_		 = 8	;8 max. number of task recursion 
-_SFLAGS_		 = 20h	;share flags to use for file open (20h=deny write)
-_ONLY4B00_		 = 1	;1 1=catch int 21,4B00h+4B01, ignore 4B02-4B7F
-_LASTRC_		 = 1	;1 1=catch int 21h, AH=4D
-_TRAPEXC0D_ 	 = 0	;0 1=watch exception 0D (GPFs)
-?EXC01RESET 	 = 0	;0 1=restore exc 01 when terminating
-_CHKLIBENTRYRC_  = 1	;1 1=error if LibEntry returns ax=0
-_CHECKSEGSIZE_	 = 1	;1 1=check segment size (security check for relocs)
-_SUPTSR_		 = 1	;1 1=support and watch int 21,AH=31h 
-_WINNT40BUG_	 = 1	;1 1=workaround for bug in nt 4.0 for 32bit clients:
-						;  NP exceptions didn't work
-_RESIZEPSP_ 	 = 1	;1 1=resize loader psp to 120h after moved in ext. memory
-?FASTCSCHANGE	 = 0	;0 1=modify CS attributes directly (critical)
-?GSFLAT			 = 1	;1 1=GS has zero based flat selector for 32bit NE apps
-?CHECKTOP		 = 0	;0 1=check if this instance of the loader is the
-						;  current one if an app is terminating. (doesnt work
-						;  yet!)
-?COPYENV		= 1		;1 1=copy environment ptr at PSP:[2Ch] to child psp.
-						;  required for FreeDOS
-?DOSEMUSUPP		= 1		;1 1=support DOSEMU
-?PHARLAPTNT		= 1		;1 1=support PharLap TNT executables (PL) (32bit only)
-?HIDENEASWELL	= 1		;1 1=hide loader and server for NE exes if DPMILDR=8
-?CHECKCALLER	= 0		;0 1=??? (had this ever worked?)
-?SETINIT		= 1		;1 1=set init flag for Dlls
-?SLOADERR		= 1		;1 1=display exact error why HDPMI cannot be loaded
-?MAKENEWENV		= 1		;1 1=make new environment if task > 0
-?LOWENV			= 1 	;1 1=alloc new env in dos memory (0 not finished!)
-?FREECHILDSELS	= 1		;1 1=free selectors for psp+env
-?USE1PSP		= 1		;1 1=use just 1 psp if DPMILDR=8
+?CLOSEALLFILES	= 0	;0 1=close all files before fatal exit
+_CLEARENV_		= 0	;0 if ?MULTPSP=1: clear PSP:[002C] on exit task
+_LOADERPARENT_	= 1	;1 if ?MULTPSP=1: set PSP:[0016] to ldr PSP on exit task
+_SETPSP_		= 1	;1 if ?MULTPSP=1: set owner in MCB to current PSP
+?USELOADERPSP	= 0	;1 1=switch to ldr PSP for segment loads.
+					;  0=for DOS MCB's, set PSP manually to the loader's	
+_SUPRESDOSERR_	= 1	;1 if _RESIZEPSP_: suppress error msg
+_WIN87EMWAIT_	= 0	;0 1=for WIN87EM.DLL always resolve fixup 6
+_LINKWORKAROUND_ = 1;1 1=fix bug in old linkers (caps/small)
+_UNDEFDYNLINK_	= 0	;0 1=resolve missing imports with UndefDynLink()
+_SETCSLIM_		= 0	;0 1=adjust CS limit of loader (if ?EXTLOAD=0)
+_SETDSLIM_		= 0	;0 1=adjust DS limit of loader (if ?EXTLOAD=0)
+?MAXSEG			= 255	;255 max number of segments for a module (8 Bit!)
+_MAXTASK_		= 8	;8 max. number of task recursion 
+_SFLAGS_		= 20h	;share flags to use for file open (20h=deny write)
+_ONLY4B00_		= 1	;1 1=catch int 21,4B00h+4B01, ignore 4B02-4B7F
+_LASTRC_		= 1	;1 1=catch int 21h, AH=4D
+_TRAPEXC0D_ 	= 0	;0 1=watch exception 0D (GPFs)
+?EXC01RESET 	= 0	;0 1=restore exc 01 when terminating
+_CHKLIBENTRYRC_ = 1	;1 1=error if LibEntry returns ax=0
+_CHECKSEGSIZE_	= 1	;1 1=check segment size (security check for relocs)
+_SUPTSR_		= 1	;1 1=support and watch int 21,AH=31h 
+_WINNT40BUG_	= 1	;1 1=workaround for bug in nt 4.0 for 32bit clients:
+					;  NP exceptions didn't work
+_RESIZEPSP_ 	= 1	;1 1=resize loader psp to 120h after moved in ext. memory
+?FASTCSCHANGE	= 0	;0 1=modify CS attributes directly (critical)
+?GSFLAT			= 1	;1 1=GS has zero based flat selector for 32bit NE apps
+?CHECKTOP		= 0	;0 1=check if this instance of the loader is the
+					;  current one if an app is terminating. (doesnt work
+					;  yet!)
+?COPYENV		= 1	;1 1=copy environment ptr at PSP:[2Ch] to child psp.
+					;  required for FreeDOS
+?DOSEMUSUPP		= 1	;1 1=support DOSEMU
+?PHARLAPTNT		= 1	;1 1=support PharLap TNT executables (PL) (32bit only)
+?HIDENEASWELL	= 1	;1 1=hide loader and server for NE exes if DPMILDR=8
+?CHECKCALLER	= 0	;0 1=??? (had this ever worked?)
+?SETINIT		= 1	;1 1=set init flag for Dlls
+?SLOADERR		= 1	;1 1=display exact error why HDPMI cannot be loaded
+?MAKENEWENV		= 1	;1 1=make new environment if task > 0
+?LOWENV			= 1	;1 1=alloc new env in dos memory (0 not finished!)
+?FREECHILDSELS	= 1	;1 1=free selectors for psp+env
+?USE1PSP		= 1	;1 1=use just 1 psp if DPMILDR=8
 ifndef ?STDOUT
 ?STDOUT	equ 1
 endif
 
 ifndef ?KERNEL16
-?KERNEL16		= 1		;1 1=include kernel16.inc and call InitKernel
+?KERNEL16		= 1	;1 1=include kernel16.inc and call InitKernel
 endif
 
-?RESETDEFPATH	= 0		;0 1= reset szPath? No, currently this is done
-						;  every time a .EXE is loaded
+?RESETDEFPATH	= 0	;0 1= reset szPath? No, currently this is done
+					;  every time a .EXE is loaded
 ?PSPSAVEI2FADDR	= 007Ch	;address in PSP to save int vector 2Fh
 
 if ?HDPMI
-_COPY2PSP_		 = 0
+_COPY2PSP_		= 0
 else
-_COPY2PSP_		 = 1	;1 1=copy termination code to psp at the end
+_COPY2PSP_		= 1	;1 1=copy termination code to psp at the end
 endif
 
 if ?32BIT
-_DISCARD_		= 0		;0 1=remove discardable segments if out of memory
-?OS2COMPAT		= 0		;0 1=OS/2 compatible app entry call
-?AUTOCSALIAS	= 0		;0 1=alloc a CS alias for each code segment
+_DISCARD_		= 0	;0 1=remove discardable segments if out of memory
+?OS2COMPAT		= 0	;0 1=OS/2 compatible app entry call
+?AUTOCSALIAS	= 0	;0 1=alloc a CS alias for each code segment
   ifndef ?NEAPPS
-?NEAPPS			= 1		;1 0=dont support NE apps
+?NEAPPS			= 1	;1 0=dont support NE apps
   endif
 else
-_DISCARD_		= 1		;1 1=remove discardable segments if out of memory
-?OS2COMPAT		= 1		;1 1=OS/2 compatible app entry call
-?AUTOCSALIAS	= 1		;1 1=optionally alloc a CS alias for code segments
-?NEAPPS			= 1		;1 0=dont support NE apps
+_DISCARD_		= 1	;1 1=remove discardable segments if out of memory
+?OS2COMPAT		= 1	;1 1=OS/2 compatible app entry call
+?AUTOCSALIAS	= 1	;1 1=optionally alloc a CS alias for code segments
+?NEAPPS			= 1	;1 0=dont support NE apps
 endif
 
 ENVIRON equ 2Ch

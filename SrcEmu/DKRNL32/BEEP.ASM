@@ -32,7 +32,7 @@ ife ?USETIMER
 	sub ecx, eax
 	shr ecx,2
 	inc ecx
-	mov frequenz, ecx
+	mov frequence, ecx
 	mov edx,dwDuration
 	shr edx, 4
 	inc edx

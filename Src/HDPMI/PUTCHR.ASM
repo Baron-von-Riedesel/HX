@@ -209,6 +209,7 @@ endif	;?VIODIROUT
 if ?CHECKTEXTMODE or ?FORCETEXTMODE
 
 ;--- probably should better query BIOS variable instead of EGA/VGA port.
+;--- we don't know if current system has a EGA/VGA.
 
 IsTextMode proc public	;used also by exception display routine
 	push eax

@@ -1132,7 +1132,7 @@ if ?USERTC
 	mov [eax].TIMER.bDispatch,2
 	lea esp, [esp+sizeof FILETIME]
 else
-	mov bl,byte ptr g_wPics+1
+	mov bl,byte ptr g_wPics+1	; get master PIC base
 	mov ax,0204h
 	int 31h
  if ?DPMI16
@@ -1191,7 +1191,7 @@ else
 	mov edx,dword ptr OrgIrq00+0
 	mov cx,word ptr OrgIrq00+4
   endif
-	mov bl,byte ptr g_wPics+1
+	mov bl,byte ptr g_wPics+1	; get master PIC base
 	mov ax,0205h
 	int 31h
 endif

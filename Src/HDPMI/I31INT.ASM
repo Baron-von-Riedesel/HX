@@ -20,11 +20,12 @@ _TEXT32  segment
 
 ;*** ax=0x200 (get rm vector) ***
 
-_LTRACE_ = 0
+;_LTRACE_ = 0
 
 getrmivec proc public
 	movzx ebx,bl
 	shl ebx,2
+	@dprintf "getrmintvec(ax=200): int %X",bx
 	mov dx,[ebx+0]
 	mov cx,[ebx+2]
 ;	clc
@@ -34,10 +35,11 @@ getrmivec endp
 
 ;*** ax=0x201 (set rm vector) ***
 
-_LTRACE_ = 0
+;_LTRACE_ = 0
 
 setrmivec proc public
 	movzx ebx,bl
+	@dprintf "setrmintvec(ax=201): int %X %X:%X",bx,cx,dx
 	shl ebx,2
 	mov [ebx+0],dx
 	mov [ebx+2],cx
@@ -48,21 +50,21 @@ setrmivec endp
 
 ;*** ax=0x0202 (get exception vector) ***
 
-_LTRACE_ = 0
+;_LTRACE_ = 0
 
 getpmevec proc public
 	cmp bl,20h			   ;exceptions 00-1F!
 	jnb error8021
 	movzx ebx,bl
-  if ?32BIT
-	mov edx, cs:[ebx*sizeof R3PROC+offset excvec].R3PROC._Eip
-	mov cx, word ptr cs:[ebx*sizeof R3PROC+offset excvec].R3PROC._Cs
-	@dprintf "get exception vector %X: %X:%lX", bx, cx, edx
-  else
-	mov dx, cs:[ebx*sizeof R3PROC+offset excvec].R3PROC._Eip
-	mov cx, cs:[ebx*sizeof R3PROC+offset excvec].R3PROC._Cs
-	@dprintf "get exception vector %X: %X:%X", bx, cx, dx
-  endif
+if ?32BIT
+	mov edx, cs:[ebx*sizeof R3PROC+excvec]._Eip
+	mov cx, word ptr cs:[ebx*sizeof R3PROC+excvec]._Cs
+	@dprintf "get exception vector(ax=202) %X: %X:%lX", bx, cx, edx
+else
+	mov dx, cs:[ebx*sizeof R3PROC+excvec]._Eip
+	mov cx, cs:[ebx*sizeof R3PROC+excvec]._Cs
+	@dprintf "get exception vector(ax=202) %X: %X:%X", bx, cx, dx
+endif
 	clc
 	ret
 	align 4
@@ -80,29 +82,29 @@ error8021:
 ;--- out: C if error, code in AX (8021 if BL > 1F, 8022 if CX invalid)
 ;--- this proc must exit with int# preserved in BL!
 
-_LTRACE_ = 0
+;_LTRACE_ = 0
 
 setpmevec proc public
 
-	cmp bl,20h
+	cmp bl, 20h
 	jnb error8021
 	push eax
-	lar eax,ecx
+	lar eax, ecx
 	jnz setpmvec_er
-	test ah,8			;must be a code segment
+	test ah, 8			;must be a code segment
 	jz setpmvec_er
 	pop eax
 	movzx ebx,bl
 	push byte ptr _CSALIAS_
 	pop ds
-if 1
-  if ?32BIT
-	mov ds:[ebx*sizeof R3PROC+offset excvec].R3PROC._Eip, edx
-	mov word ptr ds:[ebx*sizeof R3PROC+offset excvec].R3PROC._Cs, cx
-  else
-	mov ds:[ebx*sizeof R3PROC+offset excvec].R3PROC._Eip, dx
-	mov ds:[ebx*sizeof R3PROC+offset excvec].R3PROC._Cs, cx
-  endif
+if ?32BIT
+	mov ds:[ebx*sizeof R3PROC+excvec]._Eip, edx
+	mov word ptr ds:[ebx*sizeof R3PROC+excvec]._Cs, cx
+	@dprintf "set exception vector(ax=203) %X: %X:%lX", bx, cx, edx
+else
+	mov ds:[ebx*sizeof R3PROC+excvec]._Eip, dx
+	mov ds:[ebx*sizeof R3PROC+excvec]._Cs, cx
+	@dprintf "set exception vector(ax=203) %X: %X:%X", bx, cx, dx
 endif
 	clc
 	ret
@@ -114,12 +116,12 @@ setpmvec_er:
 	align 4
 setpmevec endp
 
-?LOWEXC	= 0Fh	;support 00-0F
-if ?INT10SUPP
-?LOWEXC = 10h	;support 00-10
-endif
 if ?INT11SUPP
-?LOWEXC = 11h	;support 00-11
+?LOWEXC equ 11h	;support 00-11
+elseif ?INT10SUPP
+?LOWEXC equ 10h	;support 00-10
+else
+?LOWEXC equ 0Fh	;support 00-0F
 endif
 
 ;--- check if protected-mode interrupt vector is
@@ -190,13 +192,13 @@ getpmivec22:
 	stc
 	ret
 endif
-getpmivec2:
+getpmivec2: ; 70h - 77h
 	sub bl,?SPICBASE
 	shl ebx,_SHFACTOR_
 	add bx,LOWWORD offset r3vect70
 	stc
 	ret
-getpmivec1:
+getpmivec1: ; 00h - 0F/10/11h
 	shl ebx,_SHFACTOR_
 	add bx,LOWWORD offset r3vect00
 	stc
@@ -206,11 +208,11 @@ getpmptr endp
 
 ;*** 0204: get PM vector
 
-_LTRACE_ = 0
+;_LTRACE_ = 0
 
 getpmivec proc public
 
-	@dprintf "getpmintvec: int %X",bx
+	@dprintf "getpmintvec(ax=204): int %X",bx
 	call getpmptr
 	jc getpmivec_1 	   ;C if vector in IDT is ring 0
 	mov cx,[ebx].GATE.sel
@@ -234,23 +236,67 @@ endif
 	align 4
 getpmivec endp
 
+;--- in: INT# in bl
+;--- out: C, IRQ in al
+
+int2irq proc public
+	mov al,10h
+	cmp bl,1Ch
+	jz is_1c
+	mov al,bl
+	cmp bl,23h
+	jz is_2324
+	cmp bl,24h
+	jz is_2324
+	cmp bl,?MPICBASE
+	jb done
+	cmp bl,?MPICBASE+8
+	jb mpicirq
+	cmp bl,?SPICBASE
+	jb done
+	cmp bl,?SPICBASE+8
+	jnb done
+	sub al,?SPICBASE-8		;70-77 -> 08-0F
+	stc
+	ret
+is_1c:
+	mov al,10h
+	stc
+	ret
+is_2324:
+	sub al,12h			;23h->11h, 24h->12h
+	stc
+	ret
+mpicirq:
+	sub al,?MPICBASE	;08-0F -> 00-07
+	stc
+	ret
+done:
+	clc
+	ret
+int2irq endp
+
+
 ;*** ax=0x0205 (set PM vector)
 ;--- interrupt in BL, vector in CX:E/DX
 ;--- DS=flat
 
-_LTRACE_ = 0
+;_LTRACE_ = 0
 
 setpmivec proc public
 	push eax
 	lar eax,ecx		;setting an invalid vector (or 0) will fail
-	pop eax			;win9x fails as well, but returns with NC
 	jnz error
 if ?32BIT
-	@dprintf "setpmintvec: int %X with %X:%lX",bx,cx,edx
+	@dprintf "setpmintvec(ax=205): int %X cs:eip=%X:%lX",bx,cx,edx
 else
-	@dprintf "setpmintvec: int %X with %X:%X",bx,cx,dx
+	@dprintf "setpmintvec(ax=205): int %X cs:ip=%X:%X",bx,cx,dx
 endif
+	call int2irq
+	jnc @F
 	call installirqhandler
+@@:
+	pop eax
 	call getpmptr
 	jc setpmivec_1
 	mov [ebx].GATE.ofs,dx
@@ -277,6 +323,7 @@ endif
 	clc
 	ret
 error:
+	pop eax			;win9x fails as well, but returns with NC
 	mov ax,8022h
 	stc
 	ret

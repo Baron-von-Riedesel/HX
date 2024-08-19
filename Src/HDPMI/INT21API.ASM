@@ -132,10 +132,9 @@ intr21_ endp
 
 if _LTRACE_
 protaftercall:
-	@printf "#i21 ac: a-d=%X %X %X %X si=%X di=%X %lX %lX",\
-		ax,bx,cx,dx,si,di,ds,es
+	@dprintf "#i21 ac: a-d=%X %X %X %X si=%X di=%X %lX %lX", ax, bx, cx, dx, si, di, ds, es
 	pushf
-	@printf <" fl=%X",lf>
+	@dprintf <" fl=%X",lf>
 ;	@waitesckey
 	ret
 	align 4
@@ -285,7 +284,7 @@ if 1
 endif
 
 	@dprintf "i21,00: simulating i21, ax=4C00, [psp+18]=%lX, [psp-0F]=%X, esp=%lX", dword ptr es:[ebx+18h], word ptr es:[ebx-0Fh], esp
-	mov eax, ss:[dwHostSeg]
+	mov ax, ss:[wHostSeg]
 	shl eax,16
 	mov ax,offset rm_exit
 	mov es:[ebx+000Ah], eax
@@ -637,18 +636,10 @@ intr214B proc
 	push ds
 	push es
 if ?32BIT
-  if _LTRACE_
-	@printf "#I21: ax=%X ds:edx=%lX:%lX, es:ebx=%lX:%lX",ax,ds,edx,es,ebx
-	@printf "   cmdl=%X:%lX",\
-		word ptr es:[ebx].EXECPM.cmdline+4,\
-		dword ptr es:[ebx].EXECPM.cmdline+0
-	@printf " fcb1=%X:%lX",\
-		word ptr es:[ebx].EXECPM.fcb1+4,\
-		dword ptr es:[ebx].EXECPM.fcb1+0
-	@printf <" fcb2=%X:%lX",lf>,\
-		word ptr es:[ebx].EXECPM.fcb2+4,\
-		dword ptr es:[ebx].EXECPM.fcb2+0
-  endif
+	@dprintf "#I21: ax=%X ds:edx=%lX:%lX, es:ebx=%lX:%lX",ax,ds,edx,es,ebx
+	@dprintf "   cmdl=%X:%lX", word ptr es:[ebx].EXECPM.cmdline+4, dword ptr es:[ebx].EXECPM.cmdline+0
+	@dprintf " fcb1=%X:%lX", word ptr es:[ebx].EXECPM.fcb1+4, dword ptr es:[ebx].EXECPM.fcb1+0
+	@dprintf <" fcb2=%X:%lX",lf>, word ptr es:[ebx].EXECPM.fcb2+4, dword ptr es:[ebx].EXECPM.fcb2+0
 	push dword ptr es:[ebx].EXECPM.cmdline+4
 	push dword ptr es:[ebx].EXECPM.cmdline+0
 	push dword ptr es:[ebx].EXECPM.fcb2+4
@@ -748,7 +739,7 @@ endif
 
 	mov bx, offset execparm
 
-	mov eax,ss:[dwHostSeg]
+	mov ax,ss:[wHostSeg]
 	mov ss:v86iret.rES, ax
 
 	@dprintf "  ds:dx=%X:%X es:bx=%X:%X [env=%X cmdl=%X:%X]",\
@@ -1053,13 +1044,11 @@ intr2160 endp
 	@ResetTrace
 
 intr216C proc
-if _LTRACE_
  if ?32BIT
-	@printf "#int 21,ax=%X ds:esi=%ls ",ax,ds,esi
+	@dprintf "#int 21,ax=%X ds:esi=%ls ", ax, ds, esi
  else
-	@printf "#int 21,ax=%X ds:si=%s ",ax,ds,si
+	@dprintf "#int 21,ax=%X ds:si=%s ", ax, ds, si
  endif
-endif
 	push esi
 	call copyz_dssi_2_tlb	   ;si=0,v86iret.ds = tlb
 	call rmdos
@@ -2344,22 +2333,23 @@ getrmenv endp
 
 ;---------------------------------------------
 
-if 0
+ if 0
+
 fataldosexit:
 	mov ebp,esp
-if ?32BIT
+  if ?32BIT
 	mov si,[ebp+8]
-else
+  else
 	mov si,[ebp+6]
-endif
+  endif
 	mov di,[ebp+4]
 	@printf <"I21: fatal error (ax=%X bx=%X cx=%X dx=%X cs:ip=%X:%X)",lf>,ax,bx,cx,dx,si,di
 	pop eax			;errorcode
 ;	jmp __exitappx
 	jmp _exitclient_pm
-endif
+ endif
 
-endif
+endif	;?INT21API
 
 _TEXT32  ends
 

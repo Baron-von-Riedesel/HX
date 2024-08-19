@@ -53,7 +53,6 @@ endif
 endif
                         
 ?LOGINT30		equ 0	;std=0, 1=log last int 30h call if exc occurs
-?LOGINT31		equ 0	;std=0, 1=log last int 31h call if exc occurs
 ifndef ?MOVEGDT
 ?MOVEGDT		equ 1	;std 1: 1=move GDT into extended memory
 endif
@@ -68,7 +67,7 @@ if ?INTRM2PM
 endif
 
 ?DYNTLBALLOC	equ 1	;std=1, 1=alloc a temp 64 kB TLB for int 21, ah=3f/40
-?SETRMIOPL		equ 0	;std=0, 1=set IOPL for real mode (not needed)
+?SETRMIOPL		equ 0	;std=0, 1=set IOPL for real/v86 mode (not needed)
 ?SCRATCHSEL		equ 0	;std=0, scratch selector required?
 ?INT1D1E1F		equ 0	;std=0, 1=modify int 1d,1e,1f to writeable
 ?I15MEMMGR		equ 0	;std=0, int 15 memory management (no longer needed)
@@ -268,18 +267,15 @@ endif
 						;this may be required if HDPMI=32 is set
 
 ife ?PMIOPL
-?TRAPCLISTI		equ 1	; trap API for CLI/STI
-?IFALWAYSON		equ 0	; don't reset IF, set VIF on mode switches only;
+?TRAPCLISTI		equ 1	; std=1: trap API for CLI/STI
+?IFALWAYSON		equ 0	; std=0: don't reset IF, set VIF on mode switches only;
 						; 1 won't work unless IRQs are hold back in a queue
 endif
 ?PREDEFIDTGATES equ 78h	;number of predefined IDT gates
 ?DIO2RMS		equ 1	;std 1: 1=copy diskio packet onto rm-stack (int 25h/26h/21h,ax=7305h)
 
-;ifdef _DEBUG			; since v3.20, the vendor API is generally available
+;--- since v3.20, the vendor API is generally available
 ?VENDORAPI		equ 1	;std 1: 1=support vendor API int 2Fh, ax=168Ah
-;else
-;VENDORAPI		equ 0
-;endif
 
 ;----------------------------------------------------------------
 
@@ -357,14 +353,13 @@ lf		equ 10
 
 ;--- fMode flags
 
-FM_TLBMCB	equ 1		;TLB is extra dos memory block
-FM_RESIDENT	equ 2		;-r: HDPMI is resident
-FM_DISABLED equ 8		;server disabled
+FM_TLBMCB	equ 1		;1=TLB is extra dos memory block
+FM_RESIDENT	equ 2		;1=HDPMI is resident ( -r option )
+FM_DISABLED equ 8		;1=server disabled
 if ?CANTEXIT
-FM_CANTEXIT	equ 10h		;cannot exit (rm vecs not restorable)
+FM_CANTEXIT	equ 10h		;1=cannot exit (IVT vecs not restorable)
 endif
-FM_CLONE    equ 20h		;this instance is a clone
-FM_NOIVTHK  equ 40h		;1=no IVT hooks, using JHDPMI
+FM_CLONE    equ 20h		;1=this instance is a clone
 FM_INIT 	equ 80h		;1=server initialized
 
 ;--- fMode2 flags
@@ -373,7 +368,9 @@ FM2_TLBLATE		equ 01h ;-b: alloc TLB late/free when idle
 FM2_VCPI		equ 02h ;-v: prefer VCPI, ignore any XMS host
 FM2_INT15XMS	equ 04h ;-y: use extended memory not managed by XMS
 FM2_MEMBUFF		equ 08h ;-n: don't report true free phys pages
+if ?FORCETEXTMODE
 FM2_FORCETEXT	equ 10h ;-k: force text mode when displaying register dump
+endif
 FM2_NOINVLPG	equ 20h ;don't use invlpg (80386 or option -g)
 FM2_RESTRMEM	equ 40h ;restrict free memory reported to client to 256MB
 ifdef _DEBUG
@@ -409,7 +406,7 @@ endif
 
 FDEBUG_KDPRESENT	equ 1	;is any kernel debugger present?
 FDEBUG_OUTPFORKD	equ 2	;outputs to kernel debugger if present?
-FDEBUG_WDEB386		equ 4	;wdeb386 active ( int 68h real-mode ok )
+FDEBUG_WDEB386		equ 4	;(w)deb386 active ( int 68h real-mode ok )
 
 ;------------------------ flags in fHost
 
@@ -595,20 +592,7 @@ INTRMCBr struct
 rm_vec	 dd ?	; rm cs:ip routed to from pm INTs ( IRQs, 1C, 23, 24 )
 INTRMCBr ends
 
-INTRMCB struct
-bIntNo	db ?	;Int#, r/o
-bFlags	db ?	;see RMVFL_xxx, r/o
-pmvec	dw ?	;either near16 to a R3PROC or IDT ofs, r/o
-INTRMCB ends
-
 ?RMCBMOUSE	equ 13h		;index of internal rmcb for int 33h mouse event proc
-
-;--- values of flags in INTRMCB.flags (global, not client specific)
-;--- all flags are read-only
-
-RMVFL_IDT		equ 02h		;field pmvec is an IDT offset
-RMVFL_FARPROC   equ 04h		;is a far proc, not an int ( mouse event )
-RMVFL_SETALWAYS equ 08h		;init RM vector for each client (int 23/24)
 
 ;--- ring 3 far proc address structure
 
@@ -1155,11 +1139,23 @@ lbl:
 endif
 endm
 
+;--- same as @dprintfx, but don't change ESP
+
+@dprintfxx macro cond, strg:REQ, xx:VARARG
+local lbl
+if _LTRACE_
+	test ss:traceflgs, cond
+	jz lbl
+	@printf <"#",strg,lf>,xx
+lbl:
+endif
+endm
+
 ifdef _DEBUG
 ?LOG_PMGREXT	equ 1	;extended pagemgr log
 ?LOG_INT30		equ 2	;int 30h dispatcher log
 ?LOG_INTRMCB	equ 4	;internal rmcbs log
-?LOG_INT31GEN	equ 8	;int 31h generic logs
+?LOG_CLISTI		equ 8	;CLI/STI emulation
 ?LOG_RMCALL		equ 16	;dpmi rm calls (ax=030x)
 endif
 
@@ -1317,7 +1313,7 @@ endm
 @DebugBreak macro x
 local sm
 if x
-	test cs:fDebug,FDEBUG_KDPRESENT
+	test ss:fDebug,FDEBUG_KDPRESENT
 	jz sm
 	int 3
 sm:

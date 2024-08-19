@@ -295,6 +295,7 @@ externdef simint09:near
 externdef rawjmp_rm_novcpi:near
 externdef rawjmp_rm_vcpi:near
 externdef restoreV86Hooks:near
+externdef int2irq:near
 _TEXT32 ends
 
 _TEXT16 segment
@@ -383,18 +384,20 @@ externdef bTrap:byte			;serial input Ctrl-D received
 externdef bFPUAnd:byte
 externdef bFPUOr:byte
 externdef bLPMSused:byte		;flag LPMS used
+externdef bNoRMCBEntry:byte
 externdef cRMCB:word			;count open real-mode callbacks
-externdef cIntRMCB:word			;count open internal real-mode callbacks
+;externdef cIntRMCB:word			;count open internal real-mode callbacks
 externdef dwSSBase:dword		;linear address base of host stack
 externdef wHostSeg:word			;segment host CS/DS (==GROUP16)
-externdef dwHostSeg:dword		;segment host CS/DS (==GROUP16)
 externdef dwTSSdesc:DWORD		;normalized address TSS descriptor
 if ?CR0COPY
 externdef bCR0:byte				;clients LowByte(CR0)
 endif
 externdef dwLoL:dword			;linear address DOS ListOfLists
 externdef dwSDA:dword			;linear address DOS SDA
+if ?KDSUPP
 externdef fDebug:byte			;kernel debugger flags
+endif
 externdef fHost:byte			;flag: running as VCPI/XMS client?
 externdef fXMSAlloc:byte		;XMS alloc command (v2/v3)
 externdef fXMSQuery:byte		;XMS query command (v2/v3)
@@ -455,13 +458,17 @@ externdef _StartOfClientData:byte
 externdef wEnvFlags:word
 externdef bEnvFlags:byte		;value HDPMI environment variable
 externdef bEnvFlags2:byte		;high byte of HDPMI environment variable
-externdef wIntRmCb:word
+externdef dwIntRmCb:dword
+externdef dwIrqRouted:dword
+if ?JHDPMI
+externdef dwExtHook:dword
+endif
 _DATA16C ends
 
 ;--- _DATA32C publics
 
 _DATA32C segment
-externdef intrmcbs:INTRMCB		;start internal real-mode callbacks
+;externdef intrmcbs:INTRMCB		;start internal real-mode callbacks
 externdef r3vect00:R3PROC
 externdef r3vect20:R3PROC
   if ?FASTINT21
