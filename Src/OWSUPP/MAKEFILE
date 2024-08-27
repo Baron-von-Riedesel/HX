@@ -6,6 +6,9 @@
 # there are 2 versions created, one with suffix X, the other with suffix R
 # it's a complete mess...!
 
+# v2.22: CSTRTWHX.OBJ has been removed, to be replaced by INITW3OW.OBJ (DKRNL32);
+# needs option disable 1030) to suppress warning "multiple start addresses found"
+
 !include <..\dirs>
 
 OWDIR=\watcom
@@ -25,10 +28,10 @@ INPOW20=src_20
 WASMOPT= -q -bt=DOS -ms -3r -fo=$*.OBJ 
 
 ALL: $(OUTOW20) $(OUTOW19) $(OUTOW17) $(OUTOW14) $(OUTOW13) \
-	$(OUTOW20)\CSTRTDHX.OBJ \
-	$(OUTOW19)\CSTRTDHX.OBJ \
-	$(OUTOW17)\CSTRTDHX.OBJ $(OUTOW17)\CSTRTWHX.OBJ $(OUTOW17)\SPAWN386.OBJ \
-	$(OUTOW14)\CSTRT386.OBJ $(OUTOW14)\SPAWN386.OBJ \
+	$(OUTOW20)\CSTRTDHX.OBJ $(OUTOW20)\SPAWN-HX.OBJ $(OUTOW20)\MSGBOX.OBJ \
+	$(OUTOW19)\CSTRTDHX.OBJ $(OUTOW19)\SPAWN-HX.OBJ \
+	$(OUTOW17)\CSTRTDHX.OBJ $(OUTOW17)\SPAWN-HX.OBJ \
+	$(OUTOW14)\CSTRT386.OBJ $(OUTOW14)\SPAWN-HX.OBJ \
 	$(OUTOW13)\CSTRT386.OBJ $(OUTOW13)\CSTRT16X.OBJ $(OUTOW13)\CSTRT16Z.OBJ
 
 #-------------------------------------------------------------------------
@@ -40,6 +43,13 @@ $(OUTOW20)\CSTRTDHX.OBJ: $(INPOW20)\cstrtdhx.asm Makefile
 	@jwasm -q -zcw -Fo$* -Fl$* $(INPOW20)\cstrtdhx.asm
 	@jwasm -q -DFC -zf1 -Fl$(OUTOW20)\CSTRTDHR -Fo$(OUTOW20)\CSTRTDHR.OBJ $(INPOW20)\cstrtdhx.asm
 
+$(OUTOW20)\SPAWN-HX.OBJ: $(INPOW20)\spawn-hx.asm Makefile
+	@$(OWDIR)\BINNT\wasm $(WASMOPT) $(INPOW20)\spawn-hx.asm
+#	@jwasm -q -Fo$* -Fl$* $(INPOW20)\spawn-hx.asm
+
+$(OUTOW20)\MSGBOX.OBJ: $(INPOW20)\MsgBox.asm
+	@jwasm -q -coff -Fo$* -Fl$* $(INPOW20)\MsgBox.asm
+
 #-------------------------------------------------------------------------
 
 $(OUTOW19):
@@ -48,6 +58,10 @@ $(OUTOW19):
 $(OUTOW19)\CSTRTDHX.OBJ: $(INPOW19)\cstrtdhx.asm Makefile
 	@jwasm -q -zcw -Fo$* -Fl$* $(INPOW19)\cstrtdhx.asm
 	@jwasm -q -DFC -zf1 -Fl$(OUTOW19)\CSTRTDHR -Fo$(OUTOW19)\CSTRTDHR.OBJ $(INPOW19)\cstrtdhx.asm
+
+$(OUTOW19)\SPAWN-HX.OBJ: $(INPOW19)\spawn-hx.asm Makefile
+	@$(OWDIR)\BINNT\wasm $(WASMOPT) $(INPOW19)\spawn-hx.asm
+#	@jwasm -q -Fo$* -Fl$* $(INPOW19)\spawn-hx.asm
 
 #-------------------------------------------------------------------------
 
@@ -62,10 +76,10 @@ $(OUTOW17)\CSTRTWHX.OBJ: $(INPOW17)\cstrtwhx.asm Makefile
 #	@$(OWDIR)\BINNT\wasm $(WASMOPT) $(INPOW17)\cstrtwhx.asm
 	@jwasm -q -Fo$* -Fl$* $(INPOW17)\cstrtwhx.asm
 
-$(OUTOW17)\SPAWN386.OBJ: $(INPOW17)\spawn386.asm Makefile
-	@$(OWDIR)\BINNT\wasm $(WASMOPT) $(INPOW17)\spawn386.asm
-#	@jwasm -q -Fo$* -Fl$* $(INPOW17)\spawn386.asm
-	@$(OWDIR)\BINNT\wlib -q -b $(OUTOW17)\hxow.lib -+$*.OBJ
+$(OUTOW17)\SPAWN-HX.OBJ: $(INPOW17)\spawn-hx.asm Makefile
+	@$(OWDIR)\BINNT\wasm $(WASMOPT) $(INPOW17)\spawn-hx.asm
+#	@jwasm -q -Fo$* -Fl$* $(INPOW17)\spawn-hx.asm
+#	@$(OWDIR)\BINNT\wlib -q -b $(OUTOW17)\hxow.lib -+$*.OBJ
 
 #-------------------------------------------------------------------------
 
@@ -77,8 +91,8 @@ $(OUTOW14)\CSTRT386.OBJ: $(INPOW14)\cstrt386.asm Makefile
 
 # the spawn command must be modified for HX (no environment pointer)
 
-$(OUTOW14)\SPAWN386.OBJ: $(INPOW14)\spawn386.asm mzsupp\owmzhlp.inc Makefile
-	@$(OWDIR)\BINNT\wasm $(WASMOPT) $(INPOW14)\spawn386.asm
+$(OUTOW14)\SPAWN-HX.OBJ: $(INPOW14)\spawn-hx.asm mzsupp\owmzhlp.inc Makefile
+	@$(OWDIR)\BINNT\wasm $(WASMOPT) $(INPOW14)\spawn-hx.asm
 
 #-------------------------------------------------------------------------
 
@@ -104,13 +118,15 @@ clean:
 
 install:
 	@copy $(OUTOW19)\CSTRTDHX.OBJ  $(HXINST)\OWSUPP\DOS
-	@copy $(OUTOW19)\CSTRTDHX.OBJ  $(OWDIR)\lib386\dos
-	@copy $(OUTOW17)\CSTRTWHX.OBJ  $(HXINST)\OWSUPP\NT
-	@copy $(OUTOW17)\CSTRTWHX.OBJ  $(OWDIR)\lib386\nt
-	@copy $(OUTOW17)\hxow.lib      $(HXINST)\OWSUPP\DOS
-	@copy $(OUTOW17)\hxow.lib      $(OWDIR)\lib386\dos
-#	@copy $(OUTOW14)\SPAWN386.OBJ  $(HXINST)\OWSUPP\OW14\hxspawn.obj
-#	@copy $(OUTOW14)\SPAWN386.OBJ  $(OWDIR)\lib386\dos\hxspawn.obj
+	@copy $(OUTOW19)\SPAWN-HX.OBJ  $(HXINST)\OWSUPP\DOS
+	@copy $(OUTOW19)\CSTRTDHX.OBJ  $(OWDIR)\lib386\DOS
+	@copy $(OUTOW19)\SPAWN-HX.OBJ  $(OWDIR)\lib386\DOS
+#	@copy $(OUTOW17)\CSTRTWHX.OBJ  $(HXINST)\OWSUPP\NT
+#	@copy $(OUTOW17)\CSTRTWHX.OBJ  $(OWDIR)\lib386\nt
+#	@copy $(OUTOW17)\hxow.lib      $(HXINST)\OWSUPP\DOS
+#	@copy $(OUTOW17)\hxow.lib      $(OWDIR)\lib386\dos
+#	@copy $(OUTOW14)\SPAWN-HX.OBJ  $(HXINST)\OWSUPP\OW14
+#	@copy $(OUTOW14)\SPAWN-HX.OBJ  $(OWDIR)\lib386\dos
 #	@copy $(OUTOW14)\CSTRT386.OBJ  $(HXINST)\OWSUPP\OW14\cstrthx.obj
 #	@copy $(OUTOW14)\CSTRT386.OBJ  $(OWDIR)\lib386\dos\cstrthx.obj
 	@copy $(OUTOW13)\CSTRT16X.OBJ  $(HXINST)\LIB16

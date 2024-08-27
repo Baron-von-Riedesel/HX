@@ -19,6 +19,7 @@ endif
 	.CODE
 
 ife ?FLAT
+;--- found in INITW32\GetModH.asm
 _GetModuleHandle proto :dword, :dword
 endif
 

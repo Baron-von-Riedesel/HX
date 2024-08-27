@@ -3112,7 +3112,7 @@ endif
 ;--- save old PTEs onto the stack.
 
 	mov edi, pPageTab0
-	add di, 0FF0h	;this is offset of PTEs for 3FC000-3FF000
+	add di, ?TEMPBASE shr 10	;this is offset of PTEs for 3FC000-3FF000
 
 	@dprintf "pm_createvm: alloc 4 physical pages"
 	xor ecx,ecx
@@ -3153,7 +3153,7 @@ endif
 ;--- 3FE000 -> PT of 4 MB region 000xxxxx (page table 0)
 ;--- 3FF000 -> page directory
 
-?SA0OFS equ 0 shl 12
+?SA0OFS equ 0 shl 12	;offset added to ?TEMPBASE
 ?SA1OFS equ 1 shl 12
 ?PT0OFS equ 2 shl 12
 ?PDOFS	equ 3 shl 12
@@ -3184,9 +3184,16 @@ endif
 	add esi, eax	;let esi point to PTE for 3FC000h
 	mov cl,4
 @@:
+if 0
 	pop eax
 	stosd
 	loop @B
+endif
+;--- v3.22, fixed: store PTEs in the correct order!
+	mov eax, [esp+ecx*4-4]
+	stosd
+	loop @B
+	add esp, 4*4
 
 	test [bEnvFlags2],ENVF2_HMAMAPPING
 	jz nohmamapping

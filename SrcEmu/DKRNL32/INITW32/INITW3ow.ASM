@@ -5,6 +5,8 @@
 ;--- Open Watcom needs a special version, because it
 ;--- defines mainCRTStartup without an '_'-prefix.
 
+;--- problem: linker will complain (multiple start addresses).
+
 	.386
 	.MODEL FLAT
 	option casemap:none

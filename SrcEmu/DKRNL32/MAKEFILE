@@ -1,6 +1,9 @@
 
 # nmake makefile to create DKRNL32.DLL
 
+# note that SBEMU here means 'to be compatible with SB Live SB emulation driver'
+# (created by Creative) - the SBEMU DOS application is irrelevant for DKRNL32.
+
 # 2 versions of the binary are created:
 # - RELEASE: old std release version (no longer distributed)
 # - SBEMU: SB emu compatible release version (supplied in HX\Bin)

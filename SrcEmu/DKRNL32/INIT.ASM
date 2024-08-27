@@ -122,8 +122,9 @@ endif
 
 if ?HOOKINT21
 
-;-- int 21h hook. required for MZ, optionally for PE.
-;-- for MZ the termination procs must be executed now
+;-- int 21h hook.
+
+;-- handle AH=4Bh - required if module wasn't loaded by DPMILD32.
 
 myint21x proc	;used if IKF_PELDR == 0
 	cmp ah,4Bh
@@ -427,7 +428,7 @@ ife ?FLAT
 	.endif
 endif
 
-;--- hook int 21h (optionally for ?FLAT)
+;--- hook int 21h
 
 if ?HOOKINT21
 

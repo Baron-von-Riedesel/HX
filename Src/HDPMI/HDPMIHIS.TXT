@@ -10,8 +10,10 @@
     host crash.
   þ kernel debugger API ah=45h, int 68h, called if kd detected. 
   þ support for jhdpmi JLM. Support is enabled for both HDPMIxx and HDPMIxxi.
-  þ fix: VCPI detection was skipped if any tsr responded to Int 2fh, ax=1600h.
+  þ fixed: VCPI detection was skipped if any tsr responded to Int 2fh, ax=1600h.
   þ interrupt handling reworked; cmdline option -i removed.
+  þ fixed: option -a (or HDPMI=32) didn't correctly restore region 
+    3FFC000h-3FFF000h of the calling client.
 
   04.02.2024, version 3.21
 

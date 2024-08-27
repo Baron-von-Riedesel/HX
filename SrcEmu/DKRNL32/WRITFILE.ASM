@@ -60,7 +60,11 @@ dowrite:
 	mov ecx,numBytes
 	bt g_bIsConsole, ebx
 	jnc @F
+if 1	;v3.10 (26.8.2024)
+	invoke _WriteConsole, g_dwActiveScreenBuffer, edx, ecx, lpWritten
+else
 	invoke _WriteConsole, ebx, edx, ecx, lpWritten
+endif
 	retn
 @@:
 if ?NONULLHDL

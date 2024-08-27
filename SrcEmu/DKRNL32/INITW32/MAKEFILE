@@ -1,0 +1,44 @@
+
+# nmake makefile
+
+!include <..\..\dirs>
+
+!ifndef DEBUG
+DEBUG=0
+!endif
+
+OUTD1=COFF
+OUTD2=OMF
+
+!if $(DEBUG)
+AOPTD = 
+!else
+AOPTD = 
+!endif
+
+SRCMODS = .\InitW32.ASM .\InitW32X.ASM .\InitW3OW.ASM .\GetModH.ASM
+
+OBJMODS = $(SRCMODS:.ASM=.OBJ)
+OBJCOFF = $(OBJMODS:.\=COFF\)
+OBJOMF  = $(OBJMODS:.\=OMF\)
+
+OTHERMODS=.\int21lfn.obj
+
+AOPT = -c -nologo -Sg -I..\..\..\Include -D?FLAT=1 -D?CLEARHIGHEBP=0 -Fl$* -Fo$*
+
+.SUFFIXES: .asm .obj
+
+.asm{$(OUTD1)}.obj:
+	@$(ASM) -coff $(AOPT) $<
+
+.asm{$(OUTD2)}.obj:
+	@$(ASM) $(AOPT) $<
+
+ALL: $(OUTD1) $(OBJCOFF) $(OBJOMF)
+
+$(OUTD1):
+	@mkdir $(OUTD1)
+
+clean:
+	@del $(OUTD1)\*.obj
+	@del $(OUTD2)\*.obj

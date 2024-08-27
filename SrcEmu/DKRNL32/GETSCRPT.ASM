@@ -29,6 +29,8 @@ g_sb SCREENBUF <TYPE_SCREENBUF, SBF_ISACTIVE, 0,\
 
 	.CODE
 
+;--- if handle in EAX is a file handle, get (default?) screen buffer
+
 _GetScreenBuffer proc public
 	.if (eax < 1000h)
 		mov eax, offset g_sb

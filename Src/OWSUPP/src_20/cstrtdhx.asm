@@ -102,7 +102,7 @@ endm
         @cextrn   _LpCmdLine         , dword
         @cextrn   _LpPgmName         , dword
 
-DGROUP group _NULL,_AFTERNULL,CONST,_DATA,DATA,TIB,TI,TIE,XIB,XI,XIE,YIB,YI,YIE,_BSS,STACK
+DGROUP group _NULL,_AFTERNULL,CONST,CONST2,_DATA,DATA,TIB,TI,TIE,XIB,XI,XIE,YIB,YI,YIE,_BSS,STACK
 
 ; this guarantees that no function pointer will equal NULL
 ; (WLINK will keep segment 'BEGTEXT' in front)
@@ -147,6 +147,8 @@ _AFTERNULL ends
 
 CONST   segment word public 'DATA'
 CONST   ends
+CONST2  segment word public 'DATA'
+CONST2  ends
 
 _DATA    segment dword public 'DATA'
 if DOS4G

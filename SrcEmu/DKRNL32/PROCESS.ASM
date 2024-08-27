@@ -55,6 +55,7 @@ CreateProcessA proc public uses ebx esi edi pszAppName:ptr byte,
 		pProcessInfo:ptr PROCESS_INFORMATION
 
 local	bRC:byte
+local	bAppFlags:byte
 local	dwLengthCmdLine:DWORD
 local	dwLengthEnviron:DWORD
 local	hSaveHdls[3]:DWORD
@@ -116,11 +117,14 @@ endif
 	mov pNewEnv, eax
 	mov wDosSel, ax
 
-;-------- get first token from pszCmdLine
+;--- get first token from pszCmdLine;
+;--- it might be enclosed in double quotes!
 
 	mov esi,pszCmdLine
 	mov pszNewCmd, esi		;initialize pszNewCmd
+	mov bAppFlags, 0
 	lea edi, szFirstToken
+	mov byte ptr [edi], 0
 	.if (esi)
 		mov ecx, sizeof szFirstToken - 1
 		mov ah, 0
@@ -128,6 +132,12 @@ endif
 			lodsb
 			.if (ah)
 				.break .if (al == '"')
+				.if ( al == ' ')
+					or ah, 2	; flag that appname contains space(s)
+				.elseif ( al == 0 )
+					dec esi
+					.break
+				.endif
 				stosb
 			.elseif (al == '"')
 				inc ah
@@ -139,12 +149,13 @@ endif
 			.endif
 			dec ecx
 		.endw
+		mov bAppFlags, ah
 	.endif
 	mov al, 00
 	stosb
 
 ;------- if no appname is supplied, use first token as appname
-;------- else extend appname to full path (no PATH scan in this case
+;------- else extend appname to full path (no PATH scan in this case)
 
 	mov ecx, pszAppName
 	.if (!ecx)
@@ -258,6 +269,18 @@ endif
 ;;	mov esi, pszNewCmd
 	mov esi, pszCmdLine
 	.if (esi)
+		test bAppFlags, 2		; first token in quotes AND contains spaces?
+		jnz hasspaces
+		lea esi, szFirstToken	; if no, use first token without quotes ( to be compatible with DOS < v7 )
+		@trace esi
+@@:
+		lodsb
+		stosb
+		and al, al
+		jnz @B
+		dec edi
+		mov esi, pszNewCmd
+hasspaces:
 		@trace esi
 @@:
 		lodsb

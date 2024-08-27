@@ -7,23 +7,42 @@
 ;--- available, but some C runtimes need at least access to
 ;--- KERNEL32 - the most important one is MS VC V7+.
 
+;--- Open Watcom also calls GetModuleHandleA(), to get
+;--- address of GetEnvironmentStringsA() and FreeEnvironmentStringsA().
+
 	.386
 	.MODEL FLAT, stdcall
 	option casemap:none
 	option proc:private
+
+?LOADLIB equ 1
+
+CStr macro text:vararg
+local sym
+	.const
+sym db text,0
+	.code
+	exitm <offset sym>
+endm
 
 	.DATA
 
 	public _imp__GetModuleHandleA@4
 _imp__GetModuleHandleA@4 dd _GetModuleHandleA
 
-	public _imp__GetProcAddressA@8
-_imp__GetProcAddressA@8 dd _GetProcAddressA
+	public _imp__GetProcAddress@8
+_imp__GetProcAddress@8 dd _GetProcAddress
+
+if ?LOADLIB
+	public _imp__LoadLibraryExA@12
+_imp__LoadLibraryExA@12 dd LoadLibraryExA
+endif
 
 	.CODE
 
 GetModuleHandleA proto stdcall :ptr BYTE
 lstrcmpA proto stdcall :ptr BYTE, :ptr BYTE
+GetEnvironmentStringsA proto stdcall
 ifdef _DEBUG
 OutputDebugStringA proto stdcall :ptr BYTE
 endif
@@ -42,7 +61,7 @@ endif
 ;--- enter a pair of DWORD, first is name, second is address
 
 kernel32funcs label dword
-;	dd 0,0
+	dd CStr("GetEnvironmentStringsA"), GetEnvironmentStringsA
 endkernel32funcs label byte
 
 _GetModuleHandleA proc public pName:ptr byte
@@ -84,11 +103,10 @@ exit:
 	align 4
 _GetModuleHandleA endp
 
-;--- this is dummy, there is no function "exported" currently,
-;--- but is must be avoided that the original GetProcAddress is used
-;--- since it calls DPMILD32.EXE.
+;--- the original GetProcAddress() should not be called
+;--- since there's no DPMILD32 that handles the INT 21h
 
-_GetProcAddressA proc public uses esi hModule:DWORD, pszName:ptr BYTE
+_GetProcAddress proc uses esi hModule:DWORD, pszName:ptr BYTE
 
 	mov esi, hModule
 	.if (esi == offset kernel32funcs)
@@ -109,7 +127,14 @@ endif
 exit:
 	ret
 	align 4
-_GetProcAddressA endp
+_GetProcAddress endp
+
+if ?LOADLIB
+LoadLibraryExA proc public pszName:ptr, handle:dword, flags:dword
+	xor eax, eax
+	ret
+LoadLibraryExA endp
+endif
 
 	end
 
