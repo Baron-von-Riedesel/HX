@@ -1,10 +1,10 @@
 
  1. About
 
-  JHDPMI is a JLM that allows to hook into the v86-mode interrupt chain,
- without modifying the IVT. This ensures the client will be the very first
- to be called when an IRQ is triggered, no matter what the corresponding
- vector in the IVT is telling.
+  JHDPMI is a JLM ( Jemm Loadable Module) that allows to hook into the v86-mode
+ interrupt chain, without modifying the IVT. This ensures the client will be
+ the very first to be called when an IRQ is triggered, no matter what the
+ corresponding vector in the IVT is telling.
   There are 2 variants of the hook API: the first and simplest method
  expects a v86-mode vector that will be called if the interrupt occurs.
  The second method is for VCPI clients only; they may be notified directly
@@ -13,7 +13,8 @@
 
  2. Install/Uninstall JHDPMI
 
- JHDPMI can be installed either as a device driver in CONFIG.SYS:
+ JHDPMI requires Jemm (JemmEx/Jemm386) to be loaded. It then can be installed
+ either as a device driver in CONFIG.SYS:
 
    DEVICE=JLOAD.EXE JHDPMI.DLL
 
@@ -29,9 +30,9 @@
  3. Using JHDPMI
 
  The intended usage is for HDPMI to ensure it's the first to get interrupts
- that occur in v86-mode, without the ugly ( and not really well functioning )
- need to hook into the IVT for all IRQs. But JHDPMI may be useful for other
- purposes as well.
+ that occur in v86-mode, without the rather tedious ( and not always well
+ functioning ) need to install hooks in the IVT. But JHDPMI may be useful
+ for other purposes as well.
 
 
  4. Technical Details

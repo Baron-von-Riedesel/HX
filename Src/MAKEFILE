@@ -170,6 +170,9 @@ install:
 	@copy JHDPMI\Release\JHDPMI.DLL   $(HXINST)\Bin
 	@copy JHDPMI\JHDPMI.TXT           $(HXINST)\Doc
 
+	@copy HXVDD\Release\HXVDD.DLL     $(HXINST)\Bin
+	@copy HXVDD\HXVDD.TXT             $(HXINST)\Doc
+
 clean: 
     cd    HDPMI
     @$(MAKE) DEBUG=$(DEBUG) clean
