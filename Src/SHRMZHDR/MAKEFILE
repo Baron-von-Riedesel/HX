@@ -19,13 +19,13 @@ $(OUTDIR):
 	@mkdir $(OUTDIR)
 
 $(OUTDIR)\$(NAME).EXE: $*.obj Makefile
-	@jwlink format win pe f $* n $* libpath $(LIBCOFF) lib dkrnl32,$(CRTLIB) op q,m=$*,stub=dpmist32.bin,start=_mainCRTStartup,norelocs,stack=0x2000
+	@jwlink format win pe f $* n $*.EXE libpath $(LIBCOFF) lib dkrnl32,$(CRTLIB) op q,m=$*,stub=dpmist32.bin,start=_mainCRTStartup,norelocs,stack=0x2000
 
 $(OUTDIR)\$(NAME).obj: $(NAME).asm
 	@jwasm -nologo -coff -Sg -Fl$* -Fo$* -I$(INC32DIR) $(NAME).asm
 
 $(OUTDIR)\$(NAME2).EXE: $*.obj Makefile
-	@jwlink format win pe f $* n $* libpath $(LIBCOFF) lib dkrnl32,$(CRTLIB) op q,m=$*,stub=dpmist32.bin,start=_mainCRTStartup,norelocs,stack=0x2000
+	@jwlink format win pe f $* n $*.EXE libpath $(LIBCOFF) lib dkrnl32,$(CRTLIB) op q,m=$*,stub=dpmist32.bin,start=_mainCRTStartup,norelocs,stack=0x2000
 
 $(OUTDIR)\$(NAME2).obj: $(NAME2).asm
 	@jwasm -nologo -coff -Sg -Fl$* -Fo$* -I$(INC32DIR) $(NAME2).asm
@@ -36,3 +36,5 @@ $(OUTDIR)\$(NAME2).obj: $(NAME2).asm
 clean:
 	@erase $(OUTDIR)\*.lst
 	@erase $(OUTDIR)\*.exe
+	@erase $(OUTDIR)\*.map
+	@erase $(OUTDIR)\*.obj

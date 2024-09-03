@@ -56,6 +56,7 @@ CreateProcessA proc public uses ebx esi edi pszAppName:ptr byte,
 
 local	bRC:byte
 local	bAppFlags:byte
+local	bCmdLineEnvStr:byte
 local	dwLengthCmdLine:DWORD
 local	dwLengthEnviron:DWORD
 local	hSaveHdls[3]:DWORD
@@ -72,6 +73,7 @@ local	oldmodlist:dword
 local	lpFilePart:ptr BYTE
 local	hProcess:DWORD
 local	conmode:DWORD
+local	dwCmdTailLength:DWORD
 local	cmdline[80h]:byte
 local	szAppName[MAX_PATH]:byte
 local	szFirstToken[MAX_PATH]:byte
@@ -116,6 +118,7 @@ endif
 	xor eax,eax
 	mov pNewEnv, eax
 	mov wDosSel, ax
+    mov bCmdLineEnvStr, al
 
 ;--- get first token from pszCmdLine;
 ;--- it might be enclosed in double quotes!
@@ -190,6 +193,7 @@ endif
 	.if ((eax <= 7Eh) && (!pEnvironment) && (!pszAppName))
 		jmp step2
 	.endif
+	mov dwCmdTailLength, eax
 
 	@strace <"Length commandline=",eax>
 
@@ -241,6 +245,7 @@ noenviron:
 			and al, al
 			jnz @B
 		.else
+			mov bCmdLineEnvStr, 1	;v3.10
 @@:
 			lodsb
 			and al, al
@@ -249,7 +254,14 @@ noenviron:
 	.endw
 noenviron2:
 
-;--------- now create new CMDLINE= variable
+;--- v3.10: if cmdtail length fits in PSP and no CMDLINE environment variable found
+;--- then don't create a CMDLINE variable
+	.if dwCmdTailLength <= 7Eh && bCmdLineEnvStr == 0
+		jmp nocmdlinevar
+	.endif
+
+;--- create new CMDLINE= variable
+;--- EDI -> free space in new environment
 
 	@trace <"create new CMDLINE variable=">
 
@@ -290,6 +302,11 @@ hasspaces:
 		dec edi
 	.endif
 	@trace <13,10>
+
+	mov ebx, dwPSP
+	or byte ptr @flat:[ebx+4Fh],1		;force called app to use CMDLINE
+
+nocmdlinevar:
 	xor eax,eax
 	stosw
 	inc ax
@@ -335,7 +352,6 @@ endif
 ;---------- currently we set it temporarily as our own and restore it later
 
 	mov ebx, dwPSP
-	or byte ptr @flat:[ebx+4Fh],1		;force called app to use CMDLINE
 	mov ax, wDosSel
 	xchg ax, @flat:[ebx+2Ch]
 	mov wOldEnv, ax

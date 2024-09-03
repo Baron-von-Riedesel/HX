@@ -76,7 +76,7 @@ $(OUTDIR)\$(name).EXE: $*.obj makefile
 !if $(MSLINK)
 	@$(LINKBIN) $* $(LIBS) $(LOPT)
 !else
-	@$(LINKBIN) format win pe file $* libpath $(LIBCOFF) lib { $(LIBS) } op q, stub=dpmist32.bin, map=$*, stack=0x2000, heap=0x1000
+	@$(LINKBIN) format win pe file $* name $*.EXE libpath $(LIBCOFF) lib { $(LIBS) } op q, stub=dpmist32.bin, map=$*, stack=0x2000, heap=0x1000
 !endif
 
 !endif

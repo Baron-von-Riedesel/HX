@@ -3,7 +3,7 @@
 # and import library DOSXXX.LIB
 
 NAME  = DOSXXX
-SNAME  = DOSXXXS
+SNAME = DOSXXXS
 
 !include <..\dirs>
 
@@ -57,5 +57,8 @@ install:
 	@copy $(OUTDIR)\$(SNAME).LIB $(HXINST)\Lib16\*.*
 
 clean:
+	@del $(OUTDIR)\$(NAME).LIB
+	@del $(OUTDIR)\$(SNAME).LIB
 	@del $(OUTDIR)\*.obj
+	@del $(OUTDIR)\*.lst
 

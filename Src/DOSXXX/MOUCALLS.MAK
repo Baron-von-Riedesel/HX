@@ -14,17 +14,17 @@ OUTDIR=RELEASE
 
 $(OUTDIR)\$(NAME).dll: $(NAME).def $(NAME).mak $*.obj $(OUTDIR)\dosxxxs.lib
 	@cd $(OUTDIR)
-	link16.exe @<<
-$(MODS),
+	@link16.exe @<<
+$(LOPTS) $(MODS),
 $(NAME).dll,
 $(NAME).map,
 $(LIBS),
-..\$(NAME).def $(LOPTS);
+..\$(NAME).def;
 <<
 #	rc $(NAME).dll
 #	c:\msvc\bin\implib -nowep $(NAME).lib ..\$(NAME).def
 	@cd ..
 
 $(OUTDIR)\$(NAME).obj: $(NAME).asm
-	@jwasm.exe -c -nologo -Fl$* -Fo$* $(NAME).asm
+	@jwasm.exe -c -nologo -nologo -Fl$* -Fo$* $(NAME).asm
 

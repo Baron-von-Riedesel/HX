@@ -55,7 +55,7 @@ $(LOPTS)
 /DEF:$(NAME).def /OUT:$*.DLL
 <<
 !else
-	@$(LINKBIN) format win pe dll f $(OUTDIR)\$(NAME).obj LIBPATH $(LIBCOFF) lib { $(OUTDIR)\$(LIBNAME).lib $(LIBS) } op q, map=$*, implib=$* @$(NAME).rsp
+	@$(LINKBIN) format win pe dll f $(OUTDIR)\$(NAME).obj n $*.DLL LIBPATH $(LIBCOFF) lib { $(OUTDIR)\$(LIBNAME).lib $(LIBS) } op q, map=$*, implib=$* @$(NAME).rsp
 !endif
 
 WLIBMODS=$(SRCMODS:.\=+)

@@ -33,7 +33,7 @@ $(OUTDIR)\$(NAME).EXE: $*.obj Makefile
 /NOLOGO /SUBSYSTEM:CONSOLE $*.obj $(LOPTS) /OUT:$*.EXE /MAP:$*.MAP $(LIBS)
 <<
 !else
-	@$(LINKBIN) format win pe hx ru console f $*.obj lib {$(LIBS)} op q, map=$*, STUB=$(HXINST)\Bin\LOADPE.BIN 
+	@$(LINKBIN) format win pe hx ru console f $*.obj n $*.EXE lib {$(LIBS)} op q, map=$*, STUB=$(HXINST)\Bin\LOADPE.BIN 
 !endif
 
 $(OUTDIR)\$(NAME).obj: $(NAME).asm Makefile

@@ -2,7 +2,8 @@
   __.__.____: version 3.10
 
   þ CreateProcess() emulation: handle appname in quotes in a manner compatible
-    with DOS < v7.
+    with DOS < v7; also don't create CMDLINE environment variable if none
+    exists and cmd tail size is <= 126.
   þ fixed WriteFile emulation: if output is console, ensured that the current
     active screen buffer is used.
 
