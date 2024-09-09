@@ -118,8 +118,8 @@ endif
 	mov ax, 0102h		;try to realloc dos memory
 	int 31h
 	jnc @F
-	@trace <"a new DOS memory block for environment must be allocated",13,10>
-	mov ebx, esi		;failed, now try to alloc new DOS memory	
+	@strace <"a new DOS memory block for environment must be allocated, ebx=",ebx>
+	mov ebx, esi		;failed, now try to alloc new DOS memory
 	mov ax, 0100h
 	int 31h
 	jc error
@@ -166,7 +166,7 @@ SetEnvironmentVariableW proc public pName:ptr WORD, pValue:ptr WORD
 	.endif
 	invoke SetEnvironmentVariableA, pName, eax
 	@strace <"SetEnvironmentVariableW(", pName, ", ", pValue, ")=", eax>
-	xor eax,eax
+;	xor eax,eax		;v3.10 removed
 	ret
 	align 4
 

@@ -4007,9 +4007,9 @@ if ?XMSALLOCRM
 @@:
   endif
   if ?VCPIPREF
-	test fMode2, FM2_VCPI
+	test fMode2, FM2_VCPI	;option -v set?
 	jz @F
-	test fHost, FH_VCPI
+	test fHost, FH_VCPI		;running as VCPI client?
 	jz @F
 	and fHost, not (FH_XMS or FH_XMS30)
 	jmp noxms
