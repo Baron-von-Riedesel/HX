@@ -880,7 +880,7 @@
    - RSX DOS extender
    - RAW32 DOS extender
    - X-32 DOS extender (Digital Mars)
-   - Pharlab TNT DOS extender (i.e. MS VC 1.52)
+   - Pharlap TNT DOS extender (i.e. MS VC 1.52)
    - DJGPP applications.
    - MS Windows 3.1 (standard mode)
    - MS Windows for Workgroups 3.11 (standard mode)

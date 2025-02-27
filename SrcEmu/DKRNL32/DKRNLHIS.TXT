@@ -6,7 +6,7 @@
     exists and cmd tail size is <= 126.
   þ fixed WriteFile emulation: if output is console, ensured that the current
     active screen buffer is used.
-  þ fixed SetEnvironmentVariableW: always returned 0.
+  þ fixed: SetEnvironmentVariableW always returned 0.
 
   08.02.2024: version 3.9
 

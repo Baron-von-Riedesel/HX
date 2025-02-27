@@ -52,16 +52,21 @@ endif
 	mov bx,ss
 	add bx,ax
 	mov ax,es
-	mov si,bx
+	mov si,bx		;si=end of program (para address)
 	sub bx,ax
 	mov ah,4Ah		;resize memory block to free DOS memory
 	int 21h
 
 	mov bp,sp
 
+if @Model ne 2
 	mov ax,es
-	add ax,10h
+	add ax,10h		;assume TINY model
 	mov ds,ax
+else
+	mov ax,@data
+	mov ds,ax
+endif
 	sub si,ax
 	push si				;store size DGROUP (paragraphs)
 
@@ -132,16 +137,27 @@ nomemneeded:
 	pop ss
 	mov esp,eax
 
-
-;--- setup 32-bit CS (size DGROUP)
-	movzx esi, si
-	shl esi, 4
+if @Model ne 2
+	movzx esi, si		;model tiny: 32-bit CS base is DGROUP
+else
+	mov esi, _TEXT		;model small: 32-bit CS base is _TEXT
+endif
+    shl esi, 4
 	push esi
 	pop dx
 	pop cx
 	mov ax,7			;set base CS
 	int 31h
-	lea eax,[esp-1]
+if @Model ne 2
+	lea eax,[esp-1]		;model tiny: 32-bit CS size is DGROUP
+else
+	mov ax,@data
+	sub ax,_TEXT		;model small: 32-bit CS size is DGROUP - _TEXT
+	inc ax
+	movzx eax,ax
+	shl eax, 4
+	dec eax
+endif
 	push eax
 	pop dx
 	pop cx

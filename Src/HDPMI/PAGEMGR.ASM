@@ -483,8 +483,9 @@ exit:
 getavailvcpipages endp
 endif
 
-;*** get free XMS pages in EAX
+;*** get free XMS pages in EAX, largest block in EDX (pages)
 ;*** modifies EDX
+;*** called by 1) pm_GetNumPhysPages 2) getxmspage
 
 getavailxmspages proc uses ebx
 
@@ -504,7 +505,7 @@ getavailxmspages proc uses ebx
 ;--- total free in E/DX
 ;--- it is returned even if the call ah=88h "fails" (BL=A0)
 
-	@dprintf "getavailxmspages: XMS returned (e)ax=%lX, (e)dx=%lX, bx=%X", eax, edx, bx
+	@dprintf "getavailxmspages: XMS returned (e)ax=%lX kB, (e)dx=%lX kB, bx=%X", eax, edx, bx
 	cmp bl,0
 	jz @F
 	cmp bl,0A0h				;status "all memory allocated"?
@@ -521,6 +522,7 @@ getavailxmspages proc uses ebx
 	ret
 error:
 	xor eax,eax
+	xor edx,edx
 	ret
 	align 4
 getavailxmspages endp
@@ -835,8 +837,11 @@ getxmspage proc near
 	jz getxmspage_err1
 
 	@dprintf "getxmspage: try to alloc XMS mem (real mode), ecx=%lX",ecx
-	call getavailxmspages
-	cmp eax, 1
+	call getavailxmspages   ;largest block in edx, total free in eax (pages)
+
+;--- v3.22: check edx (max block free) instead of eax (total free)
+;	cmp eax, 1
+	cmp edx, 1              ;largest free block must be at least 1 page
 	jc getxmspage_err2		;XMS is out of memory
 	call getbestxmssize		;return best size in EAX
 	mov edx,eax

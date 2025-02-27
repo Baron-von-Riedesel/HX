@@ -55,6 +55,7 @@ allocdos_err1:
 allocdos endp
 
 ;*** function 0x0101: free dos memory block
+;*** in: DX=selector of block
 
 	@ResetTrace
 

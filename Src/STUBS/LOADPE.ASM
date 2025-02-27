@@ -302,15 +302,15 @@ nextpage:
 	xor eax, eax
 nextreloc:
 	lodsw
-	test ah,0F0h	; bits 12-15 are type (3=highlow, 2=low)
-	jz ignreloc
+	test ah,0F0h	; bits 12-15 are type (0=abs, 1=high, 2=low, 3=highlow)
+	jz donereloc    ; do nothing if type is "abs"
  if ?HANDLELOW
-	test ah,0D0h	; just bit 13 set?
-	jz is16reloc
+	test ah,0D0h	; type "low" (00x0xxxx ?)
+	jz is16reloc    ; (dpmild32 ignores this fixup)
  endif
 	and ah,0Fh
 	add [eax+ebx], edx
-ignreloc:
+donereloc:
 	cmp esi, ecx
 	jb nextreloc
 	pop ecx
@@ -319,7 +319,7 @@ ignreloc:
 is16reloc:
 	and ah,0fh
 	add [eax+ebx], dx
-	jmp ignreloc
+	jmp donereloc
  endif
 reloc_done:
 

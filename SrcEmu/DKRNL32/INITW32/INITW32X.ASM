@@ -1,6 +1,7 @@
 
 ;--- this initializes the statically linked Win32 DKRNL32.
 ;--- needed if HDLD32.BIN is used as stub for a DOS-PE.
+;--- assumes DPMILD32 is used as loader.
 
 	.386
 	.MODEL FLAT, stdcall

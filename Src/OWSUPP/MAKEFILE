@@ -3,8 +3,10 @@
 # this assembles the cstrt386 versions for HX (PE)
 # the object modules should then be copied to \WATCOM\LIB386\DOS
 
-# there are 2 versions created, one with suffix X, the other with suffix R
-# it's a complete mess...!
+# currently there are 2 versions created, one with suffix X, the other with suffix R
+# suffix X is supposed to be used with compiler options -{3|4|5}s
+# suffix R is supposed to be used with compiler options -{3|4|5}r ( Watcom register calling convention)
+# it's a mess.
 
 # v2.22: CSTRTWHX.OBJ has been removed, to be replaced by INITW3OW.OBJ (DKRNL32);
 # needs option disable 1030) to suppress warning "multiple start addresses found"

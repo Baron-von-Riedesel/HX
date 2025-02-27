@@ -13,7 +13,7 @@
 ;--- default IDT
 ;--- host stack
 
-	page,132
+	page ,132
 
 	.486P
 
@@ -6047,16 +6047,16 @@ int2Frm endp
 
 if ?INTRM2PM
 intrrm2pm proc far public
-if 1
+if 1 ; preferably don't modify hiword(ESP); doesn't matter much, since it isn't saved and modified in pm
 	push bp
 	mov bp,sp
 	inc [bp+2].IRETSRM.rIP
-	and byte ptr [bp+2].IRETSRM.rFL+1,0BCh	;clear NT, IF, TF
+	and byte ptr [bp+2].IRETSRM.rFL+1,not 01000011b	;clear NT, IF, TF
 	pop bp
 else
 	movzx esp,sp
 	inc [esp].IRETSRM.rIP
-	and byte ptr [esp].IRETSRM.rFL+1,0BCh	;clear NT, IF, TF
+	and byte ptr [esp].IRETSRM.rFL+1,not 01000011b	;clear NT, IF, TF
 endif
 	iret                            ;real-mode iret!
 intrrm2pm endp

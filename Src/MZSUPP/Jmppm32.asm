@@ -62,7 +62,8 @@ _NULL	ends
 _DATA	segment dword public 'DATA'
 _DATA	ends
 
-if ?WIN32
+if ?WIN32	; WIN32 emulation for MZ is deprecated!
+
 ;--- the segments beginning with .BASE$ may be used by
 ;--- the WIN32 API emulation code for some init/term procs
 ;--- source code of KERNEL32 is now available so watch this

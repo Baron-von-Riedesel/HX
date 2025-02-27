@@ -540,7 +540,7 @@ initwdeb386_pm proc
 
 	mov al,PMINIT_INIT_IDT
 	@dprintf "call debugger pm proc,ax=%X,es:edi=%lX:%lX (init IDT)",ax,es,edi
-	call fword ptr [dbgpminit]
+	call [dbgpminit]
 if 1
 	mov ax,DS_DebLoaded
 	int Debug_Serv_Int

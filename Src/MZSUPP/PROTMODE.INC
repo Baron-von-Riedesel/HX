@@ -44,10 +44,3 @@ gate    ends
 ;     6/E -> Interrupt gate
 ;     4/C -> Call gate
 
-@AllocDescriptor  macro addr,laenge
-@defext AllocDescriptor,far
-                @pushd addr
-                @pushw laenge
-                call AllocDescriptor
-                endm
-

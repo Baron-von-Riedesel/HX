@@ -33,7 +33,15 @@ DLL_PROCESS_DETACH  equ 0
 ;--- symbol. This is the simplest method to make JLoad know the
 ;--- device id.
 
+ifdef ?PE
+	public export ddb
+	option dotname
+.drectve segment info
+	db "-dll -subsystem:native -fixed:no"
+.drectve ends
+else
 	public ddb
+endif
 
 ddb VxD_Desc_Block <0,0,DEVICE_ID,1,0,0,"JHDPMI",0,0, dispatch >
 

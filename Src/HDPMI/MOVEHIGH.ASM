@@ -4,7 +4,7 @@
 
 	.386P
 
-	page,132
+	page ,132
 
 	include hdpmi.inc
 	include external.inc

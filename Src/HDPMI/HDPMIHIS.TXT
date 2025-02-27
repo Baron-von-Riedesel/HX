@@ -1,7 +1,7 @@
  
  History HDPMI 
 
-  __.__.2024, version 3.22
+  __.__.2025, version 3.22
   þ fixed regression in v3.21: int 25h/26h caused a GPF in ring 0.
   þ fixed: int 31h, ax=507h: reject all page types except 0, 1 and 3; OTOH,
     allow direct transition from "mapped" to "committed".
@@ -14,6 +14,8 @@
   þ interrupt handling reworked; cmdline option -i removed.
   þ fixed: option -a (or HDPMI=32) didn't correctly restore region 
     3FFC000h-3FFF000h of the calling client.
+  þ fixed: page mgr may have returned too much XMS memory if there were just
+    1-3 kB free.
 
   04.02.2024, version 3.21
 

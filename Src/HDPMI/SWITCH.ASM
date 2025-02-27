@@ -1,7 +1,7 @@
 
 ;--- low-level mode switches
 
-	page,132
+	page ,132
 
 	.486P
 

@@ -1,5 +1,5 @@
 
-?WIN32         = 0		;support Win32 emulation
+?WIN32         = 0		;1=support Win32 emulation (deprecated!)
 
 externdef stdcall __STACKSIZE:abs
 externdef stdcall __HEAPSIZE:abs

@@ -32,7 +32,7 @@ endif
 if ?ENHANCED
 ?SUPI2F1600		equ 1	;int 2F,ax=1600 support (win enh mode) - real mode
 ?SUPI2F160A		equ 1	;int 2F,ax=160A support (get version) - real mode
-?WINMODE		equ 3	;3=enhanced mode (Pharlab TNT has problems with this)
+?WINMODE		equ 3	;3=enhanced mode (Pharlap TNT has problems with this)
 else
 ?SUPI2F1600		equ 0
 ?SUPI2F160A		equ 0	;used by win.com to detect if windows is running
@@ -307,7 +307,7 @@ PTF_DIRTY		equ 040h;1=dirty, 0=clean
 PTF_PAT			equ 080h;1=page attribute table
 PTF_GLOBAL		equ 100h;1=global
 
-?GPBIT			equ PTF_USER	;if ?GUARDPAGE0 = 1
+;?GPBIT			equ PTF_USER	;if ?GUARDPAGE0 = 1
 
 ;--- fatal __exitclient errorcodes
 
