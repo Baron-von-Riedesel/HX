@@ -15,6 +15,11 @@
 ?USESTDALLOC	equ 0		;std=0, 1=use std allocation functions for IDT/LDT
 ?DISPLAYHDLTAB	equ 0		;std=0, 1=display mem hdl tab when client exits
 
+;--- v3.22: a count has been added for mapping regions. So 2 calls of ax=800h for the same region
+;--- require 2 calls of ax=801h until the region is unmapped.
+?USESEARCHREGION equ 1 ;std=1, new for v3.22; also in pagemgr.asm; "std=0"-branch to be removed.
+
+
 if ?RESTRICTMEM
 ?MAXFREEPAGES	equ 65536	;65536 * 4k pages = 256 MB
 endif
@@ -43,7 +48,7 @@ pNext	dd ?		; points to next element (must be first)
 dwBase  dd ?		; linear address
 dwSize	dd ?		; size (in pages)
 flags	db ?		; flags (see HDLF_xxx)
-		db ?
+bCnt	db ?		; v3.22: mapped regions only; calls of ax=800h;
 bOwner	db ?		; owner (# of current client)
 MEMITEM ends
 
@@ -442,7 +447,7 @@ searchhandle endp
 
 	@ResetTrace
 
-;--- internal function: free EBX "internal handle"
+;--- internal function: free memory with EBX=memitem
 ;--- it has to be done this way, since _FreeMemory
 ;--- needs previous handle in EAX.
 
@@ -453,15 +458,15 @@ endif
 _FreeMemoryInt endp	;fall thru
 
 ;--- internal function: free memory item
-;--- in: EBX=memitem
-;--- used by int 31h, ax=502h and ax=801h
+;--- in: EBX=linear address
+;--- used by int 31h, ax=502h (and ax=801h up to v2.21)
 
 _FreeMemory proc
 	pushad
 	@dprintf "FreeMemory: ebx=%lX", ebx
 	call searchhandle				;get previous handle in EAX, sets ds to GROUP16
 	jc error
-freememoryx::
+;freememoryx::
 	test [ebx].MEMITEM.flags,HDLF_ALLOC;is region already free?
 	jz error
 
@@ -1346,6 +1351,103 @@ endif
 
 endif
 
+if ?USESEARCHREGION
+
+;--- v3.22: check if region edx:eax is already mapped
+;--- C: no region found, edx & eax must be preserved.
+;--- NC: region found, size adjusted if req. size was larger.
+
+searchregion proc
+
+	mov ebx, offset pMemItems
+	jmp skipregion
+nextitem:
+	test [ebx].MEMITEM.flags,HDLF_MAPPED
+	jz skipregion
+	mov ecx,[ebx].MEMITEM.dwSize
+	cmp eax,ecx
+	jbe @F                      ;size would be enough
+	mov ecx,[ebx].MEMITEM.pNext ;check if next region is free
+	jecxz skipregion
+	test [ecx].MEMITEM.flags,HDLF_ALLOC
+	jnz skipregion              ;no, so not interested
+
+	mov ecx,[ecx].MEMITEM.dwSize
+	add ecx,[ebx].MEMITEM.dwSize
+	cmp eax,ecx
+	ja skipregion               ;size still not enough, so go on
+@@:
+;--- size of region would suffice; get physical start address
+	push eax
+	mov eax,[ebx].MEMITEM.dwBase
+	call pm_Linear2PT	;get linear address of PTE for EAX in EDI
+	pop eax
+	sub edi,dwSSBase
+	mov esi,[edi]
+	and si, 0f000h      ;now ESI = physical start address of mapping region
+
+;--- now check if region edx:eax fits within esi:ecx
+
+	cmp edx, esi
+	jb skipregion	;if req start below region start
+
+;--- calculate the (new) size of this mapping region:
+;--- (edx + (eax shl 12) - esi [phys addr(ebx.base)]) shr 12
+;--- if new size > (old size + size new block), it's better
+;--- to create a new region than to enlarge this one.
+
+	mov edi, eax
+	shl edi, 12
+	add edi, edx   ;this cannot overflow (checked by caller)
+	sub edi, esi
+	shr edi, 12    ;EDI=new pages of (enlarged) region
+
+	push eax
+	add eax,[ebx].MEMITEM.dwSize
+	cmp eax, edi   ;wasting address space?
+	pop eax
+	jnc foundregion
+skipregion:
+	mov ebx,[ebx].MEMITEM.pNext
+	and ebx,ebx
+	jnz nextitem
+error:
+	stc
+	ret
+
+foundregion:
+	@dprintf "searchregion: edx-eax=%lX-%lX edi=%lX ebx.base/size=%lX/%lX",edx,eax,edi,[ebx].MEMITEM.dwBase,[ebx].MEMITEM.dwSize
+	cmp edi,[ebx].MEMITEM.dwSize   ;size to be increased?
+	jbe @F
+	mov ecx,[ebx].MEMITEM.dwSize
+	mov eax,edi
+	mov [ebx].MEMITEM.dwSize, eax
+	sub eax, ecx
+	push eax
+	mov ecx,[ebx].MEMITEM.pNext
+	sub [ecx].MEMITEM.dwSize, eax
+	shl eax, 12
+	add eax,[ecx].MEMITEM.dwBase
+	xchg eax,[ecx].MEMITEM.dwBase
+	pop ecx
+;--- and finally call pm to adjust the mapping;
+;--- phys region edx:ecx at linear eax
+	push ebx
+	mov bl,0
+	call pm_mapphysregion
+	pop ebx
+@@:
+	inc [ebx].MEMITEM.bCnt
+;--- return linear address in EAX
+	mov eax,[ebx].MEMITEM.dwBase
+	sub edx, esi
+	add eax, edx
+	ret
+	align 4
+searchregion endp
+
+endif
+
 ;*** int 31h, ax=0800h
 ;*** in: phys addr=BX:CX, size=SI:DI
 ;*** out: linear address in BX:CX
@@ -1389,22 +1491,40 @@ if 1
 	shr eax,12
 endif
 
+;--- v3.22: the strategy for physical region mappings is to be changed;
+;--- 1. scan the MEMITEM list for mapping regions.
+;--- 2. call pm for each such region to check if the region is suitable to fully contain the requested block.
+;--- 3. if yes, increment MEMITEM.bCnt and use this region's linear address.
+;--- 4. if no suitable region is found, create a new one, init MEMITEM.bCnt.
+;---
+;--- pm_searchphysregion scans the page tables; it might return linear addresses in the system area;
+;--- it was implemented before I31MEM handled user address space exclusively; should be removed probably.
+
+if ?USESEARCHREGION
+	push ss
+	pop ds
+	call searchregion			;search region EDX, size EAX (pages)
+else
 	call pm_searchphysregion	;search region EDX, size EAX (pages)
+endif
 	jnc found
 	xor ebx, ebx
 	mov ecx, eax
+ife ?USESEARCHREGION
 	push ss
 	pop ds
+endif
 	call _allocaddrspace		;changes eax only
 	jc error
 	or [eax].MEMITEM.flags, HDLF_MAPPED
-	mov eax,[eax.MEMITEM.dwBase]
+	mov [eax].MEMITEM.bCnt, 1	;v3.22
+	mov eax,[eax].MEMITEM.dwBase
 	mov bl,0					;dont set PWT flag in PTEs
 	call pm_mapphysregion		;map ECX pages, cannot fail
 
 	@dprintf "mapphysregion: phys2lin successfull, mapped at %lX",eax
 found:
-	mov cx,word ptr [esp.PUSHADS.rCX]
+	mov cx,word ptr [esp].PUSHADS.rCX
 	and ch,0Fh
 	or ax,cx
 	mov [esp].PUSHADS.rCX, ax
@@ -1447,23 +1567,71 @@ done:
 	ret
 endif
 
+if ?USESEARCHREGION
+
+;--- search mapping region with linear address eax
+
+searchlinearregion proc
+
+	mov ebx, offset pMemItems
+	jmp skipregion
+nextitem:
+;--- once address is < base, the search can be aborted
+	cmp eax,[ebx].MEMITEM.dwBase
+	jb error
+	mov ecx,[ebx].MEMITEM.dwSize
+	shl ecx,12
+	add ecx,[ebx].MEMITEM.dwBase
+	cmp eax,ecx
+	jb foundregion
+skipregion:
+	mov ebx,[ebx].MEMITEM.pNext
+	and ebx,ebx
+	jnz nextitem
+error:
+	stc
+	ret
+foundregion:
+	test [ebx].MEMITEM.flags,HDLF_MAPPED
+	jz error
+	clc
+	ret
+	align 4
+searchlinearregion endp
+
+endif
+
 ;--- int 31h, ax=0801h, bx:cx=linear address of region to unmap
+;--- the region will only be found if bits 12-31 match member dwBase in MEMITEM.
 
 unmapphysregion proc public
 
 	pushad
 	push bx
 	push cx
+if ?USESEARCHREGION
+	pop eax
+	push ss
+	pop ds
+	call searchlinearregion
+	jc error
+	dec [ebx].MEMITEM.bCnt
+	jnz done
+	call _FreeMemoryInt
+error:
+done:
+else
 	pop ebx
 	@dprintf "unmapphysregion: addr=%lX", ebx
 	and bx,0F000h		;v3.19: reset bits 0-11, else the handle wouldn't be found
-if ?ADDRISHANDLE
+ if ?ADDRISHANDLE
 	call _FreeMemory
-else
+ else
 	call searchaddr
 	jc @F
 	call _FreeMemory
 @@:
+ endif
 endif
 	popad
 	ret

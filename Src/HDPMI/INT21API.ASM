@@ -422,6 +422,8 @@ intr2125 proc
 intr2125 endp
 
 ;-------------------------------------------------
+;--- alloc memory: e/bx = size in paragraphs
+;--- bx=ffffh (16-bit) or ebx >= 10000000h (32-bit): return available free mem
 
 	@ResetTrace
 
@@ -430,11 +432,11 @@ intr2148 proc
 if ?32BIT
 	@dprintf "I21, ah=48h: alloc %lX paragraphs",ebx
 	test ebx, 0F0000000h		;4 GB limit is 0FFFFFFFh paragraphs
-	jnz error1
+	jnz error8
 else
 	@dprintf "I21, ah=48h: alloc %X paragraphs",bx
 	cmp bx,-1
-	jz error1
+	jz error8
 	movzx ebx,bx
 endif
 	shl ebx,4 	;paragraphs -> bytes
@@ -444,7 +446,7 @@ endif
 	pop bx
 	mov ax,0501h
 	@int_31
-	jc error1
+	jc error8
 	@dprintf "I21: memory alloc successfull, Addr=%lX",bx,cx
 	push ebp		;2. argument for desc_alloc: size
 	push bx
@@ -458,9 +460,9 @@ endif
 error2:
 	mov ax,0502h	;free memory block SI:DI
 	@int_31
-error1:
+error8:
 	popad
-	jmp   availpages
+	jmp   availparas
 	align 4
 intr2148 endp
 
@@ -503,9 +505,9 @@ error9:
 	align 4
 intr2149 endp
 
-;--- return error 8 and available paragraphs in E/BX
+;--- return C, ax=8, E/BX=available paragraphs
 
-availpages proc
+availparas proc
 	push ds
 	pushad
 	push ss
@@ -528,7 +530,7 @@ endif
 	stc
 	ret
 	align 4
-availpages endp
+availparas endp
 
 	@ResetTrace
 
@@ -604,7 +606,7 @@ error9:
 	ret
 error8:
 	popad
-	jmp availpages
+	jmp availparas
 
 	align 4
 intr214A endp

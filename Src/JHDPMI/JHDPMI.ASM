@@ -43,7 +43,7 @@ else
 	public ddb
 endif
 
-ddb VxD_Desc_Block <0,0,DEVICE_ID,1,0,0,"JHDPMI",0,0, dispatch >
+ddb VxD_Desc_Block <0,0,DEVICE_ID,1,0,0,"JHDPMI",0, 0, v86_dispatch>
 
 dwConns dd 0
 
@@ -126,7 +126,7 @@ endm
 
 ;--- dispatcher for v86 services
 
-dispatch proc
+v86_dispatch proc
 
 	@VMMCall Simulate_Far_Ret	;emulate a RETF in v86
 
@@ -164,7 +164,7 @@ disconnect:
 	ret
 	align 4
 
-dispatch endp
+v86_dispatch endp
 
 getversion proc
 

@@ -544,6 +544,10 @@
    will copy PTEs, so the destination region will become a clone of the
    source region, with UMBs mapped.
 
+   Int 31h, AX=80xh: a count is maintained internally for those functions.
+   So to ensure that the region is released after usage, each successfull call
+   of function ax=800h should have its corresponding ax=801h call.
+
    Some privileged opcodes are emulated (this feature is not active if
    cmdline option -s ['safe' mode] is given):
 

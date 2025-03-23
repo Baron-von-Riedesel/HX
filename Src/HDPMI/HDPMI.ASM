@@ -2645,7 +2645,7 @@ is2:
 	movzx eax, cx
 	add eax, 1000h-1
 	shr eax, 12
-	call pm_searchphysregion
+	call pm_searchphysregion   ;not active!!!
 	jc @F
 	and dx, 0FFFh
 	or ax, dx

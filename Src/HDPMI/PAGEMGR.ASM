@@ -29,6 +29,8 @@
 ?SETPTE			equ 0	;std 0, 1=enable pm_SetPage
 ?NOCR3CACHE		equ 0	;std 0, 1=set PWT & PCD bits in cr3
 
+?USESEARCHREGION equ 1 ;std=1, new for v3.22; also in i31mem.asm; "std=0"-branch to be removed.
+
 PTF_NORMAL	equ PTF_WRITEABLE + PTF_USER
 
 @seg _ITEXT16
@@ -75,8 +77,8 @@ PBF_INUSE   equ PBF_XMS or PBF_I15 or PBF_DOS
 ; 010=PCD (cache disable) 586+
 ; 020=accessed (read access)
 ; 040=dirty (write access)
-; 080=reserved
-; 100=reserved
+; 080=PAT
+; 100=Global
 ; 200=available
 ; 400=available : is _XMSFLAG_
 ; 800=available	: is _VCPIFLAG_
@@ -273,6 +275,8 @@ pm_CopyPTEs endp
 
 endif
 
+ife ?USESEARCHREGION
+
 ;*** scan page tables for a physical address region
 ;*** called by pm_searchphysregion
 ;*** ESI = ^ page table
@@ -356,11 +360,13 @@ error:
 	align 4
 pm_searchphysregion endp
 
+endif
+
 ;*** helper for DPMI functions 0800h, 0508h
 ;*** map a physical address region into linear address space
 ;*** INP: EDX=physical address region start
 ;***      ECX=length of region in pages (may be 0!)
-;***      EAX=linear address space to map the region to
+;***      EAX=linear address to map the region to
 ;***      BL=1 -> set PTF_PWT bit in PTEs
 
 	@ResetTrace
@@ -483,8 +489,7 @@ exit:
 getavailvcpipages endp
 endif
 
-;*** get free XMS pages in EAX, largest block in EDX (pages)
-;*** modifies EDX
+;*** out: EAX=free XMS mem in pages, EDX=largest block in pages, other regs preserved.
 ;*** called by 1) pm_GetNumPhysPages 2) getxmspage
 
 getavailxmspages proc uses ebx
@@ -501,8 +506,7 @@ getavailxmspages proc uses ebx
 	call callrmprocintern
 	pop ecx
 
-;--- largest free block in E/AX
-;--- total free in E/DX
+;--- here largest free block in E/AX, total free in E/DX
 ;--- it is returned even if the call ah=88h "fails" (BL=A0)
 
 	@dprintf "getavailxmspages: XMS returned (e)ax=%lX kB, (e)dx=%lX kB, bx=%X", eax, edx, bx
@@ -511,7 +515,7 @@ getavailxmspages proc uses ebx
 	cmp bl,0A0h				;status "all memory allocated"?
 	jnz error
 @@:
-	xchg eax,edx			;free XMS memory (kB) into EAX, largest free block in EDX
+	xchg eax,edx			;now free XMS memory (kB) into EAX, largest free block in EDX
 	test [fHost],FH_XMS30	;xms driver 3.0+?
 	jnz @F
 	movzx eax,ax
@@ -522,7 +526,7 @@ getavailxmspages proc uses ebx
 	ret
 error:
 	xor eax,eax
-	xor edx,edx
+	xor edx,edx	;v3.22: added (it's checked by getxmspage)
 	ret
 	align 4
 getavailxmspages endp

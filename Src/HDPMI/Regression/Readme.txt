@@ -43,6 +43,7 @@ I310508 : test int 31h, ax=0508h (map phys. device/memory)
 I310508a: test int 31h, ax=0508h (change from mapped to committed)
 I310509 : test int 31h, ax=0509h (map DOS memory)
 I31050B : test int 31h, ax=050Bh (get mem info)
+I310800 : test int 31h, ax=0800h + 0801h (map/unmap physical region)
 I31090X : test virtual interrupt functions (int 31, ax=09xxh)
 i310e00 : get coproc state with int 31h, ax=0e00
 I4B8105 : test HDPMI's VDS scatter/gather lock implementation

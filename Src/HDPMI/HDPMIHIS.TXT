@@ -16,6 +16,7 @@
     3FFC000h-3FFF000h of the calling client.
   þ fixed: page mgr may have returned too much XMS memory if there were just
     1-3 kB free.
+  þ int 31h, ax=80xh: count added - region is released when count reaches 0.
 
   04.02.2024, version 3.21
 
