@@ -1,7 +1,7 @@
  
  History HDPMI 
 
-  __.__.2025, version 3.22
+  24.03.2025, version 3.22
   þ fixed regression in v3.21: int 25h/26h caused a GPF in ring 0.
   þ fixed: int 31h, ax=507h: reject all page types except 0, 1 and 3; OTOH,
     allow direct transition from "mapped" to "committed".
@@ -17,6 +17,7 @@
   þ fixed: page mgr may have returned too much XMS memory if there were just
     1-3 kB free.
   þ int 31h, ax=80xh: count added - region is released when count reaches 0.
+  þ fixed int 21h, ah=38: for 32-bit, check for edx == -1.
 
   04.02.2024, version 3.21
 

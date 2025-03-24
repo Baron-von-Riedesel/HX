@@ -250,10 +250,10 @@ if ?SAVESEGREGS
 	mov ds,cs:[g_csalias]
 	push ds
 	pop es
-ife ?FLAT
+ ife ?FLAT
 	push gs
 	mov gs,[g_flatsel]
-endif
+ endif
 	push fs
 	mov eax, [g_hCurThread]
 	mov fs, [eax].THREAD.dwTibSel

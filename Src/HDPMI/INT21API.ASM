@@ -908,11 +908,18 @@ endif
 
 	@ResetTrace
 
-;--- copy country infos (34 bytes) to ds:e/dx
+;--- Copy country infos (34 bytes) to ds:e/dx.
+;--- Some extenders translate the far16 "case map" function address at offset 18 in country info struct.
+;--- Win3x/9x doesn't, hdpmi also doesn't.
 
 intr2138 proc
-	cmp dx,0FFFFh	;if dx == -1, it is SET, not GET infos
+if ?32BIT
+	cmp edx,-1		;v3.22: for 32bit, replace dx by edx!
 	jz rmdos
+else
+	cmp dx,-1		;if dx == -1, it is "SET country code", not GET infos
+	jz rmdos        ;in that case, AL (and optionally BX) hold the country code
+endif
 	push edx
 	xor edx,edx
 	call setdsreg2tlb

@@ -3,7 +3,7 @@
 
   DPMILD32
 
- __.__.2024: version 3.12
+ 24.03.2025: version 3.12
 
  þ regression in v3.10-v3.11: stub version with HDPMI causes a crash.
 
@@ -531,7 +531,7 @@
  affect DPMILD32 only, there exist versions of DPMILD16 without any
  functional difference compared to the previous version.
 
- __.__.2024: version 3.12
+ 24.03.2025: version 3.12
 
  þ fix: garbage error msg if 32-bit host installed, but 16-bit host
    failed to load.
