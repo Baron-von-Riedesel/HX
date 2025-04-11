@@ -2,14 +2,15 @@
 ;*** handle int 2f, ax=1684h
 
 	.386
-
 	include hdpmi.inc
-	include external.inc
 
 if ?ENHANCED
 
+	include external.inc
+	include vxd.inc
+
 ?CLRI2F1684	= 1	;int 2f,ax=1684: set ES:E/DI to 0:0 
-?LOG		= 1	;log unsupported int 2f,ah=1684 calls
+?LOG		= 2+4;log switches (unsupported int 2f,ah=1684 calls)
 ?DBGSTOP	= 0 ;
 
 PR_PRIVATE	equ 80000400h
@@ -18,13 +19,13 @@ PR_SYSTEM	equ 80080000h
 
 @dbgbreak macro
 if ?DBGSTOP
-if 1
+ if 1
 	or byte ptr [esp+4].IRETS.rFL+1,1	;set trace flag
-else
+ else
 	int 3
+ endif
 endif
-endif
-	endm
+endm
 
 _DATA16 segment
 dwSharedHeap dd (0C0000000h shr 12)
@@ -52,7 +53,7 @@ endif
 if ?SUPI2F16840442	;vtdapi
 	dw 0442h, _I2F1684_0442_
 endif
-	dw 0
+endvxdtab label word
 
 ;--- check if vxd in BX is known
 ;--- return with a near RET!
@@ -61,7 +62,7 @@ checkvxd proc public
 	push esi
 	mov esi,offset vxdtab
 nextitem:
-	cmp word ptr cs:[esi],0
+	cmp esi,offset endvxdtab
 	jz notfound
 	cmp cs:[esi],bx
 	jz found
@@ -69,7 +70,7 @@ nextitem:
 	jmp nextitem
 notfound:
 	pop esi
-if ?LOG
+if ?LOG and 1
 	push 2Fh
 	call unsupp
 endif
@@ -108,7 +109,7 @@ _vxd_0001 proc public
 	jz registry
 	cmp ah,02
 	jz getdebugoptions
-if ?LOG
+if ?LOG and 2
 	@printf <"vmm: ">
 	call unsuppcallx
 	@dbgbreak
@@ -143,7 +144,7 @@ if ?SUPI2F16840009
 
 _vxd_0009 proc public
 	push offset iret_with_CF_mod
-if ?LOG
+if ?LOG and 4
 	@printf <"reboot: ">
 	call unsuppcallx
 	@dbgbreak
@@ -160,7 +161,7 @@ if ?SUPI2F16840017
 
 _vxd_0017 proc public
 	push offset iret_with_CF_mod
-if ?LOG
+if ?LOG and 4
 	@printf <"shell: ">
 	call unsuppcallx
 endif
@@ -176,7 +177,7 @@ if ?SUPI2F16840021
 
 _vxd_0021 proc public
 	push offset iret_with_CF_mod
-if ?LOG
+if ?LOG and 4
 	@printf <"pagefile: ">
 	call unsuppcallx
 endif
@@ -199,7 +200,7 @@ _vxd_002A proc public
 	jz getpdb
 	cmp ah,3
 	jz mmgr
-if ?LOG
+if ?LOG and 4
 	@printf <"vwin32: ">
 	call unsuppcallx
 	@dbgbreak

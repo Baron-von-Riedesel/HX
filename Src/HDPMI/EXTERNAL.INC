@@ -256,12 +256,6 @@ externdef _I2F168A_MSDOS:abs
 if ?VENDORAPI
 externdef _I2F168A_HDPMI:abs
 endif
-externdef _I2F1684_0001_:abs
-externdef _I2F1684_0009_:abs
-externdef _I2F1684_0017_:abs
-externdef _I2F1684_0021_:abs
-externdef _I2F1684_002A_:abs
-externdef _I2F1684_0442_:abs
 ;externdef SIZEINTRMCB:abs
 ;externdef RMCBMOUSE:abs
 

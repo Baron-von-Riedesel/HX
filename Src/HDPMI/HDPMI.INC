@@ -40,16 +40,16 @@ else
 endif
 
 if ?SUPI2F1600
-ifndef ?2F1600VER
+ ifndef ?2F1600VER
 ?2F1600VER		equ 0A03h
 ;?2F1600VER		equ 0004h
-endif
+ endif
 endif
 if ?SUPI2F160A
-ifndef ?2F160AVER
+ ifndef ?2F160AVER
 ?2F160AVER		equ 030Ah
 ;?2F160AVER		equ 0400h
-endif
+ endif
 endif
                         
 ?LOGINT30		equ 0	;std=0, 1=log last int 30h call if exc occurs
@@ -144,22 +144,6 @@ ifndef ?MPICBASE
 endif
 ifndef ?SPICBASE                        
 ?SPICBASE	equ 70h		;std 70: slave PIC base
-endif
-
-if ?ENHANCED
-?SUPI2F16840001	equ 1	;std=1, support int 2f,ax=1684,bx=1 (vmm)
-?SUPI2F16840009	equ 1	;std=1, support int 2f,ax=1684,bx=9 (reboot)
-?SUPI2F16840017	equ 1	;std=1, support int 2f,ax=1684,bx=17 (shell)
-?SUPI2F16840021	equ 1	;std=1, support int 2f,ax=1684,bx=21 (pagefile)
-?SUPI2F1684002A	equ 0	;std=0, support int 2f,ax=1684,bx=2A (vwin32)
-?SUPI2F16840442	equ 1	;std=1, support int 2f,ax=1684,bx=442 (vtdapi)
-else
-?SUPI2F16840001	equ 0	;std=0, support int 2f,ax=1684,bx=17 (vmm)
-?SUPI2F16840009	equ 0	;std=0, support int 2f,ax=1684,bx=9 (reboot)
-?SUPI2F16840017	equ 0	;std=0, support int 2f,ax=1684,bx=17 (shell)
-?SUPI2F16840021	equ 0	;std=0, support int 2f,ax=1684,bx=21 (pagefile)
-?SUPI2F1684002A	equ 0	;std=0, support int 2f,ax=1684,bx=2A (vwin32)
-?SUPI2F16840442	equ 0	;std=0, support int 2f,ax=1684,bx=442 (vtdapi)
 endif
 
 ifndef ?PMIOPL

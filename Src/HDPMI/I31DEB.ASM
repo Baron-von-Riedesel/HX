@@ -9,6 +9,7 @@
 	option proc:private
 
 ?ENABLEWP equ 1	;1=enable hardware breakpoints
+?SUPPIOWP equ 1	;1=support I/O watchpoints
 
 _TEXT32 segment
 
@@ -17,7 +18,7 @@ _TEXT32 segment
 ;*** int 31h, ax=0B00h
 ;--- BX:CX=linear address
 ;--- dl=size (1,2,4)
-;--- dh=type (0=execute,1=write,2=read or write)
+;--- dh=type (0=execute,1=write,2=read & write,3=io)
 ;--- out: BX=handle
 
 allocwatchp proc public
@@ -28,7 +29,7 @@ if ?ENABLEWP
 	push bx
 	push cx		;save linear address on stack
 
-;--- size watchpoint, accepted 1,2 or 4
+;--- DL: size watchpoint, accepted 1,2 or 4
 ;--- translated to: 1->0, 2->1, 4->3
 ;--- translation of 3->2 is "undefined"
 	mov eax, edx
@@ -36,14 +37,27 @@ if ?ENABLEWP
 	cmp al, 3
 	ja error
 
-;--- type: 2 must be translated to 3;
-;--- I/O watchpoints have the "new" type 2, this isn't
-;--- covered by DPMI specs. Also, bit DE in CR4 must be enabled for
-;--- I/O watchpoints.
-	cmp ah, 2	;watchpoint type: 0,1 or 2
+;--- DH: type of bp, 0 (execute),1 (write), 2 (read/write), 3 (io);
+;--- 2 must be translated to 3, 3 must be translated to 2.
+;--- I/O watchpoints are rejected if cpuid.edx bit 2 isn't set;
+;--- also, bit DE in CR4 must be 1 for I/O watchpoints to work.
+;--- I/O watchpoints aren't covered by DPMI specs.
+if ?SUPPIOWP
+	cmp ah, 3	;watchpoint type: 0-3
 	ja error
 	jnz @F
-	inc ah		;transform 2 to 3
+	test byte ptr ss:dwFeatures,4	;IO watchpoints supported?
+	jz error
+@@:
+	cmp ah, 2
+	jb @F
+	xor ah,1	;2->3, 3->2
+else
+	cmp ah, 2	;watchpoint type: 0-2
+	ja error
+	jnz @F
+	inc ah		;2->3
+endif
 @@:
 	shl al, 2
 	or al, ah 	;mask now in AL [0-3]

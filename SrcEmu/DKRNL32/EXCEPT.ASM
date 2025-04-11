@@ -85,9 +85,10 @@ endif
 
 endif
 
+;--- v3.11: align fields to avoid misaligned access
 EXCDESC struct
-bException db ?
-oldhandler dq ?
+oldhandler df ?
+wException dw ?
 newhandler dd ?
 win32exc   dd ?
 EXCDESC ends
@@ -116,30 +117,30 @@ LPTOP_LEVEL_EXCEPTION_FILTER typedef ptr protoTOP_LEVEL_EXCEPTION_FILTER
 uhefilter LPTOP_LEVEL_EXCEPTION_FILTER NULL
 
 exclist label EXCDESC
-exc00   EXCDESC <00h,0,offset _exc00, EXCEPTION_INT_DIVIDE_BY_ZERO>
+exc00   EXCDESC <0, 0,offset _exc00, EXCEPTION_INT_DIVIDE_BY_ZERO>
 if ?CATCHEXC01
-exc01   EXCDESC <01h,0,offset _exc01, EXCEPTION_SINGLE_STEP>
+exc01   EXCDESC <0, 1,offset _exc01, EXCEPTION_SINGLE_STEP>
 endif
 if ?CATCHEXC03
-exc03   EXCDESC <03h,0,offset _exc03, EXCEPTION_BREAKPOINT>
+exc03   EXCDESC <0, 3,offset _exc03, EXCEPTION_BREAKPOINT>
 endif
 if ?CATCHEXC04
-exc04   EXCDESC <04h,0,offset _exc04, EXCEPTION_INT_OVERFLOW>
+exc04   EXCDESC <0, 4,offset _exc04, EXCEPTION_INT_OVERFLOW>
 endif
 if ?CATCHEXC05
-exc05   EXCDESC <05h,0,offset _exc05, EXCEPTION_ARRAY_BOUNDS_EXCEEDED>
+exc05   EXCDESC <0, 5,offset _exc05, EXCEPTION_ARRAY_BOUNDS_EXCEEDED>
 endif
-exc06   EXCDESC <06h,0,offset _exc06, EXCEPTION_ILLEGAL_INSTRUCTION>
+exc06   EXCDESC <0, 6,offset _exc06, EXCEPTION_ILLEGAL_INSTRUCTION>
 if ?CATCHEXC0C
-exc0C   EXCDESC <0Ch,0,offset _exc0C, EXCEPTION_STACK_OVERFLOW>
+exc0C   EXCDESC <0,12,offset _exc0C, EXCEPTION_STACK_OVERFLOW>
 endif   
-exc0D   EXCDESC <0Dh,0,offset _exc0D, EXCEPTION_ACCESS_VIOLATION>
-exc0E   EXCDESC <0Eh,0,offset _exc0E, EXCEPTION_ACCESS_VIOLATION>
+exc0D   EXCDESC <0,13,offset _exc0D, EXCEPTION_ACCESS_VIOLATION>
+exc0E   EXCDESC <0,14,offset _exc0E, EXCEPTION_ACCESS_VIOLATION>
 if ?FLOATSUPP
-exc10   EXCDESC <10h,0,offset _exc10, 0>
+exc10   EXCDESC <0,16,offset _exc10, 0>
 endif
 if ?CATCHEXC11
-exc11   EXCDESC <11h,0,offset _exc11, EXCEPTION_DATATYPE_MISALIGNMENT>
+exc11   EXCDESC <0,17,offset _exc11, EXCEPTION_DATATYPE_MISALIGNMENT>
 endif
         db -1
 
@@ -452,14 +453,14 @@ GetExcNo proc uses esi pExceptptr:ptr EXCEPTION_POINTERS
 	.endif
 	mov esi,offset exclist
 next:
-	cmp [esi.EXCDESC.bException],-1
+	cmp [esi.EXCDESC.wException],-1
 	jz notfound
 	cmp eax,[esi.EXCDESC.win32exc]
 	jz found
 	add esi,sizeof EXCDESC
 	jmp next
 found:
-	movzx ax,[esi].EXCDESC.bException
+	mov ax,[esi].EXCDESC.wException
 	ret
 notfound:
 	mov ax,1Fh
@@ -565,15 +566,15 @@ endif
 	test byte ptr g_dwFlags, DKF_NODBGHOOK
 	jz @F
 skip0103:
-	mov exc01.bException,-2
-	mov exc03.bException,-2
+	mov exc01.wException,-2
+	mov exc03.wException,-2
 @@:
 	mov esi,offset exclist
 nextitem:
-	mov bl,[esi].EXCDESC.bException
-	cmp bl,-1
+	mov bx,[esi].EXCDESC.wException
+	cmp bx,-1
 	jz exit
-	cmp bl,-2
+	cmp bx,-2
 	jz skip
 	mov ax,0202h
 	test g_bHost, HF_HDPMI
@@ -585,7 +586,7 @@ nextitem:
 	int 31h
 	jc skip
 	mov dword ptr [esi].EXCDESC.oldhandler+0,edx
-	mov dword ptr [esi].EXCDESC.oldhandler+4,ecx
+	mov word ptr [esi].EXCDESC.oldhandler+4,cx
 	test byte ptr g_dwFlags,DKF_NOEXCHOOK
 	jnz skip
 	mov ecx,cs
@@ -670,10 +671,10 @@ ExitException proc
 	@strace <"ExitException enter">
 	mov esi,offset exclist
 next:
-	mov bl,[esi.EXCDESC.bException]
-	cmp bl,-1
+	mov bx,[esi.EXCDESC.wException]
+	cmp bx,-1
 	jz exit
-	mov ecx,dword ptr [esi.EXCDESC.oldhandler+4]
+	movzx ecx,word ptr [esi.EXCDESC.oldhandler+4]
 	jecxz @F
 	mov edx,dword ptr [esi.EXCDESC.oldhandler+0]
 	mov ax,0203h
@@ -1000,8 +1001,11 @@ endif
 
 ;--- these are the real dpmi exception handler entries
 
-@exchandler macro x
+@exchandler macro x,y
 _exc&x:
+ifnb <y>
+	int 3
+endif
 	push offset exc&x
 	jmp  doexception
 	endm
@@ -1119,7 +1123,7 @@ endif
 if 1
 	.if (cs:g_bDebugger)
 		mov ebx, ?EXCPARM
-		movzx bx, cs:[ebx].EXCDESC.bException
+		mov bx, cs:[ebx].EXCDESC.wException
 		mov cx, DEBUG_FAULT_TYPE_FIRST
 		mov ax, DS_CheckFault
 		int 41h
@@ -1132,7 +1136,7 @@ else
 			mov ecx, [ebp].DPMIEXC.rCS
 endif
 			mov ebx, ?EXCPARM
-			movzx bx, cs:[ebx].EXCDESC.bException
+			mov bx, cs:[ebx].EXCDESC.wException
 if ?DPMI16
 			movzx esi, [ebp].DPMIEXC.errc
 			movzx edi, [ebp].DPMIEXC.rEflags
@@ -1220,7 +1224,7 @@ endif
 	xor eax,eax
 	mov [edi].MYEXC.dwFlags,eax
 ;	.if (([ebx].EXCDESC.bException == 0Eh) || ([ebx].EXCDESC.bException == 0Ch))
-	.if ( [ebx].EXCDESC.bException == 0Eh )
+	.if ( [ebx].EXCDESC.wException == 14 )
 		mov [edi].MYEXC.numArgs,2
 		mov [edi].MYEXC.pArgs,offset g_Args
 		.if (g_bHost == HF_HDPMI)
@@ -1311,12 +1315,18 @@ endif
 		;--- it's NOT exception 0Eh
 		mov [edi].MYEXC.numArgs,eax
 		mov [edi].MYEXC.pArgs,eax
+;--- v3.11: reset EFL.AC if exc 17
+		cmp [ebx].EXCDESC.wException, 17
+		jnz @F
+		btr g_Eflags,18
+		btr [ebp].DPMIEXC.rEflags,18
+@@:
 if ?CATCHEXC0C
 ;--- this usually is NOT a stack overflow but an access of SS outside
 ;--- segment limits. With DKRNL32 this can only occur if SS descriptor
 ;--- has ED bit set.
   if 0
-		.if ([ebx].EXCDESC.bException == 0Ch)
+		.if ([ebx].EXCDESC.wException == 12)
 			mov eax,[ebp].DPMIEXC.rEsp
 			mov g_dwCurrEsp, eax
 			call gethelperstack
@@ -1337,7 +1347,7 @@ doexc_exit:
 if ?DPMI16
 	db 66h
 endif
-	retf
+	retf         ;back to DPMI host
 	align 4
         
 doexception endp

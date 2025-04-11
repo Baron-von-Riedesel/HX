@@ -1,4 +1,9 @@
 
+  __.__.____: version 3.11
+
+  þ fixed: unaligned access in exception handler caused a stack error if
+    alignment exception (0x11) occured.
+
   24.03.2025: version 3.10
 
   þ CreateProcess() emulation: handle appname in quotes in a manner compatible

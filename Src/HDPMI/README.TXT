@@ -110,9 +110,9 @@
  4. Makefiles
 
   þ HDPMIxx.MAK: creates standard version of HDPMIxx in STDxx directory. This
-    is the only version currently that's in PE file format.
+    variant is in PE file format.
 
-  þ HDPMIxxA.MAK: creates 2 versions: the first, in directory HSCMxx, has
+  þ HDPMIxxA.MAK: creates 2 variants: the first, in directory HSCMxx, has
     the host stack in conventional memory (which was "standard" before v3.18);
     the second version, in directory NOLFNxx, lacks LFN support, otherwise
     it's similar to the first.
@@ -122,7 +122,7 @@
     since it allows to run Win9x in enhanced mode.
 
   þ HDPMIxxI.MAK: creates a version where clients will run with IOPL=0, in
-    directory IOPL0xx.
+    directory IOPL0xx. This variant is in PE file format.
 
   þ HDPMIxxS.MAK: creates a "stub" version, in directory STUBxx. These stubs
     may be added, either by the linker or as assembly include files, to other

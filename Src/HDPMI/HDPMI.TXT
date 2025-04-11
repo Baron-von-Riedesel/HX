@@ -476,6 +476,7 @@
 
    - save the current IDT
    - save the current LDT
+   - save current state of register DR7
    - save other client resources, among which are
      + real-mode callbacks
      + ring 3 interrupt vectors
@@ -487,6 +488,7 @@
    On client termination, HDPMI will do:
 
    - free memory handles the client has allocated
+   - restore register DR7
    - restore the IDT to the previous state
    - restore the LDT to the previous state
    - restore other resources to the previous state
@@ -547,6 +549,9 @@
    Int 31h, AX=80xh: a count is maintained internally for those functions.
    So to ensure that the region is released after usage, each successfull call
    of function ax=800h should have its corresponding ax=801h call.
+
+   Int 31h, AX=B00h: if supported by the cpu, I/O watchpoints may be set
+   by calling this API with DH=3. Requires CR4, bit 3, to be set.
 
    Some privileged opcodes are emulated (this feature is not active if
    cmdline option -s ['safe' mode] is given):

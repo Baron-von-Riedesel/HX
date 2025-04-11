@@ -10,6 +10,7 @@
 
 ?XMSHOOK equ 0		;1 doesnt work reliably!
 					;  perhaps HDPMI=64 is better?
+?DISABLEHOST equ 0	;1 disable DPMI host   
 
 	.stack 1024		;size aligned to paragraphs
 
@@ -137,7 +138,7 @@ XMSHook proc
 @@:
 	cmp ah,88h		; query free extended memory
 	jz is88
-	cmp ah,89h		; allocated extended memory block
+	cmp ah,89h		; allocate extended memory block
 	jz is89
 default:
 	db 0eah
@@ -166,7 +167,7 @@ XMSHook endp
 
 PF16 typedef far16 ptr
 
-;--- wswap graps up to 65535 kB of XMS memory
+;--- wswap grabs up to 65535 kB of XMS memory
 ;--- and installs a XMS hook. But it doesn't understand
 ;--- XMS v3.0 function ah=89h and HDPMI usually uses it if
 ;--- a 3+ driver is installed, making both tools incompatible.
@@ -227,6 +228,21 @@ RemoveXMSHook proc
 
 RemoveXMSHook endp
 
+endif
+
+if ?DISABLEHOST
+myint2f proc
+	cmp ax,1687h
+	jz @F
+old2f:
+	db 0eah
+oldint2f dd 0
+@@:
+	dec cs:[wCnt]
+	jz old2f
+	iret
+wCnt dw 1
+myint2f endp
 endif
 
 ;--- main: DS=dgroup, es=PSP
@@ -354,6 +370,16 @@ endif
 
 ;--------------------- now call KRNL386
 
+if ?DISABLEHOST
+	mov ax,352Fh
+	int 21h
+	mov word ptr [oldint2f+0],bx
+	mov word ptr [oldint2f+2],es
+	mov dx,offset myint2f
+	mov ax,252fh
+	int 21h
+endif
+
 	mov bx,offset parmb
 	push ds
 	pop es
@@ -365,6 +391,13 @@ endif
 	mov dx,offset szErr1
 	int 21h
 @@:
+if ?DISABLEHOST
+	lds dx,[oldint2f]
+	mov ax,252Fh
+	int 21h
+	push cs
+	pop ds
+endif
 done:
 if ?XMSHOOK
 	call RemoveXMSHook
