@@ -10,7 +10,8 @@ if ?ENHANCED
 	include vxd.inc
 
 ?CLRI2F1684	= 1	;int 2f,ax=1684: set ES:E/DI to 0:0 
-?LOG		= 2+4;log switches (unsupported int 2f,ah=1684 calls)
+;?LOG		= 2+4;log switches (unsupported int 2f,ah=1684 calls)
+?LOG		= 0	;log switches (unsupported int 2f,ah=1684 calls)
 ?DBGSTOP	= 0 ;
 
 PR_PRIVATE	equ 80000400h

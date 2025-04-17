@@ -8,9 +8,17 @@
 	.386
 	.dosseg
 
-?XMSHOOK equ 0		;1 doesnt work reliably!
-					;  perhaps HDPMI=64 is better?
-?DISABLEHOST equ 0	;1 disable DPMI host   
+ifndef ENHANCED
+ENHANCED equ 0 ;1=load HDPMI16e instead of HDPMI16
+endif
+
+;--- ?XMSHOOK: 1=install an XMS hook to make HDPMI16 compatible with WSWAP.EXE.
+;--- It's needed if XMS memory is <= 64MB, and it's recommended if XMS memory is <= 128MB.
+;--- It doesn't really work, though - it's better to set environment variable HDPMI=64.
+?XMSHOOK equ 0
+
+;--- ?DISABLEHOST: 1=disable DPMI host; not needed; (WSWAP does disable it on its own?)
+?DISABLEHOST equ 0
 
 	.stack 1024		;size aligned to paragraphs
 
@@ -43,7 +51,12 @@ cmdline	db 0,0Dh
 szPath	db "PATH="
 SIZPATH equ $ - szPath
 
-svrname db "HDPMI16.EXE",0
+svrname label byte
+if ENHANCED
+        db "HDPMI16e.EXE",0
+else
+        db "HDPMI16.EXE",0
+endif
 SIZSVRNAME equ $ - svrname
 prg     db "SYSTEM\KRNL386.EXE",0
 szErr1	db "cannot launch SYSTEM\KRNL386.EXE",13,10,'$'

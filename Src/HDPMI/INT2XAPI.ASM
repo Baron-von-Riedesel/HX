@@ -215,6 +215,7 @@ PrepareDiskIoRead proc public
 	@dprintf "PrepareDiskIoRead: simple disk io format, cx=%X",cx
 	cmp cx,?TLBSECS
 	ja error
+	call setdsreg2tlb ;v3.23: added (regression in v3.22)
 	clc
 	ret
 isext:
@@ -250,7 +251,7 @@ if ?32BIT
 else
 	movzx edx,bx
 endif
-	call copy_dsdx_2_tlb	;copy CX bytes from DS:E/DX to TLB:0
+	call copy_dsdx_2_tlb	;copy CX bytes from DS:E/DX to TLB:0, set v86-ds to TLB
 	pop edx
 	pop ecx
 	clc
@@ -328,13 +329,17 @@ AfterDiskIoRead endp
 ;--- call real-mode int 25h/26h
 ;--- rewritten for v3.22
 ;--- since v3.21, macro @simrmint cannot be used anymore for int 25h/26h
+;--- v3.23: fixed regression in v3.22 if cx != -1
 
 callrmint2526 proc
-	mov byte ptr ss:[int2526rm+1], bl
 ife ?DIO2RMS
+	mov byte ptr ss:[int2526rm+1], bl
 	mov bx, 0
 	call setdsreg2tlb
 else
+	cmp cx,-1   ;v3.23: added
+	jnz nodios
+	mov byte ptr ss:[int2526rm+1], bl
 	mov ebx, ss:v86iret.rESP
 	push ebx
 	sub ebx, sizeof DISKIORM
@@ -352,7 +357,21 @@ done:
 if ?DIO2RMS
 	pop ss:v86iret.rESP
 endif
+done2:
 	ret
+
+if ?DIO2RMS ;v3.23: added
+nodios:
+	mov byte ptr ss:[int2526rm2+1], bl
+	mov bx,0
+	call setdsreg2tlb
+	@jmp_rm int2526rm2
+_TEXT16 segment
+int2526rm2:
+	int 00h
+    @jmp_pm done2
+_TEXT16 ends
+endif    
 callrmint2526 endp
 
 ;*** absolute disk read ***

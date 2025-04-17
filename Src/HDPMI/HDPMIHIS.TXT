@@ -2,6 +2,8 @@
  History HDPMI 
 
   __.__.____, version 3.23
+  þ fixed int 25h/26h, cx != -1: don't copy (non-existing) diskio struct to
+    TLB!
   þ int 31h, ax=0B00h: support DH=3 (I/O watchpoint)
   þ documented that register DR7 is saved/restored when a client starts/ends.
 

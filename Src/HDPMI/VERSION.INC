@@ -2,4 +2,4 @@
 ;--- current HDPMI version
 
 ?VERMAJOR		equ 3
-?VERMINOR		equ 22
+?VERMINOR		equ 23

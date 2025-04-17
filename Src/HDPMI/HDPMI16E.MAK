@@ -35,7 +35,7 @@ LCMDS = format DOS file $(OUTD)\$(SRC).obj name $*.EXE lib $(OUTD)\$(NAME).lib o
 
 SRC   = hdpmi
 
-DEPS0 = hdpmi.inc external.inc version.inc $(NAME)e.mak
+DEPS0 = hdpmi.inc external.inc version.inc vxd.inc $(NAME)e.mak
 
 !if $(DEBUG)
 OUTD=ENH16D
