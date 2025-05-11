@@ -332,20 +332,23 @@ AfterDiskIoRead endp
 ;--- v3.23: fixed regression in v3.22 if cx != -1
 
 callrmint2526 proc
-ife ?DIO2RMS
 	mov byte ptr ss:[int2526rm+1], bl
+ife ?DIO2RMS
 	mov bx, 0
 	call setdsreg2tlb
 else
-	cmp cx,-1   ;v3.23: added
-	jnz nodios
-	mov byte ptr ss:[int2526rm+1], bl
 	mov ebx, ss:v86iret.rESP
 	push ebx
+	cmp cx,-1   ;v3.23: no DISKIORM if cx != -1
+	jz @F
+	xor bx,bx
+	jmp cri2526
+@@:
 	sub ebx, sizeof DISKIORM
 	mov ss:v86iret.rESP, ebx
 	push ss:v86iret.rSS
 	pop ss:v86iret.rDS
+cri2526:
 endif
 	@jmp_rm int2526rm
 _TEXT16 segment
@@ -360,18 +363,6 @@ endif
 done2:
 	ret
 
-if ?DIO2RMS ;v3.23: added
-nodios:
-	mov byte ptr ss:[int2526rm2+1], bl
-	mov bx,0
-	call setdsreg2tlb
-	@jmp_rm int2526rm2
-_TEXT16 segment
-int2526rm2:
-	int 00h
-    @jmp_pm done2
-_TEXT16 ends
-endif    
 callrmint2526 endp
 
 ;*** absolute disk read ***

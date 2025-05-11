@@ -1867,12 +1867,21 @@ intr2169 endp
 
 if ?LFNSUPPORT
 
+;--- ax=71a7: time conversion functions
+;--- bl=0: file time -> dos time; ds:si -> file time (qword)
+;---     out: dos time/date in cx/dx
+;--- bl=1:  dos time -> file time; cx = dos time; dx = dos date
+;---     out: es:di -> file time/date 
+
 int2171a7 proc
 	cmp bl,1
 	jz @F
 	push esi
 	call setdsreg2tlb
-	push es
+;--- setup arguments for stdcall copy_far32_2_tlbxx(size:dword, dstofs:dword, src:far32)
+;--- v3.23: fixed, must be DS:E/SI, not ES:E/SI
+;	push es
+	push ds
 if ?32BIT
 	push esi
 else
@@ -1882,7 +1891,7 @@ endif
 	xor esi, esi
 	push esi
 	push sizeof QWORD
-	call copy_far32_2_tlbxx	;copy 37 bytes to TLB:100h
+	call copy_far32_2_tlbxx	;copy 8 bytes to TLB:100h
 	call rmdoswithcarry
 	pop esi
 	ret
@@ -1893,8 +1902,8 @@ endif
 	call rmdoswithcarry
 	pop edi
 	jc @F
-	push word ptr sizeof QWORD
-	push word ptr 0
+	push word ptr sizeof QWORD ;copy 8 bytes
+	push word ptr 0         ;offset TLB
 	call copy_tlbxx_2_esdi
 @@:
 	ret

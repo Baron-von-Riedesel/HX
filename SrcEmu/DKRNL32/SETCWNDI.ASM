@@ -70,14 +70,20 @@ MODEDESC ends
 
 modes label MODEDESC
 	MODEDESC <25,16,0>
+if ?VGA
 	MODEDESC <28,14,1>
 	MODEDESC <30,16,1>
 	MODEDESC <34,14,1>
+endif
 	MODEDESC <50,08,0>
+if ?VGA
 	MODEDESC <60,08,1>
+endif
 MODESSIZ equ ($ - modes) / sizeof MODEDESC
 
 	.CODE
+
+if ?VGA
 
 putcrt proc
 	lodsb
@@ -130,7 +136,6 @@ getinpst1 proc				; get input status register 1
 	ret
 	align 4
 getinpst1 endp
-
 
 setscanlines proc private uses esi pParms:ptr
 
@@ -190,7 +195,12 @@ setscanlines proc private uses esi pParms:ptr
 
 setscanlines endp
 
+endif
+
+;--- switch to text mode if in graphics mode
+
 checkvmode proc private
+if ?VGA
 	mov dx,3ceh					;graphics controller port
 	mov al,6
 	out dx,al
@@ -198,6 +208,13 @@ checkvmode proc private
 	in al,dx
 	test al,1					;text mode on?
 	jz @F
+else
+	mov al,ds:[449h]
+	cmp al,7
+	jz @F
+	cmp al,3
+	jbe @F
+endif
 	mov ax,0003h
 	int 10h
 @@:
@@ -321,20 +338,21 @@ nextitem:
 	mov [VIOPAGESIZ],ax
 	pop edx
 	mov [VIOROWS],dl
-
+if ?VGA
 	.if ([ebx].MODEDESC.b480)
 		mov eax, offset parms480
 	.else
 		mov eax, offset parms400
 	.endif
 	invoke setscanlines, eax
-
+endif
 	jmp done
 error:
 	xor eax,eax
 	jmp exit
 
 vesamodes:
+if ?VGA
 	mov bx,109h
 	cmp edx,25 * 10000h + 132	;132x25 (VESA mode 109h)
 	jz @F
@@ -344,12 +362,15 @@ vesamodes:
 	inc ebx
 	cmp edx,50 * 10000h + 132	;132x50	(VESA mode 10Bh)
 	jz @F
+endif
 	jmp error
+if ?VGA
 @@:
 	mov ax,4F02h
 	int 10h
 	cmp ax,004Fh
 	jnz error
+endif
 done:
 	invoke SetIntensityBackground
 exit2:

@@ -179,8 +179,10 @@ seteventproc endp
 
 ;--- this is called during interrupt time
 ;--- so dont change vga status!
+;--- out: eax!=0 if graphics mode
 
 InGraphicsMode proc
+if ?VGA
 	push edx
 	mov dx, 3ceh
 	in al, dx		;save index register
@@ -195,6 +197,17 @@ InGraphicsMode proc
 	pop edx
 	and ah,1
 	movzx eax,ah
+else
+	mov al,ds:[449h]
+	cmp al,3
+	jbe istext
+	cmp al,7
+	jz istext
+	movzx eax,al
+	ret
+is_text:
+	xor eax,eax
+endif
 	ret
 	align 4
 InGraphicsMode endp

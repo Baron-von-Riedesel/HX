@@ -10,7 +10,11 @@ endif
 	include winbase.inc
 	include dkrnl32.inc
 
+if ?VGA
 ?USEI10 equ 0
+else
+?USEI10 equ 1
+endif
 
 	.code
 

@@ -75,7 +75,9 @@
      valid options are:
        - g = instructs DPMILD32 to load a console application as if it is
              a GUI application, that is, it will try to load HXGUIHLP.DLL
-             before the application's entry point is called.
+             before the application's entry point is called. Be aware that
+             HXGUIHLP.DLL activates the Win32 layer, that is, some Win32
+             emulation dlls will be loaded, including DKRNL32.DLL.
 
 
  4.  Environment variable DPMILDR

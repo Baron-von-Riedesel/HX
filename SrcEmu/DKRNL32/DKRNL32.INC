@@ -10,6 +10,7 @@
 
 ?USEINDOS   = 1         ;std=1, 1=use indosflag as mutex
                         ;       0=use separate flag as mutex (g_bDosUsed)
+?VGA			equ 1	;std=1, 1=assume graphics card is VGA compatible
 if ?FLAT                        
 ?HOOKINT21		equ	1	;std=1, hook necessary if kernel code is linked statically to binary
 else
