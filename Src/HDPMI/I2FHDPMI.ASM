@@ -145,7 +145,7 @@ SI_CPORT    equ 40h	; if IN/OUT: 1=port in bits 8-15
 SI_ADDR16   equ 40h	; if INS/OUTS: 1=don't use hiwords ESI/EDI/ECX
 SI_REPPRE   equ 80h
 
-NUMTRAP equ 8	; max trap ranges, currently static
+NUMTRAP equ 10	; max trap ranges, currently static
 
 TRAPPROCS struct
 if ?32BIT
