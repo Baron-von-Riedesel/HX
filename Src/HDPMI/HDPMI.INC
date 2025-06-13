@@ -261,6 +261,8 @@ endif
 ;--- since v3.20, the vendor API is generally available
 ?VENDORAPI		equ 1	;std 1: 1=support vendor API int 2Fh, ax=168Ah
 
+?CHECKR3SS		equ 0	;std 0; 1=for debugging of stack problems
+
 ;----------------------------------------------------------------
 
 if ?32BIT
@@ -641,6 +643,12 @@ if 1
 	mov ebp,ss:[dwHostStack]
 	push [ebp-sizeof IRET32].IRET32.rSP
 	mov ebp,[ebp-sizeof IRET32].IRET32.rSSd
+ if ?CHECKR3SS
+	verw bp
+	jz @F
+	int 3
+@@:
+ endif
 	pop ss:pmstate.rESP
 	mov ss:pmstate.rSSd, ebp
 	pop ebp

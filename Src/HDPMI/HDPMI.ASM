@@ -1182,7 +1182,7 @@ _DATA16 ends
 
 _DATA16C segment
 
-;--- v3.20: pmstate move to client-specific data region
+;--- v3.20: pmstate moved to client-specific data region;
 ;--- it was in _DATA16, but there the values become invalid when
 ;--- a client has terminated. This is a problem if another client
 ;--- is still active and has hooked into IRQ interrupts ( so
@@ -1652,6 +1652,12 @@ endif
 lpms_ci_21:
 	mov eax, [esp].IRQFRAME.old.rSP
 	mov edx, [esp].IRQFRAME.old.rSSd
+if ?CHECKR3SS	;for debugging
+	verw dx
+	jz @F
+	int 3
+@@:
+endif
 	mov dword ptr ss:spPMS+0,eax
 	mov dword ptr ss:spPMS+4,edx
 	mov ss:bLPMSused,1
@@ -1813,6 +1819,12 @@ RPMIFR ends
 	@ResetTrace
 
 rpmstacki proc
+if ?CHECKR3SS
+	verw word ptr ss:[spPMS+4]		;valid stack segment?
+	jz @F
+	int 3
+@@:
+endif
 	push ds
 	mov ss:bLPMSused,0
 ife ?CSIPFROMTOP
@@ -3178,6 +3190,12 @@ else
 ;--- became active due to intercepting IRQs. Cause: pmstate wasn't located in
 ;--- client data area and hence still contained selectors of the terminated client
 	push ss:pmstate.rSSd
+ if ?CHECKR3SS
+	verw word ptr [esp+0]
+	jz @F
+	int 3
+@@:
+ endif
 	push ss:pmstate.rESP
 	push ss:tmpFLRegD
 	pushd _INTSEL_
@@ -4405,15 +4423,23 @@ INITCLPM ends
 ;--- it first pushes the current segment register values of pmstate.
 ;--- however, macro @store_ssesp expects [dwHostStack] to point ABOVE
 ;--- an IRET32 struct.
-;--- that's a problem when the host is reentered during initialization due to
-;--- callouts for debug displays, and a rmcb/irq is then routed to pm.
-;--- v3.22: as a fix, ?SAVESSESPONINIT has been introduced.
+;--- that's a problem when the host is reentered during initialization
+;--- (for example due to callouts for debug displays) and a rmcb/irq is
+;--- then routed to pm.
+;--- v3.22: as a fix, ?SAVESSESPONINIT has been introduced (for _DEBUG).
 
-ifdef _DEBUG
+;--- v3.23: switch now always 1;
+;---        this ensures that theres a valid ss:esp below [dwHostStack]
+;---        if another client is starting (for the first client it's still
+;---        invalid, but shouldn't matter).
+;---        test case: a client hooks an IRQ that's getting active while
+;---        another client is initializing.
+
+;ifdef _DEBUG
 ?SAVESSESPONINIT equ 1
-else
-?SAVESSESPONINIT equ 0
-endif
+;else
+;?SAVESSESPONINIT equ 0
+;endif
 
 @makeinitclpmframe macro
 if ?SAVESSESPONINIT

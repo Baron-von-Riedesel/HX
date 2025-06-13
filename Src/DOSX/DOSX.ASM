@@ -8,6 +8,7 @@
 	.386
 	.dosseg
 
+CHECKHOST equ 1 ;1=check if DPMI host active before trying to load hdpmi16
 ifndef ENHANCED
 ENHANCED equ 0 ;1=load HDPMI16e instead of HDPMI16
 endif
@@ -299,11 +300,13 @@ ivx1 db "....:....",13,10,'$'
 	popa
 endif
 
+if CHECKHOST
 	mov ax,1687h
 	int 2fh
 	and ax,ax
 	jz @F
-;--------------------- load HDPMI (is a tsr) if no dpmi server present
+endif
+;--------------------- load HDPMI16(e) if no dpmi host present
 	call SearchPath
 	mov si,di
 	call SearchSvr
@@ -327,7 +330,7 @@ error2:
 	push ds
 	lds si,dword ptr pcmdl
 
-if 0
+if 0   ; display the cmdline
 	pusha
 	mov ax,3
 	int 10h
