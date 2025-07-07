@@ -2,6 +2,7 @@
  History HDPMI 
 
   __.__.____, version 3.23
+
   þ fixed int 25h/26h, cx != -1: don't copy (non-existing) diskio struct to
     TLB!
   þ int 31h, ax=0B00h: support DH=3 (I/O watchpoint)
@@ -9,6 +10,8 @@
   þ fixed int 21h, ax=71a7h, bl=0: src must be ds:e/si, but es:e/si was used.
   þ switch ?SAVESSESPONINIT now always 1; should fix problems with IRQs
     handled by a client while another client is initializing.
+  þ fixed int 31h, ax=503h/505h: if base address of resized block had to
+    change, the block's owner was set to the current client.
 
   24.03.2025, version 3.22
 
@@ -18,7 +21,7 @@
   þ fixed: RF was lost when an IRQ returned and a stack switch was to happen.
   þ fixed: hiword(ecx) may have been != 0 in ResizeLDT(), resulting in a severe
     host crash.
-  þ kernel debugger API ah=45h, int 68h, called if kd detected. 
+  þ kernel debugger API ah=45h, int 68h, called if kd detected.
   þ support for jhdpmi JLM. Support is enabled for both HDPMIxx and HDPMIxxi.
   þ fixed: VCPI detection was skipped if any tsr responded to Int 2fh, ax=1600h.
   þ interrupt handling reworked; cmdline option -i removed.

@@ -540,11 +540,13 @@
    - 0C00h + 0C01h, DPMI TSRs
    - 0D00h - 0D03h, shared memory
 
-   Int 31h, AX=508h (map device in memory block) will set paging flags
-   "write through" and "cache disabled". OTOH, function int 31h, AX=800h
-   will NOT set those flags. Int 31h, AX=509h (map conventional memory) 
-   will copy PTEs, so the destination region will become a clone of the
-   source region, with UMBs mapped.
+   Int 31h, AX=508h (map device in memory block) may set paging flags
+   "write through" and "cache disabled" if physical address is beyond
+   top of memory. OTOH, function int 31h, AX=800h will never set those flags.
+
+   Int 31h, AX=509h (map conventional memory) will copy PTEs, so the
+   destination region will become a clone of the source region, with UMBs
+   mapped.
 
    Int 31h, AX=80xh: a count is maintained internally for those functions.
    So to ensure that the region is released after usage, each successfull call

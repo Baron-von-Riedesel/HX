@@ -988,13 +988,16 @@ dwVSize		dd 0
 endif
 
 if ?SAVERMGDTR
-rmgdt	  df 0					;GDT pseudo descriptor for real mode
+rmgdt		df 0				;GDT pseudo descriptor for real mode
 endif
 if ?SAVEMSW
-wMSW	dw 0					;real-mode MSW on entry
+wMSW		dw 0				;real-mode MSW on entry
 endif
 
-dwOldVec96 dd 0
+dwOldVec96	dd 0
+if ?TOPMEM
+dwTopMem	dd 0				;value returned in ECX by XMS call ah=88h
+endif
 wHostSeg	dw 0				;segment host (GROUP16)
 
 _cpu		db 0				;CPU (3=386,4=486, ...)
@@ -2447,9 +2450,12 @@ else
 	movzx eax, word ptr [ebx].IRETS.rIP
 	mov [esp+4].I30FR.rIP,eax
 	mov ax, [ebx].IRETS.rCS
-	mov [esp+4].I30FR.rCS,ax
+	mov [esp+4].I30FR.rCSd,eax
 	mov ax, [ebx].IRETS.rFL
-	mov [esp+4].I30FR.rFL,eax
+;--- bits 16-31 of EFL aren't stored on the client stack
+;--- v3.23: but they are still stored on the host stack
+;	mov [esp+4].I30FR.rFL,eax
+	mov word ptr [esp+4].I30FR.rFL,ax
 endif
 	add [esp+4].I30FR.rSP,sizeof IRETSPM	;adjust client stack
 	pop ds

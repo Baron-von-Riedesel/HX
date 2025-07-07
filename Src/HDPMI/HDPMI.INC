@@ -125,6 +125,7 @@ endif
 ifndef ?JHDPMI
 ?JHDPMI			equ 0	;std 0; 1=support jhdpmi JLM in vcpi mode
 endif
+?TOPMEM			equ 0	;std ?; 1=use top of memory (returned by XMS) for phys2lin mapping
 
 if ?DPMI10EXX
 ?EXCRESTART		equ 1	;std 1: 1=support exception restartability

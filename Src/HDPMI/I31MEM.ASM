@@ -173,8 +173,8 @@ _addmemhandle endp
 ;*** search/alloc a free address space
 ;*** IN: ECX=size in pages
 ;***     EBX=linear address (or any if ebx=NULL)
+;***     DS=GROUP16
 ;*** OUT: NC + EAX=handle, else C + AX=errorcode
-;--- DS=GROUP16
 ;*** scans MEMITEM list for a free block of requested size.
 ;--- pm_AllocUserSpace() accepts EBX as linear start address.
 ;--- However, currently it cannot create a specific address space
@@ -182,6 +182,11 @@ _addmemhandle endp
 ;--- Hence all space between the requested address and the last allocated address
 ;--- will be created as well. This is transparent for i31mem functions, so
 ;--- _allocaddrspace() can ignore this incapability.
+;--- called by
+;---  _AllocMemory (int 31h, ax=501h/504h)
+;---  _resizememint (int 31h, ax=503h/505h) if old block cannot be increased
+;---  _mapphysregion (int 31h, ax=800h)
+;---  _allocaddrspaceX (to allocate LDT/IDT if ?USESTDALLOC==1)
 
 _allocaddrspace proc
 
@@ -846,6 +851,12 @@ resizemem2:
 	jc err80XX				;error 'no more space' or 'no handle'
 	@dprintf "resizemem: new address space allocated %lX",[eax].MEMITEM.dwBase
 	mov ebx, eax
+
+;--- v3.23: _allocaddrspace has set bOwner to current client;
+;---        the old block's owner must therefore be copied to new block.
+	mov al, [esi].MEMITEM.bOwner
+	mov [ebx].MEMITEM.bOwner, al
+
 	test ebp,1
 	jz @F
 	mov ecx,[ebx].MEMITEM.dwSize	;new size
@@ -1245,6 +1256,12 @@ endif
 	cmp [esp].PUSHADS._AL,08	;is it int 31h, ax=508?
 	jnz ax509
 	mov bl,1					;set BL=1 -> page flags "write thru" + "cache disable"
+if ?TOPMEM
+	cmp edx,[dwTopMem]
+	jnc @F
+	mov bl,0
+@@:
+endif
 	call pm_mapphysregion		;cannot fail, eax=lin dst, edx=phys src
 	jmp done
 ax509:	;v3.19: if DOS memory is to be mapped, copy PTEs, so it works correctly with UMBs

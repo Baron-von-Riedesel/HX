@@ -665,6 +665,11 @@ nodpmi:
 	or [fHost],FH_XMS30
 	or [fXMSAlloc],80h
 	or [fXMSQuery],80h
+if ?TOPMEM
+	mov ah,88h
+	call [xmsaddr]
+	mov [dwTopMem],ecx
+endif
 @@:
 	mov ax,3567h		;get int 67h vector
 	int 21h
@@ -1101,7 +1106,7 @@ text41  db "%.EXE open error",0
 text42  db "%.EXE read error",0
 endif
 ife ?STUB
-error4	db "% v",?VERMAJOR+'0',".",@CatStr(!",%?VERMINOR/10,%?VERMINOR mod 10,!")," (c) japheth 1993-2024"
+error4	db "% v",?VERMAJOR+'0',".",@CatStr(!",%?VERMINOR/10,%?VERMINOR mod 10,!")," (c) japheth 1993-2025"
 ifdef _DEBUG
 	db @CatStr(!" [, %@Date, <, >, %@Time,  ]!")
 endif

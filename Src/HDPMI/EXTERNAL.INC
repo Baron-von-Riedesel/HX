@@ -444,6 +444,9 @@ endif
 if ?JHDPMI
 externdef dwJHdpmi:dword
 endif
+if ?TOPMEM
+externdef dwTopMem:dword
+endif
 
 _DATA16 ends
 
