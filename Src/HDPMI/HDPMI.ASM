@@ -1504,7 +1504,7 @@ PCIFR ends
 	lds edi, [esp].PCIFR.rSSSP
 	mov [esp].PCIFR.pR3Proc, eax	;save content of EAX
 	@checkssattr ds,di
-	sub edi,sizeof IRETSPM
+	sub edi,sizeof IRETSPM          ;make room on client stack for IRET16/32 frame
 	mov [esp].PCIFR.rSP,edi
 if ?32BIT
 	mov eax, cs:[ebx].R3PROC._Eip
@@ -1521,7 +1521,7 @@ else
 	mov bx, cs:[ebx].R3PROC._Cs
 	xchg eax, [esp].PCIFR.rIP
 	xchg ebx, [esp].PCIFR.rCSd
-	mov [edi].IRETSPM.rIP, ax
+	mov [edi].IRETSPM.rIP, ax       ;16-bit client looses hiword(EIP)
 	mov [edi].IRETSPM.rCS, bx
 
 	mov eax, [esp].PCIFR.rFL

@@ -192,6 +192,10 @@ endif
 
 freesel proc public
 	or bl,?RING
+if ?NOR3SSREL
+	cmp bx,[esp].I31FR1.rSS	;do NOT free current PL3 SS
+	jz err
+endif
 	cmp bx,[esp].I31FR1.wDS
 	jnz @F
 	mov [esp].I31FR1.dwDS,0
@@ -223,6 +227,11 @@ freesel1::
 	@dprintf "freesel: selector %X released, DS=%X", bx, [esp].I31FR1.wDS
 	clc
 	ret
+if ?NOR3SSREL
+err:
+	stc
+	ret
+endif
 	align 4
 freesel endp
 

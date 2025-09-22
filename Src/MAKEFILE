@@ -74,6 +74,10 @@ install:
 	@if not exist $(HXINST)\LibOMF\NUL        mkdir $(HXINST)\LibOMF
 	@if not exist $(HXINST)\Lib16\NUL         mkdir $(HXINST)\Lib16
 	@if not exist $(HXINST)\OWSupp\NUL        mkdir $(HXINST)\OWSupp
+	@if not exist $(HXINST)\OWSupp\V19\NUL    mkdir $(HXINST)\OWSupp\V19
+	@if not exist $(HXINST)\OWSupp\V19\DOS\NUL mkdir $(HXINST)\OWSupp\V19\DOS
+	@if not exist $(HXINST)\OWSupp\V20\NUL    mkdir $(HXINST)\OWSupp\V20
+	@if not exist $(HXINST)\OWSupp\V20\DOS\NUL mkdir $(HXINST)\OWSupp\V20\DOS
 	@if not exist $(HXINST)\OWSupp\WDSupp\NUL mkdir $(HXINST)\OWSupp\WDSupp
 	@if not exist $(HXINST)\OWSupp16\NUL      mkdir $(HXINST)\OWSupp16
 	@if not exist $(HXINST)\Unsupp\NUL        mkdir $(HXINST)\UnSupp

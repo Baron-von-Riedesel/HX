@@ -1143,7 +1143,7 @@ if ?RESIDENT
 	db "  -r: install as TSR permanently. Without this option %",lf
 	db "      remains installed until the next client terminates.",lf
 endif
-	db "  -s: 'safe' mode. Prohibits client to modify system tables [4096]",lf
+	db "  -s: 'safe' mode; prohibits client to modify system tables [4096]",lf
 if ?CR0_NE
 	db "  -t: don't touch CR0 NE bit [32768]",lf
 endif
@@ -1151,13 +1151,13 @@ if ?RESIDENT
 	db "  -u: uninstall a running instance of %",lf
 endif
 if ?VCPIPREF
-	db "  -v: use VCPI memory if both XMS and VCPI hosts were detected",lf
+	db "  -v: prefer VCPI memory if both XMS and VCPI hosts were detected",lf
 endif
 if ?CR0_EM
 	db "  -w: don't clear CR0 EM bit",lf
 endif
 if ?RESTRICTMEM
-	db "  -x[n]: restrict reported free memory to 1..256MB",lf
+	db "  -x[n]: restrict reported free memory to 256/128/../1MB",lf
 endif
 if ?INT15XMS
 	db "  -y: use extended memory not managed by XMS host",lf

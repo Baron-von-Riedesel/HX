@@ -21,6 +21,11 @@ endif
 ;--- ?DISABLEHOST: 1=disable DPMI host; not needed; (WSWAP does disable it on its own?)
 ?DISABLEHOST equ 0
 
+;--- ?LOADHOST: 1=load hdpmi16.exe; 0=don't try to load, it's assumed to be loaded already
+ifndef ?LOADHOST
+?LOADHOST equ 1
+endif
+
 	.stack 1024		;size aligned to paragraphs
 
 	.DATA
@@ -49,6 +54,7 @@ sfcb2s  dw ?
 
 cmdline	db 0,0Dh
 
+if ?LOADHOST
 szPath	db "PATH="
 SIZPATH equ $ - szPath
 
@@ -59,15 +65,24 @@ else
         db "HDPMI16.EXE",0
 endif
 SIZSVRNAME equ $ - svrname
+endif
+
 prg     db "SYSTEM\KRNL386.EXE",0
 szErr1	db "cannot launch SYSTEM\KRNL386.EXE",13,10,'$'
+if ?LOADHOST
 szErr2	db "HDPMI16.EXE not found",13,10,'$'
+else
+szErr2	db "no DPMI host loaded",13,10,'$'
+endif
 
+if ?LOADHOST
 	.data?
-
 szSvr	db 128 dup (?)
+endif
 
 	.CODE
+
+if ?LOADHOST
 
 ;--- search PATH key in environment
 ;--- returns DI != 0 if found, else DI=0
@@ -140,6 +155,7 @@ notfound:
 	STC
 	RET
 SearchSvr endp
+endif
 
 if ?XMSHOOK
 
@@ -307,6 +323,7 @@ if CHECKHOST
 	jz @F
 endif
 ;--------------------- load HDPMI16(e) if no dpmi host present
+if ?LOADHOST
 	call SearchPath
 	mov si,di
 	call SearchSvr
@@ -318,6 +335,7 @@ endif
 	mov ax,4B00h
 	int 21h
 	jnc @F
+endif
 error2:
 	mov ah,9
 	mov dx,offset szErr2

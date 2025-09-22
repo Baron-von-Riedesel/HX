@@ -263,6 +263,9 @@ endif
 ?VENDORAPI		equ 1	;std 1: 1=support vendor API int 2Fh, ax=168Ah
 
 ?CHECKR3SS		equ 0	;std 0; 1=for debugging of stack problems
+ifndef ?NOR3SSREL
+?NOR3SSREL		equ 0	;std 0; 1=refuse to release selector of R3 SS
+endif
 
 ;----------------------------------------------------------------
 

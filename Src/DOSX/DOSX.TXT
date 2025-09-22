@@ -1,6 +1,6 @@
 
  1. About DOSX
- 
+
  HX's DOSX is a replacement for the Windows 3.1 DOSX.  It's purpose is to
  use HX's DPMI host HDPMI16 to run Windows 3.1 or WfW 3.11 in standard mode
  with DOS boxes available. This has one big benefit: HDPMI16 doesn't grab
@@ -8,20 +8,20 @@
  run in DOS boxes opened inside windows. Furthermore, the windows DOSX
  cannot use more than 512 MB memory, while HDPMI16 has no restriction
  in this regard.
- 
- 
+
+
  2. Installation
- 
+
  - Copy HX's DOSX.EXE to the Win3.1 system directory. It's a good idea
    to first make a backup copy of the original DOSX.EXE.
 
 
  3. Running DOSX.EXE
- 
+
  Starting windows in standard mode will make use of DOSX.EXE:
- 
+
    WIN /S
-    
+
  Please note: although DOSX.EXE could be launched directly (type
  SYSTEM\DOSX in the windows directory), this method won't run WSWAP.EXE,
  which is required for task switching in windows standard mode. So if
@@ -29,7 +29,7 @@
 
 
  4. Known Problems
- 
+
  - WfW 3.11's WIN.COM claims that this version cannot be run in standard
    mode. To run it nevertheless in this mode, copy WIN.COM, WSWAP.EXE and
    DSWAP.EXE from Windows 3.1 to the corresponding WfW 3.11 directories and
@@ -61,24 +61,24 @@
 
 
  5. How does DOSX work?
- 
+
  The windows startup procedure in standard mode is:
- 
-  - WIN.COM is started (by the user, with commandline parameter "/S") 
+
+  - WIN.COM is started (by the user, with commandline parameter "/S")
   - SYSTEM\WSWAP.EXE is launched by WIN.COM
   - SYSTEM\DOSX.EXE is launched by SYSTEM\WSWAP.EXE
   - SYSTEM\KRNL386.EXE is launched by SYSTEM\DOSX.EXE
-  
+
  HX's DOSX is a simple DOS real-mode application, unlike the Windows DOSX,
  which is the DPMI host used for standard mode. HX's DOSX will first start
  HDPMI16.EXE if no DPMI server is found, then load and run KRNL386.EXE as
  it is done by the original DOSX.
- 
- 
+
+
  6. Copyright
- 
+
  HX's DOSX is free to use for any purpose. Source and binary are released
  to public domain.
- 
+
  Japheth
- 
+

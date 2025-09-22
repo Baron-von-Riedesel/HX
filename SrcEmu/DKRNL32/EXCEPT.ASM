@@ -566,6 +566,8 @@ endif
 	test byte ptr g_dwFlags, DKF_NODBGHOOK
 	jz @F
 skip0103:
+;--- exc 01 is used by dispatcher - to debug multi-threaded apps require
+;--- the debugger to hide from int 41h!
 	mov exc01.wException,-2
 	mov exc03.wException,-2
 @@:

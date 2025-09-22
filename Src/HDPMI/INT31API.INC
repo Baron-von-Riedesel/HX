@@ -10,8 +10,9 @@ dwEbx	dd ?
 		dd ?	;return address
 union
 dwDS	dd ?	;client DS (is used internally)
-wDS		dw ?
+wDS		dw ?,?
 ends
+		IRETS <>	;only exists in full size if int 31h is called by PL3 code
 I31FR1 ends
 
 ;--- ah=00

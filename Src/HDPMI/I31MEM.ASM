@@ -1181,6 +1181,7 @@ getsetpageattr endp
 if ?DPMI10EX
 
 ;*** int 31h, ax=0508 (map physical device)
+;--- in:
 ;--- ESI=memory handle
 ;--- EBX=offset within block
 ;--- ECX=no of pages
