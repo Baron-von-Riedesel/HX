@@ -5,13 +5,14 @@
 
   þ fixed int 25h/26h, cx != -1: don't copy (non-existing) diskio struct to
     TLB!
-  þ int 31h, ax=0B00h: support DH=3 (I/O watchpoint)
+  þ int 31h, ax=0B00h: support DH=3 (I/O watchpoint).
   þ documented that register DR7 is saved/restored when a client starts/ends.
   þ fixed int 21h, ax=71a7h, bl=0: src must be ds:e/si, but es:e/si was used.
   þ switch ?SAVESSESPONINIT now always 1; should fix problems with IRQs
     handled by a client while another client is initializing.
   þ fixed int 31h, ax=503h/505h: if base address of resized block had to
     change, the block's owner was set to the current client.
+  þ INT 96h (IVT) is now used only if HDPMI=8192 is set.
 
   24.03.2025, version 3.22
 

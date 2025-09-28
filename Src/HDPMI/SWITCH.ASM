@@ -23,7 +23,7 @@ _TEXT16 segment
 	@ResetTrace
 
 _jmp_pmX proc near public
-	@rm2pmbreak
+	@rm2pmbrk
 _jmp_pmX endp		;fall through
 
 _jmp_pm proc near public

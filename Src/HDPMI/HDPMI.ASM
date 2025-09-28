@@ -994,7 +994,9 @@ if ?SAVEMSW
 wMSW		dw 0				;real-mode MSW on entry
 endif
 
+if ?INTRM2PM
 dwOldVec96	dd 0
+endif
 if ?TOPMEM
 dwTopMem	dd 0				;value returned in ECX by XMS call ah=88h
 endif
@@ -2690,7 +2692,7 @@ intr01 proc
 if ?TESTEXC01
 	push eax
 	mov eax, dr6
-	test ax, 0C00Fh
+	test ax, 0C00Fh ; bits 0-3: watchpoint triggered, bit 14: 1=single-step thru TF
 	jz @F
 	@dprintf "intr01: debug exception occured, dr6=%lX", eax
 	mov ah,0		; reset DR6 bits 12-15 - why?
@@ -2700,7 +2702,7 @@ if ?TESTEXC01
 @@:
 	pop eax
 	@simintpms 01
-isdebugexc:
+isdebugexc::
 endif
 	@exception 01
 	@mapexc2int 01
@@ -3083,7 +3085,9 @@ wPatchGrp163 dw 0	;will be patched with GROUP16
 ;	cmp cs:[bExcEntry],-1	;host entry possible?
 ;	jnz jmpprev				;if no, jump to previous handler
 
-	@rm2pmbreak
+	public intrmcb_brk
+intrmcb_brk::
+	@rm2pmbrk
 	mov cs:[wTmpRegBX],bx
 	mov cs:[wTmpRegAX],ax
 	mov bx,bp
@@ -3098,7 +3102,7 @@ if ?NTCLEAR
  endif
 endif
 if ?DISINT@RM2PM
-	and ah,0FDh
+	and ah,not 2
 endif
 	mov cs:[tmpFLReg],ax
 
@@ -3450,7 +3454,8 @@ callrmsint_rm:
 	push cs:[tmpFLReg]
 	call cs:[calladdr2]
 	pushf
-	@rm2pmbreak
+callrmsint_brk::
+	@rm2pmbrk
 	pop cs:[tmpFLReg]
 	@jmp_pm callrmsint_pm
 	align 2
@@ -5104,12 +5109,6 @@ endif
 	pop ds
 @@:
 endif
-if ?DBGSUPP
-	test bEnvFlags2, ENVF2_DEBUG	;HDPMI=8192 set?
-	jz @F
-	or byte ptr [ebp].INITCLPM.rFL+1,1	;set TF
-@@:
-endif
 	lea eax,[ebp + sizeof INITCLPM]
 	mov ds:taskseg._Esp0, eax
 	@dprintf "initclient: client status ok, ebp=%lX, ss:esp=%lX:%lX", ebp, ss, esp
@@ -5125,7 +5124,13 @@ if ?32BIT
 @@:
   endif
 endif
+if ?BRKONENTRY
+	test bEnvFlags2, ENVF2_DEBUG	;HDPMI=8192 set?
+endif
 	pop ds
+if ?BRKONENTRY
+	jnz isdebugexc
+endif
 	iretd
 
 	assume ds:GROUP16
@@ -5816,7 +5821,9 @@ else
 	jnz req_bad
 endif
 	pushf
-	@rm2pmbreak
+	public initclient_brk
+initclient_brk::
+	@rm2pmbrk
 
 	mov cs:[wInitSP],sp
 	mov cs:[wInitSS],ss
@@ -6065,18 +6072,21 @@ int2Frm endp
 
 if ?INTRM2PM
 intrrm2pm proc far public
-if 1 ; preferably don't modify hiword(ESP); doesn't matter much, since it isn't saved and modified in pm
+ if 0
+	retf 2	;just clear IF and TF
+ elseif 1 ; preferably don't modify hiword(ESP); doesn't matter much, since it isn't saved and modified in pm
 	push bp
 	mov bp,sp
 	inc [bp+2].IRETSRM.rIP
-	and byte ptr [bp+2].IRETSRM.rFL+1,not 01000011b	;clear NT, IF, TF
+	and byte ptr [bp+2].IRETSRM.rFL+1,not 011b	;clear IF & TF
 	pop bp
-else
+	iret                            ;real-mode iret!
+ else
 	movzx esp,sp
 	inc [esp].IRETSRM.rIP
-	and byte ptr [esp].IRETSRM.rFL+1,not 01000011b	;clear NT, IF, TF
-endif
+	and byte ptr [esp].IRETSRM.rFL+1,not 011b	;clear IF & TF
 	iret                            ;real-mode iret!
+ endif
 intrrm2pm endp
 endif
 

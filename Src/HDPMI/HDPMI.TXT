@@ -216,8 +216,9 @@
    HDPMI=4096: 'safe' mode. Don't allow client direct read/write access to 
              GDT, IDT, LDT and page tables; also, host cannot write to pages
              marked as read-only. Same effect as command line option -s.
-   HDPMI=8192: stop in debugger after client's initial switch to protected
-             mode.
+   HDPMI=8192: some debug help: a) trigger a debug exc after client's initial
+             switch to protected mode; b) use INT 96h to prevent debugger from
+             single-stepping into real- to protected-mode switch.
 [removed:
    HDPMI=16384: obsolete since v3.18. Previously, it caused HDPMI not
              to respond to int 2Fh, ax=160Ah. This allowed to start Windows

@@ -322,6 +322,28 @@ endif
 	lea eax,[ecx+offset curIDT]
 	mov pdIDT.dwBase,eax
 
+if ?INTRM2PM
+;--- patch code if HDPMI=8192 is set with an INT 96h.
+;--- the main purpose of this is that the INT clears both IF and TF;
+	test bEnvFlags2, ENVF2_DEBUG
+	jz @F
+
+externdef rm2pm_brk:near
+externdef intrmcb_brk:near
+externdef rmcb_brk:near
+externdef initclient_brk:near
+;externdef srtask_brk:near
+
+	mov ax,(?XRM2PM shl 8) or 0CDh	;opcode for "INT 96h"
+	mov word ptr _jmp_pmX, ax	;break at reentry pm
+	mov word ptr rm2pm_brk,ax	;break at raw mode switch rm -> pm
+	mov word ptr intrmcb_brk,ax	;break at entry internal callback
+	mov word ptr rmcb_brk,ax	;break at entry client callback
+	mov word ptr initclient_brk,ax	;break at entry "initial switch to pm"
+;	mov word ptr srtask_brk,ax	;break at entry "save/restore task state"
+@@:
+endif
+
 	test [fHost], FH_VCPI
 	jnz host_is_vcpi
 
@@ -337,19 +359,6 @@ host_is_vcpi:
 	lea eax,[ecx+offset v86topm]
 	mov [linadvs],eax			;patch code in rawjmp_pm
 
-if ?INTRM2PM
-;--- the main purpose of INT 96h is to clear IF
-;--- this can be done directly. todo: explain the benefits
- if 1
-	test bEnvFlags2, ENVF2_DEBUG
-	jnz @F
-	mov ax,90FAh				;decodes to "CLI" + "NOP"
-	mov word ptr _jmp_pmX, ax	;deactivate RM2PM int
-externdef rm2pm_brk:near
-	mov word ptr rm2pm_brk,ax	;deactivate RM2PM int
-@@:
- endif
-endif
 	mov rawjmp_rm_vector, offset rawjmp_rm_vcpi
 patch_done:
 	clc

@@ -61,7 +61,7 @@ ifndef ?MOVEIDT
 endif
 ?DYNBREAKTAB	equ 1	;std=1, 1=create pm break table dynamically (MUST be 1)
 ?INTRM2PM		equ 1	;std=1, use a real-mode int to protect switch to
-						;protected mode (int 96h)
+						;protected mode (int 96h) if HDPMI=8192 is set.
 if ?INTRM2PM
 ?XRM2PM 		equ 96h	;std=96h, real-mode to prot-mode int no
 endif
@@ -244,7 +244,7 @@ else
 endif
 
 ?LPMSSIZE		equ 1000h	;std 1000h: size of LPMS
-?DBGSUPP		equ 1		;std 1: 1=set TF on client's switch to pmode
+?BRKONENTRY		equ 1		;std 1: 1=set TF on client's initial switch to pmode
 ?EXC10FRAME		equ 0		;std 0: 1=always set dpmi v1 exc frame if host
 							;		is to be a v1 host (doesnt work yet)
 
@@ -1292,17 +1292,14 @@ ifnb <bRMSegs>
 endif
 endm
 
-;--- real-mode to protected-mode break
-;--- this prevents debuggers from stepping in untraceable code
-;--- also clears IF and TF flags
+;--- real-mode to protected-mode break.
+;--- this 3-byte code will be patched if HDPMI=8192 (debug support) is set;
+;--- then TF will be also cleared.
 
-@rm2pmbreak macro
-if ?INTRM2PM
-	int ?XRM2PM
-	nop
-else
+@rm2pmbrk macro
 	cli
-endif
+	nop
+	nop
 endm
 
 
@@ -1414,6 +1411,11 @@ endm
 	jmp _jmp_pm
 endm
 
+@jmp_pmX macro dest
+	pushw LOWWORD offset dest
+	jmp _jmp_pmX	; _jmp_pmX, unlike _jmp_pm, does a @rm2pmbreak first
+endm
+
 ;--- v3.21: simplified real-mode call
 ;--- either NEAR, FAR or IRET frame.
 ;--- used by @simrmint - won't work anymore for int 25h/26h!
@@ -1440,12 +1442,6 @@ endif
 	align 2
 _TEXT16 ends
 pmret:
-endm
-
-;--- @jmp_pmX is like @jmp_pm, but with @rm2pmbrk first
-@jmp_pmX macro dest
-	pushw LOWWORD offset dest
-	jmp _jmp_pmX
 endm
 
 @rawjmp_pm macro dest

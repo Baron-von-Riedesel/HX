@@ -90,7 +90,6 @@ if ?DEBUGRMCB
 	int 3
 endif
 	pushf
-	@rm2pmbreak
 	push cs				;CS is <> GROUP, dont use as prefix!
 	db 0eah				;jmp ssss:oooo
 	dw offset @F
@@ -101,6 +100,9 @@ if ?NOREENTRY
 	cmp cs:[bNoRMCBEntry],0	;host entry allowed?
 	jnz noentry
 endif
+	public rmcb_brk
+rmcb_brk::
+	@rm2pmbrk
 	pop cs:[MyRMCS.rCS]
 	pop cs:[MyRMCS.rFlags]
 
@@ -550,11 +552,13 @@ error1x:
 	align 4
 
 _TEXT16 segment
+	public callrmproc_brk
 callrmproc_rm:
 	popf
 	call cs:[MyRMCS.rCSIP]
 	pushf
-	@rm2pmbreak
+callrmproc_brk::
+	@rm2pmbrk
 	pop cs:[tmpFLReg]
 	@jmp_pm callrmproc_pm2
 	align 4
@@ -851,8 +855,11 @@ _TEXT16 segment
 srtask_rm proc
 
 	pushf
-	@rm2pmbreak
+
 if 0
+	public srtask_brk
+srtask_brk::
+	@rm2pmbrk
 ;--- this version switches to protected-mode
 	push ds	;save all real-mode segment registers onto the rm stack
 	push es
@@ -902,6 +909,7 @@ else
 	push es
 	pusha
 	cld
+	cli
 	mov si, offset v86iret.rSP
 	push cs
 	cmp al,0
@@ -1001,9 +1009,9 @@ _TEXT16 segment
 rm2pm proc near
 	pushf
 
-	public rm2pm_brk	;if in VCPI mode, this break is removed
+	public rm2pm_brk
 rm2pm_brk::
-	@rm2pmbreak
+	@rm2pmbrk
 
 	pop cs:[tmpFLReg]
 ife ?DOSOUTPUT
