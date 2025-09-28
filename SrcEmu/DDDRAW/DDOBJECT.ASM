@@ -251,6 +251,9 @@ DisableMouse proc uses ebx
 	align 4
 DisableMouse endp
 
+;--- called by DirectDrawCreate & SetDisplayMode
+;--- out: eax=mode, edx=mode attributes
+
 SetVideoVars proc uses esi pThis:ptr DDOBJ
 
 local	svi:SVGAINFO                                    

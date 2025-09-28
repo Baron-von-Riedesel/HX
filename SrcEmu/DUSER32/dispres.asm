@@ -109,15 +109,19 @@ exit:
 		align 4
 ClearScreenBkGnd endp
 
+;--- this is also called by
+;--- - DirectDraw::SetDisplayMode()
+;--- - DirectDraw::RestoreDisplayMode()
+
 ChangeDisplaySettingsA proc public uses ebx esi lpDevMode:ptr DEVMODEA, dwFlags:DWORD
 
 		invoke _GetVesaProcs
 		mov ebx, lpDevMode
 ifdef _DEBUG
 		.if (ebx)
-			@strace	<"ChangeDisplaySettingsA(", lpDevMode, "[", [ebx].DEVMODEA.dmFields, " ", [ebx].DEVMODEA.dmPelsWidth, "x", [ebx].DEVMODEA.dmPelsHeight, "x", [ebx].DEVMODEA.dmBitsPerPel, "], ", dwFlags,") enter">
+			@strace <"ChangeDisplaySettingsA(", lpDevMode, "[", [ebx].DEVMODEA.dmFields, " ", [ebx].DEVMODEA.dmPelsWidth, "x", [ebx].DEVMODEA.dmPelsHeight, "x", [ebx].DEVMODEA.dmBitsPerPel, "], ", dwFlags,") enter">
 		.else
-			@strace	<"ChangeDisplaySettingsA(", lpDevMode, ", ", dwFlags, ") enter">
+			@strace <"ChangeDisplaySettingsA(", lpDevMode, ", ", dwFlags, ") enter">
 		.endif
 endif
 		and eax, eax
@@ -159,6 +163,9 @@ endif
 				jz error
 				invoke _ClearDCCache
 				invoke ClearScreenBkGnd, ebx
+if 0 ; set cursor max values (apparently not necessary)
+				invoke ClipCursor, NULL
+endif
 				mov edx, [ebx].DEVMODEA.dmPelsHeight
 				shl edx, 16
 				mov dx, word ptr [ebx].DEVMODEA.dmPelsWidth

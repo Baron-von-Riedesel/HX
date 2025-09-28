@@ -36,7 +36,7 @@ g_cntMouse		SDWORD -1	;cursor count maintained by ShowCursor()
 g_bMouse		db 0		;1=mouse driver is installed
 g_bInit			db 0		;1=initialised
 
-externdef g_hInstance:HINSTANCE
+;externdef g_hInstance:HINSTANCE
 
 	.CODE
 
@@ -358,6 +358,9 @@ GetCursor proc public
 	ret
 	align 4
 GetCursor endp
+
+;--- set max values for cursor pos
+;--- pRect may be NULL
 
 ClipCursor proc public pRect:ptr RECT
 

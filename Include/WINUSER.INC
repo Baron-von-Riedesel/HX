@@ -693,6 +693,7 @@ if ?INDCALL_ eq 0
 
 BeginPaint       proto stdcall :HWND, :ptr PAINTSTRUCT
 CharToOemBuffA   proto stdcall a1:dword,a2:dword,a3:dword
+ClipCursor       proto stdcall :ptr RECT
 CopyRect         proto stdcall :ptr RECT, :ptr RECT
 CreateWindowExA  proto stdcall xstyle:dword,lpszClass:dword,lpszName:dword,style:dword,x:dword,y:dword,_cx:dword,cy:dword,parent:dword,menu:dword,hInst:dword,lParam:dword
 DefWindowProcA   proto stdcall a1:dword,a2:dword,a3:dword,a4:dword
@@ -765,6 +766,7 @@ else
 _DATA segment
 
 externdef stdcall _imp__CharToOemBuffA@12:pfunc@12
+externdef stdcall _imp__ClipCursor@4:pfunc@4
 externdef stdcall _imp__CloseClipboard@0:pfunc@0
 externdef stdcall _imp__CreateWindowExA@48:pfunc@48
 externdef stdcall _imp__DefWindowProcA@16:pfunc@16
@@ -813,6 +815,7 @@ externdef stdcall _imp__wvsprintfA@12:pfunc@12
 _DATA ends
 
 CharToOemBuffA      equ <_imp__CharToOemBuffA@12>
+ClipCursor          equ <_imp__ClipCursor@4>
 CloseClipboard      equ <_imp__CloseClipboard@0>
 CreateWindowExA     equ <_imp__CreateWindowExA@48>
 DefWindowProcA      equ <_imp__DefWindowProcA@16>

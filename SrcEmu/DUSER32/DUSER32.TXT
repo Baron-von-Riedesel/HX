@@ -285,7 +285,7 @@
 
  3. History
 
- 08.05.2022:  Version 2.16
+  08.05.2022:  Version 2.16
 
  þ MessageBoxA: if hxguihlp isn't loaded, display message upon console.
 

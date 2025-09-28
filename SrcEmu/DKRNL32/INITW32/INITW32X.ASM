@@ -10,6 +10,12 @@
 IKF_DPMILDR  equ 1	; PE loader API is present
 IKF_CALLTERM equ 2	; exit kernel when a int 21h, ah=4Ch is found
 
+	public g_hInstance
+
+	.DATA?
+
+g_hInstance dd ?
+
 	.CODE
 
 __kernel32init proto
@@ -21,6 +27,7 @@ start proc c
 	xor edx,edx
 	mov ax,4B82h		;get module handle into EAX, stack into EDX,
 	int 21h				;start of module list in ECX
+	mov g_hInstance, eax
 	call __kernel32init	;call DKRNL32 initialization
 	jmp mainCRTStartup	;jump to the application's entry
 start endp

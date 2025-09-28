@@ -3,6 +3,8 @@
 
   þ fixed: unaligned access in exception handler caused a stack error if
     alignment exception (0x11) occured.
+  þ initw32: added public g_hInstance to avoid linker errors for statically
+    linked binaries that use certain user32 functions.
 
   24.03.2025: version 3.10
 
