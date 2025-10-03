@@ -244,7 +244,7 @@ else
 endif
 
 ?LPMSSIZE		equ 1000h	;std 1000h: size of LPMS
-?BRKONENTRY		equ 1		;std 1: 1=set TF on client's initial switch to pmode
+?BRKONENTRY		equ 1		;std 1: 1=trigger exc 01 on client's initial switch to pmode
 ?EXC10FRAME		equ 0		;std 0: 1=always set dpmi v1 exc frame if host
 							;		is to be a v1 host (doesnt work yet)
 

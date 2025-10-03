@@ -3737,31 +3737,32 @@ clitrapped:
 @@:
 	push edi
 	push es
-  if ?32BIT
+;--- make room on client stack for an IRET frame
 	les edi, [esp+3*4].EMUINSFR.rSSSP
-	lea edi, [edi-3*4]
+	lea edi, [edi-sizeof IRETSPM]
 	mov [esp+3*4].EMUINSFR.rSP, edi
+;--- store client's current CS:E/IP and flags (with adjusted IF) there
+  if ?32BIT
 	mov eax, esi
 	stosd
 	mov eax, [esp+3*4].EMUINSFR.rCSd
 	stosd
 	mov eax, [esp+3*4].EMUINSFR.rFL
 	stosd
-	mov edi, [esp+2*4]
+  else
+	mov eax, esi
+	stosw
+	mov eax, [esp+3*4].EMUINSFR.rCSd
+	stosw
+	mov eax, [esp+3*4].EMUINSFR.rFL
+	stosw
+  endif
+	mov edi, [esp+2*4]     ;get offset for R3PROC (clihdlr/stihdlr)
+  if ?32BIT
 	mov esi, cs:[edi].R3PROC._Eip
 	mov eax, cs:[edi].R3PROC._Cs
 	mov [esp+3*4].EMUINSFR.rCSd, eax
   else
-	les edi, [esp+3*4].EMUINSFR.rSSSP
-	lea edi, [edi-3*2]
-	mov [esp+3*4].EMUINSFR.rSP, edi
-	mov eax, esi
-	stosw
-	mov eax, [esp+3*4].EMUINSFR.rCSd
-	stosw
-	mov eax, [esp+3*4].EMUINSFR.rFL
-	stosw
-	mov edi, [esp+2*4]
 	movzx esi, cs:[edi].R3PROC._Eip
 	mov ax, cs:[edi].R3PROC._Cs
 	mov [esp+3*4].EMUINSFR.rCS, ax
@@ -3769,6 +3770,7 @@ clitrapped:
 	pop es
 	pop edi
 	add esp, 4
+	and byte ptr [esp].EMUINSFR.rFL+1, not 1	; v3.23: reset TF
 	jmp done_emuclisti
  endif
 	align 4
