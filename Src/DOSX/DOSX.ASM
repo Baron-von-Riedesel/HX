@@ -7,26 +7,27 @@
 	.MODEL tiny, stdcall
 	.386
 	.dosseg
+	.stack 1024		;size aligned to paragraphs
 
 CHECKHOST equ 1 ;1=check if DPMI host active before trying to load hdpmi16
 ifndef ENHANCED
 ENHANCED equ 0 ;1=load HDPMI16e instead of HDPMI16
 endif
 
+?FULLPATH equ 1 ;1=get full path of krnl386.exe
+
 ;--- ?XMSHOOK: 1=install an XMS hook to make HDPMI16 compatible with WSWAP.EXE.
 ;--- It's needed if XMS memory is <= 64MB, and it's recommended if XMS memory is <= 128MB.
 ;--- It doesn't really work, though - it's better to set environment variable HDPMI=64.
 ?XMSHOOK equ 0
 
-;--- ?DISABLEHOST: 1=disable DPMI host; not needed; (WSWAP does disable it on its own?)
+;--- ?DISABLEHOST: 1=disable DPMI host; disabled by hooking int 2Fh!
 ?DISABLEHOST equ 0
 
 ;--- ?LOADHOST: 1=load hdpmi16.exe; 0=don't try to load, it's assumed to be loaded already
 ifndef ?LOADHOST
 ?LOADHOST equ 1
 endif
-
-	.stack 1024		;size aligned to paragraphs
 
 	.DATA
 
@@ -67,17 +68,16 @@ endif
 SIZSVRNAME equ $ - svrname
 endif
 
+if ?FULLPATH
+prg     db "KRNL386.EXE",0
+else
 prg     db "SYSTEM\KRNL386.EXE",0
-szErr1	db "cannot launch SYSTEM\KRNL386.EXE",13,10,'$'
+endif
+szErr1	db "cannot launch KRNL386.EXE",13,10,'$'
 if ?LOADHOST
 szErr2	db "HDPMI16.EXE not found",13,10,'$'
 else
 szErr2	db "no DPMI host loaded",13,10,'$'
-endif
-
-if ?LOADHOST
-	.data?
-szSvr	db 128 dup (?)
 endif
 
 	.CODE
@@ -109,10 +109,10 @@ SearchPath endp
 
 SearchSvr proc
 
-	mov DI,offset szSvr
+	mov DI,BP
 	PUSH DS
 	POP ES
-nextitem:								;<----
+nextitem:						;<----
 	PUSH SI
 	push es
 	pop ds
@@ -121,7 +121,7 @@ nextitem:								;<----
 	rep movsb
 	mov es:[di],cl
 
-	mov DX,offset szSvr
+	mov DX,BP
 	MOV AX,3D00h
 	INT 21h
 	POP SI
@@ -136,7 +136,7 @@ nextitem:								;<----
 	CMP AL,';'
 	JZ @F
 	CMP AL,00
-	JNZ @B		 					;done, nothing found
+	JNZ @B		 				;done, nothing found
 	XOR SI,SI
 @@:
 	DEC DI
@@ -147,7 +147,7 @@ nextitem:								;<----
 	JMP nextitem
 found:
 	MOV BX,AX
-	MOV AH,3Eh						;close file
+	MOV AH,3Eh					;close file
 	INT 21h
 	CLC
 	RET
@@ -279,6 +279,8 @@ endif
 
 main proc c
 
+	sub sp,128
+	mov bp,sp
 	mov ax, es:[2Ch]
 	mov wEnviron, ax
 
@@ -331,7 +333,7 @@ if ?LOADHOST
 	mov bx,offset parmbs
 	push ds
 	pop es
-	mov dx,offset szSvr
+	mov dx,BP
 	mov ax,4B00h
 	int 21h
 	jnc @F
@@ -402,8 +404,6 @@ endif
 	pop ds
 	popa
 
-;--------------------- now call KRNL386
-
 if ?DISABLEHOST
 	mov ax,352Fh
 	int 21h
@@ -414,10 +414,50 @@ if ?DISABLEHOST
 	int 21h
 endif
 
+;--- either get the full path for DOSX.EXE - or assume we're in the Windows directory.
+
+if ?FULLPATH
+	mov es,[wEnviron]
+	xor di,di
+	mov cx,-1
+	mov al,0
+@@:
+	repnz scasb
+	scasb
+	jnz @B
+	add di,2	;skip the 01 00 sequence
+	mov si,di
+	mov di,bp
+	mov ax,es
+	mov cx,ds
+	mov ds,ax
+	mov es,cx
+	mov dx,di
+nextchr:
+	lodsb
+	stosb
+	cmp al,'\'
+	jnz @F
+	mov dx,di
+@@:
+	and al,al
+	jnz nextchr
+	mov ds,cx
+	mov di,dx
+	mov si,offset prg
+	mov cx,sizeof prg
+	rep movsb
+	mov dx,bp
+else
+	mov dx,offset prg
+endif
+
+;--------------------- now call KRNL386.EXE
+
 	mov bx,offset parmb
 	push ds
 	pop es
-	mov dx,offset prg
+int 3
 	mov ax,4B00h
 	int 21h
 	jnc @F
@@ -436,6 +476,7 @@ done:
 if ?XMSHOOK
 	call RemoveXMSHook
 endif
+	add sp,128
 	ret
 
 if 0	; activate if a word is to be displayed
