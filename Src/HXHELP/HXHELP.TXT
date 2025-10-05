@@ -26,9 +26,10 @@
  
  History
 
- __.__.2022, V1.6
+ __.__.2025, V1.6
 
  - moved some tables to .data? to reduce size of binary.
+ - fixed: protect read from memory addresses with PL3 GDT selector.
 
  15.07.2022, V1.5
 

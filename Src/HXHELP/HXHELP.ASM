@@ -2541,7 +2541,16 @@ isgdt:
 @@2rmem:
 	jz @@3rmem
 	.if (bIsGDT == -1)
+		call SetIntExc0E
+		mov dwExcProc, offset @F
+		stc
 		mov bl,fs:[esi]
+		clc
+@@:
+		pushfd
+		call ResetIntExc0E
+		popfd
+		jc @@3rmem
 	.else
 		call ReadMemory
 		jc @@3rmem
