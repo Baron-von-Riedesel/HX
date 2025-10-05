@@ -213,8 +213,8 @@ pm_Linear2PT endp
 
 ;--- get linear address from a PTE address
 ;--- in: eax = linear address where PTE is stored
-;--- out: eax = linear address
-;--- modifies ecx
+;--- out: NC & eax = linear address
+;---      C error, invalid PTE address
 
 PT2Linear proc
 	sub eax, ss:pPageTables	;0-3FFFFFh
@@ -394,7 +394,7 @@ endif
 nextpte:
 	mov edx,es:[edi]
 	stosd
-	test dh,_XMSFLAG_
+	test dh,_XMSFLAG_      ;what about VCPI pages? They should be released!
 	jz @F
 	call savePTEinpagepool
 if _LTRACE_
@@ -416,11 +416,11 @@ done:
 
 pm_mapphysregion endp
 
-;--- move PTE to a "safe" location in the page pool.
+;--- move PTE (src=XMS) to a "safe" location in the page pool.
 ;--- currently, just the region "below" EDI is scanned.
 ;--- in:
-;--- EDX=PTR
-;--- EDI=ptr PTE
+;--- EDX=PTE
+;--- EDI=(behind) ptr PTE
 ;--- ECX=pages still to map
 
 savePTEinpagepool proc

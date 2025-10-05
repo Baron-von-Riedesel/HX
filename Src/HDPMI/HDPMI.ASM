@@ -1043,9 +1043,6 @@ dwOldVec&intno dd 0
 endm
 
 ivthooktab label byte
-if ?INTRM2PM
-int96hk IVTHOOK <?XRM2PM, offset dwOldVec96, offset intrrm2pm>
-endif
 if ?TRAPINT06RM
 int06hk IVTHOOK <06h, offset dwOldVec06, offset int06rm>
 endif
@@ -1053,8 +1050,10 @@ if ?TRAPINT21RM
 int21hk IVTHOOK <21h, offset dwOldVec21, offset int21rm>
 endif
 int2Fhk IVTHOOK <2Fh, offset dwOldVec2F, offset int2Frm>
-;------------------------------- int 15 should be last because it
-;------------------------------- is used in raw mode only 
+if ?INTRM2PM
+int96hk IVTHOOK <?XRM2PM, offset dwOldVec96, offset intrm2pm>
+endif
+;------------------------------- int 15 should be last 
 if ?WATCHDOG or ?CATCHREBOOT
 int15hk IVTHOOK <15h, offset dwOldVec15, offset int15rm>;watch int 15 in any case
 else
@@ -5116,6 +5115,28 @@ endif
 	@dprintf "initclient: client status ok, ebp=%lX, ss:esp=%lX:%lX", ebp, ss, esp
 	@dprintf "initclient: client: CS:IP=%X:%lX, SS:SP=%X:%lX, DS=%lX",[ebp].INITCLPM.rCS, [ebp].INITCLPM.rIP, [ebp].INITCLPM.rSS, [ebp].INITCLPM.rSP,[ebp].INITCLPM.rDS
 	@dprintf "initclient: GDT: %lX (%X), IDT: %lX (%X), LDT: %lX (%X)", pdGDT.dwBase, pdGDT.wLimit, pdIDT.dwBase, pdIDT.wLimit, dwLDTAddr, wLDTLimit
+
+if ?BRKONENTRY
+	test bEnvFlags2, ENVF2_DEBUG	;HDPMI=8192 set?
+	jz @F
+_TEXT32R3 segment
+r3exc3:
+	int 3
+	retf
+_TEXT32R3 ends
+	push es
+	les edi,[ebp].INITCLPM.rSSSP
+	sub edi,2*4
+	mov [ebp].INITCLPM.rSP,edi
+	mov eax, offset r3exc3
+	xchg eax,[ebp].INITCLPM.rIP
+	stosd
+	mov ax,_CSR3SEL_
+	xchg ax,[ebp].INITCLPM.rCS
+	stosd
+	pop es
+@@:
+endif
 	popad
 if ?32BIT
   if ?CLEARHIWORDS
@@ -5126,13 +5147,7 @@ if ?32BIT
 @@:
   endif
 endif
-if ?BRKONENTRY
-	test bEnvFlags2, ENVF2_DEBUG	;HDPMI=8192 set?
-endif
 	pop ds
-if ?BRKONENTRY
-	jnz isdebugexc
-endif
 	iretd
 
 	assume ds:GROUP16
@@ -6068,28 +6083,24 @@ endif
 	align 4
 int2Frm endp
 
-;--- this is Int 96h real-mode proc
-;--- the purpose is to prevent debuggers to step in host's mode-switch code
-;--- which cannot work
+;--- this is Int 96h real-mode proc.
+;--- the purpose is to prevent debuggers from stepping into host's mode-switch code.
 
 if ?INTRM2PM
-intrrm2pm proc far public
- if 0
-	retf 2	;just clear IF and TF
- elseif 1 ; preferably don't modify hiword(ESP); doesn't matter much, since it isn't saved and modified in pm
+intrm2pm proc far public
+ if 1 ; preferably don't modify hiword(ESP); doesn't matter much, since it isn't saved in pm
 	push bp
 	mov bp,sp
 	inc [bp+2].IRETSRM.rIP
-	and byte ptr [bp+2].IRETSRM.rFL+1,not 011b	;clear IF & TF
+;	and byte ptr [bp+2].IRETSRM.rFL+1,not 011b	;clear IF & TF
 	pop bp
-	iret                            ;real-mode iret!
  else
 	movzx esp,sp
 	inc [esp].IRETSRM.rIP
-	and byte ptr [esp].IRETSRM.rFL+1,not 011b	;clear IF & TF
-	iret                            ;real-mode iret!
+;	and byte ptr [esp].IRETSRM.rFL+1,not 011b	;clear IF & TF
  endif
-intrrm2pm endp
+	retf 2	;RETF 2 instead if IRET will leave IF & TF cleared...
+intrm2pm endp
 endif
 
 ife ?ALLOWR0IRQ

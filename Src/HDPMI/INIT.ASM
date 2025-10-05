@@ -1256,7 +1256,7 @@ else
 	push 0
 	pop es
 	assume es:SEG16
-	cmp word ptr es:[?XRM2PM*4+0],offset intrrm2pm
+	cmp word ptr es:[?XRM2PM*4+0],offset intrm2pm
 	jnz nothidden
 	pusha
 	mov es,es:[?XRM2PM*4+2]

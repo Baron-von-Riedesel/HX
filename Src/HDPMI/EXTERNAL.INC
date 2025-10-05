@@ -304,7 +304,7 @@ externdef wPatchGrp163:word
 externdef kdpatch1:near
 externdef kdpatch2:near
 externdef rawjmp_pm_patch:near
-externdef intrrm2pm:far
+externdef intrm2pm:far
 ;externdef load_rmsegs:near
 externdef rawjmp_rm_all:near
 if ?JHDPMI
