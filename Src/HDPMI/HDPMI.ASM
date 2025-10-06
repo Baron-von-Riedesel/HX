@@ -3081,8 +3081,10 @@ wPatchGrp163 dw 0	;will be patched with GROUP16
 	jc jmpprev
 
 ;--- v3.22: no longer needed, exception handler masks interrupts
+;--- v3.23: reactivated (and renamed), since masking interrupts caused problems.
 ;	cmp cs:[bExcEntry],-1	;host entry possible?
-;	jnz jmpprev				;if no, jump to previous handler
+	cmp cs:[bNoRMCBEntry],0	;host entry possible?
+	jnz jmpprev				;if no, jump to previous handler
 
 	public intrmcb_brk
 intrmcb_brk::

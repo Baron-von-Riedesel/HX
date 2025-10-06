@@ -13,6 +13,9 @@
   þ fixed int 31h, ax=503h/505h: if base address of resized block had to
     change, the block's owner was set to the current client.
   þ INT 96h (IVT) is now used only if HDPMI=8192 is set.
+  þ setting HDPMI=8192 now runs an INT3 instead of setting the trace flag.
+  þ fixed regression in v3.22: interrupts are no longer masked during exc.
+    display, since this may have caused the system to freeze.
 
   24.03.2025, version 3.22
 

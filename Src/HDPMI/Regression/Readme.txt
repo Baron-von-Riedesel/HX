@@ -69,8 +69,10 @@ rawjmp1 : test raw jump + pm task state save/restore
 rawjmp2 : test rm task state save/restore
 rawjmp3 : test raw jump real-mode stack and flags values
 rawjmp4 : test save/restore task state in real-mode
-rawjmp6 : call real-mode far proc, raw jmp to pm, call dos, back to rm, RETF (didn't work in v3.18!)
-rawjmp7 : like rawjmp6, but causes a GPF in proc that was "raw jumped" (didn't work in 3.18-3.19)
+rawjmp5 : test 32 raw jumps pm->rm and rm->pm
+rawjmp6 : call real-mode far proc, raw jmp to pm, call dos, back to rm, RETF (doesn't work in v3.18+!)
+rawjmp7 : like rawjmp6, but causes a GPF in proc that was "raw jumped"
+          doesn't work in 3.18-3.19, works in 3.20?/3.21?, doesn't work in 3.22-3.23
 rmcb1   : complex test rmcb (nested calls)
 rmcb3   : simple test rmcb
 rmcb6   : test allocating and calling 2 rmcbs

@@ -212,12 +212,12 @@ if ?CHECKTEXTMODE or ?FORCETEXTMODE
 ;--- we don't know if current system has a EGA/VGA.
 ;--- BIOS variable: mode 0,1,2,3 and 7 are text
 
-?VGAPORT equ 1
+?VGAPORT equ 0
 
 ;--- returns NZ if graphics mode, Z in text mode
 
 IsTextMode proc public	;used also by exception display routine
-if ?VGAPORT
+ if ?VGAPORT
 	push eax
 	mov dx,3ceh
 	mov al,6
@@ -226,7 +226,7 @@ if ?VGAPORT
 	in al,dx
 	and al,1
 	pop eax
-else
+ else
 	push ds
 	push byte ptr _FLATSEL_
 	pop ds
@@ -239,7 +239,7 @@ else
 @@:
 	xor dl,dl
 	pop ds
-endif
+ endif
 	ret
 IsTextMode endp
 endif

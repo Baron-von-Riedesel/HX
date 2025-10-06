@@ -45,7 +45,7 @@ endm
 
 _DATA16 segment
 bExcMode	db 0		;0=normal,1=suppress [EIP],2=suppress [ESP]
-bPICMask	db 0
+;bPICMask	db 0
 ifdef _DEBUG
 savedfDebug db 0
 endif
@@ -113,6 +113,7 @@ mygetbase endp
 
 if ?FORCETEXTMODE or (?DOSOUTPUT eq 0)
 forcetextmode proc public
+ if ?FORCETEXTMODE
 	test ss:fMode2, FM2_FORCETEXT
 	jz exit
 	call IsTextMode
@@ -129,6 +130,7 @@ forcetextmode proc public
 	pop ds
 	pop eax
 exit:
+ endif
 	ret
 forcetextmode endp
 endif
@@ -315,12 +317,16 @@ endif
 	inc bExcEntry
 	jnz except_2x		;this is fatal
 
-;--- prevent reentry thru internal rmcbs
+;--- v3.22: prevent reentry thru internal rmcbs
+if 0 ;v3.23: reverted - this caused severe problems with exc display in v3.22
 	in al, 21h
 	mov bPICMask, al
 	mov al,-1
 	out 21h, al
-;--- prevent reentry thru std rmcbs
+else
+endif
+;--- v3.22: prevent reentry thru std rmcbs
+;--- v3.23: switch also used to prevent reentry thru internal rmcbs
 	mov [bNoRMCBEntry], 1
 
 if ?SAFERMSTACK
@@ -589,8 +595,9 @@ endif
 ;--- dump is done
 
 	dec bExcEntry
-	mov al, bPICMask
-	out 21h, al
+;--- v3.23: reverted change in v3.22
+;	mov al, bPICMask
+;	out 21h, al
 	mov [bNoRMCBEntry], 0
 
 if ?KDSUPP and ?CALLDBG

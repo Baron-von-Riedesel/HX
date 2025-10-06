@@ -2450,8 +2450,9 @@ CopyPageContent endp
 
 if ?FREEXMSDYN
 
-;--- check the committed pages if one is
-;--- contained in current block. If no, release block + clear PTEs in pool
+;--- check the committed (XMS) pages if at least one is
+;--- contained in current block. If no, release block + clear PTEs in pool.
+;--- called by pm_exitclient.
 
 	@ResetTrace
 

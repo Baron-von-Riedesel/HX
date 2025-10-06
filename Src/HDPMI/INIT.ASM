@@ -323,7 +323,7 @@ endif
 	mov pdIDT.dwBase,eax
 
 if ?INTRM2PM
-;--- patch code if HDPMI=8192 is set with an INT 96h.
+;--- v3.23: patch code if HDPMI=8192 is set with an INT 96h.
 ;--- the main purpose of this is that the INT clears both IF and TF;
 	test bEnvFlags2, ENVF2_DEBUG
 	jz @F
@@ -428,7 +428,7 @@ initkd386swat1_rm proc
 	jnz nokerneldebugger
 	@drprintf "initkd386swat1: 386swat detected"
 	or fDebug,FDEBUG_KDPRESENT
-if ?INTRM2PM
+if 0;?INTRM2PM  ; v3.23: obsolete
 	mov word ptr _jmp_pmX, 90FAh	;deactivate RM2PM int
 endif
 nokerneldebugger:
@@ -499,7 +499,7 @@ else
 endif
 externdef patchkd: word
 	mov patchkd, 68CDh	; v3.22: call kd on exit
-if ?INTRM2PM
+if 0;?INTRM2PM ; v3.23: obsolete
 	mov word ptr _jmp_pmX, 90FAh	;deactivate RM2PM int
 endif
 ;------------------------------------ prepare kernel debugger for PM

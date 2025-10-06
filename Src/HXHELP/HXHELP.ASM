@@ -207,7 +207,7 @@ OldInt00		INTVEC 0
 OldInt01		INTVEC 0
 OldInt03		INTVEC 0
 OldInt08		INTVEC 0
-SavedInt08		INTVEC 0	;must be behind OldInt08
+SavedInt08		INTVEC 0	;must be behind OldInt08 (bFlags[1]==1)
 OldInt09		INTVEC 0
 SavedInt09		INTVEC 0	;must be behind OldInt09
 OldInt21		INTVEC 0
@@ -217,7 +217,7 @@ OldInt75		INTVEC 0	;should get both prot-mode and real-mode ints
 
 
 OldExc00		df 0
-OldExc01		df 0,0
+OldExc01		df 0,0		;2 entries if bFlags[0] != 0
 OldExc03		df 0,0
 OldExc04		df 0
 OldExc05		df 0
@@ -229,44 +229,44 @@ OldExc0D		df 0
 OldExc0E		df 0
 OldExc10		df 0
 
-excstr struct
+EXCEPTs struct
 bExc	db ?
-bFirst	db ?	; 1=debugger must be first in chain
+bFlags	db ?	; b0: 1=debugger must be first in chain; b1: for interrupts only
 pOldVec	dd ?
 pProc	dd ?
-excstr ends
+EXCEPTs ends
 
 	.const
 
 InterruptTab label byte
-		excstr <00h, 0, offset OldInt00, offset Int00Handler>
-		excstr <01h, 1, offset OldInt01, offset Int01Handler>
-		excstr <03h, 1, offset OldInt03, offset Int03Handler>
-		excstr <08h, 3, offset OldInt08, offset Int08Handler>
-		excstr <09h, 3, offset OldInt09, offset Int09Handler>
-		excstr <21h, 0, offset OldInt21, offset Int21Handler>
-		excstr <31h, 0, offset OldInt31, offset Int31Handler>
-		excstr <41h, 0, offset OldInt41, offset Int41Handler>
-		excstr <75h, 0, offset OldInt75, offset Int75Handler>
-		db -1
+		EXCEPTs <00h, 0, offset OldInt00, offset Int00Handler>
+		EXCEPTs <01h, 1, offset OldInt01, offset Int01Handler>
+		EXCEPTs <03h, 1, offset OldInt03, offset Int03Handler>
+		EXCEPTs <08h, 3, offset OldInt08, offset Int08Handler>
+		EXCEPTs <09h, 3, offset OldInt09, offset Int09Handler>
+		EXCEPTs <21h, 0, offset OldInt21, offset Int21Handler>
+		EXCEPTs <31h, 0, offset OldInt31, offset Int31Handler>
+		EXCEPTs <41h, 0, offset OldInt41, offset Int41Handler>
+		EXCEPTs <75h, 0, offset OldInt75, offset Int75Handler>
+InterruptTabEnd equ $
 
 	align 4
 
 ExceptionTab label byte
-		excstr <00h, 0, offset OldExc00, offset Exc00Handler>
-		excstr <01h, 1, offset OldExc01, offset Exc01Handler>
-		excstr <03h, 1, offset OldExc03, offset Exc03Handler>
-		excstr <04h, 0, offset OldExc04, offset Exc04Handler>
-		excstr <05h, 0, offset OldExc05, offset Exc05Handler>
-		excstr <06h, 0, offset OldExc06, offset Exc06Handler>
-		excstr <07h, 0, offset OldExc07, offset Exc07Handler>
+		EXCEPTs <00h, 0, offset OldExc00, offset Exc00Handler>
+		EXCEPTs <01h, 1, offset OldExc01, offset Exc01Handler>
+		EXCEPTs <03h, 1, offset OldExc03, offset Exc03Handler>
+		EXCEPTs <04h, 0, offset OldExc04, offset Exc04Handler>
+		EXCEPTs <05h, 0, offset OldExc05, offset Exc05Handler>
+		EXCEPTs <06h, 0, offset OldExc06, offset Exc06Handler>
+		EXCEPTs <07h, 0, offset OldExc07, offset Exc07Handler>
 ;--- let DPMILD32/DPMILD16 handle not present exceptions
-;		excstr <0Bh, 0, offset OldExc0B, offset Exc0BHandler>
-		excstr <0Ch, 0, offset OldExc0C, offset Exc0CHandler>
-		excstr <0Dh, 0, offset OldExc0D, offset Exc0DHandler>
-		excstr <0Eh, 0, offset OldExc0E, offset Exc0EHandler>
-		excstr <10h, 0, offset OldExc10, offset Exc10Handler>
-		db -1
+;		EXCEPTs <0Bh, 0, offset OldExc0B, offset Exc0BHandler>
+		EXCEPTs <0Ch, 0, offset OldExc0C, offset Exc0CHandler>
+		EXCEPTs <0Dh, 0, offset OldExc0D, offset Exc0DHandler>
+		EXCEPTs <0Eh, 0, offset OldExc0E, offset Exc0EHandler>
+		EXCEPTs <10h, 0, offset OldExc10, offset Exc10Handler>
+ExceptionTabEnd equ $
 
 	align 4
 
@@ -1343,10 +1343,10 @@ main proc near c uses esi edi ebp
 ;Patch exception vectors
 ;
 	mov esi, offset ExceptionTab
-	.while ([esi].excstr.bExc != -1)
+	.while esi < offset ExceptionTabEnd
 		lodsw
 		mov ebx,eax
-		mov ax,0202h
+		mov ax,202h
 		int 31h
 		lodsd
 if ?DPMI16
@@ -1370,7 +1370,7 @@ if ?DPMI16
 		add edx, 8	;dont use @switchcs, skip "jmp far32 SSSS:OOOOOOOO"
 @@:
 endif
-		mov ax,0203h
+		mov ax,203h
 		int 31h
 	.endw
 
@@ -1379,10 +1379,10 @@ endif
 ;Patch interrupt vectors
 ;
 	mov esi, offset InterruptTab
-	.while ([esi].excstr.bExc != -1)
+	.while esi < offset InterruptTabEnd
 		lodsw
 		mov ebx,eax
-		mov ax,0204h
+		mov ax,204h
 		int 31h
 		lodsd
 		mov [eax+0],edx
@@ -1456,7 +1456,7 @@ endif
 ;
 	cld
 	mov esi, offset InterruptTab
-	.while (byte ptr [esi] != -1)
+	.while esi < offset InterruptTabEnd
 		lodsw
 		mov ebx,eax
 		lodsd
@@ -1475,7 +1475,7 @@ endif
 ;--- restore exception handlers
 ;
 	mov esi, offset ExceptionTab
-	.while (byte ptr [esi] != -1)
+	.while esi < offset ExceptionTabEnd
 		lodsw
 		mov bl,al
 		lodsd
@@ -3318,7 +3318,6 @@ if ?FLAT or ?NE
 		@callint21
 	.endif
 endif
-
 
 if ?DJGPP
 	call CheckDjgpp
@@ -5652,6 +5651,10 @@ Int09Handler endp
 Int21Handler proc far
 	@switchcs
 	pushfd
+
+	cmp cs:bExecuting,0			;debuggee running?
+	jz @@oldi21
+
 if ?STOPAT4G
 	cmp ax,0FF00h				;dos4gw call
 	jnz no4g
@@ -5680,22 +5683,22 @@ if 1
 	jnz @F
 	push esi
 	mov esi, offset InterruptTab
-	.while (cs:[esi].excstr.bExc != -1)
-		.if (al == cs:[esi].excstr.bExc)
-			mov esi, cs:[esi].excstr.pOldVec
+	.while esi < offset InterruptTabEnd
+		.if (al == cs:[esi].EXCEPTs.bExc)
+			mov esi, cs:[esi].EXCEPTs.pOldVec
 			push es
 			mov es,cs:[g_dsreg]
-			mov es:[esi+?SEGOFS],ds
-if ?DPMI16
+ if ?DPMI16
 			mov es:[esi+0],dx
-else
+ else
 			mov es:[esi+0],edx
-endif
+ endif
+			mov es:[esi+?SEGOFS],ds
 			pop es
 			pop esi
 			jmp @@reti21
 		.endif
-		add esi, sizeof excstr
+		add esi, sizeof EXCEPTs
 	.endw
 	pop esi
 @@:
@@ -5703,23 +5706,31 @@ endif
 	jnz @F
 	push esi
 	mov esi, offset InterruptTab
-	.while (cs:[esi].excstr.bExc != -1)
-		.if (al == cs:[esi].excstr.bExc)
-			mov esi, cs:[esi].excstr.pOldVec
-			mov es, cs:[esi+?SEGOFS]
-if ?DPMI16
+	.while esi < offset InterruptTabEnd
+		.if (al == cs:[esi].EXCEPTs.bExc)
+			mov esi, cs:[esi].EXCEPTs.pOldVec
+ if ?DPMI16
 			mov bx, cs:[esi+0]
-else
-			mov ebx, cs:[ebx+0]
-endif
+ else
+			mov ebx, cs:[esi+0]
+ endif
+			mov es, cs:[esi+?SEGOFS]
 			pop esi
 			jmp @@reti21
 		.endif
-		add esi, sizeof excstr
+		add esi, sizeof EXCEPTs
 	.endw
 	pop esi
 @@:
 endif
+
+if 0
+	cmp ah,4ch
+	jnz @F
+	int 3
+@@:
+endif
+
 @@oldi21:
 	popfd
 	jmp cs:[OldInt21]
@@ -5744,7 +5755,7 @@ Int31Handler proc far
 	@switchcs
 	push ds
 	mov ds,cs:[g_dsreg]
-	cmp bExecuting,0
+	cmp bExecuting,0		;debuggee running?
 	jz @@oldi31
 if ?STOPATPM
 	test g_fDPMIClient,3	;had we stopped in prot mode already?
@@ -5776,20 +5787,20 @@ endif
 	jnz @F
 	push esi
 	mov esi, offset ExceptionTab
-	.while ([esi].excstr.bExc != -1)
-		.if ((bl == [esi].excstr.bExc) && ([esi].excstr.bFirst))
-			mov esi, [esi].excstr.pOldVec
+	.while esi < offset ExceptionTabEnd
+		.if ((bl == [esi].EXCEPTs.bExc) && ([esi].EXCEPTs.bFlags))
+			mov esi, [esi].EXCEPTs.pOldVec
 			add esi, sizeof fword
-			mov cx, [esi+4]
 if ?DPMI16
 			mov dx, [esi+0]
 else
 			mov edx, [esi+0]
 endif
+			mov cx, [esi+4]
 			pop esi
 			jmp @@reti31
 		.endif
-		add esi, sizeof excstr
+		add esi, sizeof EXCEPTs
 	.endw
 	pop esi
 	jmp @@oldi31
@@ -5798,20 +5809,20 @@ endif
 	jnz @F
 	push esi
 	mov esi, offset ExceptionTab
-	.while ([esi].excstr.bExc != -1)
-		.if ((bl == [esi].excstr.bExc) && ([esi].excstr.bFirst))
-			mov esi, [esi].excstr.pOldVec
+	.while esi < offset ExceptionTabEnd
+		.if ((bl == [esi].EXCEPTs.bExc) && ([esi].EXCEPTs.bFlags))
+			mov esi, [esi].EXCEPTs.pOldVec
 			add esi, sizeof fword
-			mov [esi+4],cx
 if ?DPMI16
 			mov [esi+0],dx
 else
 			mov [esi+0],edx
 endif
+			mov [esi+4],cx
 			pop esi
 			jmp @@reti31
 		.endif
-		add esi, sizeof excstr
+		add esi, sizeof EXCEPTs
 	.endw
 	pop esi
 	jmp @@oldi31
@@ -5820,19 +5831,19 @@ endif
 	jnz @F
 	push esi
 	mov esi, offset InterruptTab
-	.while ([esi].excstr.bExc != -1)
-		.if ((bl == [esi].excstr.bExc) && ([esi].excstr.bFirst))
-			mov esi, [esi].excstr.pOldVec
-			mov cx, [esi+?SEGOFS]
+	.while esi < offset InterruptTabEnd
+		.if ((bl == [esi].EXCEPTs.bExc) && ([esi].EXCEPTs.bFlags))
+			mov esi, [esi].EXCEPTs.pOldVec
 if ?DPMI16
 			mov dx, [esi+0]
 else
 			mov edx, [esi+0]
 endif
+			mov cx, [esi+?SEGOFS]
 			pop esi
 			jmp @@reti31
 		.endif
-		add esi, sizeof excstr
+		add esi, sizeof EXCEPTs
 	.endw
 	pop esi
 	jmp @@oldi31
@@ -5841,19 +5852,19 @@ endif
 	jnz @F
 	push esi
 	mov esi, offset InterruptTab
-	.while ([esi].excstr.bExc != -1)
-		.if ((bl == [esi].excstr.bExc) && ([esi].excstr.bFirst))
-			mov esi, [esi].excstr.pOldVec
-			mov [esi+?SEGOFS],cx
+	.while esi < offset InterruptTabEnd
+		.if ((bl == [esi].EXCEPTs.bExc) && ([esi].EXCEPTs.bFlags))
+			mov esi, [esi].EXCEPTs.pOldVec
 if ?DPMI16
 			mov [esi+0],dx
 else
 			mov [esi+0],edx
 endif
+			mov [esi+?SEGOFS],cx
 			pop esi
 			jmp @@reti31
 		.endif
-		add esi, sizeof excstr
+		add esi, sizeof EXCEPTs
 	.endw
 	pop esi
 	jmp @@oldi31
