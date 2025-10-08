@@ -64,7 +64,9 @@ _rawjmp_pm proc near public
 ;	@drprintf "entry rawjmp_pm"
 	pushf
 	pop ax
-	and ah,8Fh			;mask out IOPL and NT
+;--- v3.23: TF must also be cleared since int 96h is optional now
+;	and ah,8Fh			;mask out IOPL and NT
+	and ah,8Eh			;mask out IOPL, NT and TF
 if ?PMIOPL
 	or ah, ?PMIOPL shl 4
 endif

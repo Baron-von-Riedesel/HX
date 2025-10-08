@@ -2537,10 +2537,10 @@ isgdt:
 	pushs ecx,esi
 	movzx ecx, [esi].REQ_READ_MEM.wSize
 	mov esi,edx
-	or ecx,ecx
-@@2rmem:
-	jz @@3rmem
+	jecxz @@3rmem
+nextitem:
 	.if (bIsGDT == -1)
+;--- v1.6: catch page faults to protect read from GDT selectors
 		call SetIntExc0E
 		mov dwExcProc, offset @F
 		stc
@@ -2550,17 +2550,15 @@ isgdt:
 		pushfd
 		call ResetIntExc0E
 		popfd
-		jc @@3rmem
 	.else
 		call ReadMemory
-		jc @@3rmem
 	.endif
+	jc @@3rmem
 	mov al,bl
 	mov [edi],al
 	inc esi
 	inc edi
-	dec ecx
-	jmp @@2rmem
+	loop nextitem
 @@3rmem:
 	pops ecx,esi
 	cmp bIsGDT,-1
@@ -2573,7 +2571,6 @@ done:
 	sub ecx, sizeof REQ_READ_MEM
 	ret
 Request_Read_Mem endp
-
 
 ;*******************************************************************************
 ;
@@ -2661,15 +2658,14 @@ limitok:
 	sub ecx, sizeof REQ_WRITE_MEM
 	xor eax,eax
 	xchg esi,edi
-nextitem:
 	jecxz write_done
+nextitem:
 	mov bl,[edi]
 	call WriteMemory
 	inc esi
 	inc edi
 	inc eax
-	dec ecx
-	jmp nextitem
+	loop nextitem
 write_done:
 	xchg esi,edi
 	pop edi
