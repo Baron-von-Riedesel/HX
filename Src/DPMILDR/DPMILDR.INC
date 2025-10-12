@@ -24,8 +24,6 @@ endif
 ?INT23RES		= 1	;1, restore int 23
 ?INT41SUPPORT	= 1	;1, support Int 41h debugging messages
 ?SUPAPPTITLE	= 1	;1, support for "application title" (win9x only, in rm!)
-?DISABLESERVER	= 0	;0, 1=disable DPMI server for next task if DPMILDR=8;
-					;   since HDPMI=32 exists, this is now obsolete
 ?SETDTA			= 1	;1, 1=for ?MULTPSP: init DTA to PSP:80 on start
 ?ZEROHIWORDEBP  = 1	;1, 1=if ?32BIT clear hiword(ebp) before 16-bit proc is called.
 					;   this is essentially for ENTER/LEAVE instructions!

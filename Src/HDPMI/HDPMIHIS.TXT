@@ -16,6 +16,9 @@
   þ setting HDPMI=8192 now runs an INT3 instead of setting the trace flag.
   þ fixed regression in v3.22: interrupts are no longer masked during exc
     display, since this may have caused the system to freeze.
+  þ fixed: clear IF in current flags for int 31h, ax=302h, alike ax=300h.
+  þ fixed: ensure that the real-mode part of int 31h, ax=301h is fully
+    reentrant.
 
   24.03.2025, version 3.22
 

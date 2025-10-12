@@ -323,11 +323,16 @@ if 0 ;v3.23: reverted - this caused severe problems with exc display in v3.22
 	mov bPICMask, al
 	mov al,-1
 	out 21h, al
-else
 endif
 ;--- v3.22: prevent reentry thru std rmcbs
-;--- v3.23: switch also used to prevent reentry thru internal rmcbs
-	mov [bNoRMCBEntry], 1
+;--- v3.23: switch also used to prevent reentry thru internal rmcbs;
+;---        however, activate switch only if at least one rmcb/irq is active!
+	mov al,0Bh
+	out 20h,al
+	in al,20h
+	cbw
+	or ax,[cRMCB]
+	setnz [bNoRMCBEntry]
 
 if ?SAFERMSTACK
 	push [wHostPSP]

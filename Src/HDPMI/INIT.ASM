@@ -332,6 +332,8 @@ externdef rm2pm_brk:near
 externdef intrmcb_brk:near
 externdef rmcb_brk:near
 externdef initclient_brk:near
+externdef callrmproc_brk:near
+externdef callrmsint_brk:near
 ;externdef srtask_brk:near
 
 	mov ax,(?XRM2PM shl 8) or 0CDh	;opcode for "INT 96h"
@@ -340,7 +342,9 @@ externdef initclient_brk:near
 	mov word ptr intrmcb_brk,ax	;break at entry internal callback
 	mov word ptr rmcb_brk,ax	;break at entry client callback
 	mov word ptr initclient_brk,ax	;break at entry "initial switch to pm"
-;	mov word ptr srtask_brk,ax	;break at entry "save/restore task state"
+	mov word ptr callrmproc_brk,ax	;break at reentry callrmproc (int 31h, ax=300h/301h/302h)
+	mov word ptr callrmsint_brk,ax	;break at reentry callrmsint
+;	mov word ptr srtask_brk,ax	;break at entry "save/restore task state" (not used)
 @@:
 endif
 

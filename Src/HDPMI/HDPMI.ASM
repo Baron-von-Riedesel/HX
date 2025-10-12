@@ -3455,6 +3455,7 @@ callrmsint_rm:
 	push cs:[tmpFLReg]
 	call cs:[calladdr2]
 	pushf
+	public callrmsint_brk
 callrmsint_brk::
 	@rm2pmbrk
 	pop cs:[tmpFLReg]
@@ -6151,7 +6152,7 @@ int1588:
 iretwithNC:
 	push bp
 	mov bp,sp
-	and byte ptr [bp+6],not _CY
+	and byte ptr [bp+2].IRETSRM.rFL,not _CY
 	pop bp
 	iret			;real-mode iret!
 if ?WATCHDOG
@@ -6159,7 +6160,7 @@ iretwithC:
 	popf
 	push bp
 	mov bp,sp
-	or byte ptr [bp+6],_CY
+	or byte ptr [bp+2].IRETSRM.rFL,_CY
 	pop bp
 	iret            ;real-mode iret!
 endif

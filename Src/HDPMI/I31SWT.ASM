@@ -16,12 +16,18 @@
 
 	option proc:private
 
-?COPYFLRMS	  = 1	;std=1, 1=copy flags on raw mode switch
-?DEBUGRMCB	  = 0	;std=0, 1=int 3 on entry/exit RMCB (debug)
-?CLEARDIR     = 0	;std=0, 1=clear direction flag on RMCBs
-?NOREENTRY    = 1	;std=1, 1=dont enter pm if exception handler runs
+?COPYFLRMS	= 1	;std=1, 1=copy flags on raw mode switch
+?DEBUGRMCB	= 0	;std=0, 1=int 3 on entry/exit RMCB (debug)
+?CLEARDIR	= 0	;std=0, 1=clear direction flag on RMCBs
+?NOREENTRY	= 1	;std=1, 1=dont enter pm if exception handler runs
+
+?SAFERMCALL	equ 1	;v3.23: protect rm call address for function 301h
 
 ?RMCBMAX	equ 10h	;std=10h, max number of real mode callbacks
+
+;--- bits in hibyte(flags)
+_TF equ 1
+_IF equ 2
 
 ;*** rmswitch      common entry for real mode callbacks
 ;*** _retcb        return from real mode callback
@@ -39,7 +45,7 @@
 
 _DATA16 segment
 
-MRMSTRUC struct
+IRETRM_s struct
 union
 rCSIP	dd ?
 struct
@@ -48,9 +54,9 @@ rCS		dw ?
 ends
 ends
 rFlags	dw ?
-MRMSTRUC ends
+IRETRM_s ends
 
-MyRMCS MRMSTRUC <>
+tmpRMRegs IRETRM_s <>
 
 _DATA16 ends
 
@@ -103,8 +109,8 @@ endif
 	public rmcb_brk
 rmcb_brk::
 	@rm2pmbrk
-	pop cs:[MyRMCS.rCS]
-	pop cs:[MyRMCS.rFlags]
+	pop cs:[tmpRMRegs.rCS]
+	pop cs:[tmpRMRegs.rFlags]
 
 ;--- build a RMCBSF frame         
         
@@ -117,7 +123,7 @@ if _LTRACE_ and ?RMCBLOG
 	push bp
 	mov bp,sp
 	@drprintf "rm cb rmSS:SP=%X:%X, Fl=%X, old RMS=%X:%X ds=%X es=%X fs=%X gs=%X",\
-		cs:v86iret.rSS, cs:v86iret.rSP, cs:MyRMCS.rFlags,\
+		cs:v86iret.rSS, cs:v86iret.rSP, cs:tmpRMRegs.rFlags,\
 		cs:wrmSStmp, cs:wrmSPtmp, ds, es, fs, gs
 	pop bp
 endif
@@ -177,7 +183,7 @@ endif
 
 	push edi
 	mov fs, ss:pmstate.rFS
-	movzx edi, ss:[MyRMCS.rCS]
+	movzx edi, ss:[tmpRMRegs.rCS]
 	mov gs, ss:pmstate.rGS
 	sub di, ss:[wHostSeg]		;seg RMSwitch
 	shl edi, 4					;RMCB size is 16!
@@ -188,7 +194,7 @@ if _LTRACE_
 	push ds
 	pop es
 	@dprintf "rmcb, callerCS=%X, rmcb#*16=%X, rmcs=%X:%lX", \
-		ss:[MyRMCS.rCS], di, word ptr cs:[edi+clrmcbs].rmcs+4, dword ptr cs:[edi+clrmcbs].rmcs+0
+		ss:[tmpRMRegs.rCS], di, word ptr cs:[edi+clrmcbs].rmcs+4, dword ptr cs:[edi+clrmcbs].rmcs+0
 endif
 
 	les edi, cs:[edi+clrmcbs].rmcs
@@ -199,8 +205,8 @@ endif
 	mov es:[edi].RMCS.rEDX, edx
 	mov es:[edi].RMCS.rECX, ecx
 	mov es:[edi].RMCS.rEAX, eax
-	mov cx, ss:[MyRMCS.rCS]
-	mov ax, ss:[MyRMCS.rFlags]
+	mov cx, ss:[tmpRMRegs.rCS]
+	mov ax, ss:[tmpRMRegs.rFlags]
 	mov es:[edi].RMCS.rCS, cx
 	mov es:[edi].RMCS.rFlags, ax
 
@@ -224,7 +230,7 @@ endif
 ;--- enabled.
 
 if ?RMCBSTATICSS
-	movzx ebx, ss:[MyRMCS.rCS]
+	movzx ebx, ss:[tmpRMRegs.rCS]
 	mov ds, ss:[selLDT]
 	sub bx, ss:[wHostSeg]		;seg RMSwitch
 	movzx edx, ss:v86iret.rSS
@@ -340,7 +346,7 @@ endif
 	mov dx,es:[edi].RMCS.rDS
 	mov cx,es:[edi].RMCS.rFS
 	mov bx,es:[edi].RMCS.rGS
-;	mov ss:MyRMCS.rFlags,si
+;	mov ss:tmpRMRegs.rFlags,si
 	mov ss:v86iret.rES, ax
 	mov ss:v86iret.rDS, dx
 	mov ss:v86iret.rFS, cx
@@ -448,20 +454,12 @@ endif
 	push ss:v86iret.rSS
 	push ss:v86iret.rSP
 
-;--- 1. set CS:IP and SS:SP
+;--- 1. set SS:SP
 
-	mov eax, es:[edi].RMCS.rCSIP
 	mov edx, es:[edi].RMCS.rSSSP
 
 	push byte ptr _FLATSEL_
 	pop es
-
-	test [ebp].RMCALLS.rAX,3	;is address to copy from IVT (ax=0300h)?
-	jnz havecsip
-	movzx ebx, bl
-	mov eax, es:[ebx*4]
-havecsip:
-	mov ss:MyRMCS.rCSIP,eax
 
 	and edx,edx
 	jz @F
@@ -492,7 +490,12 @@ havecsip:
 	rep movsw
 	pop edi
 @@:
-;--- 2a copy flags to realmode stack
+;--- 2a. copy flags to realmode stack
+;--- for functions 300h & 302h, the flags member from RMCS is copied to the IRET stack frame
+;--- and the procedure is called with IF & TF cleared.
+;--- for function 301h, there's just a RETF stack frame and the flags member from RMCS
+;--- is copied to the real flags.
+;--- for all cases, TF is cleared.
 
 	mov ds,[ebp].RMCALLS.rES
 	mov cx, [edi].RMCS.rFlags
@@ -500,19 +503,43 @@ if ?SETRMIOPL
 	and ch,08Eh 					;reset NT,IOPL,TF
 	or ch, ?RMIOPL shl 4
 else
-	and ch,0BEh 					;reset NT,TF
+	and ch,not _TF 					;reset TF (this is NOT specified in the DPMI docs)
 endif
 	test [ebp].RMCALLS.rAX,1		;function 0300h or 0302h?
 	jnz @F
 	sub eax,2
-	mov es:[edx+eax],cx				;push flags
+	mov es:[edx+eax],cx				;push flags (will become part of real-mode IRET frame)
+;--- v3.23: reset IF also for function 0x302h
+;@@:
+;	test [ebp].RMCALLS.rAX,3		;function 0300h?
+;	jnz @F
+	and ch,not _IF					;reset IF
 @@:
-	test [ebp].RMCALLS.rAX,3		;function 0300h?
-	jnz @F
-	and ch,not 2					;reset IF
-@@:
+
+;--- 2b. copy CS:IP (either to tmp reg or onto realmode stack)
+
+	mov esi, [edi].RMCS.rCSIP
+	test [ebp].RMCALLS.rAX,3		;is address to copy from IVT (ax=0300h)?
+	jnz havecsip
+	movzx ebx, bl
+	mov esi, es:[ebx*4]
+havecsip:
+if ?SAFERMCALL
+	sub eax,5*2
+	mov es:[edx+eax],esi
+	mov es:[edx+eax+4],cx			;flags (will be popped by an IRET)
+	mov si,ss:[wHostSeg]
+	shl esi,16
+	mov si,offset callrmproc_rm2
+	mov es:[edx+eax+6],esi
+else
 	sub eax,2
-	mov es:[edx+eax],cx				;push flags
+	mov ss:tmpRMRegs.rCSIP,esi
+	mov es:[edx+eax],cx				;flags (will be popped in real-mode before callf)
+endif
+
+;--- 2c. copy flags to realmode stack
+
 	mov ss:v86iret.rSP, ax
 
 ;--- 3. copy RMCS in conv. memory and registers
@@ -552,11 +579,16 @@ error1x:
 	align 4
 
 _TEXT16 segment
-	public callrmproc_brk
 callrmproc_rm:
+if ?SAFERMCALL
+	iret
+callrmproc_rm2:
+else
 	popf
-	call cs:[MyRMCS.rCSIP]
+	call cs:[tmpRMRegs.rCSIP]
+endif
 	pushf
+	public callrmproc_brk
 callrmproc_brk::
 	@rm2pmbrk
 	pop cs:[tmpFLReg]
@@ -584,11 +616,11 @@ endif
 	mov [edi].RMCS.rEDX, edx
 	mov [edi].RMCS.rECX, ecx
 	mov [edi].RMCS.rEAX, eax
-	mov si, ss:tmpFLReg
-	mov ax, ss:v86iret.rES
-	mov dx, ss:v86iret.rDS
-	mov cx, ss:v86iret.rFS
-	mov bx, ss:v86iret.rGS
+	mov esi, ss:[tmpFLRegD]
+	mov eax, ss:v86iret.rESd
+	mov edx, ss:v86iret.rDSd
+	mov ecx, ss:v86iret.rFSd
+	mov ebx, ss:v86iret.rGSd
 	mov [edi].RMCS.rFlags, si
 	mov [edi].RMCS.rES, ax
 	mov [edi].RMCS.rDS, dx
@@ -1056,6 +1088,8 @@ endif
 if ?PMIOPL
 	or ah, ?PMIOPL shl 4
 else
+;--- see macro @iopl0vif in hdpmi.asm
+ if ?IFALWAYSON
 	test byte ptr ss:[dwFeatures], 2	;VME feature?
 	jz @F
 	.586p
@@ -1063,17 +1097,12 @@ else
 	.386p
 	test cl, 2			; PVI set?
 	jz @F
- if ?IFALWAYSON
 ;--- if CR4.PVI is on, set IF=1 and VIF=rm IF
 	bts eax, 9			; set IF
 	jnc @F
 	bts eax, 19			; set VIF if IF was 1
- else
-	test ah, 2
-	jz @F
-	bts eax, 19			; set VIF if IF is 1
- endif
 @@:
+ endif
 endif
 	mov [esp].IRET32.rFL, eax
 	mov [esp].IRET32.rSP, ebx

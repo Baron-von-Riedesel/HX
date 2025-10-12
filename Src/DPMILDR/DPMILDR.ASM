@@ -80,7 +80,6 @@ endif
 
 ?RESETDEFPATH	= 0	;0 1= reset szPath? No, currently this is done
 					;  every time a .EXE is loaded
-?PSPSAVEI2FADDR	= 007Ch	;address in PSP to save int vector 2Fh
 
 if ?HDPMI
 _COPY2PSP_		= 0
@@ -504,20 +503,6 @@ _TEXT segment
 
 wLdrDS label word
 	jmp overlayentry
-
-if ?DISABLESERVER	;obsolete
-
-int2frm:
-  if ?HIDENEASWELL
-	cmp ah, 16h
-  else
-	cmp ax, 1687h
-  endif
-	jz @F
-	jmp dword ptr cs:[?PSPSAVEI2FADDR]
-@@:
-	iret
-endif
 
 if _COPY2PSP_
 psp_rou:
@@ -1660,17 +1645,14 @@ endif
 int214b_1:
 endif
 	xor cx,cx
-if ?DISABLESERVER
-	call disableserver
-endif
 if ?32BIT
-if ?DOSEMUSUPP
+ if ?DOSEMUSUPP
 	test cs:fMode, FMODE_DOSEMU
 	jz @F
 	call __loadpgm
 	jmp loadpgmdone
 @@:
-endif
+ endif
 endif
 
 ;------------------- here there was code to reset int21
@@ -1678,14 +1660,11 @@ endif
 ;------------------- of the now launched program (if it is a pm app)
 ;------------------- but it seems better to check in int21,ah=4ch
 ;------------------- if the terminating app is one started by the loader
-	call doscall 		  ;exec (real mode) program
+	call doscall 	;exec (real mode) program
 loadpgmdone:
 	pushf
 	@trace_s <lf,"-------------------------------------------",lf>
 	@trace_s <"dpmildr 21-4bh: back from int 21h, ax=4B00h",lf>
-if ?DISABLESERVER
-	call enableserver
-endif
 	popf
 	pushf
 if _LASTRC_
@@ -2000,52 +1979,6 @@ __loadpgm proc
 	ret
 __loadpgm endp
 endif
-endif
-
-if ?DISABLESERVER	;obsolete
-
-disableserver proc uses ds
-if 1
-	mov ds, cs:[wLdrPSP] 
-	mov word ptr ds:[?PSPSAVEI2FADDR+2],0
-endif
-	test cs:[bEnvFlgs], ENVFL_LOAD1APPONLY
-	jz exit
-if 0
-	cmp cs:[wTasks], 0	;is anything loaded at all?
-	jz exit
-endif
-	pusha
-	mov bl, 2fh
-	mov ax, 200h
-	int 31h
-	mov ds:[?PSPSAVEI2FADDR+0],dx
-	mov ds:[?PSPSAVEI2FADDR+2],cx
-	mov cx, cs:[wPSPSegm]
-	mov dx, 0100h+offset int2frm
-	mov ax, 0201h
-	int 31h
-	popa
-exit:
-	ret
-disableserver endp
-
-enableserver proc public uses ds
-	pusha
-	mov ds, cs:[wLdrPSP]
-	xor dx,dx
-	xor cx,cx
-	xchg dx, ds:[?PSPSAVEI2FADDR+0]
-	xchg cx, ds:[?PSPSAVEI2FADDR+2]
-	jcxz @F
-	mov bl, 2fh
-	mov ax, 0201h
-	int 31h
-@@:
-	popa
-	ret
-enableserver endp
-
 endif
 
 if ?SUPAPPTITLE
