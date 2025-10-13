@@ -1,5 +1,5 @@
 
-  __.__.____: version 3.11
+  13.10.2025: version 3.11
 
   þ fixed: unaligned access in exception handler caused a stack error if
     alignment exception (0x11) occured.

@@ -38,6 +38,8 @@ I3102103: causes page fault in host, and tries to handle it in exc handler
 I3103001: test int 31h, ax=0300h, simple
 I3103002: test int 31h, ax=0300h, more complex
 I3103011: test int 31h, ax=0301h (call real-mode far proc), 2 words on stack
+I3103016: test int 31h, ax=0301h reentrancy (fixed in v3.23)
+I3103022: test int 31h, ax=0302h IF on real-mode entry (fixed in v3.23)
 I3105032: test int 31h, ax=0503h (resize mem block)
 I310508 : test int 31h, ax=0508h (map phys. device/memory)
 I310508a: test int 31h, ax=0508h (change from mapped to committed)

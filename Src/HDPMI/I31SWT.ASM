@@ -21,7 +21,7 @@
 ?CLEARDIR	= 0	;std=0, 1=clear direction flag on RMCBs
 ?NOREENTRY	= 1	;std=1, 1=dont enter pm if exception handler runs
 
-?SAFERMCALL	equ 1	;v3.23: protect rm call address for function 301h
+?SAFE301	equ 1	;v3.23: protect rm call address for function 301h
 
 ?RMCBMAX	equ 10h	;std=10h, max number of real mode callbacks
 
@@ -524,7 +524,7 @@ endif
 	movzx ebx, bl
 	mov esi, es:[ebx*4]
 havecsip:
-if ?SAFERMCALL
+if ?SAFE301
 	sub eax,5*2
 	mov es:[edx+eax],esi
 	mov es:[edx+eax+4],cx			;flags (will be popped by an IRET)
@@ -580,7 +580,7 @@ error1x:
 
 _TEXT16 segment
 callrmproc_rm:
-if ?SAFERMCALL
+if ?SAFE301
 	iret
 callrmproc_rm2:
 else
