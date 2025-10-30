@@ -1,4 +1,9 @@
 
+  __.__.____: version 3.12
+
+  þ fixed: VxDCall0-8 didn't adjust stack on return.
+  þ fixed: GetTempFileNameW didn't work and usually caused a GPF.
+
   13.10.2025: version 3.11
 
   þ fixed: unaligned access in exception handler caused a stack error if

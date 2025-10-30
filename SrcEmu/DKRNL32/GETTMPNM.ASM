@@ -16,6 +16,8 @@ endif
 ;--- uUnique argument:
 ;--- =zero: create the name using system time, file is created and ensured it's unique
 ;--- !=zero: just a filename is created, uniqueness not guaranteed. only lowword of argument used.
+;--- out: eax=numeric value used in temp filename, if eax=0 -> error.
+;--- errors: ERROR_BUFFER_OVERFLOW
 
 GetTempFileNameA proc uses esi edi ebx pszTempDir:ptr BYTE, pszPrefix:ptr BYTE,
 			uUnique:DWORD, pszOut:ptr BYTE
@@ -24,6 +26,7 @@ local	systemtime:SYSTEMTIME
 local	tmpdir[MAX_PATH]:byte
 
 	@strace <"GetTempFileNameA(", &pszTempDir, ", ", pszPrefix, ", ", uUnique, ", ", pszOut, ") enter">
+	cld
 	mov esi, pszTempDir
 	mov ecx, sizeof tmpdir
 	lea edi, tmpdir
@@ -111,7 +114,12 @@ GetTempFileNameW proc pszTempDir:ptr WORD, pszPrefix:ptr WORD,
 	.endif
 	invoke GetTempFileNameA, pszTempDir, eax, uUnique, pszOut
 	.if (eax && pszOut)
+		; eax does NOT contain length of generated name!!!
+		; v3.12: fixed
+		push eax
+		invoke lstrlen, pszOut
 		invoke ConvertAStr, pszOut
+		pop eax
 	.endif
 	@strace <"GetTempFileNameW(", pszTempDir, ", ", pszPrefix, ", ", uUnique, ", ", pszOut, ")=", eax>
 	ret
