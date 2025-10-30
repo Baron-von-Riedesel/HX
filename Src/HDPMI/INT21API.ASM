@@ -702,7 +702,7 @@ endif
 	push ss
 	pop ds
 	assume ds:GROUP16
-	mov ax,[wSegTLB]
+	mov ax,[gbl.wSegTLB]
 	mov word ptr execparm.fcb1+2, ax
 	mov word ptr execparm.fcb2+2, ax
 	mov word ptr execparm.cmdline+2, ax
@@ -1199,7 +1199,7 @@ ife ?32BIT
 	movzx ecx,cx
 endif
 	mov ebp,?TLBSIZE
-	mov si,ss:[wSegTLB]
+	mov si,ss:[gbl.wSegTLB]
 if ?DYNTLBALLOC
 	cmp ecx,ebp
 	jbe @F
@@ -1285,7 +1285,7 @@ ife ?32BIT
 	movzx ecx,cx
 endif
 	mov ebp,?TLBSIZE
-	mov si,ss:[wSegTLB]
+	mov si,ss:[gbl.wSegTLB]
 if ?DYNTLBALLOC
 	cmp ecx,ebp
 	jbe @F
@@ -1566,7 +1566,7 @@ f440D61b:
 	push ds
 	push byte ptr _TLBSEL_
 	pop ds
-	push word ptr ss:[wSegTLB]
+	push word ptr ss:[gbl.wSegTLB]
 	push word ptr 0020h
 	pop dword ptr ds:[LOGTRACKPARM.dta]
 	pop ds

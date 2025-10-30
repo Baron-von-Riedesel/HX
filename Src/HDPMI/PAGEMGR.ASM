@@ -1721,7 +1721,7 @@ updatetlb proc
 if ?USEINVLPG
 	cmp ecx,10		;it's faster to avoid INVLPG for 10+ pages
 	jnc noinvlpg
-	test ss:[fMode2],FM2_NOINVLPG	;option -g or cpu=80386?
+	test ss:[gbl.fMode2],FM2_NOINVLPG	;option -g or cpu=80386?
 	jnz noinvlpg
 	push ds
 	push byte ptr _FLATSEL_
@@ -2777,9 +2777,9 @@ nextblock:
 	call setactivephyshandle
 
 if ?FREEXMSDYN
-	cmp cApps,1				;this is before it is decremented
+	cmp gbl.cApps,1				;this is before it is decremented
 	jnz notidle
-	test fMode, FM_RESIDENT
+	test gbl.fMode, FM_RESIDENT
 	jz notidle				;host will exiting soon, do nothing
 	test PhysBlk.bFlags,PBF_XMS
 	jz notidle				;no XMS block, cannot be released
@@ -2892,7 +2892,7 @@ if 0
 ;--- does NOT allocate any memory while the child is running
 ;--- missing: a cleanup to adjust the free amount of memory
 ;--- returned by Int 15h after a client has terminated.
-;--- simple solution: do the cleanup when the cApps counter 
+;--- simple solution: do the cleanup when the gbl.cApps counter 
 ;--- goes to zero and the host is resident.
 
 pm_freeI15mem proc public
@@ -3083,7 +3083,7 @@ pm_createvm proc public
 	mov SysAddrUp, ?SYSAREA0 + 1000h
 	mov SysAddrDown, ?SYSAREA1 - 1000h
 
-	test fMode, FM_CLONE	;dont clear the PhysBlk var
+	test gbl.fMode, FM_CLONE	;dont clear the PhysBlk var
 	jz noinit				;for the first instance
 
 	mov edx, offset startvdata
@@ -3251,7 +3251,7 @@ endif
 	mov ebx, eax
 
 	mov esi, ss:pdGDT.dwBase
-	test ss:fMode, FM_CLONE
+	test ss:gbl.fMode, FM_CLONE
 	jz isfirst
 
 	mov eax,?TEMPBASE + ?SA0OFS + 4h  ;PTE for FF801000h
@@ -4010,14 +4010,14 @@ endif
 if ?XMSALLOCRM
 	jz noxms
   if ?INT15XMS
-	test fMode2, FM2_INT15XMS
+	test gbl.fMode2, FM2_INT15XMS
 	jz @F
 	call getunmanagedmem
 	jnc initpagemgr_rm_1
 @@:
   endif
   if ?VCPIPREF
-	test fMode2, FM2_VCPI	;option -v set?
+	test gbl.fMode2, FM2_VCPI	;option -v set?
 	jz @F
 	test fHost, FH_VCPI		;running as VCPI client?
 	jz @F

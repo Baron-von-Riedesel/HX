@@ -114,7 +114,7 @@ mygetbase endp
 if ?FORCETEXTMODE or (?DOSOUTPUT eq 0)
 forcetextmode proc public
  if ?FORCETEXTMODE
-	test ss:fMode2, FM2_FORCETEXT
+	test ss:gbl.fMode2, FM2_FORCETEXT
 	jz exit
 	call IsTextMode
 	jz exit
@@ -350,7 +350,7 @@ ifdef _DEBUG
 	mov al, fDebug
 	mov savedfDebug, al
  endif
-	or fMode2, FM2_LOG	;enable displays in case they were suppressed
+	or gbl.fMode2, FM2_LOG	;enable displays in case they were suppressed
 endif
 ;--- dump exception number
 
@@ -370,7 +370,7 @@ endif
 ;--- exception in ring 0, dump client CS:EIP, SS:ESP
 
 	@printf <" in ring 0",lf>
-;	cmp cApps, 0
+;	cmp gbl.cApps, 0
 ;	jz @F
 	mov ebx,taskseg._Esp0
 	and ebx,ebx
@@ -465,7 +465,7 @@ endif
 	mov eax,cr2
 	call PTEout
 if 0
-	@printf <" Stat=%X",lf>, word ptr cApps
+	@printf <" Stat=%X",lf>, word ptr gbl.cApps
 else
 	call _lfout
 endif
@@ -628,14 +628,14 @@ if (?DOSOUTPUT eq 1) and (?FORCETEXTMODE eq 0)
 	cmp [ebp].de.rSP, 200h
 	jb @F
 noloop:
-	test fMode, FM_RESIDENT
+	test gbl.fMode, FM_RESIDENT
 	jz @F
 	mov dl,'c'
 @@:
 else
 	mov esi, offset szTerm1
 	call _stroutesi
-	cmp [cApps],0
+	cmp [gbl.cApps],0
 	jz @F
 	call _stroutesi
 @@:
@@ -659,7 +659,7 @@ else
 endif
 	dec bExcEntry
 endif ;?DOSOUTPUT
-	cmp cApps,0
+	cmp gbl.cApps,0
 	jz @F
 if ?POLLKBD
 	cmp dl,2EH+80h	;key "c"
@@ -679,14 +679,14 @@ endif
 serverexit:
 	call _lfout
 if ?SETCLIENTPSP        
-	cmp cApps,0			;is there a client?
+	cmp gbl.cApps,0			;is there a client?
 	jz @F
 	mov bx,[wPSPSegm]	;set client's initial PSP
 	mov ah,50h
 	call rmdosintern
 @@:
 endif
-	and fMode, not FM_RESIDENT
+	and gbl.fMode, not FM_RESIDENT
 if 0
 	mov ax, _EAERR2_
 	jmp _exitclientEx

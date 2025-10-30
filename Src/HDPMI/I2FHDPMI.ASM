@@ -74,10 +74,10 @@ error:
 	ret
  ifdef _DEBUG
 is0000:
-	and ss:fMode2,not FM2_LOG
+	and ss:gbl.fMode2,not FM2_LOG
 	ret
 is0001:
-	or  ss:fMode2,FM2_LOG
+	or  ss:gbl.fMode2,FM2_LOG
 	ret
 is0002:
 	mov ss:traceflgs,bx	;see HDPMI.INC, ?LOG_xxx for flags details
@@ -91,7 +91,7 @@ is0003:
 	ret
  endif
 is0004:
-	or ss:fMode, FM_DISABLED
+	or ss:gbl.fMode, FM_DISABLED
 	ret
 
  if ?VM

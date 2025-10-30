@@ -291,7 +291,7 @@ exit:
 	@dprintf "allocaddrspace: alloc ok, handle=%lX,addr=%lX,size=%lX",\
 		esi,[esi].MEMITEM.dwBase,[esi].MEMITEM.dwSize
 	or [esi].MEMITEM.flags, HDLF_ALLOC
-	mov al, [cApps]
+	mov al, [gbl.cApps]
 	mov [esi].MEMITEM.bOwner, al
 	mov [esp].PUSHADS.rEAX, esi
 	popad
@@ -566,7 +566,7 @@ getmeminfo proc public
 	call pm_GetNumPhysPages	;eax=free pages, edx=total pages, ecx=reserved
 	@dprintf "getmeminfo: free phys=%lX, total phys=%lX, res=%lX", eax, edx, ecx
 if ?RESTRICTMEM
-	test ss:[fMode2],FM2_RESTRMEM
+	test ss:[gbl.fMode2],FM2_RESTRMEM
 	jz @F
 	mov ebx, ?MAXFREEPAGES
 	push ecx
@@ -589,7 +589,7 @@ endif
 ;--- some clients assume that they can allocate freePhys pages
 ;--- these will not work with HDPMI unless option -n is set!
 if ?MEMBUFF
-	test ss:[fMode2],FM2_MEMBUFF
+	test ss:[gbl.fMode2],FM2_MEMBUFF
 	jz @F
 	sub eax, ecx
 	shr ecx, 2
@@ -1669,7 +1669,7 @@ endif
 _freeclientmemory proc public
 
 	pushad
-	mov cl,[cApps]
+	mov cl,[gbl.cApps]
 	@dprintf "freeclientmemory enter, client=%X", cx
 if ?DISPLAYHDLTAB
 _LTRACE_ = _LTRACE_ + 1

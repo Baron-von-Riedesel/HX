@@ -133,7 +133,7 @@ if ?GLOBALTLBUSAGE				;get TLB of a previously installed instance
 @@:
 	push ds
 	mov ds, ax
-	mov ax,[wSegTLB]
+	mov ax,[gbl.wSegTLB]
 	@drprintf "TLB %X in previous HDPMI host %X ", ax, ds
 	pop ds
   if ?TLBLATE
@@ -145,7 +145,7 @@ if ?GLOBALTLBUSAGE				;get TLB of a previously installed instance
 nohdpmi:
 endif
 if ?TLBLATE
-	test fMode2, FM2_TLBLATE	;hdpmi started with option -b?
+	test gbl.fMode2, FM2_TLBLATE	;hdpmi started with option -b?
 	jnz exit
 endif
 	test bEnvFlags, ENVF_TLBLOW	;must TLB be in low memory?
@@ -183,7 +183,7 @@ allocnewtlb:				;alloc memory for TLB
 	int 21h
 	jc exit
 	@drprintf "TLB memory block allocated at %X",ax
-	or fMode, FM_TLBMCB		;set: tlb has its own mcb
+	or gbl.fMode, FM_TLBMCB		;set: tlb has its own mcb
 	jmp settlb_1
 nonewtlb:
 	call getendpara			;get end paragraph of hdpmi group16 in dx
@@ -207,7 +207,7 @@ if ?DELAYLOAD
 	jc allocnewtlb
 endif
 settlb_1:
-	mov [wSegTLB],ax
+	mov [gbl.wSegTLB],ax
 	movzx eax,ax
 	shl eax,4
 	@drprintf "TLB will be at linear address %lX, size %X",eax,?TLBSIZE
@@ -328,15 +328,17 @@ if ?INTRM2PM
 	test bEnvFlags2, ENVF2_DEBUG
 	jz @F
 
-externdef rm2pm_brk:near
-externdef intrmcb_brk:near
-externdef rmcb_brk:near
-externdef initclient_brk:near
-externdef callrmproc_brk:near
-externdef callrmsint_brk:near
-;externdef srtask_brk:near
+externdef rm2pm_brk:near	;flags push/pop
+externdef intrmcb_brk:near	;flags read from stack frame
+externdef rmcb_brk:near		;flags push/pop
+externdef initclient_brk:near	;flags pushed & read from stack frame
+externdef callrmproc_brk:near	;flags push/pop
+externdef callrmsint_brk:near	;flags push/pop
+;externdef srtask_brk:near	;flags push/pop
 
-	mov ax,(?XRM2PM shl 8) or 0CDh	;opcode for "INT 96h"
+;	mov ax,(?XRM2PM shl 8) or 0CDh	;opcode for "INT 96h"
+	mov ah,gbl.bIntNo
+	mov al,0CDh
 	mov word ptr _jmp_pmX, ax	;break at reentry pm
 	mov word ptr rm2pm_brk,ax	;break at raw mode switch rm -> pm
 	mov word ptr intrmcb_brk,ax	;break at entry internal callback
@@ -408,7 +410,7 @@ getcpu proc near
 	mov [_cpu],cl
 	cmp cl,4
 	jnc @F
-	or fMode2, FM2_NOINVLPG
+	or gbl.fMode2, FM2_NOINVLPG
 @@:
 	ret
 getcpu endp
@@ -432,8 +434,8 @@ initkd386swat1_rm proc
 	jnz nokerneldebugger
 	@drprintf "initkd386swat1: 386swat detected"
 	or fDebug,FDEBUG_KDPRESENT
-if 0;?INTRM2PM  ; v3.23: obsolete
-	mov word ptr _jmp_pmX, 90FAh	;deactivate RM2PM int
+if 0;?INTRM2PM
+;	mov word ptr _jmp_pmX, 90FAh	;deactivate RM2PM int; v3.23: obsolete
 endif
 nokerneldebugger:
 	ret
@@ -503,8 +505,8 @@ else
 endif
 externdef patchkd: word
 	mov patchkd, 68CDh	; v3.22: call kd on exit
-if 0;?INTRM2PM ; v3.23: obsolete
-	mov word ptr _jmp_pmX, 90FAh	;deactivate RM2PM int
+if 0;?INTRM2PM
+;	mov word ptr _jmp_pmX, 90FAh	;deactivate RM2PM int; v3.23: obsolete
 endif
 ;------------------------------------ prepare kernel debugger for PM
 
@@ -1260,10 +1262,12 @@ else
 	push 0
 	pop es
 	assume es:SEG16
-	cmp word ptr es:[?XRM2PM*4+0],offset intrm2pm
+	movzx bx,gbl.bIntNo
+	shl bx,2
+	cmp word ptr es:[bx+0],offset intrm2pm
 	jnz nothidden
 	pusha
-	mov es,es:[?XRM2PM*4+2]
+	mov es,es:[bx+2]
 	assume es:nothing
 	mov di,offset logo
 	mov si,di
@@ -1573,7 +1577,7 @@ ifdef _DEBUG
  if ?DOSOUTPUT and ?USEHOSTPSP
  	mov cs:wHostPSP,es
  endif
-;	or cs:fMode2,FM2_LOG	;enable if the very first logs are to be displayed
+;	or cs:gbl.fMode2,FM2_LOG	;enable if the very first logs are to be displayed
 endif
 	@drprintf "hdpmi startup code, CS=%X, SS:SP=%X:%X",cs,ss,sp
 	cld
@@ -1627,7 +1631,7 @@ endif
 if ?STUB
 	mov word ptr ds:[0],"DH"
 	mov byte ptr ds:[2],"P"
-	or fMode2, FM2_TLBLATE
+	or gbl.fMode2, FM2_TLBLATE
 endif
 	push es
 	call scanforhdpmistring	;assumes es=PSP
@@ -1825,12 +1829,12 @@ ismem10disable:
 	retn
 if ?FORCETEXTMODE
 setforcetext:
-	or fMode2, FM2_FORCETEXT
+	or gbl.fMode2, FM2_FORCETEXT
 	retn
 endif
 if ?NOINVLPG
 noinvlpg:
-	or fMode2, FM2_NOINVLPG
+	or gbl.fMode2, FM2_NOINVLPG
 	retn
 endif
 tlbinlowdos:
@@ -1843,12 +1847,12 @@ vmsupp:
 endif
 if ?VCPIPREF
 vcpipref:
-	or fMode2, FM2_VCPI
+	or gbl.fMode2, FM2_VCPI
 	retn
 endif
 if ?RESTRICTMEM
 restrictmem:
-	or fMode2, FM2_RESTRMEM
+	or gbl.fMode2, FM2_RESTRMEM
  if 1
 	mov al, es:[si]
 	sub al, '0'
@@ -1864,12 +1868,12 @@ restrictmem:
 endif
 if ?INT15XMS
 int15xms:
-	or fMode2, FM2_INT15XMS
+	or gbl.fMode2, FM2_INT15XMS
 	retn
 endif
 if ?MEMBUFF
 membuff:
-	or fMode2, FM2_MEMBUFF
+	or gbl.fMode2, FM2_MEMBUFF
 	retn
 endif
 safemode:
@@ -1906,7 +1910,7 @@ switchlog:
 	pop ds
 	retn
 @@:
-	xor fMode2, FM2_LOG
+	xor gbl.fMode2, FM2_LOG
 	pop ds
 	retn
 endif
@@ -1915,12 +1919,12 @@ isresident:
 	call IsHDPMIRunning
 	mov dx, offset error5
 	jnc errorexit
-	or fMode, FM_RESIDENT
+	or gbl.fMode, FM_RESIDENT
 	retn
   if ?TLBLATE
 tlblate:
-;;	or fMode, FM_TLBMCB
-	or fMode2, FM2_TLBLATE
+;;	or gbl.fMode, FM_TLBMCB
+	or gbl.fMode2, FM2_TLBLATE
 	retn
   endif
   if ?SUPPDISABLE
@@ -1930,7 +1934,7 @@ disableserver:
 	jc errorexit
 	mov es, ax					;set ES to running instance
 	assume es:GROUP16
-	or es:fMode, FM_DISABLED
+	or es:gbl.fMode, FM_DISABLED
 	mov dx, offset error9
 	jmp errorexit	
 enableserver:
@@ -1939,7 +1943,7 @@ enableserver:
 	jc errorexit
 	mov es, ax					;set ES to running instance
 	assume es:GROUP16
-	and es:fMode, not FM_DISABLED
+	and es:gbl.fMode, not FM_DISABLED
 	mov dx, offset error11
 	jmp errorexit
   endif
@@ -1955,10 +1959,10 @@ isuninstall:
 	mov es, ax
 	assume es:GROUP16
 if _LTRACE_
-	movzx ax,es:[cApps]
+	movzx ax,es:[gbl.cApps]
 	@drprintf "hdpmi found at %X, currently active clients %X (psp=%X)", es, ax, es:wPSPSegm
 endif
-	cmp byte ptr es:[cApps],0
+	cmp byte ptr es:[gbl.cApps],0
 	mov dx,offset error2
 	jnz errorexit				;instance is busy
 	push ds
@@ -1969,7 +1973,7 @@ endif
 	pop ds
 	mov dx,offset error7
 	jnz errorexit
-	and es:fMode, not FM_RESIDENT
+	and es:gbl.fMode, not FM_RESIDENT
 	mov ax,1687h
 	int 2fh						;get PM entry
 	push es
@@ -2021,7 +2025,7 @@ else
 	@drprintf "start: _initserver_rm returned ok, ax=%X", ax
 
 	push ax	;save exit code
-	test fMode, FM_RESIDENT
+	test gbl.fMode, FM_RESIDENT
 	jz @F
 	mov dx,offset error6	;"HDPMI now resident"
 	call display_string
@@ -2061,7 +2065,7 @@ else
 	mov ax,cs
 	add ax,dx
 ;--- remember: the TLB may be located just behind the 16-bit code!
-	cmp ax, wSegTLB
+	cmp ax, gbl.wSegTLB
 	jnz @F
 	add dx,?TLBSIZE/16
 @@:

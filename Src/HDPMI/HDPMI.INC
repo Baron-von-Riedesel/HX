@@ -186,11 +186,15 @@ endif
 
 ?DISINT@RM2PM	equ 0	;std 0: 1=clear IF in Flags onto stack
 ?CMPCR3 		equ 1	;std 1: 1=improves performance by 2-3%
-?EMUMOVREGCRX	equ 1	;std 1: 1=emulate mov reg, crX (req. by 32rtm!)
-?EMUMOVCRXREG	equ 1	;std 1: 1=emulate mov crX, reg
-?EMUMOVCR0REG	equ 0	;std 0: 1=emulate mov cr0, reg
-?EMUMOVREGDRX	equ 0	;std 0: 1=emulate mov reg, drX
-?EMUMOVDRXREG	equ 0	;std 0: 1=emulate mov drX, reg
+?EMUCRxRD		equ 1	;std 1: 1=emulate mov reg, crX (req. by 32rtm!)
+?EMUCRxWR		equ 1	;std 1: 1=emulate mov crX, reg
+?EMUCR0WR		equ 0	;std 0: 1=emulate mov cr0, reg
+ifndef ?EMUDRxRD
+?EMUDRxRD		equ 0	;std 0: 1=emulate mov reg, drX
+endif
+ifndef ?EMUDRxWR
+?EMUDRxWR		equ 0	;std 0: 1=emulate mov drX, reg
+endif
 
 ;--- v3.19: set this switch to 0, until it's clear what this "vendor" is supposed to do
 ?SUPP32RTM		equ 0	;std 0: 1=support int2f, ax=168a, "VIRTUAL SUPPORT"
@@ -340,6 +344,21 @@ DOSSDA ends
 
 cr		equ 13
 lf		equ 10
+
+;--- struct at offset 8 of group16
+
+HDPMIGBL struct
+union
+dwSegTLB dd ?			;segment translation buffer
+wSegTLB	dw ?			;defined here so this variable can be
+ends
+cApps	db ?			;number of clients
+fMode	db ?			;flags (FM_xxx)
+fMode2	db ?			;more flags (FM2_xxx)
+if ?INTRM2PM
+bIntNo	db ?
+endif
+HDPMIGBL ends
 
 ;--- fMode flags
 

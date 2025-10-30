@@ -73,7 +73,7 @@ intr3316::				;save state to es:E/DX
 	mov ecx,ebx			;bx=size of buffer
 	and ch,1Fh			;just make sure that CX is < 2000h
 
-	invoke copy_flat_2_far32, ss:[dwSegTLB], es::edx
+	invoke copy_flat_2_far32, ss:[gbl.dwSegTLB], es::edx
 
 	pop ecx
 ;	jmp retf2exit
@@ -103,7 +103,7 @@ intr3309::				;graphic cursor (copy 20h bytes ES:E/DX)
 	push ecx			;but it costs only 5 bytes
 	mov cx,20h*2		;20h words!!!
 docopy33:
-	invoke copy_far32_2_flat, ss:[dwSegTLB], es::edx
+	invoke copy_far32_2_flat, ss:[gbl.dwSegTLB], es::edx
 	call setesreg2tlb
 	pop ecx
 	xor edx,edx
@@ -247,7 +247,7 @@ mouse33_reset proc public
 	test [fMouse], MF_RMEVTSET
 	jz exit
 	@dprintf "mouse33_reset enter, ss=%lX ds=%lX es=%lX, rms=%X:%X", ss, ds, es, v86iret.rSS, v86iret.rSP
-	cmp [cApps],0
+	cmp [gbl.cApps],0
 	jz vm_exit
 	push es
 	mov cx, cs:[moumask]

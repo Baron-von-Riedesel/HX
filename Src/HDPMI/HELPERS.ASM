@@ -53,7 +53,7 @@ endif
 ;*** set real-mode DS to TLB
 
 setdsreg2tlb proc public
-	push ss:[dwSegTLB]
+	push ss:[gbl.dwSegTLB]
 	pop ss:v86iret.rDSd
 	ret
 	align 4
@@ -62,7 +62,7 @@ setdsreg2tlb endp
 ;*** set real-mode ES to TLB
 
 setesreg2tlb proc public
-	push ss:[dwSegTLB]
+	push ss:[gbl.dwSegTLB]
 	pop ss:v86iret.rESd
 	ret
 	align 4
@@ -254,7 +254,7 @@ copyz_tlb_2_dsdx endp
 ;*** 2. set v86-es to TLB
 
 copy_esdi_2_tlb proc public
-	invoke copy_far32_2_flat, ss:[dwSegTLB], es::edi
+	invoke copy_far32_2_flat, ss:[gbl.dwSegTLB], es::edi
 	call setesreg2tlb
 	ret
 	align 4
@@ -264,7 +264,7 @@ copy_esdi_2_tlb endp
 ;*** 2. set v86-ds to TLB
 
 copy_dsdx_2_tlb proc public
-	invoke copy_far32_2_flat, ss:[dwSegTLB], ds::edx
+	invoke copy_far32_2_flat, ss:[gbl.dwSegTLB], ds::edx
 	call setdsreg2tlb
 	ret
 	align 4
@@ -358,7 +358,7 @@ copy_far32_2_tlbxx endp
 ;*** copy cx bytes src TLB:0, dst ES:(E)DI
 
 copy_tlb_2_esdi proc public
-	invoke copy_flat_2_far32, ss:[dwSegTLB], es::edi
+	invoke copy_flat_2_far32, ss:[gbl.dwSegTLB], es::edi
 	ret
 	align 4
 copy_tlb_2_esdi endp
@@ -367,7 +367,7 @@ copy_tlb_2_esdi endp
 
 copy_tlb_2_dsdx proc public
 
-	invoke copy_flat_2_far32, ss:[dwSegTLB], ds::edx
+	invoke copy_flat_2_far32, ss:[gbl.dwSegTLB], ds::edx
 	ret
 	align 4
 copy_tlb_2_dsdx endp

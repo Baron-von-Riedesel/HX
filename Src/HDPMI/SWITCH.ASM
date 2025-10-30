@@ -14,11 +14,11 @@
 _TEXT16 segment
 
 ;*** switch to protected mode
-;--- - clear IF
+;--- - clear IF (also TF if HDPMI=8192)
 ;--- - save real-mode segment registers
 ;--- - raw jump to protected mode
 ;--- - restore protected mode segment registers
-;--- flags not touched
+;--- other flags not touched (ZF if RETF 2 used instead of IRET in int 96h)
 
 	@ResetTrace
 

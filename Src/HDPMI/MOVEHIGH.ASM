@@ -176,7 +176,7 @@ endif
 	push es
 	pop ds
   if ?VM
-	test ss:fMode, FM_CLONE
+	test ss:gbl.fMode, FM_CLONE
 	jz @F
 ;--- copy IDT from its location where it was saved in _saveclientstate
 	call _getidtofs

@@ -152,7 +152,7 @@ else
 	@dprintf "saveclientstate: AllocSysPagesDn()=%lX", eax
 	mov edi, eax
 endif
-	inc byte ptr [cApps]
+	inc byte ptr [gbl.cApps]
 
 if ?CR0COPY
 	mov eax, cr0
@@ -307,7 +307,7 @@ _restoreclientstate proc public
 	push es
 	pushad
 
-	dec byte ptr [cApps]
+	dec byte ptr [gbl.cApps]
 
 if ?MOU15RESET
 	push cs:[mouse15_rmcb]
@@ -360,7 +360,7 @@ endif
 if 0
 ;--- if the last client is terminating, use its real-mode
 ;--- stack for host real-mode calls.
-	cmp ss:[cApps],0
+	cmp ss:[gbl.cApps],0
 	jnz @F
 	mov ss:v86iret.rSP, ax
 	shr eax,16
@@ -374,7 +374,7 @@ endif
 
 ;--- v3.20: if a client terminates, reenable host
 ;--- (so only idle host can be disabled permanently)
-	and ss:[fMode], not FM_DISABLED
+	and ss:[gbl.fMode], not FM_DISABLED
 
 	@dprintf "restoreclientstate: restored taskseg._Esp0=%lX", ss:taskseg._Esp0
 if ?SAVEDR7

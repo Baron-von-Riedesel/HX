@@ -156,7 +156,7 @@ ife ?DIO2RMS
 	mov es:[DISKIORM.startsec],edx
 	mov es:[DISKIORM.sectors],cx
 	mov es:[DISKIORM.buffofs],offset 200h
-	mov ax,ss:[wSegTLB]
+	mov ax,ss:[gbl.wSegTLB]
 	mov es:[DISKIORM.buffseg],ax
 	mov ax,cx
 	@dprintf "copyDiskIo2Tlb: startsec=%lX, sectors=%X, buf=%X:%X",\
@@ -184,7 +184,7 @@ else
 	mov es:[edx].DISKIORM.startsec, eax
 	mov es:[edx].DISKIORM.sectors, cx
 	mov es:[edx].DISKIORM.buffofs, 0
-	mov ax, ss:[wSegTLB]
+	mov ax, ss:[gbl.wSegTLB]
 	mov es:[edx].DISKIORM.buffseg, ax
 	mov ax, cx
 	@dprintf "copyDiskIo2Tlb: startsec=%lX, sectors=%X, buf=%X:%X",\
@@ -273,13 +273,13 @@ endif
 	shl ecx, 9			;sectors -> bytes (only CX matters)
 
 ife ?DIO2RMS
-	mov eax, ss:[dwSegTLB]
+	mov eax, ss:[gbl.dwSegTLB]
 	add ax,0020h
 	@dprintf "PrepareDiskIoWrite: copy %X bytes from %lX:%lX to TLB:200",cx,ds,edx
 	invoke copy_far32_2_flat, eax, ds::edx
 else
 	@dprintf "PrepareDiskIoWrite: copy %X bytes from %lX:%lX to TLB",cx,ds,edx
-	invoke copy_far32_2_flat, ss:[dwSegTLB], ds::edx
+	invoke copy_far32_2_flat, ss:[gbl.dwSegTLB], ds::edx
 endif
 	pop ecx
 	pop edx
@@ -303,7 +303,7 @@ PrepareDiskIoWrite endp
 ;--- to buffer address in DS:E/BX; no registers modified
 
 AfterDiskIoRead proc public uses ds esi ecx ebx
-	mov si,ss:[wSegTLB]
+	mov si,ss:[gbl.wSegTLB]
 	cmp cx,0FFFFh
 	jnz @F
 if ?32BIT

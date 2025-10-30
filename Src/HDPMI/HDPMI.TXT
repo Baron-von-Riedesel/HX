@@ -22,9 +22,10 @@
     6.8  VDS API
     6.9  DOS API Translation
     6.10 Other API Translation Support
-    6.11 Debug Support
-    6.12 Nested Execution of DPMI Clients
-    6.13 Other Features of HDPMI
+    6.11 Emulation of Privileged Opcodes
+    6.12 Debug Support
+    6.13 Nested Execution of DPMI Clients
+    6.14 Other Features of HDPMI
    7.    Restrictions of current Version
    8.    Known Problems/Hints
    9.    Compatibility List
@@ -556,16 +557,6 @@
    Int 31h, AX=B00h: if supported by the cpu, I/O watchpoints may be set
    by calling this API with DH=3. Requires CR4, bit 3, to be set.
 
-   Some privileged opcodes are emulated (this feature is not active if
-   cmdline option -s ['safe' mode] is given):
-
-   - HLT (F4) 
-   - MOV reg,CRx (0F 20 xx) - using ESP for <reg> will not work!
-   - MOV CRx,reg (0F 22 xx) - using ESP for <reg> will not work!
-
-   However, writes to CR0 are only allowed with register EAX as source
-   (32RTM.EXE compatibility) and bits 0 and 31 cannot be changed.
-
 
  6.7 Vendor API
 
@@ -729,7 +720,26 @@
    33  ax=0018h set alternate mouse user handler ES:E/DX
 
 
- 6.11 Debug Support
+ 6.11 Emulation of Privileged Opcodes
+
+   Some privileged opcodes are emulated (this feature is not active if
+   cmdline option -s ['safe' mode] is given):
+
+   - HLT (F4) 
+   - MOV reg,CRx (0F 20 xx)
+   - MOV CRx,reg (0F 22 xx)
+   - MOV reg,DRx (0F 21 xx) ; HDPMI32i only
+   - MOV DRx,reg (0F 23 xx) ; HDPMI32i only
+
+   Notes:
+   - 'reg' stands for 32-bit registers EAX,EBX,ECX,EDX,EBP,ESI,EDI.
+     However, 'MOV CR0,reg' will accept EAX as 'reg' only (32RTM.EXE
+     compatibility); also, bits 0 and 31 of CR0 cannot be changed.
+   - 'MOV DRx,reg' won't change the DRx register - it's just that the
+     instruction won't generate a GPF.
+
+
+ 6.12 Debug Support
 
     Since v3.20, debug support is enabled (again) in the standard variant.
    For other variants, debug support may be enabled in the makefiles by
@@ -763,7 +773,7 @@
    a simple replacement available, Deb386, that doesn't need this setup.
    
 
- 6.12 Nested Execution of several DPMI Clients
+ 6.13 Nested Execution of several DPMI Clients
 
    As already mentioned, usually if two or more clients share one instance
    of HDPMI, they also have to share address space, IDT and LDT. For most
@@ -774,7 +784,7 @@
    and (physical) extended memory. 
 
 
- 6.13 Other Features of HDPMI
+ 6.14 Other Features of HDPMI
 
   þ  clients run with CPL 3; IOPL is 3 in the standard version. This means,
      instructions like STI, CLI, IN or OUT are executed in real time. Since

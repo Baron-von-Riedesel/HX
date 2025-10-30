@@ -368,12 +368,7 @@ llogo	equ $ - logo
 
 ;--- variables that may be accessed by other host instances
 
-dwSegTLB label dword		;segment translation buffer
-wSegTLB	dw 0				;defined here so this variable can be
-		dw 0				;accessed by another host instance
-cApps	db 0				;number of clients
-fMode	db 0				;flags (FM_xxx)
-fMode2	db 0				;more flags (FM2_xxx)
+gbl HDPMIGBL <<0>,0,0,0,?XRM2PM>
 
 ;--- IDT (vectors 00-7F only)
 ;--- the IDT usually is moved to extended memory
@@ -2291,7 +2286,7 @@ if ?IGNEXC01INR0
 
 lpms_ce_4:
 	@dprintf "single step exception in ring 0 occured, ignored"
-	cmp ss:[cApps],0			;is a client active?
+	cmp ss:[gbl.cApps],0			;is a client active?
 	jz @F
 	mov ebp, ss:taskseg._Esp0	;set client Trace flag
 	or byte ptr [ebp-sizeof IRET32].IRET32.rFL+1,1
@@ -3621,6 +3616,7 @@ preff3:
 	jmp nextipbyte
 endif
 
+;--- exception 0Dh: check if instruction has to be emulated.
 
 emuprivinstr proc
 	push ds
@@ -3637,7 +3633,7 @@ if ?PMIOPL eq 0
 endif
 nextipbyte::
 	lodsb
-if ?PMIOPL eq 0
+if ?PMIOPL eq 0     ; IOPL0 variant: check for IN/OUT/CLI/STI
 	cmp al, 26h	;ES?
 	jz prefseg
 	cmp al, 2Eh	;CS?
@@ -3690,25 +3686,25 @@ endif
 	;--- v3.18: no emulation of spec reg moves in "safe" mode
 	test ss:bEnvFlags2, ENVF2_SYSPROT
 	jnz donespec
-if ?EMUMOVREGCRX or ?EMUMOVCRXREG or ?EMUMOVCR0REG or ?EMUMOVREGDRX or ?EMUMOVDRXREG
+if ?EMUCRxRD or ?EMUCRxWR or ?EMUCR0WR or ?EMUDRxRD or ?EMUDRxWR
 	cmp al, 0Fh
 	jnz donespec
 	lodsb
-if ?EMUMOVREGCRX
+if ?EMUCRxRD
 	cmp al,20h		;mov xxx,crx?
 	jz emuspecregmove
 endif
-if ?EMUMOVCRXREG or ?EMUMOVCR0REG       
+if ?EMUCRxWR or ?EMUCR0WR       
 	cmp al,22h		;mov crx,xxx?
 	jz emumov2crxreg
 endif
-if ?EMUMOVREGDRX
+if ?EMUDRxRD
 	cmp al,21h		;mov xxx,drx?
-	jz emuspecregmove
+	jz emumovdrxrd
 endif
-if ?EMUMOVDRXREG
+if ?EMUDRxWR
 	cmp al,23h		;mov drx,xxx?
-	jz emumov2drxreg
+	jz emumovdrxwr
 endif
 	jmp done
 donespec:
@@ -3850,7 +3846,7 @@ tmpCode dd ?
 _DATA32C ends
 
 emumov2crxreg:      ; "mov crx, reg"
-ife ?EMUMOVCR0REG	; v3.20: "mov cr0, reg" is rejected
+ife ?EMUCR0WR	; v3.20: "mov cr0, reg" is rejected
 	mov al,[esi]
 	test al,038h	; "mov cr0, reg"?
 	jnz emuspecregmove
@@ -3862,7 +3858,19 @@ ife ?EMUMOVCR0REG	; v3.20: "mov cr0, reg" is rejected
 	inc esi
 	jmp done_emuclisti
 endif
-emumov2drxreg:		; "mov drx, reg"
+if ?EMUDRxWR		; "mov drx, reg"
+emumovdrxwr:
+ if 1	;3.24: just skip the instruction (Win9x compatible)
+	inc esi
+	mov [esp].EMUINSFR.rIP, esi
+	pop eax
+	pop esi
+	jmp retfromsim2
+ endif
+endif
+if ?EMUDRxRD		; "mov reg, drx"
+emumovdrxrd:
+endif
 emuspecregmove:
 	lodsb
 ;	mov ah,0CBh		;RETF v3.20: changed to near call
@@ -3873,7 +3881,7 @@ emuspecregmove:
 	pop ds
 	mov ds:[tmpCode], eax
 	mov [esp].EMUINSFR.rIP, esi
-	@dprintf "emulate 'mov eax, crx', eax=%lX", eax
+	@dprintf "emulate 'mov eax, c/drx', eax=%lX", eax
 	pop eax
 	pop esi
 if 0	; v3.20: changed to near call
@@ -4234,8 +4242,8 @@ if ?TLBLATE
 
 settlb_pm proc
 	pushad
-	@dprintf "settlb_pm: wSegTLB=%X, instance=%X, es=%lX", wSegTLB, wHostSeg, es
-	cmp wSegTLB,0
+	@dprintf "settlb_pm: wSegTLB=%X, instance=%X, es=%lX", gbl.wSegTLB, wHostSeg, es
+	cmp gbl.wSegTLB,0
 	jnz exit
 	call setstrat
 	mov bx,?TLBSIZE/10h
@@ -4243,8 +4251,8 @@ settlb_pm proc
 	call rmdosintern
 	jc @F
 	@dprintf "settlb_pm: new wSegTLB=%X", ax
-	mov wSegTLB, ax
-	or fMode, FM_TLBMCB
+	mov gbl.wSegTLB, ax
+	or gbl.fMode, FM_TLBMCB
 if 1
 ife ?STUB
 	movzx eax, ax
@@ -4260,7 +4268,7 @@ endif
 	popfd
 	jc error
 exit:
-	movzx eax, wSegTLB
+	movzx eax, gbl.wSegTLB
 	shl eax, 4
 	mov ecx, pdGDT.dwBase
 	mov es:[ecx+(_TLBSEL_ and 0F8h)].DESCRPTR.A0015,ax
@@ -4553,7 +4561,7 @@ if ?MOVEGDT
 endif
 ;--- create new GDT
 ;--- copy GDT temporarily in TLB
-	mov edi, ss:dwSegTLB
+	mov edi, ss:gbl.dwSegTLB
 	shl edi, 4
 	mov edx, edi		;EDX = new GDT address
 	mov esi, ss:pdGDT.dwBase
@@ -4605,7 +4613,7 @@ endif
 
 if ?HSINEXTMEM
 ;--- use the TLB temporarily as host stack
-	mov esp, dwSegTLB
+	mov esp, gbl.dwSegTLB
 	shl esp, 4
 	add esp, ?TLBSIZE
 	sub esp, taskseg._Edi	;taskseg._Edi = new dwSSBase
@@ -4627,7 +4635,7 @@ endif
 
 	mov eax, taskseg._Edi
 	mov dwSSBase, eax
-	mov ecx, dwSegTLB
+	mov ecx, gbl.dwSegTLB
 	shl ecx, 4
 	test bEnvFlags2, ENVF2_LDTLOW
 	jz @F
@@ -4653,8 +4661,8 @@ endif
 ;--- also, don't assume the real-mode vectors have been saved!
 ;--- they must be resaved. 
 
-	and fMode, not (FM_RESIDENT or FM_TLBMCB)
-	or fMode, FM_CLONE
+	and gbl.fMode, not (FM_RESIDENT or FM_TLBMCB)
+	or gbl.fMode, FM_CLONE
 
 ;--- some functions of filldesc must be reexecuted here
 ;--- ecx=dwSSBase
@@ -4691,7 +4699,7 @@ if _LTRACE_
 	shl edx, 16
 	mov dx,es:[ecx+(_TLBSEL_ and 0F8h)].DESCRPTR.A0015
 endif
-	@dprintf "CreateVM: GDT.base=%lX, dwSSBase=%lX, wSegTLB=%X, TLB=%lX", pdGDT.dwBase, dwSSBase, wSegTLB, edx
+	@dprintf "CreateVM: GDT.base=%lX, dwSSBase=%lX, wSegTLB=%X, TLB=%lX", pdGDT.dwBase, dwSSBase, gbl.wSegTLB, edx
 	@dprintf "CreateVM: taskseg.esp0=%lX, ltaskaddr=%lX", taskseg._Esp0, ltaskaddr
 
 ;--- let the heap mgr do its reinitialization
@@ -4912,18 +4920,18 @@ _initclient_pm proc
 	@dprintf "initclient: instance=%X, pmst.DS/ES=%X/%X RMS=%X:%X tss.esp0=%lX, esp=%lX",\
 		wHostSeg, pmstate.rDS, pmstate.rES, v86iret.rSS, v86iret.rSP, taskseg._Esp0, esp
 
-	test fMode, FM_INIT
+	test gbl.fMode, FM_INIT
 	jnz @F
 	call _initfirstclient		;host initialization on first client
 	jc initclerr0
 	@dprintf "initclient: initfirstclient returned"
-	or fMode, FM_INIT
+	or gbl.fMode, FM_INIT
 @@:
 
 if ?VM
 	test bEnvFlags, ENVF_VM
 	jz novm
-	cmp cApps,0
+	cmp gbl.cApps,0
 	jz firstvm
 	call CreateVM		;expects EBP=client registers (PUSHADS )
 behindcreatevm::        
@@ -5164,7 +5172,7 @@ initclerr10:		;createvm failed
 ;--- starting to create the clone. So if there's an error, it happened
 ;--- very early, and no memory has been allocated yet - no need to do cleanup
 ;--- (which is rather difficult without doing an int 21h, ax=4c00h ).
-	@dprintf "init err10: createvm failed, cApps=%X", word ptr ss:cApps
+	@dprintf "init err10: createvm failed, cApps=%X", word ptr ss:gbl.cApps
 if _LTRACE_
 	jmp @F
 endif
@@ -5175,9 +5183,9 @@ if _LTRACE_
 endif
 @@:
 	mov al,14h		;what does error 8014h mean?
-	test fMode, FM_RESIDENT
+	test gbl.fMode, FM_RESIDENT
 	jnz termclient2
-	cmp [cApps],0
+	cmp [gbl.cApps],0
 	je termserver
 	jmp termclient2
 if ?TLBLATE
@@ -5207,9 +5215,9 @@ initclerr24:		;cant alloc ENV/PSP sel
 @@:
 	mov al,11h		;8011: out of descriptors
 initclerr:
-	test fMode, FM_RESIDENT
+	test gbl.fMode, FM_RESIDENT
 	jnz termclient
-	cmp [cApps],1	;cApps has been increased inside saveclientstate; so 1 means
+	cmp [gbl.cApps],1	;cApps has been increased inside saveclientstate; so 1 means
 	jbe termserver	;no client is running yet.
 termclient:
 	push ds			;ensure ES contains no ring3 selector   
@@ -5354,9 +5362,9 @@ endif
 
 	push byte ptr _FLATSEL_
 	pop es
-	@dprintf "exitclient enter, cApps=%X, task=%lX RMS=%X:%X, esp=%lX", word ptr cApps, ltaskaddr, v86iret.rSS, v86iret.rSP, esp
+	@dprintf "exitclient enter, cApps=%X, task=%lX RMS=%X:%X, esp=%lX", word ptr gbl.cApps, ltaskaddr, v86iret.rSS, v86iret.rSP, esp
 	call closeinterrupts
-	cmp [cApps],0			;fatal error on host initialization?
+	cmp [gbl.cApps],0			;fatal error on host initialization?
 	jz exitclient_1
 if ?ALWAYSRESTORE
 ;--- make sure host is not reentered now (VCPI free memory)
@@ -5391,10 +5399,10 @@ endif
 	@dprintf "exitclient: last task check, taskseg._Esp0=%lX, esp=%lX", taskseg._Esp0, esp
 
 if ?ALWAYSRESTORE
-	cmp [cApps],0
+	cmp [gbl.cApps],0
 	jz exitclient_1
 else
-	cmp [cApps],1
+	cmp [gbl.cApps],1
 	jbe exitclient_1
 endif
 
@@ -5447,7 +5455,7 @@ ife ?MOU33RESET
 endif
 	@dprintf "server termination would be ok"
 if ?RESIDENT
-	test fMode, FM_RESIDENT
+	test gbl.fMode, FM_RESIDENT
 	jnz exitclient_2
 endif
 	@dprintf "server about to terminate"
@@ -5469,25 +5477,25 @@ if ?TLBLATE
         
 resettlb_pm proc
 
-	@dprintf "resettlb_pm, tlbseg=%X", wSegTLB
-	test fMode2, FM2_TLBLATE
+	@dprintf "resettlb_pm, tlbseg=%X", gbl.wSegTLB
+	test gbl.fMode2, FM2_TLBLATE
 	jz exit
-	test fMode, FM_TLBMCB
+	test gbl.fMode, FM_TLBMCB
 	jz exit
-	cmp wSegTLB,0
+	cmp gbl.wSegTLB,0
 	jz exit
 	pushad
 	mov eax,[dwSDA]
 	mov bx,es:[eax].DOSSDA.wPSP
 	@dprintf "resettlb_pm: set owner TLB to current PSP %X", bx
 	xor eax, eax
-	xchg eax, dwSegTLB	;clears wSegTLB
+	xchg eax, gbl.dwSegTLB	;clears wSegTLB
 	dec eax
 	shl eax,4
 	mov es:[eax+1],bx
 	mov ecx, pdGDT.dwBase
 	and es:[ecx+(_TLBSEL_ and 0F8h)].DESCRPTR.attrib,not 2	;readonly
-	and fMode, not FM_TLBMCB
+	and gbl.fMode, not FM_TLBMCB
 	popad
 exit:
 	ret
@@ -5516,14 +5524,14 @@ restoreivtvecs proc
 ;---     bit1: 1=error occured
 
 	pushad
-	@dprintf "restoreivtvecs: try to restore ivt vectors, fMode=%X", word ptr fMode
+	@dprintf "restoreivtvecs: try to restore ivt vectors, fMode=%X", word ptr gbl.fMode
 
 	mov ah, 00
 	mov di, wHostSeg				;GROUP16
 
 	mov cl,TESTINTRMCB				;check IRQs and int 1C
 
-	test fMode, FM_CLONE
+	test gbl.fMode, FM_CLONE
 	jnz l2
 	cmp es:[2Fh*4+2], di			;check vector 2Fh in IVT
 	jz l2
@@ -5572,12 +5580,12 @@ skipvec:
 	jz restorestart
 if ?JHDPMI
  if ?VM
-	test [fMode], FM_CLONE
+	test [gbl.fMode], FM_CLONE
 	jnz @F
  endif
 	cmp [dwExtHook],0
 	jz @F
-	test [fMode], FM_RESIDENT
+	test [gbl.fMode], FM_RESIDENT
 	jnz @F
 	mov ax, JHD_DISCONNECT
 	pushd offset jhdpmicall
@@ -5611,7 +5619,7 @@ if ?WDEB386
 @@:
 endif
 	@dprintf "exitserver enter, ds=%lX es=%lX esp=%lX", ds, es, esp
-	or fMode, FM_DISABLED		;disable int 2Fh real-mode interface
+	or gbl.fMode, FM_DISABLED		;disable int 2Fh real-mode interface
 ;	@dprintf "call mouse33_exit, esp=%lX", esp
 ;	call mouse33_exit
 	@dprintf "call pm_exit_pm, ds=%lX es=%lX esp=%lX", ds, es, esp
@@ -5668,7 +5676,7 @@ ifdef _DEBUG
  endif
 endif
 if ?CANTEXIT
-	test fMode, FM_CANTEXIT	;could host be terminated?
+	test gbl.fMode, FM_CANTEXIT	;could host be terminated?
 	jnz @F
 endif
 	@drprintf "exitserver_rm: call unlinkserver"
@@ -5701,7 +5709,7 @@ _TEXT16 segment
 unlinkserver proc
 	pusha
 if ?VM
-	test fMode, FM_CLONE	;nothing to be done if this is a clone
+	test gbl.fMode, FM_CLONE	;nothing to be done if this is a clone
 	jnz @exit
 endif
 	mov dx,[wEMShandle]
@@ -5719,9 +5727,9 @@ ife ?STUB
 	mov es,ax
 	mov es:[1],bx				;set owner of host segment to cur psp
 	@drprintf "unlinkserver: set psp of mcb %X to %X",ax,bx
-	test fMode, FM_TLBMCB		;is TLB an extra MCB?
+	test gbl.fMode, FM_TLBMCB		;is TLB an extra MCB?
 	jz @exit
-	mov ax,[wSegTLB]
+	mov ax,[gbl.wSegTLB]
 if ?TLBLATE
 	and ax,ax
 	jz @exit
@@ -5765,7 +5773,7 @@ nextitem:
 	cmp es:[bx+2], dx	;is GROUP16?
 	jz @F
 if ?CANTEXIT
-	or fMode, FM_CANTEXIT
+	or gbl.fMode, FM_CANTEXIT
 endif
 	or cl,1
 	@drprintf "unhookIVTvecs: cannot restore rm vec at %X [%X %X]", bx, ax, di
@@ -5851,7 +5859,7 @@ initclient_brk::
 	@drprintf "initclient_rm: new client starting, host=%X, es=%X, ss:sp=%X:%X",cs,es,ss,sp
 
 if ?I2FINITEXIT        
-	test cs:fMode, FM_INIT
+	test cs:gbl.fMode, FM_INIT
 	jnz @F
 	call _init2server_rm		;server initialization on first client
 ;;  jc initclerrx
@@ -5970,7 +5978,7 @@ endif
 int2Frm proc far
 	pushf
 if ?CANTEXIT
-	test cs:fMode, FM_CANTEXIT
+	test cs:gbl.fMode, FM_CANTEXIT
 	jnz tryexitnow
 endif
 	cmp ah,16h
@@ -5980,7 +5988,7 @@ noint2f16:
 int2f_default:
 	@jmpoldvec 2F
 int2f16:
-	test cs:fMode, FM_DISABLED
+	test cs:gbl.fMode, FM_DISABLED
 	jnz noint2f16
 	popf
 	cmp al,87h
@@ -6034,7 +6042,7 @@ int2f1687:
 
 	mov si,?RMSTKSIZE/10h  ;task bytes in paragraphs
 if ?VM
-	cmp cs:cApps,0
+	cmp cs:gbl.cApps,0
 	jz @F
 	db 81h, 0C6h		; add si, imm16
 wCloneSize dw 0
@@ -6087,22 +6095,29 @@ endif
 int2Frm endp
 
 ;--- this is Int 96h real-mode proc.
-;--- the purpose is to prevent debuggers from stepping into host's mode-switch code.
+;--- TF and IF are cleared;
+;--- the purpose is to prevent debuggers from stepping into host's mode-switch code
+;--- without modifying any other flags!
+;--- since v3.23, this code is active only if HDPMI=8192 is set.
 
 if ?INTRM2PM
 intrm2pm proc far public
- if 1 ; preferably don't modify hiword(ESP); doesn't matter much, since it isn't saved in pm
+;--- preferably don't modify hiword(ESP)?
+;--- doesn't matter much, since it's modified in pm...
+;--- if IRET is used instead if RETF 2, the flags must be cleared "by hand"!
+ if 0
 	push bp
 	mov bp,sp
-	inc [bp+2].IRETSRM.rIP
-;	and byte ptr [bp+2].IRETSRM.rFL+1,not 011b	;clear IF & TF
+	inc [bp+2].IRETSRM.rIP	;modifies ZF
+;	and byte ptr [bp+2].IRETSRM.rFL+1,not (_IF or _TF)
 	pop bp
  else
 	movzx esp,sp
-	inc [esp].IRETSRM.rIP
-;	and byte ptr [esp].IRETSRM.rFL+1,not 011b	;clear IF & TF
+	inc [esp].IRETSRM.rIP	;modifies ZF
+;	and byte ptr [esp].IRETSRM.rFL+1,not (_IF or _TF)
  endif
-	retf 2	;RETF 2 instead if IRET will leave IF & TF cleared...
+	retf 2	;retf 2 should be ok, since flags are pushed/popped when needed
+;	iret
 intrm2pm endp
 endif
 
@@ -6166,7 +6181,7 @@ iretwithC:
 endif
 if ?CATCHREBOOT
 int154f53:
-	cmp cs:[cApps],0	;hdpmi idle?
+	cmp cs:[gbl.cApps],0	;hdpmi idle?
 	jz stdint15rm
 	push ds
 	push ax

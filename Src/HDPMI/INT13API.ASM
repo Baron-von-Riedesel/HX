@@ -93,9 +93,9 @@ intr1302_0:				;<---- next sectors to read
 	movzx ecx,cl
 	shl ecx,9		 ;transform sector to bytes (*512)
 
-	@dprintf "i13: copy to %lX:%lX from %X %X bytes",es,edi,ss:[wSegTLB],cx
+	@dprintf "i13: copy to %lX:%lX from %X %X bytes",es,edi,ss:[gbl.wSegTLB],cx
 
-	invoke copy_flat_2_far32, ss:[dwSegTLB], es::edi
+	invoke copy_flat_2_far32, ss:[gbl.dwSegTLB], es::edi
 	add edi,ecx
 
 	pop ecx
@@ -143,8 +143,8 @@ intr1303_0:				;<----
 	push ecx
 	movzx ecx,al
 	shl ecx,9		 ;transform sectors to bytes (*512)
-	@dprintf "i13: copy from %lX:%lX to %X %X bytes",es,edi,ss:[wSegTLB],cx
-	invoke copy_far32_2_flat, ss:[dwSegTLB], es::edi
+	@dprintf "i13: copy from %lX:%lX to %X %X bytes",es,edi,ss:[gbl.wSegTLB],cx
+	invoke copy_far32_2_flat, ss:[gbl.dwSegTLB], es::edi
 	add edi,ecx
 	pop ecx
 

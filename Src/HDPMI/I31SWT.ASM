@@ -491,11 +491,14 @@ endif
 	pop edi
 @@:
 ;--- 2a. copy flags to realmode stack
-;--- for functions 300h & 302h, the flags member from RMCS is copied to the IRET stack frame
-;--- and the procedure is called with IF & TF cleared.
-;--- for function 301h, there's just a RETF stack frame and the flags member from RMCS
-;--- is copied to the real flags.
-;--- for all cases, TF is cleared.
+;--- for functions 300h & 302h, the flags member from RMCS is copied to the
+;--- IRET frame and the procedure is called with IF & TF cleared.
+;--- for function 301h, there's just a RETF stack frame and the flags member
+;--- from RMCS is copied to the real flags.
+;--- For all cases, TF is cleared, in both the flags register and the flags
+;--- in the IRET frame; the Windows DPMI host doesn't clear TF in the flags
+;--- in IRET frame, but that won't trigger an exc 01, cause v86-mode runs with
+;--- IOPL 0, so flags reg access is protected.
 
 	mov ds,[ebp].RMCALLS.rES
 	mov cx, [edi].RMCS.rFlags
@@ -513,7 +516,7 @@ endif
 ;@@:
 ;	test [ebp].RMCALLS.rAX,3		;function 0300h?
 ;	jnz @F
-	and ch,not _IF					;reset IF
+	and ch,not (_IF or _TF)			;reset IF & TF
 @@:
 
 ;--- 2b. copy CS:IP (either to tmp reg or onto realmode stack)

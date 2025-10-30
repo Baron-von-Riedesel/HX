@@ -313,11 +313,7 @@ endif
 _TEXT16 ends
 
 BEGGRP16 segment
-externdef wSegTLB:word			;segment TLB
-externdef dwSegTLB:dword		;segment TLB (same as wSegTLB, but DWORD)
-externdef cApps:byte			;cnt active clients
-externdef fMode:byte			;global mode flags
-externdef fMode2:byte			;2. global mode flags
+externdef gbl:HDPMIGBL
 BEGGRP16 ends
 
 ;--- _DATA16 publics

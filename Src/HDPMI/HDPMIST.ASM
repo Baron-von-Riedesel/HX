@@ -529,11 +529,11 @@ local buffer[8]:byte
 
 	call printversion
 	call printlocation
-	movzx ax,cApps
-	@rprintf <"   host stack=%lX, Clients=%X, TLB=%X, rmStack=%X:%X",lf>, dwHostStack, ax, wSegTLB, v86iret.rSS, v86iret.rSP
+	movzx ax,gbl.cApps
+	@rprintf <"   host stack=%lX, Clients=%X, TLB=%X, rmStack=%X:%X",lf>, dwHostStack, ax, gbl.wSegTLB, v86iret.rSS, v86iret.rSP
 	@rprintf <"   hostPSP=%X, hostSeg=%X, envFlags=%X",lf>, wHostPSP, wHostSeg, wEnvFlags
 	@rprintf <"   CR3=%lX, GDT=%lX, IDT=%lX, LDT=%lX",lf>, v86topm._cr3, pdGDT.dwBase, pdIDT.dwBase, dwLDTAddr
-	mov si, word ptr fMode
+	mov si, word ptr gbl.fMode
 	@rprintf <"   mode=%X [">, si
 	call printmode
 	@rprintf <" ]",lf>
