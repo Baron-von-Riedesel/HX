@@ -224,6 +224,11 @@ ConsoleName     db      "con",00h
 
 NewLine         db      0Dh,0Ah
 
+if HX
+szMSDOS db "MS-DOS",0
+szNoDOSExtender db "No DOS Extender",13,10,0
+endif
+
 around: sti                             ; enable interrupts
 
         assume  ds:DGROUP
@@ -348,10 +353,31 @@ rat10:                                  ; - endif
 not_DOS4G:
 endif
 if HX
- if 0
+        push esi
+        push edi
+        mov ax,168Ah
+        mov esi,offset szMSDOS          ; DOS extender present?
+        int 2Fh
+        pop edi
+        pop esi
+        cmp al,0
+        jz dosext_present
+        mov esi,offset szNoDOSExtender  ; __do_exit_with_msg() cannot be used without DOS extender!
+@@:
+        lodsb
+        and al,al
+        jz @F
+        mov dl,al
+        mov ah,2
+        int 21h
+        jmp @B
+@@:
+        mov ax,4C01h
+        int 21h
+dosext_present:
         mov     ah,51h                  ; assume we get the PSP selector
         int     21h                     ; by a simple DOS call (HDPMI/DPMIONE/Windows only)
- else
+ if 0
         push edi
         xor ecx, ecx
         push ecx

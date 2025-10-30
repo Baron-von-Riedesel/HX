@@ -192,6 +192,10 @@ endif
 ;
 ConsoleName     db      "con",0
 NewLine         db      0Dh,0Ah
+if HX
+szMSDOS db "MS-DOS",0
+szNoDOSExtender db "No DOS Extender",13,10,0
+endif
 
         align   4
         dd      ___begtext              ; make sure dead code elimination
@@ -344,10 +348,31 @@ rat10:                                  ; - endif
 not_rational:
 endif
 if HX
- if 0
-        mov ah, 51h     ; works with HDPMI only
+        push esi
+        push edi
+        mov ax,168Ah
+        mov esi,offset szMSDOS          ; DOS extender present?
+        int 2Fh
+        pop edi
+        pop esi
+        cmp al,0
+        jz dosext_present
+        mov esi,offset szNoDOSExtender  ; __do_exit_with_msg() cannot be used without DOS extender!
+@@:
+        lodsb
+        and al,al
+        jz @F
+        mov dl,al
+        mov ah,2
         int 21h
- else
+        jmp @B
+@@:
+        mov ax,4C01h
+        int 21h
+dosext_present:
+        mov ah, 51h     ; works with DOS extender only
+        int 21h
+ if 0
         push edi
         xor ecx, ecx
         push ecx
