@@ -117,7 +117,7 @@ endif
 _$putchrx proc
 
 ifdef _DEBUG
-	test cs:fMode2,FM2_LOG
+	test cs:gbl.fMode2,FM2_LOG
 	jz _ret
 endif
 if ?USEDEBUGOUTPUT

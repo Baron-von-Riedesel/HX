@@ -1013,6 +1013,7 @@ bFPUOr		db 0
 endif
 if ?RESTRICTMEM
 resshift	db 0				;shift right factor for -x option
+adjaddr		db 0				;v3.24: -x option: optional a argument
 endif
 
 if ?KDSUPP
@@ -2704,10 +2705,43 @@ endif
 intr01 endp
 
 intr02 proc
-	cmp word ptr [esp.IRET32.rCS],_CSSEL_ ;skip NMI in ring 0
-	jz iretexit
+	cmp word ptr [esp.IRET32.rCS],_CSSEL_ ;NMI in ring 0?
+if ?NMI2RM
+	jz intr02_r0	; v3.24: route NMI in PL0 to real-mode
+else
+	jz iretexit		; skip NMI in PL0
+endif
 	@exception 02
 	@mapexc2int 02
+if ?NMI2RM
+;--- v3.24: route NMI to real-mode if it occured in ring 0
+intr02_r0:
+;--- save pm segment regs, they will be undefined after @rawjmp_pm
+	push ds
+	push es
+	push fs
+	push gs
+;--- save/restore global vars that may be modified by mode switches
+	push ss:[taskseg._Eax]
+	push ss:[dwPmDest]
+	push ss:[dwHostStack]
+	mov ss:[dwHostStack],esp
+	@rawjmp_rm @F
+_TEXT16 segment
+@@:
+	int 02
+	@rawjmp_pm @F
+_TEXT16 ends
+@@:
+	pop ss:[dwHostStack]
+	pop ss:[dwPmDest]
+	pop ss:[taskseg._Eax]
+	pop gs
+	pop fs
+	pop es
+	pop ds
+	iretd
+endif
 intr02 endp
 
 intr03 proc
@@ -3268,6 +3302,8 @@ irqrm2pm_1:
 	mov ds, ss:pmstate.rDS
 	mov fs, ss:pmstate.rFS
 	mov gs, ss:pmstate.rGS
+
+	@NMI_ON 0
 
 ifdef _DEBUG
 	verw word ptr ss:pmstate.rSSd
@@ -4980,7 +5016,7 @@ endif
 	jc initclerr21
 	@dprintf "initclient: DS=%X, real mode DS=%X", ax, v86iret.rDS
 	mov [ebp].INITCLPM.rDS,eax
-	mov [ebp].INITCLPM.rSS,ax
+	mov [ebp].INITCLPM.rSSd,eax
 
 	movzx eax, wInitSP
 	movzx edi, wInitSS
@@ -5017,7 +5053,7 @@ endif
 	call getrmdesc
 	jc initclerr23
 	@dprintf "initclient: CS=%X, real mode CS=%X", ax, es:[edi].INITCLRM.wCS
-	mov [ebp].INITCLPM.rCS, ax
+	mov [ebp].INITCLPM.rCSd, eax
 
 ;--- get selector for SS
 	mov bx,[wInitSS]
@@ -5032,7 +5068,7 @@ endif
 	call getrmdesc
 	jc initclerr22
 	@dprintf "initclient: SS=%X, real mode SS=%X", ax, [wInitSS]
-	mov [ebp].INITCLPM.rSS, ax
+	mov [ebp].INITCLPM.rSSd, eax
 @@:
 if 0
 	@dprintf "first dos call, disp '#'"

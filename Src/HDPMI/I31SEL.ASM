@@ -637,7 +637,8 @@ getcsalias proc public
 	align 4
 getcsalias endp
 
-;--- int 31h, ax=000B - get descriptor
+;--- int 31h, ax=000B - get descriptor bx;
+;--- also called by function 000Eh.
 
 getdesc proc public
 	@dprintf "getdescriptor(ax=B): sel=%X",bx
@@ -659,7 +660,8 @@ endif
 	align 4
 getdesc endp
 
-;*** function 000C - set descriptor bx ***
+;--- function 000C - set descriptor bx;
+;--- also called by function 000Fh.
 
 setdesc proc public
 	@dprintf "setdescriptor(ax=C): sel=%X",bx
@@ -746,8 +748,8 @@ getmultdesc endp
 
 ;--- get a LDT descriptor for a real-mode segment
 ;--- in: BX=segment address, CX=Attr (code/data, big)
-;--- out: selector in ax
-;--- used in client init to translate CS,DS,SS,ES to protected-mode selectors.
+;--- out: selector in eax
+;--- used in client init to translate CS,DS,SS and PSP:[2Ch] to protected-mode selectors.
 
 getrmdesc proc public
 	pushad
@@ -756,7 +758,7 @@ getrmdesc proc public
 	inc ecx
 	@int_31
 	jc error
-	mov [esp].PUSHADS.rAX, ax
+	mov [esp].PUSHADS.rEAX, eax
 	movzx ebx, bx
 	shl ebx, 4
 	push ebx

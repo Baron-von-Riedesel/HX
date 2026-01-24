@@ -125,7 +125,7 @@ endif
 ifndef ?JHDPMI
 ?JHDPMI			equ 0	;std 0; 1=support jhdpmi JLM in vcpi mode
 endif
-?TOPMEM			equ 0	;std ?; 1=use top of memory (returned by XMS) for phys2lin mapping
+?TOPMEM			equ 1	;std 1; 1=use top of memory (returned by XMS/VCPI) for phys2lin mapping
 
 if ?DPMI10EXX
 ?EXCRESTART		equ 1	;std 1: 1=support exception restartability
@@ -270,7 +270,14 @@ endif
 ifndef ?NOR3SSREL
 ?NOR3SSREL		equ 0	;std 0; 1=refuse to release selector of R3 SS
 endif
-
+ifndef ?NMISAFE
+?NMISAFE		equ 0	;std 0; 1=NMI masked during mode switches
+endif
+if ?NMISAFE
+?NMI2RM			equ 1	;std 1; 1=route NMIs in PL0 to real-mode; 0=skip NMIs in PL0
+else
+?NMI2RM			equ 0
+endif
 ;----------------------------------------------------------------
 
 if ?32BIT
@@ -381,7 +388,7 @@ if ?FORCETEXTMODE
 FM2_FORCETEXT	equ 10h ;-k: force text mode when displaying register dump
 endif
 FM2_NOINVLPG	equ 20h ;don't use invlpg (80386 or option -g)
-FM2_RESTRMEM	equ 40h ;restrict free memory reported to client to 256MB
+FM2_RESTRMEM	equ 40h ;-x[n]: restrict free memory reported to client to 256/128/../1MB
 ifdef _DEBUG
 FM2_LOG			equ 80h ;log file writing enabled
 endif
@@ -1388,6 +1395,34 @@ endm
 @cpuid macro
 ;	cpuid
 	db 0Fh,0A2h
+endm
+
+@NMI_ON macro bSave:=<1>
+if ?NMISAFE
+ if bSave
+	push eax
+ endif
+	mov al,0
+	out 70h,al
+	in al,71h
+ if bSave
+	pop eax
+ endif
+endif
+endm
+
+@NMI_OFF macro bSave:=<1>
+if ?NMISAFE
+ if bSave
+	push eax
+ endif
+	mov al,80h
+	out 70h,al
+	in al,71h
+ if bSave
+	pop eax
+ endif
+endif
 endm
 
 @int_31 macro

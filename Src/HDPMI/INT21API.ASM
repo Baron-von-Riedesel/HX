@@ -96,10 +96,11 @@ else
 	jz intr21_
 	@simintpms 21
 	align 4
+	public intr21_
 endif
 intr21 endp
 
-intr21_ proc public
+intr21_ proc
 if _LTRACE_
 	push offset protaftercall
 endif

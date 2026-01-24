@@ -59,7 +59,9 @@ endif
 
 intr21 proto near ; handler int 21
 if ?INT21API
-intr21_ proto near ; handler int 21 ring 3 (if ?FASTINT21)
+ if ?FASTINT21
+intr21_ proto near ; handler int 21 ring 3
+ endif
 resetdta proto near
 endif
 rmdos proto near ; call real-mode dos
@@ -307,7 +309,7 @@ externdef rawjmp_pm_patch:near
 externdef intrm2pm:far
 ;externdef load_rmsegs:near
 externdef rawjmp_rm_all:near
-if ?JHDPMI
+if 0;?JHDPMI
 externdef jhdpmicall:near
 endif
 _TEXT16 ends
@@ -330,6 +332,7 @@ externdef wEMShandle:word
 externdef intrmcbrs:INTRMCBr
 if ?RESTRICTMEM
 externdef resshift:byte
+externdef adjaddr:byte
 endif
 
 if ?DYNBREAKTAB
@@ -371,8 +374,10 @@ externdef tmpFLReg:word			;temp storage for flags register
 externdef tmpFLRegD:dword		;same address, but DWORD type
 externdef bExcEntry:byte		;exception mutex
 externdef bTrap:byte			;serial input Ctrl-D received
+if ?CR0_NE or ?CR0_EM
 externdef bFPUAnd:byte
 externdef bFPUOr:byte
+endif
 externdef bLPMSused:byte		;flag LPMS used
 externdef bNoRMCBEntry:byte
 externdef cRMCB:word			;count open real-mode callbacks

@@ -286,7 +286,7 @@ ifdef _DEBUG
 	push byte ptr _SSSEL_
 	pop ds
 	assume ds:GROUP16
-	test [fMode2],FM2_LOG
+	test [gbl.fMode2],FM2_LOG
 	pop ds
 	assume ds:SEG16
 	jz exit2

@@ -10,7 +10,7 @@ OUTOW20=rel_20
 INPOW20=src_20
 
 #ASMOPT= -c -nologo -Sg -Fl$* -Fo$* -D?FLAT=0
-WASMOPT= -q -bt=DOS -ms -3r -fo=$*.OBJ 
+#WASMOPT= -q -bt=DOS -ms -3r -fo=$*.OBJ 
 
 ALL: $(OUTOW20) $(OUTOW20)\CLOCK.OBJ
 
@@ -22,7 +22,7 @@ $(OUTOW20):
 # jwasm options -Gr and -zf1 select Watcom calling convention
 
 $(OUTOW20)\CLOCK.OBJ: $(INPOW20)\clock.asm
-	@jwasm -q -Gr -zf1 -Fo$* -Fl$* $(INPOW20)\clock.asm
+	@jwasm -q -Gr -zf1 -Fo$*.OBJ -Fl$* $(INPOW20)\clock.asm
 
 clean:
 	@del $(OUTOW20)\clock.obj

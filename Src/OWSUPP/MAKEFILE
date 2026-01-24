@@ -32,6 +32,7 @@ WASMOPTR= -q -bt=DOS -ms -3r -fo=$*.OBJ
 
 ALL: $(OUTOW20) $(OUTOW19) $(OUTOW17) $(OUTOW14) $(OUTOW13) \
 	$(OUTOW20)\CSTRTDHX.OBJ $(OUTOW20)\CSTRTDHR.OBJ $(OUTOW20)\HXOWS.LIB $(OUTOW20)\HXOWR.LIB $(OUTOW20)\MSGBOX.OBJ \
+	$(OUTOW20)\INIRMLFN.OBJ \
 	$(OUTOW19)\CSTRTDHX.OBJ $(OUTOW19)\CSTRTDHR.OBJ $(OUTOW19)\HXOWS.LIB $(OUTOW19)\HXOWR.LIB \
 	$(OUTOW17)\CSTRTDHX.OBJ $(OUTOW17)\SPAWN-HX.OBJ \
 	$(OUTOW14)\CSTRT386.OBJ $(OUTOW14)\SPAWN-HX.OBJ \
@@ -43,7 +44,7 @@ $(OUTOW20):
 	@mkdir $(OUTOW20)
 
 $(OUTOW20)\CSTRTDHX.OBJ: $(INPOW20)\cstrtdhx.asm Makefile
-	@jwasm -q -zcw -Fo$* -Fl$* -Fo$*.OBJ $(INPOW20)\cstrtdhx.asm
+	@jwasm -q -zcw       -Fl$* -Fo$*.OBJ $(INPOW20)\cstrtdhx.asm
 
 $(OUTOW20)\CSTRTDHR.OBJ: $(INPOW20)\cstrtdhx.asm Makefile
 	@jwasm -q -DFC -zf1  -Fl$* -Fo$*.OBJ $(INPOW20)\cstrtdhx.asm
@@ -63,7 +64,10 @@ $(OUTOW20)\SPAWN-HXR.OBJ: $(INPOW20)\spawn-hx.asm Makefile
 #	@jwasm -q -Fo$* -Fl$* $(INPOW20)\spawn-hx.asm
 
 $(OUTOW20)\MSGBOX.OBJ: $(INPOW20)\MsgBox.asm
-	@jwasm -q -coff -Fo$* -Fl$* $(INPOW20)\MsgBox.asm
+	@jwasm -q -coff -Fo$*.OBJ -Fl$* $(INPOW20)\MsgBox.asm
+
+$(OUTOW20)\INIRMLFN.OBJ: $(INPOW20)\inirmlfn.asm
+	@jwasm -q -zcw -Fo$*.OBJ -Fl$* $(INPOW20)\inirmlfn.asm
 
 #-------------------------------------------------------------------------
 
@@ -146,8 +150,8 @@ clean:
 	@del $(OUTOW13)\*.obj
 
 install:
-	@copy $(OUTOW20)\CSTRTDHX.OBJ $(HXINST)\OWSUPP\V20\DOS
-	@copy $(OUTOW20)\CSTRTDHR.OBJ $(HXINST)\OWSUPP\V20\DOS
+	@copy $(OUTOW20)\*.OBJ        $(HXINST)\OWSUPP\V20\DOS
+	@del                          $(HXINST)\OWSUPP\V20\DOS\SPAWN*.OBJ
 	@copy $(OUTOW20)\*.LIB        $(HXINST)\OWSUPP\V20\DOS
 	@copy $(OUTOW19)\CSTRTDHX.OBJ $(HXINST)\OWSUPP\V19\DOS
 	@copy $(OUTOW19)\CSTRTDHR.OBJ $(HXINST)\OWSUPP\V19\DOS

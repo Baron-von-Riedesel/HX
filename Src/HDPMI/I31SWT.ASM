@@ -254,6 +254,8 @@ else
 	xor ecx, ecx
 	mov ds, ecx
 
+	@NMI_ON 0
+
 	@dprintf "rmcb: will try to alloc a rm-selector"
 
 	mov bx, ss:v86iret.rSS
@@ -1110,6 +1112,8 @@ endif
 	mov [esp].IRET32.rFL, eax
 	mov [esp].IRET32.rSP, ebx
 	mov [esp].IRET32.rSSd, edx
+
+	@NMI_ON 0
 
 	@checkhoststack
 

@@ -38,6 +38,7 @@ _jmp_pm_pm:
 	mov fs, ss:pmstate.rFS
 	mov gs, ss:pmstate.rGS
 	pop ss:dwHostStack
+	@NMI_ON
 	jmp ss:dwPmDest
 	align 4
 _TEXT32 ends
@@ -61,6 +62,7 @@ _rawjmp_pm proc near public
 
 	pop word ptr cs:[dwPmDest2]
 	mov cs:taskseg._Eax,eax
+	@NMI_OFF 0
 ;	@drprintf "entry rawjmp_pm"
 	pushf
 	pop ax
@@ -207,6 +209,7 @@ _jmp_rm endp	;fall thru
 _rawjmp_rm proc public
 	pushfd
 	mov ss:taskseg._Eax,eax
+	@NMI_OFF 0
 if ?SETRMIOPL	;is 0 by default
 	and byte ptr [esp+1],0CFh		;reset IOPL
 	or byte ptr [esp+1], ?RMIOPL shl 4
@@ -310,12 +313,14 @@ endif
 rawjmp_rm_all::		; this code runs for both xms and vcpi mode
 if 1
 	push word ptr cs:taskseg._Efl
+	@NMI_ON 0
 	mov eax, cs:taskseg._Eax
 	popf
 else
 ;--- this version doesn't touch the real-mode stack
 	mov ah, byte ptr cs:taskseg._Efl
 	sahf
+	@NMI_ON 0
 	mov eax, cs:taskseg._Eax
 endif
 	jmp cs:[wRmDest]

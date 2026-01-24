@@ -1,6 +1,13 @@
  
  History HDPMI 
 
+  __.__.____, version 3.24
+
+  þ optional extension a for cmdline option -x added.
+  þ int 31h, ax=508h: top of memory check (?TOPMEM) activated.
+  þ optional variant added that will mask NMIs during mode switches and
+    route NMIs that occur in PL0 to real-mode.
+
   13.10.2025, version 3.23
 
   þ fixed int 25h/26h, cx != -1: don't copy (non-existing) diskio struct to

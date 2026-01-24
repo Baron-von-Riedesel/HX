@@ -566,11 +566,11 @@ getmeminfo proc public
 	call pm_GetNumPhysPages	;eax=free pages, edx=total pages, ecx=reserved
 	@dprintf "getmeminfo: free phys=%lX, total phys=%lX, res=%lX", eax, edx, ecx
 if ?RESTRICTMEM
-	test ss:[gbl.fMode2],FM2_RESTRMEM
+	test [gbl.fMode2],FM2_RESTRMEM
 	jz @F
 	mov ebx, ?MAXFREEPAGES
 	push ecx
-	mov cl, ss:[resshift]
+	mov cl, [resshift]
 	shr ebx, cl		; 256/128/64/32/16/8/4/2
 	pop ecx
 	sub ebx, 256	; subtract 256 pages (=1MB)
@@ -589,7 +589,7 @@ endif
 ;--- some clients assume that they can allocate freePhys pages
 ;--- these will not work with HDPMI unless option -n is set!
 if ?MEMBUFF
-	test ss:[gbl.fMode2],FM2_MEMBUFF
+	test [gbl.fMode2],FM2_MEMBUFF
 	jz @F
 	sub eax, ecx
 	shr ecx, 2
@@ -606,6 +606,8 @@ endif
 	shl eax,12
 	mov es:[edi].MEMINFO.maxBlock,eax		;+0 max free (bytes)
 	mov es:[edi].MEMINFO.swapFile,-1		;swap file
+
+;--- todo: there are 3 more dwords to init with -1
 
 ;--- obsolete. since v3.19 the user address space is managed by i31mem
 ;	call pm_getaddrspace
@@ -644,6 +646,14 @@ done:
 	mov es:[edi].MEMINFO.maxBlock, ecx
 @@:
 	@dprintf "getmeminfo: max Block=%lX", es:[edi].MEMINFO.maxBlock
+if ?RESTRICTMEM
+	cmp adjaddr,0
+	jz @F
+	cmp eax,es:[edi].MEMINFO.maxLockable
+	jc @F
+	mov eax,es:[edi].MEMINFO.maxLockable
+@@:
+endif
 	mov es:[edi].MEMINFO.freeAdrSpace,eax	;free linear space
 	mov es:[edi].MEMINFO.totalAdrSpace,edx	;linear space
 	@dprintf "getmeminfo: free addr space=%lX", eax

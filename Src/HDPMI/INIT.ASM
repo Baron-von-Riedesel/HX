@@ -718,6 +718,14 @@ if ?VCPIPICTEST
 	jnz invalidvcpihost
 picok:
 endif
+
+if ?TOPMEM
+	mov ax,0DE02h
+	int 67h
+	add edx,1000h
+	mov [dwTopMem],edx
+endif
+
 	;alloc a EMS handle to ensure
 	;the EMM does not uninstall and remains ON
 	xor dx,dx
@@ -1172,7 +1180,7 @@ if ?CR0_EM
 	db "  -w: don't clear CR0 EM bit",lf
 endif
 if ?RESTRICTMEM
-	db "  -x[n]: restrict reported free memory to 256/128/../1MB",lf
+	db "  -x[n][a]: restrict reported free memory to 256/128/../1MB",lf
 endif
 if ?INT15XMS
 	db "  -y: use extended memory not managed by XMS host",lf
@@ -1553,13 +1561,13 @@ newline:
 	ret
 display_string endp
 
-if ?CR0_NE
+if ?CR0_NE ;cmdline option -t supported?
 disablene:
 	or bFPUAnd, CR0_NE
 	and bFPUOr, not CR0_NE
 	ret
 endif
-if ?CR0_EM
+if ?CR0_EM ;cmdline option -w supported?
 disableem:
 	or bFPUAnd, CR0_EM
 	and bFPUOr, not CR0_EM
@@ -1853,13 +1861,21 @@ endif
 if ?RESTRICTMEM
 restrictmem:
 	or gbl.fMode2, FM2_RESTRMEM
- if 1
+ if 1 ;accept an optional digit after -x
 	mov al, es:[si]
 	sub al, '0'
 	jb @F
 	cmp al, 9
 	ja @F
 	mov resshift, al 
+	inc si
+	dec cl
+@@:
+	mov al,es:[si]
+	or al,20h
+	cmp al,'a'
+	jnz @F
+	mov adjaddr,1
 	inc si
 	dec cl
 @@:

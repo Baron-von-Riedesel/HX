@@ -64,6 +64,7 @@ endif
 	invoke SetEvent, [ebx].CRITICAL_SECTION.LockSemaphore
 if ?EVENTOPT	;isn't this done in SetEvent already?
 	mov ecx, [ebx].CRITICAL_SECTION.LockSemaphore
+	jecxz exit  ;v3.12: check added
 	mov eax, [ecx].EVENT.hThread
 	.if (eax)				;was another thread blocked?
 		xor ecx,ecx			;flag TF_WAITING cleared
@@ -71,7 +72,7 @@ if ?EVENTOPT	;isn't this done in SetEvent already?
 	.endif
 endif
 exit:
-;	@strace	<"LeaveCriticalSection(", pCS, ")=void">
+;	@strace <"LeaveCriticalSection(", pCS, ")=void">
 	ret
 	align 4
 
@@ -120,6 +121,12 @@ InitializeCriticalSection proc public uses ebx pCS:ptr CRITICAL_SECTION
 	mov [ebx].CRITICAL_SECTION.SpinCount, eax
 	invoke CreateEvent, NULL, 0, 1, 0
 	mov [ebx].CRITICAL_SECTION.LockSemaphore, eax
+ifdef _DEBUG
+	and eax,eax
+	jnz @F
+	@strace <"InitializeCriticalSection: CreateEvent FAILED!!!">
+@@:
+endif
 	@strace <"InitializeCriticalSection(", pCS, ")=void">
 	ret
 	align 4
@@ -143,11 +150,12 @@ InitializeCriticalSectionAndSpinCount endp
 DeleteCriticalSection proc public pCS:ptr CRITICAL_SECTION
 
 	mov eax, pCS
-	mov byte ptr [eax].CRITICAL_SECTION.DebugInfo, 0
-	mov [eax].CRITICAL_SECTION.LockCount, 0
-	xchg eax, [eax].CRITICAL_SECTION.LockSemaphore
-	.if (eax)
-		invoke CloseHandle, eax
+	xor ecx, ecx    
+	mov [eax].CRITICAL_SECTION.DebugInfo, ecx
+	mov [eax].CRITICAL_SECTION.LockCount, ecx
+	xchg ecx, [eax].CRITICAL_SECTION.LockSemaphore
+	.if (ecx)
+		invoke CloseHandle, ecx
 	.endif
 	@strace <"DeleteCriticalSection(", pCS, ")=void">
 	ret
