@@ -220,7 +220,7 @@ ifnb <r0exclbl>
 else
 	jz exclbl
 endif
-if ?KDSUPP or ?ALLOWR0IRQ
+if ?KDSUPP or ?ALLOWR0IRQ or ?NMISAFE
 	push eax
 	lea eax, [esp+R3FAULT32+4]
 	cmp eax, ss:[dwHostStack]
@@ -1871,7 +1871,9 @@ endif
 	push dword ptr ds:[?LPMSSIZE-8]	;EIP
 	mov ds,[esp+sizeof IRET32]
 endif
-if (?PMIOPL eq 0) and (?AUTOSTI eq 1) 
+;--- v3.24: activated for ?NMISAFE - although it's a DOS/4G bug only...
+;if (?PMIOPL eq 0) and (?AUTOSTI eq 1)
+if ((?PMIOPL eq 0) and (?AUTOSTI eq 1)) or ?NMISAFE
 ;--- ensure that interrupts are enabled -
 ;--- an IRET in ring3 does NOT restore IF if IOPL is 0.
 ;--- since rpmstacki() is called only if a stack must be switched back to PMS,
@@ -2705,41 +2707,60 @@ endif
 intr01 endp
 
 intr02 proc
-	cmp word ptr [esp.IRET32.rCS],_CSSEL_ ;NMI in ring 0?
-if ?NMI2RM
-	jz intr02_r0	; v3.24: route NMI in PL0 to real-mode
-else
+ife ?NMISAFE
+;--- v3.24: check PL, not CS
+;	cmp word ptr [esp.IRET32.rCS],_CSSEL_ ;NMI in ring 0?
+	push eax
+	lar eax,[esp+4].IRET32.rCSd
+	and ah,60h
+	pop eax
+;--- v3.24: route NMI in PL0 to real-mode for NMI-safe variant
 	jz iretexit		; skip NMI in PL0
-endif
 	@exception 02
 	@mapexc2int 02
-if ?NMI2RM
+else
+defexc02:: ;this label would be defined by "@mapexc2int 02"
 ;--- v3.24: route NMI to real-mode if it occured in ring 0
-intr02_r0:
+	push eax
 ;--- save pm segment regs, they will be undefined after @rawjmp_pm
 	push ds
 	push es
 	push fs
 	push gs
 ;--- save/restore global vars that may be modified by mode switches
-	push ss:[taskseg._Eax]
 	push ss:[dwPmDest]
+	push ss:[taskseg._Eax]
+ if 0
+;--- v86iret rmStack are 2 dwords and hence may be inconsistent
+	push ss:[v86iret.rSS]
+	push ss:[v86iret.rSP]
+	mov ax,[wHostPSP]
+	mov ss:[v86iret.rSS],ax  ;use the host's PSP as real-mode stack
+	mov ss:[v86iret.rSP],100h
+ endif
 	push ss:[dwHostStack]
 	mov ss:[dwHostStack],esp
-	@rawjmp_rm @F
+	@rawjmp_rm intr02_rm
 _TEXT16 segment
-@@:
+intr02_rm:
 	int 02
-	@rawjmp_pm @F
+	@rawjmp_pm intr02_pm
 _TEXT16 ends
-@@:
+;--- v86iret segregs weren't modified; NMI still masked
+intr02_pm:
 	pop ss:[dwHostStack]
-	pop ss:[dwPmDest]
+if 0
+	pop ss:[v86iret.rSP]
+	pop ss:[v86iret.rSS]
+endif
 	pop ss:[taskseg._Eax]
+	pop ss:[dwPmDest]
 	pop gs
 	pop fs
 	pop es
 	pop ds
+	@NMI_ON    ;intr02 (wait until all seg regs are restored!)
+	pop eax
 	iretd
 endif
 intr02 endp
@@ -3303,7 +3324,7 @@ irqrm2pm_1:
 	mov fs, ss:pmstate.rFS
 	mov gs, ss:pmstate.rGS
 
-	@NMI_ON 0
+	@NMI_ON  ;initrmcb_pm
 
 ifdef _DEBUG
 	verw word ptr ss:pmstate.rSSd

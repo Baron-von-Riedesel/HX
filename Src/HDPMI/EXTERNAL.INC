@@ -312,6 +312,9 @@ externdef rawjmp_rm_all:near
 if 0;?JHDPMI
 externdef jhdpmicall:near
 endif
+if ?NMISAFE
+externdef oldint02rm:dword
+endif
 _TEXT16 ends
 
 BEGGRP16 segment

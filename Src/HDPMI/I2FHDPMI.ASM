@@ -11,7 +11,7 @@
 if ?VENDORAPI
 
 @wofs macro ofs
-	dw offset ofs - offset start168a
+	dw offset ofs - $
 endm
 
  ifdef _DEBUG
@@ -25,16 +25,43 @@ _TEXT32 segment
 _I2f168A_Hdpmi proc near public
 
 	push offset iret_with_CF_mod
-	cmp ax, MAX168A
-	jb @F
-	stc
-	ret
-@@:
 	push ebx
-	movzx ebx, ax
-	mov bx, cs:[ebx*2+offset tab168a]
-	add ebx, offset start168a
+	push ecx
+	push edx
+
+APIFUNCS = 1 shl 4                   ;4
+ifdef _DEBUG
+APIFUNCS = APIFUNCS or (1111b shl 0) ;0-3
+endif
+if ?VM
+APIFUNCS = APIFUNCS or (1 shl 5)     ;5
+endif
+if ?PMIOPL eq 0
+APIFUNCS = APIFUNCS or (1111b shl 6) ;6-9 (10 rsvd)
+endif
+if 0;?NMISAFE
+APIFUNCS = APIFUNCS or (1 shl 11)    ;11
+endif
+	mov edx,APIFUNCS
+	mov ebx,offset tab168a-2
+@@:
+	bsf ecx,edx
+	jz error
+	btr edx,ecx
+	add ebx,2
+	cmp ax,cx
+	jnz @B
+	movzx ecx, word ptr cs:[ebx]
+	add ebx,ecx
+	pop edx
+	pop ecx
 	xchg ebx,[esp]
+	ret
+error:
+	pop edx
+	pop ecx
+	pop ebx
+	stc
 	ret
 	align 2
 tab168a label word
@@ -43,35 +70,21 @@ tab168a label word
 	@wofs is0001
 	@wofs is0002
 	@wofs is0003
- else
-	@wofs error
-	@wofs error
-	@wofs error
-	@wofs error
  endif
 	@wofs is0004	; "disable" host
-
  if ?VM
 	@wofs is0005	; set/reset HDPMI=32 (VM)
- else
-	@wofs error
  endif
-
  if ?PMIOPL eq 0
-
 	@wofs is0006	; trap port range
 	@wofs is0007	; release trapped port range
 	@wofs simio		; Simulate IO
 	@wofs is0009	; trap CLI/STI
-;	@wofs is000A	; Simulate HW interrupt
-
+;	@wofs is000A	; Simulate HW interrupt (not yet implemented)
  endif
-MAX168A equ ($ - offset tab168a) / sizeof word
-
-start168a:
-error:
-	stc
-	ret
+ if 0;?NMISAFE
+	@wofs is000B	; get/set real-mode NMI address
+ endif
  ifdef _DEBUG
 is0000:
 	and ss:gbl.fMode2,not FM2_LOG
@@ -553,6 +566,15 @@ is0009 endp
   endif
  
  endif ; ?PMIOPL eq 0
+
+ if 0;?NMISAFE
+;--- temporary, will be removed when PL0 exceptions work
+is000B proc
+	xchg dx, word ptr ss:[oldint02rm+0]
+	xchg cx, word ptr ss:[oldint02rm+2]
+	ret
+is000B endp
+ endif
 
 _TEXT32 ends
 

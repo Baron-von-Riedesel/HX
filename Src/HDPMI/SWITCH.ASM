@@ -38,7 +38,7 @@ _jmp_pm_pm:
 	mov fs, ss:pmstate.rFS
 	mov gs, ss:pmstate.rGS
 	pop ss:dwHostStack
-	@NMI_ON
+	@NMI_ON eax ;jmp_pm
 	jmp ss:dwPmDest
 	align 4
 _TEXT32 ends
@@ -60,9 +60,9 @@ _rawjmp_pm_savesegm endp	;fall throu
 
 _rawjmp_pm proc near public
 
-	pop word ptr cs:[dwPmDest2]
 	mov cs:taskseg._Eax,eax
-	@NMI_OFF 0
+	@NMI_OFF ;rawjmp_pm
+	pop word ptr cs:[dwPmDest2]
 ;	@drprintf "entry rawjmp_pm"
 	pushf
 	pop ax
@@ -209,7 +209,7 @@ _jmp_rm endp	;fall thru
 _rawjmp_rm proc public
 	pushfd
 	mov ss:taskseg._Eax,eax
-	@NMI_OFF 0
+	@NMI_OFF    ;rawjmp_rm
 if ?SETRMIOPL	;is 0 by default
 	and byte ptr [esp+1],0CFh		;reset IOPL
 	or byte ptr [esp+1], ?RMIOPL shl 4
@@ -251,9 +251,19 @@ rawjmp_rm_novcpi::	;the label if no vcpi host was detected (xms or raw)
 
 ;--- continue for xms + raw
 
+if ?NMISAFE
+;--- init ds & es with 4G descriptor - enables "unreal" mode
+;--- and thus avoids mode switching for XMS block moves;
+;--- Just in case the XMM isn't "NMI safe".
+	mov ax,_FLATSEL_
+	mov ds,eax
+	mov es,eax
+	mov ax,_STDSEL_
+else
 	mov ax,_STDSEL_
 	mov ds,eax
 	mov es,eax
+endif
 	mov fs,eax
 	mov gs,eax
 	mov ss,eax
@@ -313,14 +323,14 @@ endif
 rawjmp_rm_all::		; this code runs for both xms and vcpi mode
 if 1
 	push word ptr cs:taskseg._Efl
-	@NMI_ON 0
+	@NMI_ON    ;rawjmp_rm
 	mov eax, cs:taskseg._Eax
 	popf
 else
 ;--- this version doesn't touch the real-mode stack
 	mov ah, byte ptr cs:taskseg._Efl
 	sahf
-	@NMI_ON 0
+	@NMI_ON    ;rawjmp_rm
 	mov eax, cs:taskseg._Eax
 endif
 	jmp cs:[wRmDest]

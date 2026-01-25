@@ -5,8 +5,7 @@
 
   þ optional extension a for cmdline option -x added.
   þ int 31h, ax=508h: top of memory check (?TOPMEM) activated.
-  þ optional variant added that will mask NMIs during mode switches and
-    route NMIs that occur in PL0 to real-mode.
+  þ optional variant added that's "NMI-safe" and routes NMIs to real-mode.
 
   13.10.2025, version 3.23
 

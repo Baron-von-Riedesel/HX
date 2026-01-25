@@ -254,8 +254,6 @@ else
 	xor ecx, ecx
 	mov ds, ecx
 
-	@NMI_ON 0
-
 	@dprintf "rmcb: will try to alloc a rm-selector"
 
 	mov bx, ss:v86iret.rSS
@@ -310,6 +308,7 @@ if _LTRACE_ and ?RMCBLOG
  endif
 endif
 	push eax
+	@NMI_ON ;rmcb_pm
 	jmp lpms_call_int		;switch to LPMS
 	align 4
 
@@ -531,8 +530,13 @@ endif
 havecsip:
 if ?SAFE301
 	sub eax,5*2
+ if ?NMISAFE
+	mov es:[edx+eax],cx				;flags (will be popped before RETF)
+	mov es:[edx+eax+2],esi
+ else
 	mov es:[edx+eax],esi
 	mov es:[edx+eax+4],cx			;flags (will be popped by an IRET)
+ endif
 	mov si,ss:[wHostSeg]
 	shl esi,16
 	mov si,offset callrmproc_rm2
@@ -586,7 +590,12 @@ error1x:
 _TEXT16 segment
 callrmproc_rm:
 if ?SAFE301
+ if ?NMISAFE
+	popf
+	retf
+ else
 	iret
+ endif
 callrmproc_rm2:
 else
 	popf
@@ -1113,7 +1122,7 @@ endif
 	mov [esp].IRET32.rSP, ebx
 	mov [esp].IRET32.rSSd, edx
 
-	@NMI_ON 0
+	@NMI_ON ;rm2pm
 
 	@checkhoststack
 
