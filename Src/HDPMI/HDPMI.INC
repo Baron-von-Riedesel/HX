@@ -273,11 +273,6 @@ endif
 ifndef ?NMISAFE
 ?NMISAFE		equ 0	;std 0; 1=NMI masked during mode switches
 endif
-if ?NMISAFE
-?NMI2RM			equ 1	;std 1; 1=route NMIs in PL0 to real-mode; 0=skip NMIs in PL0
-else
-?NMI2RM			equ 0
-endif
 ;----------------------------------------------------------------
 
 if ?32BIT
@@ -1397,30 +1392,30 @@ endm
 	db 0Fh,0A2h
 endm
 
-@NMI_ON macro bSave:=<1>
+@NMI_ON macro SaveReg
 if ?NMISAFE
- if bSave
-	push eax
+ ifnb <SaveReg>
+	push SaveReg
  endif
 	mov al,0
 	out 70h,al
 	in al,71h
- if bSave
-	pop eax
+ ifnb <SaveReg>
+	pop SaveReg
  endif
 endif
 endm
 
-@NMI_OFF macro bSave:=<1>
+@NMI_OFF macro SaveReg
 if ?NMISAFE
- if bSave
-	push eax
+ ifnb <SaveReg>
+	push SaveReg
  endif
 	mov al,80h
 	out 70h,al
 	in al,71h
- if bSave
-	pop eax
+ ifnb <SaveReg>
+	pop SaveReg
  endif
 endif
 endm
@@ -1449,7 +1444,11 @@ endm
 endm
 
 @rawjmp_rm macro dest
+ if (opattr dest) and 4
 	mov ss:[wRmDest], offset dest
+ else
+	mov ss:[wRmDest], dest
+ endif
 	jmp _rawjmp_rm
 endm
 

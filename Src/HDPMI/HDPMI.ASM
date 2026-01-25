@@ -220,7 +220,7 @@ ifnb <r0exclbl>
 else
 	jz exclbl
 endif
-if ?KDSUPP or ?ALLOWR0IRQ
+if ?KDSUPP or ?ALLOWR0IRQ or ?NMISAFE
 	push eax
 	lea eax, [esp+R3FAULT32+4]
 	cmp eax, ss:[dwHostStack]
@@ -2075,8 +2075,22 @@ endif
 	pop edx
 	pop ecx
 	pop eax
+if ?NMISAFE
+	cmp [ebp+4].LCEFR.dwExc,2  ;v3.24: avoid IRETD for NMI
+	jz @F
+endif
 	pop ebp
 	iretd
+if ?NMISAFE
+@@:
+	mov ebp,[ebp+4].LCEFR.r.rFL
+	xchg ebp,[esp+1*4] ;set flags, get eip
+	xchg ebp,[esp+2*4] ;set eip, get cs
+	mov [esp+3*4],ebp  ;set cs
+	pop ebp
+	popfd
+	retd
+endif
 	align 4
 lpms_call_exc endp
 
@@ -2705,41 +2719,61 @@ endif
 intr01 endp
 
 intr02 proc
-	cmp word ptr [esp.IRET32.rCS],_CSSEL_ ;NMI in ring 0?
-if ?NMI2RM
-	jz intr02_r0	; v3.24: route NMI in PL0 to real-mode
+;--- v3.24: check PL, not CS
+;	cmp word ptr [esp.IRET32.rCS],_CSSEL_ ;NMI in ring 0?
+	push eax
+	lar eax,[esp+4].IRET32.rCSd
+	and ah,60h
+	pop eax
+;--- v3.24: route NMI in PL0 to real-mode for NMI-safe variant
+if ?NMISAFE
+	jz intr02_r0
 else
 	jz iretexit		; skip NMI in PL0
 endif
 	@exception 02
 	@mapexc2int 02
-if ?NMI2RM
+if ?NMISAFE
 ;--- v3.24: route NMI to real-mode if it occured in ring 0
 intr02_r0:
+	push eax
 ;--- save pm segment regs, they will be undefined after @rawjmp_pm
 	push ds
 	push es
 	push fs
 	push gs
 ;--- save/restore global vars that may be modified by mode switches
-	push ss:[taskseg._Eax]
 	push ss:[dwPmDest]
+	push ss:[taskseg._Eax]
 	push ss:[dwHostStack]
 	mov ss:[dwHostStack],esp
-	@rawjmp_rm @F
+	mov ax, offset intr02_rm1
+	cmp ss:[oldint02rm],0
+	jnz @F
+	mov ax, offset intr02_rm2
+@@:
+	@rawjmp_rm ax
 _TEXT16 segment
-@@:
+intr02_rm1:
+	pushf
+	db 9ah
+oldint02rm dd 0
+	@rawjmp_pm intr02_pm
+intr02_rm2:
 	int 02
-	@rawjmp_pm @F
+	@rawjmp_pm intr02_pm
 _TEXT16 ends
-@@:
+;--- v86iret segregs weren't modified; NMI still masked
+intr02_pm:
 	pop ss:[dwHostStack]
-	pop ss:[dwPmDest]
 	pop ss:[taskseg._Eax]
+	pop ss:[dwPmDest]
 	pop gs
 	pop fs
 	pop es
 	pop ds
+	@NMI_ON    ;intr02 (wait until all seg regs are restored!)
+	pop eax
 	iretd
 endif
 intr02 endp
@@ -3303,7 +3337,7 @@ irqrm2pm_1:
 	mov fs, ss:pmstate.rFS
 	mov gs, ss:pmstate.rGS
 
-	@NMI_ON 0
+	@NMI_ON  ;initrmcb_pm
 
 ifdef _DEBUG
 	verw word ptr ss:pmstate.rSSd

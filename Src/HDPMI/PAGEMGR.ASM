@@ -481,8 +481,10 @@ if ?NOVCPIANDXMS
 	test fHost, FH_XMS
 	jnz exit
 endif
+	@NMI_OFF
 	mov ax,0DE03h			 ;get number of free pages (EDX)
 	call [vcpicall]
+	@NMI_ON
 exit:
 	ret
 	align 4
@@ -1102,8 +1104,10 @@ if ?VCPIALLOC
 
 	@ResetTrace
 
+	@NMI_OFF
 	mov ax,0DE04h			   ;1 page alloc VCPI
 	call [vcpicall]
+	@NMI_ON
 	and ah,ah				   ;ok?
 	jnz @F
 	inc [dwVCPIPages]
@@ -1154,9 +1158,11 @@ if ?VCPIALLOC
 
 	pushad
 	mov edx,eax
+	@NMI_OFF
 	and dx,0F000h			;VCPI pages are freed instantly
 	mov ax,0DE05h			;1 page free VCPI
 	call [vcpicall]
+	@NMI_ON
 	and ah,ah				;ok?
 	jnz @F
 	dec [dwVCPIPages]
