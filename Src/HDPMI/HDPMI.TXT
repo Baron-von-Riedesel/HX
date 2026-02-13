@@ -818,10 +818,7 @@
     isn't very compatible with other extenders, including HDPMI ( even if
     the HDPMI instance is disabled ). To overcome this issue one can use
     a compatible extender like DOS32A or run DOS/4G(W) as VCPI client. 
-    OTOH, DOS/4G(W) programs may run under HDPMI. They may require option -i
-    or environment variable HDPMI=1 to be set. This most often is the case
-    if the DOS-extended application uses sound. Generally, setting this option
-    should be the first thing to do if a client doesn't run with HDPMI.
+    OTOH, DOS/4G(W) programs may run under HDPMI.
 
   þ Some DOS extenders will prefer to use a VCPI host over DPMI and thus
     ignore an installed copy of HDPMI. Usually there is a way to make them

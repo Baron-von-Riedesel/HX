@@ -1244,20 +1244,19 @@ endm
 endm
 
 ;--- save current real-mode SS:SP
-;--- so it can be saved on the host stack later.
-;--- this is used by internal & client real-mode callbacks
-;--- this macro should be followed by @pushstate in protected-mode
+;--- it will be saved on the host stack later by @pushstate in protected-mode;
+;--- used by internal & client real-mode callbacks.
 
-@savermstk macro
+@pushstate_rm macro
 	mov cs:wrmSPtmp,sp
 	mov cs:wrmSStmp,ss
 endm
 
-;--- restore value of real-mode stack
-;--- this is done after a @popstate macro in protected-mode
-;--- this is used by internal & client real-mode callbacks
+;--- restore value of real-mode stack;
+;--- this is done after @popstate macro in protected-mode;
+;--- used by internal & client real-mode callbacks.
 
-@restorermstk macro
+@popstate_rm macro
 	push cs:dwrmSSSPtmp
 	pop cs:v86iret.rSP
 	pop cs:v86iret.rSS
@@ -1265,9 +1264,10 @@ endm
 
 ;--- save client state on host stack
 ;--- this is used by internal & client real-mode callbacks
+;--- if ?NMISAFE=1: this code runs with masked NMIs only!
 
 @pushstate macro bRMSegs
-ifnb <bRMSegs>
+if bRMSegs
  if 0;e ?HIDEIVTHOOKS
 	push dword ptr ss:[wIrqOrgRm]
  endif
@@ -1302,7 +1302,7 @@ endm
 	pop ss:pmstate.rFSGS
 	pop ss:pmstate.rESDS
 	pop ss:dwrmSSSPtmp
-ifnb <bRMSegs>
+if bRMSegs
 	pop ss:v86iret.rGSd
 	pop ss:v86iret.rFSd
 	pop ss:v86iret.rDSd

@@ -333,10 +333,6 @@ if 0;_LTRACE_
 	jnz @B
 endif
 
-if 0
-	mov eax, dword ptr v86iret.rESP+2
-	mov ax, v86iret.rSP
-endif
 	push byte ptr _FLATSEL_
 	pop ds
 

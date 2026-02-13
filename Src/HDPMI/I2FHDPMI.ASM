@@ -39,9 +39,6 @@ endif
 if ?PMIOPL eq 0
 APIFUNCS = APIFUNCS or (1111b shl 6) ;6-9 (10 rsvd)
 endif
-if 0;?NMISAFE
-APIFUNCS = APIFUNCS or (1 shl 11)    ;11
-endif
 	mov edx,APIFUNCS
 	mov ebx,offset tab168a-2
 @@:
@@ -81,9 +78,6 @@ tab168a label word
 	@wofs simio		; Simulate IO
 	@wofs is0009	; trap CLI/STI
 ;	@wofs is000A	; Simulate HW interrupt (not yet implemented)
- endif
- if 0;?NMISAFE
-	@wofs is000B	; get/set real-mode NMI address
  endif
  ifdef _DEBUG
 is0000:
@@ -563,21 +557,12 @@ endif
 	ret
 is0009 endp
 
-  endif
+  endif ; ?TRAPCLISTI
  
  endif ; ?PMIOPL eq 0
 
- if 0;?NMISAFE
-;--- temporary, will be removed when PL0 exceptions work
-is000B proc
-	xchg dx, word ptr ss:[oldint02rm+0]
-	xchg cx, word ptr ss:[oldint02rm+2]
-	ret
-is000B endp
- endif
-
 _TEXT32 ends
 
-endif
+endif  ; ?VENDORAPI
 
 end

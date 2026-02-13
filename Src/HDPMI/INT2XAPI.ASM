@@ -385,6 +385,7 @@ else
 	@dprintf "int 25, before call: ax=%X,ds:bx=%lX:%X,cx=%X,dx=%X,cs:ip=%X:%lX",\
 		ax,ds,bx,cx,dx,[esp+4].IRET32.rCS,[esp].IRET32.rIP
 endif
+	@NMI_OFF eax
 	call PrepareDiskIoRead
 	jc intr25_1
 	push ebx
@@ -404,6 +405,7 @@ intr25_1:
 
 seti2526stack::
 	pushad
+	@NMI_ON
 	lahf
 	mov byte ptr [esp+sizeof PUSHADS].IRET32.rFL,ah
 	mov eax,[esp+sizeof PUSHADS].IRET32.rFL
@@ -439,6 +441,7 @@ else
 	@dprintf "int 26, before call: ax=%X, ds:bx=%lX:%X, cx=%X, dx=%X, cs:ip=%X:%lX",\
 		ax,ds,bx,cx,dx,[esp+2].IRET32.rCS,[esp].IRET32.rIP
 endif
+	@NMI_OFF eax
 	call PrepareDiskIoWrite
 	jc intr26_1
 

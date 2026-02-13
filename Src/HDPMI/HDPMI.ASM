@@ -1871,9 +1871,7 @@ endif
 	push dword ptr ds:[?LPMSSIZE-8]	;EIP
 	mov ds,[esp+sizeof IRET32]
 endif
-;--- v3.24: activated for ?NMISAFE - although it's a DOS/4G bug only...
-;if (?PMIOPL eq 0) and (?AUTOSTI eq 1)
-if ((?PMIOPL eq 0) and (?AUTOSTI eq 1)) or ?NMISAFE
+if (?PMIOPL eq 0) and (?AUTOSTI eq 1)
 ;--- ensure that interrupts are enabled -
 ;--- an IRET in ring3 does NOT restore IF if IOPL is 0.
 ;--- since rpmstacki() is called only if a stack must be switched back to PMS,
@@ -2714,11 +2712,17 @@ ife ?NMISAFE
 	lar eax,[esp+4].IRET32.rCSd
 	and ah,60h
 	pop eax
-;--- v3.24: route NMI in PL0 to real-mode for NMI-safe variant
 	jz iretexit		; skip NMI in PL0
 	@exception 02
 	@mapexc2int 02
 else
+
+;--- variables v86iret.rmSP/SS are 2 dwords and may be inconsistent;
+;--- If STATICRMSTK == 1, they can only be modified in protected-mode
+;--- with masked NMI!
+
+STATICRMSTK equ 0
+
 defexc02:: ;this label would be defined by "@mapexc2int 02"
 ;--- v3.24: route NMI to real-mode if it occured in ring 0
 	push eax
@@ -2730,13 +2734,12 @@ defexc02:: ;this label would be defined by "@mapexc2int 02"
 ;--- save/restore global vars that may be modified by mode switches
 	push ss:[dwPmDest]
 	push ss:[taskseg._Eax]
- if 0
-;--- v86iret rmStack are 2 dwords and hence may be inconsistent
+ if STATICRMSTK
 	push ss:[v86iret.rSS]
 	push ss:[v86iret.rSP]
 	mov ax,[wHostPSP]
 	mov ss:[v86iret.rSS],ax  ;use the host's PSP as real-mode stack
-	mov ss:[v86iret.rSP],100h
+	mov ss:[v86iret.rSP],100h;this code is NMI-safe, so no problem.
  endif
 	push ss:[dwHostStack]
 	mov ss:[dwHostStack],esp
@@ -2749,10 +2752,10 @@ _TEXT16 ends
 ;--- v86iret segregs weren't modified; NMI still masked
 intr02_pm:
 	pop ss:[dwHostStack]
-if 0
+ if STATICRMSTK
 	pop ss:[v86iret.rSP]
 	pop ss:[v86iret.rSS]
-endif
+ endif
 	pop ss:[taskseg._Eax]
 	pop ss:[dwPmDest]
 	pop gs
@@ -3170,7 +3173,7 @@ if _LTRACE_ and IRQLOG
 	pop bp
 endif
 
-	@savermstk	;save real-mode SS+SP 
+	@pushstate_rm	;save real-mode SS+SP 
 
 ;--- raw jump in pm, ss:sp=hoststack;
 ;--- real-mode segments stored in v86iret;
@@ -3221,7 +3224,7 @@ intrmcb_pm proc
 
 	push ss:[dwIrqRouted]
 
-	@pushstate 1	;save client state, including realmode segm DS/ES/FS/GS
+	@pushstate 0	;save client state, including realmode segm DS/ES/FS/GS
 
 ;--- build an IRET32 frame on the host stack for IRETD to ring3.
 ;--- E/IP, CS and E/FLAGS will be copied to the LPMS/PMS
@@ -3365,16 +3368,13 @@ intrmcb_pm endp
 rpmstackr2 proc
 	push eax
 	push ebx
-	mov eax,ss:v86iret.rESP
+	movzx eax,ss:v86iret.rSP
 	movzx ebx,ss:v86iret.rSS
 	shl ebx,4
 	add ebx, eax
-	mov eax,[esp+8].IRET32.rFL
-	push ds
-	push byte ptr _FLATSEL_
-	pop ds
-	mov byte ptr [ebx].IRETSRM.rFL,al
-	pop ds
+	sub ebx, ss:[dwSSBase]
+	mov eax,[esp+2*4].IRET32.rFL
+	mov byte ptr ss:[ebx].IRETSRM.rFL,al
 	pop ebx
 	pop eax
 rpmstackr2 endp	;fall thru!
@@ -3388,19 +3388,22 @@ rpmstackr proc
 if _LTRACE_ and IRQLOG
 	@dprintf "rpmstackr: rms=%X:%X, _Esp0=%lX, esp=%lX", ss:v86iret.rSS, ss:v86iret.rSP, ss:taskseg._Esp0, esp
 endif
-	@popstate 1					;restore client state
+	@popstate 0					;restore client state
 
 	pop ss:[dwIrqRouted]
 
+if 0
 	@rawjmp_rm rpmstackr_rm
-	align 4
 _TEXT16 segment
 rpmstackr_rm:
-	@restorermstk		;restore v86iret.rSS & rSP
-	iret				;real mode iret!
+	@popstate_rm	;restore v86iret.rSS & rSP
+	iret			;real mode iret!
 	align 2
 _TEXT16 ends
-
+else
+	@rawjmp_rm _retcb_rm
+endif
+	align 4
 rpmstackr endp
 
 	@ResetTrace

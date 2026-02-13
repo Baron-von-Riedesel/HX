@@ -210,7 +210,7 @@ loadserver endp
 
 ife ?HDPMI
 szPath   db 'PATH='
-srvname  db 'HDPMI32.EXE',00
+srvname  db 'HDPMI32.EXE',0,0  ;use 2 nulls so a suffix may be added
 lstr    equ $ - srvname
 endif
 

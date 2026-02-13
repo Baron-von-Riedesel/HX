@@ -27,26 +27,13 @@ _jmp_pmX proc near public
 _jmp_pmX endp		;fall through
 
 _jmp_pm proc near public
-
 	pop word ptr cs:dwPmDest
-	@rawjmp_pm_savesegm _jmp_pm_pm
-	align 4
-_TEXT32 segment
-_jmp_pm_pm:
-	mov es, ss:pmstate.rES
-	mov ds, ss:pmstate.rDS
-	mov fs, ss:pmstate.rFS
-	mov gs, ss:pmstate.rGS
-	pop ss:dwHostStack
-	@NMI_ON eax ;jmp_pm
-	jmp ss:dwPmDest
-	align 4
-_TEXT32 ends
-
-_jmp_pm endp
+;--- v3.24: since destination is just next IP, no need for macro @rawjmp_pm_savesegm
+;	@rawjmp_pm_savesegm _jmp_pm_pm
+	push lowword offset _jmp_pm_pm
+_jmp_pm endp ;fall through
 
 ;*** raw jump to pm with rm segs set
-;--- out: esp=dwHostStack
 
 _rawjmp_pm_savesegm proc public
 	mov cs:v86iret.rES, es
@@ -56,6 +43,9 @@ _rawjmp_pm_savesegm proc public
 _rawjmp_pm_savesegm endp	;fall throu
 
 ;*** raw jump to pm, segment registers undefined
+;--- out: esp=dwHostStack
+;--- if ?NMISAFE=1: NMI is masked on entry, but NOT unmasked
+;--- since segment registers aren't set yet!
 ;--- flags saved
 
 _rawjmp_pm proc near public
@@ -63,16 +53,16 @@ _rawjmp_pm proc near public
 	mov cs:taskseg._Eax,eax
 	@NMI_OFF ;rawjmp_pm
 	pop word ptr cs:[dwPmDest2]
-;	@drprintf "entry rawjmp_pm"
 	pushf
 	pop ax
+;	@drprintf "entry rawjmp_pm"
 ;--- v3.23: TF must also be cleared since int 96h is optional now
 ;	and ah,8Fh			;mask out IOPL and NT
 	and ah,8Eh			;mask out IOPL, NT and TF
 if ?PMIOPL
 	or ah, ?PMIOPL shl 4
 endif
-	mov word ptr cs:v86iret.rFL,ax
+	mov word ptr cs:taskseg._Efl,ax
 rawjmp_pm_patch::
 ;--- if there's no VCPI host, this location will be patched
 ;--- with a jump to _diff_pm
@@ -139,6 +129,16 @@ _TEXT16 ends
 
 _TEXT32 segment
 
+_jmp_pm_pm:
+	mov es, ss:pmstate.rES
+	mov ds, ss:pmstate.rDS
+	mov fs, ss:pmstate.rFS
+	mov gs, ss:pmstate.rGS
+	pop ss:dwHostStack
+	@NMI_ON eax ;jmp_pm
+	jmp ss:dwPmDest
+	align 4
+
 xms_pmentry proc
 	mov ax,_SSSEL_
 	mov ss,eax
@@ -153,7 +153,7 @@ xms_pmentry proc
 	mov ax,_TSSSEL_
 	ltr ax				;set TR
 
-	push ss:v86iret.rEFL
+	push ss:taskseg._Efl
 	mov eax,ss:taskseg._Eax
 	popfd
 	jmp ss:[dwPmDest2]
@@ -172,7 +172,7 @@ ife ?CR0COPY
 	mov eax,ss:dwCR0
 	mov cr0, eax
 endif
-	push ss:v86iret.rEFL
+	push ss:taskseg._Efl
 	mov eax,ss:taskseg._Eax
 	popfd
 	jmp ss:[dwPmDest2]

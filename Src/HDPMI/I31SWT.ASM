@@ -114,7 +114,7 @@ rmcb_brk::
 
 ;--- build a RMCBSF frame         
         
-	@savermstk		;save real-mode ss:sp
+	@pushstate_rm		;save real-mode ss:sp
 	push gs
 	push fs
 	push ds
@@ -133,7 +133,7 @@ noentry:
 	add sp,4
 	retf
 endif
-	align 4
+	align 2
 rmcb_rm endp
 
 _TEXT16 ends
@@ -144,7 +144,7 @@ _TEXT32 segment
 
 rmcb_pm proc
 
-	@pushstate	;save client state, without rm DS/ES/FS/GS
+	@pushstate 0;save client state
 
 ;--- set an IRET32 frame below dwHostStack
 ;--- after this is done, real-mode code can be called again
@@ -353,6 +353,10 @@ endif
 	mov ss:v86iret.rFS, cx
 	mov ss:v86iret.rGS, bx
 
+;--- modify v86iret.rSS/SP?
+;--- if ?NMISAFE=1, it has to be protected!
+
+	@NMI_OFF ;retcb
 	mov edx,es:[edi].RMCS.rSSSP
 	sub dx,6
 	mov ss:v86iret.rSP,dx
@@ -362,36 +366,36 @@ endif
 	shl edx,4
 	add edx,eax
 	mov eax,es:[edi].RMCS.rCSIP
-	push ds
-	push byte ptr _FLATSEL_
-	pop ds
-	mov [edx+0],si
-	mov [edx+2],eax
-	pop ds
+	sub edx,ss:[dwSSBase]
+;--- v3.24: change "popf" & "retf" to "iret"
+;	mov ss:[edx+0],si
+;	mov ss:[edx+2],eax
+	mov ss:[edx+0],eax
+	mov ss:[edx+4],si
 
-	push es:[edi].RMCS.rEDI
+;--- set the GPRs
+
 	mov esi, es:[edi].RMCS.rESI
 	mov ebp, es:[edi].RMCS.rEBP
 	mov ebx, es:[edi].RMCS.rEBX
 	mov ecx, es:[edi].RMCS.rECX
 	mov edx, es:[edi].RMCS.rEDX
-	mov eAx, es:[edi].RMCS.rEAX
-	pop edi
+	mov eax, es:[edi].RMCS.rEAX
+	mov edi, es:[edi].RMCS.rEDI
 
 ;--- can a display be done here (won't it change v86iret?)
 ;	@dprintf "ret rmcb: rmSS:SP=%X:%X",ss:v86iret.rSS,ss:v86iret.rSP
 
 	lea esp, [esp+ sizeof IRET32]	;skip the IRET32 frame build in rmcb_pm
-	@popstate				;restore client state
+	@popstate 0						;restore client state (variable pmstate)
 	@rawjmp_rm _retcb_rm
 	align 4
 
 _TEXT16 segment
-_retcb_rm:
-	@restorermstk		;restore RMS
-	popf
-	retf
-	align 4
+_retcb_rm::
+	@popstate_rm	;restore v86iret.rSS/SP
+	iret			;real-mode iret
+	align 2
 _TEXT16 ends
 
 _retcb endp
@@ -452,11 +456,16 @@ endif
 		es:[edi].RMCS.rAX, es:[edi].RMCS.rBX, es:[edi].RMCS.rCX, es:[edi].RMCS.rDX,\
 		es:[edi].RMCS.rDS, es:[edi].RMCS.rES, es:[edi].RMCS.rSS, es:[edi].RMCS.rSP
 	mov ebp, esp
-	push ss:v86iret.rSS
 	push ss:v86iret.rSP
+	push ss:v86iret.rSS
+	push ss:v86iret.rES  ;v3.24: now save/restore all rm segregs (removed from @pushstate/@popstate)
+	push ss:v86iret.rDS
+	push ss:v86iret.rFS
+	push ss:v86iret.rGS
 
 ;--- 1. set SS:SP
 
+	@NMI_OFF ;callrmproc
 	mov edx, es:[edi].RMCS.rSSSP
 
 	push byte ptr _FLATSEL_
@@ -472,7 +481,7 @@ endif
 	movzx edx,ss:v86iret.rSS
 	shl edx,4
 
-;--- 2 copy words to real-mode stack
+;--- 2 copy words from PMS to real-mode stack
 
 	jcxz @F						;no stack params
 	movzx ecx,cx
@@ -520,7 +529,8 @@ endif
 	and ch,not (_IF or _TF)			;reset IF & TF
 @@:
 
-;--- 2b. copy CS:IP (either to tmp reg or onto realmode stack)
+;--- 2b. copy CS:IP & flags (either to tmp reg or onto realmode stack)
+;--- edx: linear address rmSS, eax=rmSP
 
 	mov esi, [edi].RMCS.rCSIP
 	test [ebp].RMCALLS.rAX,3		;is address to copy from IVT (ax=0300h)?
@@ -529,14 +539,9 @@ endif
 	mov esi, es:[ebx*4]
 havecsip:
 if ?SAFE301
-	sub eax,5*2
- if ?NMISAFE
-	mov es:[edx+eax],cx				;flags (will be popped before RETF)
-	mov es:[edx+eax+2],esi
- else
+	sub eax,5*2						;IP,CS,Flags, ofs/seg(callrmproc_rm2)
 	mov es:[edx+eax],esi
 	mov es:[edx+eax+4],cx			;flags (will be popped by an IRET)
- endif
 	mov si,ss:[wHostSeg]
 	shl esi,16
 	mov si,offset callrmproc_rm2
@@ -547,7 +552,7 @@ else
 	mov es:[edx+eax],cx				;flags (will be popped in real-mode before callf)
 endif
 
-;--- 2c. copy flags to realmode stack
+;--- 2c. update realmode stack
 
 	mov ss:v86iret.rSP, ax
 
@@ -578,8 +583,13 @@ endif
 
 	@jmp_rm callrmproc_rm
 error1:
-	pop ss:v86iret.rSP
+	pop ss:v86iret.rGS
+	pop ss:v86iret.rFS
+	pop ss:v86iret.rDS
+	pop ss:v86iret.rES
 	pop ss:v86iret.rSS
+	pop ss:v86iret.rSP
+	@NMI_ON ;callrmproc
 error1x:
 	pop es
 	pop ds
@@ -590,12 +600,7 @@ error1x:
 _TEXT16 segment
 callrmproc_rm:
 if ?SAFE301
- if ?NMISAFE
-	popf
-	retf
- else
 	iret
- endif
 callrmproc_rm2:
 else
 	popf
@@ -607,19 +612,23 @@ callrmproc_brk::
 	@rm2pmbrk
 	pop cs:[tmpFLReg]
 	@jmp_pm callrmproc_pm2
-	align 4
+	align 2
 _TEXT16 ends
 
 callrmproc_pm2:
 
-;--- copy the Registers to the client's RMCS. Dont modify CS:IP and SS:SP!
+RMCALLS2 struct
+	dd ?	;v86iret.rGS/FS
+	dd ?	;v86iret.rDS/ES
+	dd ?	;v86iret.rSS/SP
+	RMCALLS <?>
+RMCALLS2 ends
 
-	pop ss:v86iret.rSP
-	pop ss:v86iret.rSS
-	pop ds	;use DS for client's RMCS to avoid register override
+;--- copy the Registers to the client's RMCS. Dont modify CS:IP and SS:SP in RMCS!
 
+	mov ds,[esp].RMCALLS2.rES	;use DS for client's RMCS to avoid register override
 	push edi
-	mov edi,[esp].RMCALLS.rEDI
+	mov edi,[esp+4].RMCALLS2.rEDI
 ife ?32BIT
 	movzx edi,di
 endif
@@ -640,8 +649,15 @@ endif
 	mov [edi].RMCS.rDS, dx
 	mov [edi].RMCS.rFS, cx
 	mov [edi].RMCS.rGS, bx
-	mov eax,ds
-	mov es, eax
+	@NMI_OFF ;callrmproc
+	pop ss:v86iret.rGS
+	pop ss:v86iret.rFS
+	pop ss:v86iret.rDS
+	pop ss:v86iret.rES
+	pop ss:v86iret.rSS
+	pop ss:v86iret.rSP
+	@NMI_ON  ;callrmproc
+	pop es
 	pop ds
 	popad
 	@dprintfx ?LOG_RMCALL,"callrmproc_pm: exit, NC, RMS=%X:%X", ss:v86iret.rSS, ss:v86iret.rSP
@@ -866,12 +882,20 @@ srtask_restore:
 	pop ds
 	push ss
 	pop es
+if ?NMISAFE
+	push eax
+	@NMI_OFF
+endif
 @@:
 	movsw
 	add edi,2
 ;	cmp edi, offset pmstate	; v86iret.rSP+6*4
 	cmp edi, offset v86iret+sizeof V86IRET
 	jnz @B
+if ?NMISAFE
+	@NMI_ON
+	pop eax
+endif
 if ?NOPMSTATECONSEC	;if pmstate doesn't follow v86iret in memory
 	mov edi, offset pmstate	;pmstate follows v86iret in memory
 endif
@@ -1001,7 +1025,7 @@ exit:
 	popf
 	clc
 	retf
-	align 4
+	align 2
 
 endif
 srtask_rm endp
@@ -1078,7 +1102,7 @@ endif
 ;--- stack switch to host stack
 
 	@rawjmp_pm rm2pm_pm		;raw switch to pm, rm segs not saved in v86iret
-	align 4
+	align 2
 
 _TEXT32 segment
 
@@ -1162,14 +1186,15 @@ endif
 	@dprintf "pm2rm: CS:IP=%X:%X, SS:SP=%X:%X, DS=%X, FL=%X, hs=%lX",\
 		si, di, dx, bx, ax, ss:tmpFLReg, esp
 
-if ?RAW_SETDEFRMSINPM
-	mov ss:v86iret.rSP, bx
-	mov ss:v86iret.rSS, dx
-endif
 	mov ss:v86iret.rES, cx
 	mov ss:v86iret.rDS, ax
 	mov ss:v86iret.rFS, 0
 	mov ss:v86iret.rGS, 0
+if ?RAW_SETDEFRMSINPM
+	@NMI_OFF
+	mov ss:v86iret.rSP, bx
+	mov ss:v86iret.rSS, dx
+endif
 
 	@store_ssesp
 	@rawjmp_rm_savesegm pm2rm_rm
@@ -1188,7 +1213,7 @@ endif
 	push si			;push CS
 	push di			;push IP
 	iret			;real-mode iret!
-	align 4
+	align 2
 _TEXT16 ends
 
 _pm2rm endp
