@@ -1030,6 +1030,9 @@ ifdef _DEBUG
 traceflgs  dw 0
 bStdout db 80h
 endif
+if ?NMISAFE
+rawjmp_rm_nmi db 0
+endif
 
 ;--- table of real-mode IVT vectors to intercept
 
@@ -2717,12 +2720,6 @@ ife ?NMISAFE
 	@mapexc2int 02
 else
 
-;--- variables v86iret.rmSP/SS are 2 dwords and may be inconsistent;
-;--- If STATICRMSTK == 1, they can only be modified in protected-mode
-;--- with masked NMI!
-
-STATICRMSTK equ 0
-
 defexc02:: ;this label would be defined by "@mapexc2int 02"
 ;--- v3.24: route NMI to real-mode if it occured in ring 0
 	push eax
@@ -2731,33 +2728,24 @@ defexc02:: ;this label would be defined by "@mapexc2int 02"
 	push es
 	push fs
 	push gs
+	mov ss:[rawjmp_rm_nmi],80h ;don't unmask NMI after mode switch
 ;--- save/restore global vars that may be modified by mode switches
 	push ss:[dwPmDest]
 	push ss:[taskseg._Eax]
- if STATICRMSTK
-	push ss:[v86iret.rSS]
-	push ss:[v86iret.rSP]
-	mov ax,[wHostPSP]
-	mov ss:[v86iret.rSS],ax  ;use the host's PSP as real-mode stack
-	mov ss:[v86iret.rSP],100h;this code is NMI-safe, so no problem.
- endif
 	push ss:[dwHostStack]
 	mov ss:[dwHostStack],esp
 	@rawjmp_rm intr02_rm
 _TEXT16 segment
 intr02_rm:
-	int 02
+	int 2
 	@rawjmp_pm intr02_pm
 _TEXT16 ends
 ;--- v86iret segregs weren't modified; NMI still masked
 intr02_pm:
 	pop ss:[dwHostStack]
- if STATICRMSTK
-	pop ss:[v86iret.rSP]
-	pop ss:[v86iret.rSS]
- endif
 	pop ss:[taskseg._Eax]
 	pop ss:[dwPmDest]
+	mov ss:[rawjmp_rm_nmi],0 ;restore value to default
 	pop gs
 	pop fs
 	pop es

@@ -91,6 +91,12 @@ if LOG
 endif
 	bt [hooktype], edx
 	jc isvcpi
+if 1
+	mov edx, [edx*4+hookarray].dwCSIP
+	shld ecx, edx, 16
+	movzx edx, dx
+	@VMMCall Build_Int_Stack_Frame
+else
 	movzx ecx, word ptr [ebp].Client_Reg_Struc.Client_SS
 	shl ecx, 4
 	sub word ptr [ebp].Client_Reg_Struc.Client_ESP, 3*2
@@ -105,6 +111,7 @@ endif
 	mov eax, [ebp].Client_Reg_Struc.Client_EFlags
 	mov [ecx+4], ax
 	and byte ptr [ebp].Client_Reg_Struc.Client_EFlags+1, not 3	;reset IF & TF
+endif
 	ret
 isvcpi:
 	mov esi, [edx*4+hookarray].dwCSIP

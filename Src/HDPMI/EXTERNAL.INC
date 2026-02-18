@@ -449,7 +449,9 @@ endif
 if ?TOPMEM
 externdef dwTopMem:dword
 endif
-
+if ?NMISAFE
+externdef rawjmp_rm_nmi:byte  ;v3.24
+endif
 _DATA16 ends
 
 _DATA16C segment

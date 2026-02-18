@@ -323,14 +323,14 @@ endif
 rawjmp_rm_all::		; this code runs for both xms and vcpi mode
 if 1
 	push word ptr cs:taskseg._Efl
-	@NMI_ON    ;rawjmp_rm
+	@NMI_ON_X    ;rawjmp_rm
 	mov eax, cs:taskseg._Eax
 	popf
 else
 ;--- this version doesn't touch the real-mode stack
 	mov ah, byte ptr cs:taskseg._Efl
 	sahf
-	@NMI_ON    ;rawjmp_rm
+	@NMI_ON_X    ;rawjmp_rm
 	mov eax, cs:taskseg._Eax
 endif
 	jmp cs:[wRmDest]

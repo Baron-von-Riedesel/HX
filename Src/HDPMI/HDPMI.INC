@@ -1406,6 +1406,14 @@ if ?NMISAFE
 endif
 endm
 
+@NMI_ON_X macro
+if ?NMISAFE
+	mov al,cs:[rawjmp_rm_nmi]
+	out 70h,al
+	in al,71h
+endif
+endm
+
 @NMI_OFF macro SaveReg
 if ?NMISAFE
  ifnb <SaveReg>
