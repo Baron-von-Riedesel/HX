@@ -8,6 +8,7 @@
   þ optional variant added that's "NMI-safe" and routes NMIs to real-mode.
   þ real-mode calls ( int 31h, ax=300/301/302 ) will no longer have an
     impact on standard real-mode segment register values (MS Win9x compatible).
+  þ fixed int 31h, ax=300h/301h/302h: check and handle case where rm SP=0000.
 
   13.10.2025, version 3.23
 

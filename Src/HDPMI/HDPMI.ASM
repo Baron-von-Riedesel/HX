@@ -6118,7 +6118,7 @@ int2f168a:
 	popa
 	pop es
 	jnz @F
-	mov al,0
+	xor ax, ax
 @@:
 	iret				;real-mode int ret!
 szVirtual db "VIRTUAL SUPPORT",0

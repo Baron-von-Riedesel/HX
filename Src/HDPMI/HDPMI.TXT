@@ -80,8 +80,7 @@
 
    HDPMI requires the following resources to run:
 
-   þ a 80386 or better cpu. If environment switch HDPMI=1 is used, at least
-     a 80486 is required (see below).
+   þ a 80386 or better cpu.
 
    þ a minimum of 72 kB of extended memory for host initialization.
      By (optionally) adding conventional DOS memory to the page pool,

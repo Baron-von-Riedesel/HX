@@ -452,10 +452,15 @@ if _LTRACE_
 	jmp error1x
 @@:
 endif
-	@dprintfx ?LOG_RMCALL,"call rm RMS=%X:%X rmcs: a-d=%X %X %X %X, d-e=%X %X, stk=%X:%X", ss:v86iret.rSS, ss:v86iret.rSP,\
-		es:[edi].RMCS.rAX, es:[edi].RMCS.rBX, es:[edi].RMCS.rCX, es:[edi].RMCS.rDX,\
-		es:[edi].RMCS.rDS, es:[edi].RMCS.rES, es:[edi].RMCS.rSS, es:[edi].RMCS.rSP
 	mov ebp, esp
+if _LTRACE_
+	mov al, byte ptr [ebp].RMCALLS.rEAX
+	mov ah, byte ptr [ebp].RMCALLS.rEBX
+	@dprintfx ?LOG_RMCALL,"call rm type=%X RMS=%X:%X rmcs: a-d=%X %X %X %X, d-e=%X %X, stk=%X:%X",\
+		ax, ss:v86iret.rSS, ss:v86iret.rSP,\
+		ax, es:[edi].RMCS.rAX, es:[edi].RMCS.rBX, es:[edi].RMCS.rCX, es:[edi].RMCS.rDX,\
+		es:[edi].RMCS.rDS, es:[edi].RMCS.rES, es:[edi].RMCS.rSS, es:[edi].RMCS.rSP
+endif
 	push ss:v86iret.rSP
 	push ss:v86iret.rSS
 	push ss:v86iret.rES  ;v3.24: now save/restore all rm segregs (removed from @pushstate/@popstate)
@@ -480,6 +485,13 @@ endif
 	movzx eax,ss:v86iret.rSP
 	movzx edx,ss:v86iret.rSS
 	shl edx,4
+
+if 1 ;--- v3.24: handle case rm SS:SP=XXXX:0000
+	and eax, eax
+	jnz @F
+	mov eax, 10000h
+@@:
+endif
 
 ;--- 2 copy words from PMS to real-mode stack
 

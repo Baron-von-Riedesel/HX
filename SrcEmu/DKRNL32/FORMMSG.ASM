@@ -254,7 +254,7 @@ if ?FLAT
 		invoke EnumResourceNames, lpSource, RT_MESSAGETABLE, enumcb, addr dwTmp
 		mov eax, dwTmp[4]
 		.if (!eax)
-if 0
+ if 0
 ;--- this will work only if the kernel source is in a DLL (dkrnl32.dll)
 			.if ( ( ebx & FORMAT_MESSAGE_FROM_SYSTEM ) && g_hKernel32 )
 				mov eax, g_hKernel32
@@ -267,7 +267,7 @@ if 0
 				and eax, eax
 				jnz @F
 			.endif
-endif
+ endif
 			mov eax, dwMessageId
 			jmp copyMsgId
 		.endif

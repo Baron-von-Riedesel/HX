@@ -400,9 +400,9 @@ externdef fXMSQuery:byte		;XMS query command (v2/v3)
 externdef ltaskaddr:dword		;linear address next client data
 ;externdef rmcbs:RMCB			;start client real-mode callbacks
 externdef pRMSel:dword			;start real-mode selector list
-if ?SUPP32RTM
-externdef szVirtual:byte		;string "VIRTUAL SUPPORT"
-endif
+;if ?SUPP32RTM
+;externdef szVirtual:byte		;string "VIRTUAL SUPPORT"
+;endif
 externdef pmstate:PMSTATE		;client pm segregs
 externdef v86iret:V86IRET		;client v86/real-mode segments
 externdef vcpiOfs:dword			;offset VCPI host entry

@@ -522,9 +522,15 @@ endif
 
 	call closeinterrupts	;returns ISR in AX
 
+if 0;?JHDPMI
+	@printf <"LPMS=%X(%b) RMS=%X:%X cRMCB=%X extHk=%b%X IRQ=%b%X ISR=%X",lf>,\
+		word ptr _LPMSSEL_, word ptr [bLPMSused],\
+		v86iret.rSS, v86iret.rSP, [cRMCB], word ptr [dwExtHook+2], word ptr [dwExtHook], word ptr [dwIrqRouted+2], word ptr [dwIrqRouted], ax
+else
 	@printf <"LPMS=%X(%b) RMS=%X:%X cRMCB=%X IRQ=%b%X ISR=%X",lf>,\
 		word ptr _LPMSSEL_, word ptr [bLPMSused],\
 		v86iret.rSS, v86iret.rSP, [cRMCB], word ptr [dwIrqRouted+2], word ptr [dwIrqRouted], ax
+endif
 
 ;--- now try to display memory contents [EIP] + [ESP]
 ;--- this may fail, in which case just display some ??? and continue
