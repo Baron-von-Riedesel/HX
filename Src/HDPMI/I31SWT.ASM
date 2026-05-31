@@ -484,14 +484,9 @@ endif
 @@:
 	movzx eax,ss:v86iret.rSP
 	movzx edx,ss:v86iret.rSS
+	dec ax	;v3.24: handle SP=0000 as 64k stack
 	shl edx,4
-
-if 1 ;--- v3.24: handle case rm SS:SP=XXXX:0000
-	and eax, eax
-	jnz @F
-	mov eax, 10000h
-@@:
-endif
+	inc eax ;v3.24: SP=0000 -> EAX=10000h
 
 ;--- 2 copy words from PMS to real-mode stack
 
@@ -506,8 +501,7 @@ endif
 	lds esi,ss:[esi-sizeof IRET32].IRET32.rSSSP
 	shr ecx,1	;byte to words
 	push edi
-	mov edi, edx
-	add edi, eax
+	lea edi, [edx+eax]
 	cld
 	rep movsw
 	pop edi

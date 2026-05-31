@@ -95,6 +95,7 @@
 
   4. History
 
+  01.06.2026, V2.24: -
   13.10.2025, V2.23: -
   23.03.2025, V2.22: -
   08.02.2024, V2.21: -
@@ -174,6 +175,6 @@
 
   5. License
 
-  The HX DOS extender is freeware. Copyright 1996-2020 Japheth.
+  The HX DOS extender is freeware. Copyright 1996-2026 Japheth.
 
   Japheth

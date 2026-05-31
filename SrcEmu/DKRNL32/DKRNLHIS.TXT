@@ -1,5 +1,5 @@
 
-  __.__.____: version 3.12
+  01.06.2026: version 3.12
 
   þ fixed: VxDCall0-8 didn't adjust stack on return.
   þ fixed: GetTempFileNameW didn't work and usually caused a GPF.

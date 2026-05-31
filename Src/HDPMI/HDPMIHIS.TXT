@@ -1,14 +1,15 @@
  
  History HDPMI 
 
-  __.__.____, version 3.24
+  01.06.2026, version 3.24
 
   þ optional extension a for cmdline option -x added.
   þ int 31h, ax=508h: top of memory check (?TOPMEM) activated.
   þ optional variant added that's "NMI-safe" and routes NMIs to real-mode.
   þ real-mode calls ( int 31h, ax=300/301/302 ) will no longer have an
     impact on standard real-mode segment register values (MS Win9x compatible).
-  þ fixed int 31h, ax=300h/301h/302h: check and handle case where rm SP=0000.
+  þ regression v3.22-23, ax=300h/301h/302h: real-mode stack of size 64 kB
+    (rmSP=0) caused a crash. Versions < 3.22 worked in most cases (only).
 
   13.10.2025, version 3.23
 
