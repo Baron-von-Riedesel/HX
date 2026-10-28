@@ -488,7 +488,7 @@ endif
 	shl edx,4
 	inc eax ;v3.24: SP=0000 -> EAX=10000h
 
-;--- 2 copy words from PMS to real-mode stack
+;--- 2. copy words from PMS to real-mode stack
 
 	jcxz @F						;no stack params
 	movzx ecx,cx

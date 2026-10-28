@@ -1193,9 +1193,9 @@ if ?DPMI10EX
 ;*** int 31h, ax=0508 (map physical device)
 ;--- in:
 ;--- ESI=memory handle
-;--- EBX=offset within block
+;--- EBX=offset within block - aligned to 4k page
 ;--- ECX=no of pages
-;--- EDX=physical address of memory to map
+;--- EDX=physical address of memory to map - aligned to 4k page
 
 	@ResetTrace
 
@@ -1210,9 +1210,9 @@ mapphysx endp
 
 ;*** int 31h, ax=0509 (map dos memory)
 ;--- ESI=memory handle
-;--- EBX=offset within block
+;--- EBX=offset within block - aligned to 4k page
 ;--- ECX=no of pages
-;--- EDX=linear address of memory to map
+;--- EDX=linear address of memory to map - aligned to 4k page
 
 mapdos proc public
 ;	test edx, 0FFF00000h
@@ -1227,10 +1227,11 @@ mapdos endp
 
 ;*** either a) map a physical address space 
 ;--- or b) copy PTEs
+;--- AL=08h (map physical) or 09h (map DOS)
 ;--- ESI=memory handle
-;--- EBX=offset within block
+;--- EBX=offset within block - aligned to 4k page
 ;--- ECX=no of pages (0 is allowed)
-;--- EDX=address of memory to map
+;--- EDX=address of memory to map - aligned to 4k page
 
 mapx proc
 	pushad
@@ -1240,9 +1241,9 @@ mapx proc
 	jc error8023
 	mov esi, ebx
 	mov ebx, [esp].PUSHADS.rEBX
-	test bx,0FFFh
+	test bx,0FFFh	; alignment ok?
 	jnz error8025
-	test dx,0FFFh
+	test dx,0FFFh	; alignment ok?
 	jnz error8025
 	shr ebx, 12
 	mov eax, [esi].MEMITEM.dwSize
@@ -1266,7 +1267,9 @@ endif
 
 	cmp [esp].PUSHADS._AL,08	;is it int 31h, ax=508?
 	jnz ax509
-	mov bl,1					;set BL=1 -> page flags "write thru" + "cache disable"
+;--- v3.24: PT flags now directly in BL
+;	mov bl,1					;set BL=1 -> page flags "write thru" + "cache disable"
+	mov bl,PTF_PWT or PTF_PCD
 if ?TOPMEM
 	cmp edx,[dwTopMem]
 	jnc @F
@@ -1381,7 +1384,8 @@ endif
 
 if ?USESEARCHREGION
 
-;--- v3.22: check if region edx:eax is already mapped
+;--- v3.22: check if region edx:eax is already mapped;
+;--- called by mapphysregion (ax=800h)
 ;--- C: no region found, edx & eax must be preserved.
 ;--- NC: region found, size adjusted if req. size was larger.
 
@@ -1547,7 +1551,7 @@ endif
 	or [eax].MEMITEM.flags, HDLF_MAPPED
 	mov [eax].MEMITEM.bCnt, 1	;v3.22
 	mov eax,[eax].MEMITEM.dwBase
-	mov bl,0					;dont set PWT flag in PTEs
+	mov bl,0					;dont set PWT/PCD flag in PTEs
 	call pm_mapphysregion		;map ECX pages, cannot fail
 
 	@dprintf "mapphysregion: phys2lin successfull, mapped at %lX",eax

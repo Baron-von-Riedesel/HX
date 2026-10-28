@@ -99,9 +99,8 @@ _$stroutx proto near16
 
 ;--- A20GATE
 
-_disablea20 proto near16
+_restorea20 proto near16
 _enablea20 proto near16
-;_GetA20State_pm proto near
 
 ;--- vxd
 

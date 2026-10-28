@@ -91,12 +91,12 @@ allocmemx proto near			;0504
 resizememx proto near			;0505
 getpageattr proto near			;0506
 setpageattr proto near			;0507
-if ?DPMI10EX
+ if ?DPMI10EX
 mapphysx proto near 			;0508
 mapdos proto near				;0509
 getmemsize proto near			;050A
 getmeminfox proto near			;050B
-endif
+ endif
 endif
 
 ;--- ah=08

@@ -89,6 +89,7 @@ endif
 ?DPMI10			equ 1	;std=1, support some DPMI 1.0 functions (0504-0507)
 ?DPMI10EX		equ 1	;std=1, support more DPMI 1.0 functions (0508-050B)
 ?DPMI10EXX		equ 1	;std=1, support even more DPMI 1.0 functions (0210-0213)
+?DPMI507EX		equ 0	;std=1, v3.24: allow to set PCD & PWT flags
 ?LDTROSEL		equ 0	;std=0, 1=LDT alias selector is r/o
 ?USESYSSPACE2	equ 1	;std=1, 1=use a second sys space ptr (downwards)
 ?CANTEXIT		equ 0	;std=0, 1=support FM_CANTEXIT flag
@@ -188,7 +189,9 @@ endif
 ?CMPCR3 		equ 1	;std 1: 1=improves performance by 2-3%
 ?EMUCRxRD		equ 1	;std 1: 1=emulate mov reg, crX (req. by 32rtm!)
 ?EMUCRxWR		equ 1	;std 1: 1=emulate mov crX, reg
-?EMUCR0WR		equ 0	;std 0: 1=emulate mov cr0, reg
+ifndef ?EMUCR0WR
+?EMUCR0WR		equ 0	;std 0: 1=emulate mov cr0, reg (req. by MS C 7!)
+endif
 ifndef ?EMUDRxRD
 ?EMUDRxRD		equ 0	;std 0: 1=emulate mov reg, drX
 endif

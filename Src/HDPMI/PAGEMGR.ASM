@@ -367,7 +367,7 @@ endif
 ;*** INP: EDX=physical address region start
 ;***      ECX=length of region in pages (may be 0!)
 ;***      EAX=linear address to map the region to
-;***      BL=1 -> set PTF_PWT bit in PTEs
+;***      BL=optionally has PTF_PWT & PTF_PCD bits set
 
 	@ResetTrace
 
@@ -384,10 +384,12 @@ pm_mapphysregion proc public uses es
 	@dprintf "pm_mapphysregion: pPagetab=%lX, addr=%lX", edi, eax
 	mov eax,edx
 	or al, PTF_PRESENT or PTF_WRITEABLE or PTF_USER
-	test bl,1
-	jz @F
-	or al, PTF_PWT or PTF_PCD	;set 'write through' + 'cache disable'
-@@:
+;--- v3.24: PTE flags now in BL
+;	test bl,1
+;	jz @F
+;	or al, PTF_PWT or PTF_PCD	;set 'write through' + 'cache disable'
+;@@:
+	or al, bl
 if _LTRACE_
 	xor ebx,ebx
 endif
@@ -409,6 +411,8 @@ if _LTRACE_
 	@dprintf "pm_mapphysregion: %lX PTEs of page pool moved", ebx
 @@:
 endif
+;--- TLB isn't cleared here because caller
+;--- has called pm_UncommitRegion(), which clears it.
 done:
 	popad
 	ret
@@ -1750,6 +1754,7 @@ updatetlb endp
 ;--- ebx = linear address
 ;--- ecx = size in pages
 ;--- es:edx -> table of WORDS with attributes for each page
+;--- ds = GROUP16
 ;--- all std registers + DS, but not ES may be modified here
 ;--- out: NC = ok
 ;--- C = failure, AX=error code (8013: out of mem, 8021: wrong page type)
@@ -1762,6 +1767,9 @@ updatetlb endp
 ;---  anything else is invalid and should terminate the function.
 ;--- bit 3: 0=r/o, 1=r/w
 ;--- bit 4: 0=don't modify acc/dirty bits, 1=modify acc/dirty bits
+;--- bit 5+6: contain Acc/Dirty bits if bit 4 is set
+;--- v3.24: ?DPMI507EX extension:
+;--- bit 7: 1=set PTF_PWT & PTF_PCD
 
 	@ResetTrace
 
@@ -1769,8 +1777,9 @@ pm_setpageattributes proc public
 	@dprintf "setpageattr: lin addr %lX - copy %lX attr from %lX:%lX",ebx, ecx, es, edx
 	mov eax, ebx
 	call Linear2PT
-	push byte ptr _FLATSEL_
-	pop ds
+	sub edi,dwSSBase	;v3.24: avoid to modify DS 2 times for each page
+;	push byte ptr _FLATSEL_
+;	pop ds
 	mov esi, edx
 	mov ebp, ecx
 nextitem:
@@ -1780,8 +1789,8 @@ nextitem:
 	inc esi
 	inc esi
 	mov edx,[edi]		;get PTE
-	push ss
-	pop ds
+;	push ss
+;	pop ds
 
 	mov ah,al
 ;--- 0=uncommitted, 1=committed, 3=modify bits 3-6 only, 2|4|5|6|7=invalid
@@ -1817,6 +1826,7 @@ uncommit:
 	push eax
 if _LTRACE_
 	mov eax, edi
+	add eax, dwSSBase
 	push ecx
 	call PT2Linear
 	pop ecx
@@ -1825,10 +1835,11 @@ endif
 	mov  eax, edx
 	call freephyspage
 	lea edx, [edi+4]
-	sub edx, ss:pPageTables
-	cmp edx, ss:dwMaxPool
+	add edx, dwSSBase	; v3.24: EDX must be a linear address
+	sub edx, pPageTables
+	cmp edx, dwMaxPool
 	jc @F
-	mov ss:dwMaxPool, edx
+	mov dwMaxPool, edx
 @@:
 	mov edx, eax
 	pop eax
@@ -1836,18 +1847,24 @@ endif
 step1:
 	mov al, ah
 	and dl, not PTF_WRITEABLE
-	test al, 8 
+	test al, 8	;PTE to be set to R/W? 
 	jz @F
 	or dl, PTF_WRITEABLE
 @@:
-	test al,10h 			;accessed + dirty bits supplied
+if ?DPMI507EX ;v3.24
+	test al,80h			;PTE to be set to uncachable?
+	jz @F
+	or dl,PTF_PCD or PTF_PWT
+@@:
+endif
+	test al,10h 		;accessed + dirty bits supplied (bits 5 & 6)?
 	jz @F
 	and dl, not (PTF_ACCESSED or PTF_DIRTY)
 	and al,PTF_ACCESSED or PTF_DIRTY
 	or dl, al
 @@:
-	push byte ptr _FLATSEL_
-	pop ds
+;	push byte ptr _FLATSEL_
+;	pop ds
 	mov [edi], edx
 	add edi, 4
 	dec ecx
@@ -2498,7 +2515,7 @@ nextitem:
 	jc nextitem
 	cmp eax, ebx	;< upper limit?
 	jnc nextitem
-;--- the page is in use, but in may be just because of the page pool
+;--- the page is in use, but it may be just because of the page pool
 ;--- this could possibly be "ignored"
 	@dprintf "compresspagepool: PTE %lX in use at %lX", eax, edi
 
