@@ -833,7 +833,7 @@ if ?DTAINHOSTPSP
 	shl eax, 4
 	mov dwHostDTA, eax
 endif
-	call _enablea20		;this hooks xms!
+	call _enablea20		;this hooks xms in xms mode - in vcpi mode it depends!
 	and ax,ax
 	jz a20err
 	@drprintf "initsvr_rm: set rm vectors"
@@ -1023,7 +1023,7 @@ nodosmem3::
 	call pm_exit_rm
 	@drprintf "initsvr_rm2: calling unhookIVTvecs ds=%X, ss:sp=%X:%X", ds, ss, sp
 	call unhookIVTvecs
-	call _disablea20
+	call _restorea20
 nodosmem::						;no (DOS) memory
 	@drprintf "initsvr_rm2: memory error ds=%X, ss:sp=%X:%X", ds, ss, sp
 	mov dx,[wEMShandle]

@@ -1,26 +1,21 @@
 
 		.286
 
-		public DOSHUGESHIFT, DOSHUGEINCR, DOSGETHUGESHIFT, DOSALLOCHUGE
+		public DOSHUGESHIFT, DOSHUGEINCR, DOSGETHUGESHIFT, DosAllocHuge
         
 DOSHUGESHIFT equ 0003
 DOSHUGEINCR  equ 0008
         
 DOSXXX  segment word public 'CODE'
 
-DOSGETHUGESHIFT proc far pascal public pShift:far16 ptr WORD
-		push	ds
-        push	bx
-		mov		ax,3
+DOSGETHUGESHIFT proc far pascal public uses ds bx pShift:far16 ptr WORD
         lds		bx,pShift
-        mov		[bx],ax
+        mov		word ptr [bx],DOSHUGESHIFT
         xor		ax,ax
-        pop		bx
-		pop		ds        
         ret
 DOSGETHUGESHIFT endp
 
-DOSALLOCHUGE proc far pascal public uses bx cx si di wSegmentCount:WORD, wLastCount:WORD,
+DosAllocHuge proc far pascal public uses bx cx si di wSegmentCount:WORD, wLastCount:WORD,
 		pSelector:far16 ptr WORD, wSegMax:WORD, wFlags:WORD
 
 local	wSelectors:WORD
@@ -33,6 +28,9 @@ local	dwLA:DWORD
         jc  error
         mov word ptr dwLA+2,bx
         mov word ptr dwLA+0,cx
+
+;--- alloc selector array for linear memory
+
         mov cx,wSegmentCount
         cmp wLastCount,1
         cmc
@@ -53,8 +51,8 @@ local	dwLA:DWORD
         .while (wSelectors)
             mov cx,word ptr dwLA+2
             mov dx,word ptr dwLA+0
-            inc word ptr dwLA+2
-            mov ax,7
+            inc word ptr dwLA+2	; dwLA = dwLA + 10000h
+            mov ax,7	;set base to CX:DX
             int 31h
             mov cx,0
             mov dx,-1
@@ -62,9 +60,9 @@ local	dwLA:DWORD
             jnz @F
             mov dx,wLastCount
 @@:            
-            mov ax,8
+            mov ax,8	;set limit to either 0xffff or wLastCount
             int 31h
-            add bx,8
+            add bx,DOSHUGEINCR
             dec wSelectors
         .endw
         xor ax,ax
@@ -77,7 +75,7 @@ error:
 		mov ax,8
         jmp exit
         
-DOSALLOCHUGE endp
+DosAllocHuge endp
 
 DOSXXX  ends
 

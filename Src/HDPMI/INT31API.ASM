@@ -78,14 +78,14 @@ intr31_ endp
 
 if ?DPMI10
 ?FUNC00 = 10h
-if ?DPMI10EXX
+ if ?DPMI10EXX
 ?FUNC02 = 14h
-endif
+ endif
 ?FUNC04 = 02h
 ?FUNC05 = 08h
-if ?DPMI10EX
+ if ?DPMI10EX
 ?FUNC05 = 0Ch
-endif
+ endif
 ?FUNC08 = 02h
 endif
 

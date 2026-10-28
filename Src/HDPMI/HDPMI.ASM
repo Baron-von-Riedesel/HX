@@ -3905,6 +3905,8 @@ ife ?EMUCR0WR	; v3.20: "mov cr0, reg" is rejected
 	mov cr0, eax
 	inc esi
 	jmp done_emuclisti
+else ;v3.24: else branch added 
+	jmp emuspecregmove
 endif
 if ?EMUDRxWR		; "mov drx, reg"
 emumovdrxwr:
@@ -5730,8 +5732,8 @@ endif
 	@drprintf "exitserver_rm: call unlinkserver"
 	call unlinkserver
 @@:
-	@drprintf "exitserver_rm: call disablea20"
-	call _disablea20
+	@drprintf "exitserver_rm: call restorea20"
+	call _restorea20
 if ?I2FINITEXIT
 	mov ax,1606h
 	mov dx,0001h

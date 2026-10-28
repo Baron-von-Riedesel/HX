@@ -28,9 +28,8 @@ EXECRM ends
 
     .const
 
-szPath db 'PATH='
-
 if ?LOADSERVER
+szPath db 'PATH='
  if ?32BIT
 szHDPMI db 'HDPMI32.EXE',00
  else

@@ -545,6 +545,11 @@
    "write through" and "cache disabled" if physical address is beyond
    top of memory. OTOH, function int 31h, AX=800h will never set those flags.
 
+   Int 31h, AX=507h (set paging attributes): if bit 7 of the attribute word 
+   is set, paging flags "write through" and "cache disabled" of the PTE will
+   be set. This is an extension to DPMI v1.0. Note that if bit 7 of the
+   attribute is 0, the paging flags are NOT reset.
+
    Int 31h, AX=509h (map conventional memory) will copy PTEs, so the
    destination region will become a clone of the source region, with UMBs
    mapped.
