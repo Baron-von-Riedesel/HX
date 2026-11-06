@@ -1,6 +1,8 @@
 
 ;--- implements MultiByteToWideChar() and WideCharToMultiByte();
 ;--- also dummies: IsValidCodePage(), IsDBCSLeadByte(), IsDBCSLeadByteEx().
+;--- CP_UTF8 is converted to/from UTF-16 (with surrogate pairs);
+;--- all other code pages still map bytes 1:1 to 0000h-00FFh.
 
 	.386
 if ?FLAT
@@ -15,7 +17,18 @@ endif
 	include winerror.inc
 	include macros.inc
 
+ifndef CP_UTF8
+CP_UTF8 equ 65001
+endif
+ifndef WC_ERR_INVALID_CHARS
+WC_ERR_INVALID_CHARS equ 80h
+endif
+
+Utf8ToWide proto pSrc:ptr BYTE, cbSrc:dword, pDst:ptr WORD, cchDst:dword, flags:dword
+WideToUtf8 proto pSrc:ptr WORD, cchSrc:dword, pDst:ptr BYTE, cbDst:dword, flags:dword
+
 	.CODE
+
 
 ;--- returns number of characters written to pMultByte
 ;--- if cWideChar == -1, pWideChar is assumed to be zero-terminated.
@@ -40,6 +53,13 @@ WideCharToMultiByte proc public uses esi edi codepage:dword,
 		invoke lstrlenW, esi
 		inc eax
 		mov ecx, eax
+	.endif
+	.if (codepage == CP_UTF8)
+		.if (!ecx)
+			jmp error1
+		.endif
+		invoke WideToUtf8, esi, ecx, edi, nBuffSize, flags
+		jmp done
 	.endif
 	.if (!nBuffSize)
 		mov eax, ecx
@@ -111,6 +131,13 @@ MultiByteToWideChar proc public uses esi edi codepage:dword,
 		invoke lstrlenA, esi
 		inc eax
 		mov ecx, eax
+	.endif
+	.if (codepage == CP_UTF8)
+		.if (!ecx)
+			jmp error1
+		.endif
+		invoke Utf8ToWide, esi, ecx, edi, nBuffSize, flags
+		jmp done
 	.endif
 	.if (!nBuffSize)
 		mov eax, ecx

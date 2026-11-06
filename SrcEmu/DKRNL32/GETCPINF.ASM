@@ -11,6 +11,10 @@ endif
 	include winbase.inc
 	include macros.inc
 
+ifndef CP_UTF8
+CP_UTF8 equ 65001
+endif
+
 MAX_DEFAULTCHAR equ 2
 MAX_LEADBYTES	equ 12
 
@@ -34,7 +38,11 @@ if 0
 endif
 	mov edi,pCPInfo
 	mov eax, 1
-	mov [edi].CPINFO.maxcharsize, eax
+	.if (cp == CP_UTF8)
+		mov [edi].CPINFO.maxcharsize, 4
+	.else
+		mov [edi].CPINFO.maxcharsize, eax
+	.endif
 	mov word ptr [edi].CPINFO.defaultchar, '?'
 	xor ecx,ecx
 	mov dword ptr [edi].CPINFO.leadbyte+0, ecx
