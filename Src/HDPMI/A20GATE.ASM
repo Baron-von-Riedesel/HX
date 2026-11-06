@@ -76,7 +76,9 @@ is_enable:
 	jz @B
  endif
 retsuccess:
-	mov ax,1	;do not set BL for these XMS functions!
+;--- MS Himem: A20 functions 5/6/7 DO set BL, on errors (AX=0) AND success(AX=1)
+;--- Qemm: A20 functions 5/6 don't modify BL on success.
+	mov ax,1
 	retf
 
 myxmshandler endp
