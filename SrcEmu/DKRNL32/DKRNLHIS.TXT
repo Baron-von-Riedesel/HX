@@ -1,8 +1,9 @@
 
-  01.11.2026: version 3.12
+  25.11.2026: version 3.12
 
   þ fixed: VxDCall0-8 didn't adjust stack on return.
   þ fixed: GetTempFileNameW didn't work and usually caused a GPF.
+  þ MultiCharToWideChar/WideCharToMultiByte understand codepage CP_UTF8.
 
   13.10.2025: version 3.11
 
